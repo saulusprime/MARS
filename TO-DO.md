@@ -262,9 +262,10 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **Tutte le correzioni R1-R14 sono risolte** — vedi [AS-IS.md](AS-IS.md).
-Questo capitolo è vuoto — vedi
-[AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
+**Capitolo vuoto: le correzioni R1-R14 sono tutte risolte.**
+Difetto, soluzione e verifiche di ciascuna sono in [AS-IS.md](AS-IS.md).
+
+Le nuove correzioni si aprono qui, con la numerazione che riprende da R15.
 
 ---
 

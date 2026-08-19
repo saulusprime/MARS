@@ -27,6 +27,7 @@
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
+| C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -862,6 +863,60 @@ Lighthouse assente compare fra i "segnali non misurati" invece di contare zero;
 - [x] `context["results"]` popolato incrementalmente (**C7**).
 - [x] Blocco `Profili di citabilità` nel referto.
 - [x] Natura euristica marcata in output.
+
+### C2 — ✅ FATTO (2026-08-19): giudizio LLM sulla citabilità
+Il README prometteva un giudizio LLM *"attivo di default in modalità auto
+quando la chiave ANTHROPIC_API_KEY è presente"*. La libreria `anthropic` era
+fra le dipendenze e installata, ma la stringa non compariva in nessun file.
+
+**`mars_llm_judge.py`** sottopone al modello i passaggi più recuperabili
+**secondo la fusione RRF** — non le prime pagine del sito. È la differenza che
+rende il giudizio pertinente: si chiede al modello di valutare ciò che una
+ricerca ibrida selezionerebbe davvero, ed è possibile solo perché **R10** ha
+reso i due ranghi commensurabili e **C7** dà al modulo accesso ai risultati.
+
+**Le API sono state usate secondo documentazione, non a memoria.** Modello
+`claude-opus-5`; output strutturato con `output_config={"effort", "format"}` e
+uno schema `json_schema`, così il parsing non dipende da come il modello
+formatta la prosa; `thinking={"type": "adaptive"}`; fallback lato server
+(`betas=["server-side-fallback-2026-07-01"]` con `fallbacks="default"`) perché
+una richiesta declinata dai classificatori venga rieseguita sul modello di
+ripiego invece di andare persa. Lo schema esatto di `output_config.format` è
+stato letto dalla documentazione dell'SDK, non dedotto.
+
+**È l'unico modulo che spende denaro**, e il controllo è esplicito: `--llm
+auto` (predefinito) esegue solo con credenziale presente; `on` tenta comunque,
+così da usare anche un profilo `ant auth login` che la variabile d'ambiente
+non mostra; `off` non esegue mai. Via API il campo è `llm`, validato con
+`pattern`. Prima di inviare, il modulo dichiara quanti passaggi e quanti token
+partiranno — con la stima marcata come grossolana, un token ogni quattro
+caratteri: serve a dare un ordine di grandezza, non a prevedere la fattura.
+Tetto a 8 passaggi da 1200 caratteri e `max_tokens` a 4000.
+
+**Due difetti trovati collaudando**, entrambi invisibili leggendo il codice:
+
+1. Con `--llm on` e nessuna credenziale, `anthropic.Anthropic()` fa passare la
+   costruzione e solleva **`TypeError` al momento della richiesta**. Non era
+   catturato: l'intero audit sarebbe **crashato**.
+2. Catturandolo genericamente, un problema di credenziali veniva riportato
+   come *"giudizio non interpretabile"* — diagnosi sbagliata sul difetto
+   sbagliato. Ora il `TypeError` viene distinto guardando il messaggio, e
+   riporta *"Nessuna credenziale Anthropic utilizzabile"*.
+
+**Limite dichiarato.** Su questa macchina non esiste alcuna credenziale
+Anthropic, quindi **la chiamata reale non è mai stata eseguita**. È stato però
+collaudato tutto il resto tramite `context["_anthropic_client"]`, un punto di
+iniezione documentato nella docstring: selezione RRF dei passaggi, costruzione
+del prompt, forma esatta della richiesta (modello, betas, fallback, thinking,
+effort, schema JSON, system), parsing della risposta, mappatura dell'indice sul
+passaggio, e i tre percorsi di `--llm`. Resta da verificare sul campo solo che
+il servizio accetti la richiesta così composta.
+
+- [x] `mars_llm_judge.py` attivo solo con credenziale, altrimenti no-op dichiarato.
+- [x] `--llm {auto,on,off}` con default `auto`.
+- [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
+- [x] API consultate sulla documentazione corrente.
+- [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

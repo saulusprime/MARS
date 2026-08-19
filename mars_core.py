@@ -84,6 +84,8 @@ MODULES_REGISTRY = [
     ("mars_wapt", "7. Sicurezza"),
     # La sintesi va per ultima: legge context["results"].
     ("mars_citability", "8. Citabilità IA"),
+    # Ultimo: e' l'unico modulo che spende denaro.
+    ("mars_llm_judge", "9. Giudizio LLM"),
 ]
 
 
@@ -578,7 +580,8 @@ def build_context(url: str, max_pages: int = 10,
                   market: str = "global",
                   delay: float = DEFAULT_DELAY,
                   timeout: int = DEFAULT_TIMEOUT,
-                  owner_declaration: bool = False) -> Optional[dict]:
+                  owner_declaration: bool = False,
+                  llm: str = "auto") -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -611,6 +614,7 @@ def build_context(url: str, max_pages: int = 10,
         # e' stato ignorato per dichiarazione di proprieta'.
         "robots_ignored": owner_declaration,
         "skipped": crawler.skipped,
+        "llm": llm,
     }
 
 

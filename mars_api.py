@@ -112,6 +112,12 @@ class AuditRequest(BaseModel):
     market: str = "global"
     delay: float = DEFAULT_DELAY
     timeout: int = DEFAULT_TIMEOUT
+    llm: str = Field(
+        default="auto",
+        pattern="^(auto|on|off)$",
+        description="Giudizio LLM sulla citabilità: 'auto' solo con "
+                    "ANTHROPIC_API_KEY presente, 'on' tenta comunque, "
+                    "'off' mai. È l'unico modulo che comporta una spesa.")
     i_own_this_domain: bool = Field(
         default=False,
         description="DICHIARAZIONE di proprietà del dominio e di assunzione "
@@ -200,7 +206,8 @@ def build_context(req: AuditRequest) -> dict:
     context = core_build_context(str(req.url), req.max_pages,
                                  req.embeddings, req.market,
                                  delay=req.delay, timeout=req.timeout,
-                                 owner_declaration=req.i_own_this_domain)
+                                 owner_declaration=req.i_own_this_domain,
+                                 llm=req.llm)
     if context is None:
         raise HTTPException(
             status_code=404,

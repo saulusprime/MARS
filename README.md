@@ -89,10 +89,26 @@ caricherà automaticamente il modello multilingue di default per generare
 embedding reali (paraphrase-multilingual-MiniLM-L12-v2) invece del 
 proxy Char-TFIDF (che usa i n-grammi sui caratteri).
 
-Per il monitoraggio delle citazioni IA e per il giudizio LLM sulla 
-citabilità (attivo di default in modalità "auto" quando la chiave 
-ANTHROPIC_API_KEY è presente installare la libreria Anthropic 
-(pip install anthropic).
+Per il monitoraggio delle citazioni IA e per il giudizio LLM sulla
+citabilità installare la libreria Anthropic (e' in
+requirements-optional.txt).
+
+Il giudizio LLM (mars_llm_judge) sottopone al modello i passaggi piu'
+recuperabili secondo la fusione RRF — non le prime pagine del sito — e
+ne chiede una valutazione di citabilita' in JSON validato. E' l'unico
+modulo che comporta una spesa, quindi il controllo e' esplicito:
+
+    --llm auto   (predefinito) esegue solo se ANTHROPIC_API_KEY e'
+                 presente; altrimenti lo dichiara e prosegue
+    --llm on     tenta comunque, cosi' da usare anche un profilo
+                 'ant auth login' che la variabile d'ambiente non mostra
+    --llm off    non lo esegue mai
+
+Via API il campo equivalente e' "llm". Prima di inviare, il modulo
+stampa quanti passaggi e quanti token stimati partiranno: la stima e'
+grossolana (un token ogni quattro caratteri) e serve a dare un ordine
+di grandezza, non a prevedere la fattura. Al massimo vengono inviati 8
+passaggi da 1200 caratteri.
 
 Installazione. Le dipendenze sono divise per ruolo:
 

@@ -46,7 +46,10 @@ def print_report(results: dict, context: dict | None = None) -> None:
                 # score None = area non misurabile (strumento assente o
                 # fallito): va distinta da 0/100, che e' un giudizio.
                 if res["score"] is None:
-                    print(f"{desc:<20} : non misurato")
+                    stato = res.get("status")
+                    etichetta = ("disattivato" if stato == "disabled"
+                                 else "non misurato")
+                    print(f"{desc:<20} : {etichetta}")
                 else:
                     print(f"{desc:<20} : {res['score']:>3.0f}/100")
                 if "issues" in res and res["issues"]:
@@ -92,6 +95,19 @@ def print_report(results: dict, context: dict | None = None) -> None:
         for nota in cit.get("issues", [])[:3]:
             print(f"  · {nota}")
 
+    llm = results.get("mars_llm_judge") or {}
+    if llm.get("motivazione"):
+        print("-" * 55)
+        print(f"Giudizio LLM ({llm.get('model')})  su "
+              f"{llm.get('chunk_valutati')} passaggi")
+        if llm.get("score") is not None:
+            print(f"  Citabilità stimata   : {llm['score']}/100")
+        print(f"  {llm['motivazione']}")
+        if llm.get("passaggio_migliore"):
+            print(f"  Passaggio migliore   : {llm['passaggio_migliore']}")
+        for punto in (llm.get("punti_deboli") or [])[:2]:
+            print(f"  · da migliorare: {punto}")
+
     if context:
         # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
         # cambiano il significato di ogni punteggio qui sopra.
@@ -113,11 +129,13 @@ def print_report(results: dict, context: dict | None = None) -> None:
 def run_audit(url: str, max_pages: int, embeddings_model: str,
               market: str, delay: float = DEFAULT_DELAY,
               timeout: int = DEFAULT_TIMEOUT,
-              owner_declaration: bool = False) -> int:
+              owner_declaration: bool = False,
+              llm: str = "auto") -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
-                            owner_declaration=owner_declaration)
+                            owner_declaration=owner_declaration,
+                            llm=llm)
 
     if context is None:
         print("Nessuna pagina indicizzata.")
@@ -162,6 +180,12 @@ if __name__ == "__main__":
                         help="Pausa fra le richieste in secondi (default %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help="Timeout di rete in secondi (default %(default)s)")
+    parser.add_argument("--llm", choices=("auto", "on", "off"),
+                        default="auto",
+                        help="Giudizio LLM sulla citabilità: 'auto' solo se "
+                             "ANTHROPIC_API_KEY è presente (default), 'on' "
+                             "tenta comunque, 'off' non lo esegue mai. "
+                             "È l'unico modulo che comporta una spesa.")
     parser.add_argument("--version", action="version",
                         version="MARS Beacon %s" % __version__)
     parser.add_argument("--i-own-this-domain", action="store_true",
@@ -173,4 +197,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
                        args.market, delay=args.delay, timeout=args.timeout,
-                       owner_declaration=args.owner_declaration))
+                       owner_declaration=args.owner_declaration,
+                       llm=args.llm))

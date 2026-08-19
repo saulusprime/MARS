@@ -66,23 +66,6 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
 Funzionalità **promesse dal README ma assenti nel codice**, in ordine di
 distanza tra promessa e realtà.
 
-### C2 — Giudizio LLM sulla citabilità ("modalità auto" con `ANTHROPIC_API_KEY`) — *mancante al 100%*
-Il README: *"per il giudizio LLM sulla citabilità (attivo di default in modalità
-'auto' quando la chiave `ANTHROPIC_API_KEY` è presente)"*.
-
-`anthropic>=0.120` è in `requirements.txt` ed è installato nel venv, ma la
-stringa `anthropic` non compare in nessun file `.py` del progetto.
-
-- [ ] Creare `mars_llm_judge.py`, attivo solo se `os.environ.get("ANTHROPIC_API_KEY")`
-      e se `import anthropic` riesce; altrimenti no-op silenzioso (principio 2).
-- [ ] Aggiungere il flag `--llm {auto,on,off}` con default `auto`, come da README.
-- [ ] Sottoporre al modello i top-N chunk selezionati dall'RRF (non tutto il
-      sito: costo e latenza) e chiedere un giudizio strutturato di citabilità.
-- [ ] Consultare la skill `claude-api` per model id e parametri correnti prima
-      di scrivere la chiamata.
-- [ ] Rendere il costo prevedibile: cap sui token, e stampare a video quanti
-      chunk verranno inviati prima di inviarli.
-
 ### C3 — Monitoraggio citazioni IA: voci residue
 Il modulo `mars_citations.py` è scritto, verificato e in uso —
 vedi [AS-IS.md](AS-IS.md). Restano aperti tre punti.
@@ -97,6 +80,11 @@ vedi [AS-IS.md](AS-IS.md). Restano aperti tre punti.
       invece di riscriverne una seconda copia.
 
 ### C4 — Output HTML e JSON (`--format`, `--output`) — *mancante al 100%*
+> Ora serve anche a C2: il giudizio LLM produce motivazione, punti forti e
+> deboli che il referto testuale tronca. Il JSON li conserverebbe interi.
+
+- [ ] **Verificare sul campo il giudizio LLM (C2)** con una credenziale
+      Anthropic reale: la chiamata non è mai stata eseguita, solo simulata.
 Il README mostra nell'`Uso:` la riga
 `python3 mars_audit.py https://example.com --max-pages 40 --format html --output report.html`.
 `argparse` in [mars_audit.py:107-114](mars_audit.py#L107-L114) espone solo

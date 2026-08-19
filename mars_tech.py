@@ -6,11 +6,19 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Licenza: Apache 2.0
 """
 
+from __future__ import annotations
+
 import requests
 from urllib.parse import urljoin
 
 
-def audit(context):
+def audit(context: dict) -> dict:
+    """Area 1: indicizzabilita' e rapporto con i crawler IA.
+
+    Oggi copre il solo robots.txt: sitemap, meta robots e canonical
+    sono ancora da fare (vedi C10 in TO-DO.md). Il punteggio riflette
+    quindi meno di quanto il nome dell'area prometta.
+    """
     issues = []
     url = context["url"]
     try:

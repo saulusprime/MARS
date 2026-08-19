@@ -10,6 +10,11 @@ from __future__ import annotations
 
 
 def audit(context: dict) -> dict:
+    """Area 6: controlli WCAG statici su lang e testo alternativo.
+
+    Due criteri su decine: e' un'euristica dichiarata, non un audit di
+    conformita'. L'integrazione axe-core e' C8 in TO-DO.md.
+    """
     pages = context.get("pages") or {}
     if not pages:
         return {"score": None, "status": "unavailable",

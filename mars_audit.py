@@ -6,13 +6,22 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Licenza: Apache 2.0
 """
 
+from __future__ import annotations
+
 import argparse
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, build_context, describe_chunk,
                        load_external_module, reciprocal_rank_fusion)
 
 
-def print_report(results, context=None):
+def print_report(results: dict, context: dict | None = None) -> None:
+    """Stampa il referto finale a video.
+
+    Dichiara anche cio' che NON e' stato misurato: aree senza strumento
+    e URL saltati dal crawler. Dodici pagine escluse cambiano il
+    significato di ogni punteggio, e tacerlo sarebbe una bugia per
+    omissione.
+    """
     print("\n" + "="*55)
     print("           MARS BEACON - REPORT FINALE           ")
     print("="*55)
@@ -75,9 +84,10 @@ def print_report(results, context=None):
     print("="*55 + "\n")
 
 
-def run_audit(url, max_pages, embeddings_model, market,
-              delay=DEFAULT_DELAY, timeout=DEFAULT_TIMEOUT,
-              owner_declaration=False):
+def run_audit(url: str, max_pages: int, embeddings_model: str,
+              market: str, delay: float = DEFAULT_DELAY,
+              timeout: int = DEFAULT_TIMEOUT,
+              owner_declaration: bool = False) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,

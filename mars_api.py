@@ -6,6 +6,8 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Licenza: Apache 2.0
 """
 
+from __future__ import annotations
+
 import os
 import secrets
 
@@ -140,7 +142,8 @@ def authenticate_user(fake_db, username: str,
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict,
+                        expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta

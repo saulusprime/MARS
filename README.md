@@ -105,7 +105,7 @@ sono due interfacce sopra il medesimo motore, non due implementazioni.
 Avvio:
 
     export MARS_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_hex(32))')"
-    uvicorn mars_api:app --host 127.0.0.1 --port 8000
+    uvicorn mars_api:app --host 127.0.0.1 --port 8555
 
 MARS_SECRET_KEY firma i token JWT. Se non e' impostata il server parte
 comunque, ma genera una chiave effimera e lo dichiara: i token smettono
@@ -118,7 +118,7 @@ log all'avvio, perche' un server che non si e' agganciato lascia
 rispondere qualunque altra applicazione stia su quella porta, e le
 risposte sembrano provenire da MARS.
 
-Documentazione interattiva su http://127.0.0.1:8000/docs (Swagger UI);
+Documentazione interattiva su http://127.0.0.1:8555/docs (Swagger UI);
 la radice / vi reindirizza con un 307. La specifica OpenAPI vera e'
 generata da FastAPI su /openapi.json.
 
@@ -127,12 +127,12 @@ Autenticazione. Tutti gli endpoint di audit richiedono un token JWT
 da cambiare prima di qualunque uso reale.
 
     # 1. ottenere il token
-    TOKEN=$(curl -s -X POST http://127.0.0.1:8000/token \
+    TOKEN=$(curl -s -X POST http://127.0.0.1:8555/token \
         -d "username=admin&password=mars2026" | python3 -c \
         "import sys,json;print(json.load(sys.stdin)['access_token'])")
 
     # 2. usarlo
-    curl -s -X POST http://127.0.0.1:8000/audit/full \
+    curl -s -X POST http://127.0.0.1:8555/audit/full \
         -H "Authorization: Bearer $TOKEN" \
         -H "Content-Type: application/json" \
         -d '{"url":"https://example.com","max_pages":10}'

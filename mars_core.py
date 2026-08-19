@@ -13,6 +13,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from types import ModuleType
 from typing import List, Optional, Tuple
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
@@ -80,7 +81,7 @@ MODULES_REGISTRY = [
 ]
 
 
-def load_external_module(module_name: str):
+def load_external_module(module_name: str) -> Optional[ModuleType]:
     """Carica un modulo di audit dalla cartella di MARS.
 
     Il percorso e' relativo a __file__, non alla directory di lavoro:
@@ -323,7 +324,8 @@ class Crawler:
 
 
 class LexicalRetriever:
-    def __init__(self, corpus, k1=1.5, b=0.75):
+    def __init__(self, corpus: List[List[str]], k1: float = 1.5,
+                 b: float = 0.75):
         self.k1 = k1
         self.b = b
         self.corpus = corpus
@@ -334,7 +336,7 @@ class LexicalRetriever:
         self.doc_len = []
         self._build_index()
 
-    def _build_index(self):
+    def _build_index(self) -> None:
         df = defaultdict(int)
         for doc in self.corpus:
             self.doc_len.append(len(doc))
@@ -348,7 +350,8 @@ class LexicalRetriever:
         for token, freq in df.items():
             self.idf[token] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0)
 
-    def get_scores(self, query):
+    def get_scores(self, query: List[str]) -> List[float]:
+        """Punteggio BM25 di ogni documento per la query tokenizzata."""
         # Guardia esplicita: con avgdl a 0 la formula BM25 dividerebbe
         # per zero. Oggi non accade perche' avgdl e' 0 solo se tutti i
         # documenti sono vuoti, e allora idf e' vuoto e il ciclo interno
@@ -371,8 +374,9 @@ class LexicalRetriever:
 
 
 class VectorRetriever:
-    def __init__(self, corpus, model_name=DEFAULT_EMBEDDINGS,
-                 force_proxy=False):
+    def __init__(self, corpus: List[str],
+                 model_name: str = DEFAULT_EMBEDDINGS,
+                 force_proxy: bool = False):
         self.corpus = corpus
         st = None if force_proxy else load_sentence_transformers()
         self.use_real = st is not None
@@ -389,7 +393,7 @@ class VectorRetriever:
             self.doc_norms: List[float] = []
             self._build_proxy()
 
-    def _get_ngrams(self, text, n=3):
+    def _get_ngrams(self, text: str, n: int = 3) -> List[str]:
         text = text.lower().replace(" ", "")
         return [text[i:i+n] for i in range(len(text) - n + 1)]
 
@@ -398,7 +402,7 @@ class VectorRetriever:
         return math.log(
             (len(self.corpus) + 1) / (self.df.get(ngram, 0) + 1)) + 1
 
-    def _build_proxy(self):
+    def _build_proxy(self) -> None:
         """Indice SPARSO: di ogni documento si tengono solo gli
         n-grammi che contiene.
 
@@ -430,7 +434,13 @@ class VectorRetriever:
             self.doc_norms.append(
                 math.sqrt(sum(v * v for v in vec.values())))
 
-    def get_scores(self, query):
+    def get_scores(self, query: str) -> List[float]:
+        """Similarita' di ogni documento con la query.
+
+        Coseno sugli embedding reali se disponibili, altrimenti sul
+        proxy char-TFIDF: il chiamante non deve sapere quale dei due
+        sia attivo.
+        """
         if self.use_real:
             q_emb = self.model.encode([query])
             return self._cosine(q_emb, self.embeddings)[0].tolist()
@@ -598,7 +608,20 @@ def build_context(url: str, max_pages: int = 10,
     }
 
 
-def reciprocal_rank_fusion(rankings, k=60):
+def reciprocal_rank_fusion(rankings: List[List[int]],
+                           k: int = 60) -> List[Tuple[int, float]]:
+    """Fonde piu' classifiche con la formula di Cormack et al. (2009).
+
+    score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)
+
+    Usa la POSIZIONE e non il punteggio, che non e' confrontabile fra
+    recuperatori diversi: e' l'intera ragione per cui la fusione ibrida
+    funziona. k=60 e' il valore del paper e attenua il peso delle prime
+    posizioni.
+
+    Perche' abbia senso, le classifiche in ingresso devono riferirsi
+    alle STESSE unita': vedi R10 in AS-IS.md.
+    """
     scores = defaultdict(float)
     for ranking in rankings:
         for rank, doc_idx in enumerate(ranking):

@@ -17,7 +17,7 @@ import importlib.util
 import os
 import sys
 
-from mars_core import DEFAULT_DELAY, DEFAULT_TIMEOUT
+from mars_core import DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT
 from mars_core import build_context as core_build_context
 from mars_core import reciprocal_rank_fusion
 
@@ -95,7 +95,7 @@ class UserInDB(User):
 class AuditRequest(BaseModel):
     url: HttpUrl
     max_pages: int = 10
-    embeddings: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    embeddings: str = DEFAULT_EMBEDDINGS
     market: str = "global"
     delay: float = DEFAULT_DELAY
     timeout: int = DEFAULT_TIMEOUT

@@ -10,8 +10,8 @@ import argparse
 import os
 import sys
 import importlib.util
-from mars_core import (DEFAULT_DELAY, DEFAULT_TIMEOUT, build_context,
-                       reciprocal_rank_fusion)
+from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
+                       build_context, reciprocal_rank_fusion)
 
 MODULES_REGISTRY = [
     ("mars_tech", "1. Tecnica"),
@@ -134,7 +134,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MARS Beacon - Meta-fusion Audit")
     parser.add_argument("url", help="URL del sito da scansionare")
     parser.add_argument("--max-pages", type=int, default=10, help="Numero massimo di pagine")
-    parser.add_argument("--embeddings", default="paraphrase-multilingual-MiniLM-L12-v2", help="Modello ST o 'none'")
+    parser.add_argument("--embeddings", default=DEFAULT_EMBEDDINGS,
+                        help="Modello ST o 'none'")
     parser.add_argument("--market", default="global", help="Target market per citabilità IA")
     parser.add_argument("--delay", type=float, default=DEFAULT_DELAY,
                         help="Pausa fra le richieste in secondi (default %(default)s)")

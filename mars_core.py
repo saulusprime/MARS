@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
 USER_AGENT = "MARSBeacon/2.0"
+DEFAULT_EMBEDDINGS = "paraphrase-multilingual-MiniLM-L12-v2"
 DEFAULT_DELAY = 0.5
 DEFAULT_TIMEOUT = 10
 HTML_TYPES = ("text/html", "application/xhtml+xml")
@@ -306,7 +307,8 @@ class LexicalRetriever:
         return scores
 
 class VectorRetriever:
-    def __init__(self, corpus, model_name="paraphrase-multilingual-MiniLM-L12-v2", force_proxy=False):
+    def __init__(self, corpus, model_name=DEFAULT_EMBEDDINGS,
+                 force_proxy=False):
         self.corpus = corpus
         st = None if force_proxy else load_sentence_transformers()
         self.use_real = st is not None
@@ -318,70 +320,89 @@ class VectorRetriever:
             self.embeddings = self.model.encode(self.corpus)
         else:
             print("  Utilizzo proxy Char-TFIDF.")
-            self.vocab = {}
-            self.doc_vecs = []
+            self.df: dict = {}
+            self.doc_vecs: List[dict] = []
+            self.doc_norms: List[float] = []
             self._build_proxy()
 
     def _get_ngrams(self, text, n=3):
         text = text.lower().replace(" ", "")
         return [text[i:i+n] for i in range(len(text) - n + 1)]
 
+    def _idf(self, ngram: str) -> float:
+        """IDF di un n-gramma, dalla document frequency conservata."""
+        return math.log(
+            (len(self.corpus) + 1) / (self.df.get(ngram, 0) + 1)) + 1
+
     def _build_proxy(self):
-        df = defaultdict(int)
+        """Indice SPARSO: di ogni documento si tengono solo gli
+        n-grammi che contiene.
+
+        I vettori densi [0.0] * len(vocab) sprecavano N x V float: con
+        80 pagine e un vocabolario di 17.000 trigrammi sono 1,4 milioni
+        di celle, quasi tutte zero.
+
+        Le document frequency finiscono in self.df invece di essere
+        buttate via: get_scores() le ricalcolava ri-tokenizzando
+        l'INTERO corpus per ogni n-gramma della query.
+        """
+        df: dict = defaultdict(int)
         for doc in self.corpus:
-            ngrams = set(self._get_ngrams(doc))
-            for ng in ngrams:
+            for ng in set(self._get_ngrams(doc)):
                 df[ng] += 1
-        idx = 0
-        for ng in df:
-            self.vocab[ng] = idx
-            idx += 1
-            
+        self.df = df
+
         for doc in self.corpus:
-            vec = [0.0] * len(self.vocab)
             ngrams = self._get_ngrams(doc)
-            freq = defaultdict(int)
-            for ng in ngrams: freq[ng] += 1
-            for ng, count in freq.items():
-                if ng in self.vocab:
-                    tf = count / len(ngrams) if ngrams else 0
-                    idf = math.log((len(self.corpus) + 1) / (df[ng] + 1)) + 1
-                    vec[self.vocab[ng]] = tf * idf
+            freq: dict = defaultdict(int)
+            for ng in ngrams:
+                freq[ng] += 1
+            totale = len(ngrams)
+            vec = {ng: (count / totale) * self._idf(ng)
+                   for ng, count in freq.items()} if totale else {}
             self.doc_vecs.append(vec)
+            # Norma calcolata una volta sola: prima veniva rifatta a
+            # ogni query, per ogni documento.
+            self.doc_norms.append(
+                math.sqrt(sum(v * v for v in vec.values())))
 
     def get_scores(self, query):
         if self.use_real:
             q_emb = self.model.encode([query])
             return self._cosine(q_emb, self.embeddings)[0].tolist()
-        
+
         q_ngrams = self._get_ngrams(query)
-        freq = defaultdict(int)
-        for ng in q_ngrams: freq[ng] += 1
-        q_vec = [0.0] * len(self.vocab)
-        for ng, count in freq.items():
-            if ng in self.vocab:
-                tf = count / len(q_ngrams) if q_ngrams else 0
-                idf = math.log((len(self.corpus) + 1) / (sum(1 for d in self.corpus if ng in self._get_ngrams(d)) + 1)) + 1
-                q_vec[self.vocab[ng]] = tf * idf
-                
+        if not q_ngrams:
+            return [0.0] * len(self.corpus)
+        freq: dict = defaultdict(int)
+        for ng in q_ngrams:
+            freq[ng] += 1
+        q_vec = {ng: (count / len(q_ngrams)) * self._idf(ng)
+                 for ng, count in freq.items() if ng in self.df}
+
+        q_norm = math.sqrt(sum(v * v for v in q_vec.values()))
+        if not q_norm:
+            return [0.0] * len(self.corpus)
+
         scores = []
-        q_norm = math.sqrt(sum(v*v for v in q_vec))
-        if q_norm == 0: return [0.0] * len(self.corpus)
-            
-        for doc_vec in self.doc_vecs:
-            d_norm = math.sqrt(sum(v*v for v in doc_vec))
-            if d_norm == 0:
+        for vec, d_norm in zip(self.doc_vecs, self.doc_norms):
+            if not d_norm:
                 scores.append(0.0)
                 continue
-            dot = sum(q_vec[i] * doc_vec[i] for i in range(len(q_vec)))
+            # Si itera la query (poche decine di n-grammi) cercando nel
+            # documento, non il vocabolario intero: qui il costo per
+            # documento passa da O(V) a O(|q|).
+            dot = sum(peso * vec.get(ng, 0.0)
+                      for ng, peso in q_vec.items())
             scores.append(dot / (q_norm * d_norm))
         return scores
+
 
 CHUNK_CHARS = 500  # troncamento provvisorio: non e' ancora un chunker
 
 
 def build_context(url: str, max_pages: int = 10,
-                  embeddings_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
+                  embeddings_model: str = DEFAULT_EMBEDDINGS,
                   market: str = "global",
                   delay: float = DEFAULT_DELAY,
                   timeout: int = DEFAULT_TIMEOUT,

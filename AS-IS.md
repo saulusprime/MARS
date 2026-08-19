@@ -18,6 +18,7 @@
 | R5 | `/audit/full` ricrawlava il sito 8 volte | 2026-08-19 |
 | R6 | Crash su `<title>` vuoto e tre casi limite vicini | 2026-08-19 |
 | R7 | Il crawler non era un buon cittadino della rete | 2026-08-19 |
+| R8 | Il proxy char-TFIDF era quadratico | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -375,6 +376,57 @@ schema OpenAPI mostrano entrambi la dichiarazione. Regressione su
 - [x] Normalizzazione/deduplicazione URL e filtro same-host.
 - [x] Sitemap: direttive in robots.txt, indici annidati, `.xml.gz`.
 - [x] Timeout configurabile.
+
+### R8 — ✅ RISOLTO (2026-08-19): il proxy char-TFIDF era quadratico
+Dentro `get_scores()`, per **ogni n-gramma della query** si ri-tokenizzava
+**l'intero corpus**:
+
+```python
+idf = math.log((len(self.corpus)+1) /
+               (sum(1 for d in self.corpus if ng in self._get_ngrams(d)) + 1)) + 1
+```
+
+Le document frequency erano già state calcolate in `_build_proxy()` e buttate
+via. In più il prodotto scalare iterava l'intero vocabolario per ogni
+documento, e la norma di ogni documento veniva ricalcolata a ogni query.
+
+**Risoluzione applicata:** `self.df` conservato e letto da un `_idf()`
+condiviso; vettori sparsi (`dict` per documento) al posto di
+`[0.0] * len(vocab)`; `self.doc_norms` precalcolate; prodotto scalare che
+itera **la query** (poche decine di n-grammi) cercando nel documento, invece
+del vocabolario intero. Introdotta anche `DEFAULT_EMBEDDINGS`, che era
+ripetuta come stringa letterale in tre file.
+
+**Misurato**, corpus sintetico ad alta diversità lessicale (vocabolario ~17.000
+trigrammi), 5 query:
+
+| N documenti | query prima | query dopo | build prima | build dopo |
+|---|---|---|---|---|
+| 20 | 0,087 s | 0,0001 s | 0,194 s | 0,119 s |
+| 40 | 0,190 s | 0,0002 s | 0,388 s | 0,241 s |
+| 80 | 0,395 s | 0,0004 s | 0,791 s | 0,485 s |
+
+Circa **1000× più veloce** per query, e la costruzione dell'indice scende a
+~0,6×. Prima il tempo per query cresceva **linearmente col numero di
+documenti** — il sintomo del difetto; ora è piatto.
+
+**Verifica di equivalenza:** su tutte le combinazioni misurate lo scarto
+massimo fra i punteggi prima e dopo è **0.00e+00** — non "entro tolleranza",
+esattamente identici. Il refactor non cambia i risultati, solo il costo.
+
+**Una previsione del TO-DO non si è avverata, e va detto.** Avevo scritto che
+i vettori densi sprecavano memoria e che lo sparso avrebbe risolto. Misurato:
+5,8 → 5,6 MB, 10,0 → 10,1 MB, 18,3 → 19,0 MB. **Nessun guadagno.** La ragione,
+misurata anziché ipotizzata: ogni documento contiene in media 2.490 n-grammi
+distinti su un vocabolario di 17.303, cioè una **densità del 14%**. Un `dict`
+Python costa circa 100 byte per voce contro gli 8 byte per cella di una lista;
+sotto l'8% circa di densità lo sparso vince, sopra pareggia. A 14% è un
+pareggio. Il guadagno reale di R8 è la velocità, non la memoria.
+
+- [x] Conservare `self.df` e leggerlo in `get_scores()`.
+- [x] Vettori sparsi (utile per la struttura, **non** per la memoria: vedi
+      sopra).
+- [x] Norme dei documenti precalcolate.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

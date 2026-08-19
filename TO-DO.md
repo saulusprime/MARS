@@ -265,23 +265,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R7 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R8 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R8 — Il proxy char-TFIDF è quadratico
-[mars_core.py:155](mars_core.py#L155), dentro `get_scores`:
-```python
-idf = math.log((len(self.corpus)+1) / (sum(1 for d in self.corpus if ng in self._get_ngrams(d)) + 1)) + 1
-```
-Per **ogni n-gramma della query** si ri-tokenizza **l'intero corpus**. I document
-frequency sono già stati calcolati in `_build_proxy()` ([riga 122](mars_core.py#L122))
-ma vengono buttati via invece di essere salvati.
-
-- [ ] Conservare `self.df` in `_build_proxy()` e leggerlo in `get_scores()`.
-      Una riga; il costo passa da O(|q|·N·L) a O(|q|).
-- [ ] Anche i vettori densi `[0.0] * len(vocab)` sono sprecati: con
-      `max-pages` alto il vocabolario di trigrammi esplode. Passare a dizionari
-      sparsi — resta zero-dipendenze, coerente col principio 1.
 
 ### R9 — L'euristica "answer-shaped" è imprecisa e monolingue
 [mars_semantic.py:20](mars_semantic.py#L20):

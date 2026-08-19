@@ -203,6 +203,37 @@ class VectorRetriever:
             scores.append(dot / (q_norm * d_norm))
         return scores
 
+CHUNK_CHARS = 500  # troncamento provvisorio: non e' ancora un chunker
+
+
+def build_context(url: str, max_pages: int = 10,
+                  embeddings_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
+                  market: str = "global") -> Optional[dict]:
+    """Scansiona il sito UNA volta e prepara il contesto per i moduli.
+
+    Unica fonte di verita' per CLI e API: prima ognuna costruiva il
+    proprio dizionario, e l'API lo rifaceva per ogni modulo. Un solo
+    crawl non serve solo a risparmiare richieste — serve perche' i
+    moduli devono osservare lo stesso stato del sito, altrimenti i loro
+    punteggi non sono confrontabili fra loro.
+
+    Restituisce None se il sito e' irraggiungibile: tradurre l'assenza
+    in un errore HTTP spetta al chiamante, non a questo modulo.
+    """
+    pages = Crawler(url, max_pages).crawl()
+    if not pages:
+        return None
+    return {
+        "url": url,
+        "pages": pages,
+        "urls": list(pages.keys()),
+        "chunks": [p["text"][:CHUNK_CHARS] for p in pages.values()],
+        "embeddings_model": embeddings_model,
+        "force_proxy": embeddings_model.lower() == "none",
+        "market": market,
+    }
+
+
 def reciprocal_rank_fusion(rankings, k=60):
     scores = defaultdict(float)
     for ranking in rankings:

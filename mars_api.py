@@ -17,7 +17,8 @@ import importlib.util
 import os
 import sys
 
-from mars_core import Crawler, reciprocal_rank_fusion
+from mars_core import build_context as core_build_context
+from mars_core import reciprocal_rank_fusion
 
 # ==============================================================================
 # CONFIGURAZIONE API & SICUREZZA
@@ -182,28 +183,30 @@ def load_external_module(module_name):
             print(f"Errore caricamento {file_path}: {e}")
     return None
 
-def build_context(req: AuditRequest):
-    crawler = Crawler(str(req.url), req.max_pages)
-    pages = crawler.crawl()
-    if not pages:
-        raise HTTPException(status_code=404, detail="Nessuna pagina indicizzata o sito irraggiungibile.")
-    
-    return {
-        "url": str(req.url),
-        "pages": pages,
-        "urls": list(pages.keys()),
-        "chunks": [p['text'][:500] for p in pages.values()],
-        "embeddings_model": req.embeddings,
-        "force_proxy": req.embeddings.lower() == "none",
-        "market": req.market
-    }
+def build_context(req: AuditRequest) -> dict:
+    """Contesto condiviso da tutti i moduli di una richiesta."""
+    context = core_build_context(str(req.url), req.max_pages,
+                                 req.embeddings, req.market)
+    if context is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Nessuna pagina indicizzata o sito irraggiungibile.")
+    return context
 
-def run_single_audit(module_name, req: AuditRequest):
-    context = build_context(req)
+
+def run_single_audit(module_name: str, context: dict) -> dict:
+    """Esegue un modulo su un contesto GIA' costruito.
+
+    Prende il contesto, non la richiesta: cosi' /audit/full puo'
+    scansionare una volta sola e riusarlo per tutti i moduli.
+    """
     mod = load_external_module(module_name)
     if mod and hasattr(mod, 'audit'):
         return mod.audit(context)
-    raise HTTPException(status_code=404, detail=f"Modulo di audit '{module_name}' non trovato nel filesystem.")
+    raise HTTPException(
+        status_code=404,
+        detail=f"Modulo di audit '{module_name}' non trovato nel filesystem.")
+
 
 # ==============================================================================
 # ENDPOINTS
@@ -241,57 +244,58 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 @app.post("/audit/tech", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_tech(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 1: Tecnica (robots.txt, sitemap, crawler IA)."""
-    res = run_single_audit("mars_tech", req)
+    res = run_single_audit("mars_tech", build_context(req))
     return AuditResponse(module="mars_tech", score=res.get("score"), issues=res.get("issues"), details=res)
 
 @app.post("/audit/seo", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 2: SEO (Lighthouse)."""
-    res = run_single_audit("mars_seo", req)
+    res = run_single_audit("mars_seo", build_context(req))
     return AuditResponse(module="mars_seo", score=res.get("score"), issues=res.get("issues"), details=res)
 
 @app.post("/audit/lexical", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_lexical(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 3: Lessicale (BM25 su title, heading, termini)."""
-    res = run_single_audit("mars_lexical", req)
+    res = run_single_audit("mars_lexical", build_context(req))
     return AuditResponse(module="mars_lexical", score=None, details=res)
 
 @app.post("/audit/semantic", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 4: Semantica (chunk answer-shaped, vector retrieval)."""
-    res = run_single_audit("mars_semantic", req)
+    res = run_single_audit("mars_semantic", build_context(req))
     return AuditResponse(module="mars_semantic", details={"answer_shaped_ratio": res.get("answer_shaped_ratio")})
 
 @app.post("/audit/schema", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 5: Dati strutturati (JSON-LD / Schema.org)."""
-    res = run_single_audit("mars_schema", req)
+    res = run_single_audit("mars_schema", build_context(req))
     return AuditResponse(module="mars_schema", score=res.get("score"), issues=res.get("issues"), details=res)
 
 @app.post("/audit/wcag", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 6: Accessibilità (WCAG)."""
-    res = run_single_audit("mars_wcag", req)
+    res = run_single_audit("mars_wcag", build_context(req))
     return AuditResponse(module="mars_wcag", score=res.get("score"), issues=res.get("issues"), details=res)
 
 @app.post("/audit/wapt", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 7: Sicurezza (WAPT, ZAP CLI o HTTP Headers)."""
-    res = run_single_audit("mars_wapt", req)
+    res = run_single_audit("mars_wapt", build_context(req))
     return AuditResponse(module="mars_wapt", score=res.get("score"), issues=res.get("issues"), details=res)
 
 @app.post("/audit/full", response_model=dict, tags=["Audit Modules"])
 async def audit_full(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue tutti gli audit disponibili, calcolando anche la fusione RRF."""
+    context = build_context(req)  # una volta sola, per tutti i moduli
     results = {}
     for mod_name, mod_desc in MODULES_REGISTRY:
         try:
-            mod = load_external_module(mod_name)
-            if mod and hasattr(mod, 'audit'):
-                results[mod_name] = run_single_audit(mod_name, req)
-        except Exception:
-            results[mod_name] = {"error": "Modulo fallito"}
-            
+            results[mod_name] = run_single_audit(mod_name, context)
+        except HTTPException as exc:
+            results[mod_name] = {"error": exc.detail}
+        except Exception as exc:
+            results[mod_name] = {"error": f"{type(exc).__name__}: {exc}"}
+
     # Calcolo RRF se entrambi i retriever sono attivi
     lex_res = results.get("mars_lexical", {})
     sem_res = results.get("mars_semantic", {})
@@ -300,13 +304,13 @@ async def audit_full(req: AuditRequest, current_user: User = Depends(get_current
         top_3_lex = set(lex_res["rank"][:3])
         top_3_sem = set(sem_res["rank"][:3])
         consensus = len(top_3_lex.intersection(top_3_sem))
-        
-        urls = build_context(req)["urls"] # Ricalcolo veloce, in prod cacheare
+
+        urls = context["urls"]  # stesso crawl, nessun ricalcolo
         results["rrf_analysis"] = {
             "consensus_top3": consensus,
             "top_chunk_url": urls[rrf[0][0]] if rrf else None
         }
-        
+
     return results
 
 # ==============================================================================

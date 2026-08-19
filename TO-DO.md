@@ -262,24 +262,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. R5 resta l'unico bloccante; **R1, R2, R3 e R4 sono risolti** — vedi
+Difetti nel codice esistente. **R1-R5 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R5 — 🔴 `/audit/full` ricrawla il sito 8 volte
-[mars_api.py:264-291](mars_api.py#L264-L291): `run_single_audit()` chiama
-`build_context()` — e quindi `Crawler.crawl()` — **a ogni modulo**. Con 7 moduli
-sono 7 scansioni complete; poi la [riga 285](mars_api.py#L285) ne fa un'ottava
-solo per recuperare `urls`, con il commento onesto
-`# Ricalcolo veloce, in prod cacheare`.
-
-Su `max_pages=25` significa **200 richieste HTTP** invece di 25, e i moduli
-possono osservare stati diversi del sito.
-
-- [ ] Costruire il `context` **una volta** in `/audit/full` e passarlo ai moduli,
-      esattamente come fa già la CLI in `run_audit()`.
-- [ ] Rifattorizzare `run_single_audit(module_name, req)` in
-      `run_single_audit(module_name, context)`, con `build_context()` chiamato
-      dai singoli endpoint. Elimina anche la duplicazione CLI/API.
 
 ### R6 — Crash su `<title>` vuoto
 [mars_core.py:49](mars_core.py#L49): `title = soup.title.string if soup.title else ""`.
@@ -425,7 +409,10 @@ significato dichiarato nel README.
       sopra: quello è risolto, questo no.)*
 - [ ] `MODULES_REGISTRY` e `load_external_module()` sono **duplicati** verbatim
       in `mars_audit.py` e `mars_api.py`. Spostarli in `mars_core.py`
-      (o `mars_registry.py`), unica fonte di verità.
+      (o `mars_registry.py`), unica fonte di verità. *(R5 ha già spostato lì
+      `build_context()`: resta questa seconda metà della duplicazione, ed è
+      la stessa che ha costretto a correggere il difetto `sys.modules` in due
+      file invece che in uno.)*
 - [ ] `mars_schema.py` e `mars_wcag.py` ri-parsano l'HTML con BeautifulSoup a
       ogni modulo. Parsare una volta nel `Crawler` e mettere il `soup` (o il
       DOM già estratto) nel `context`.

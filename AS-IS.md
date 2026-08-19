@@ -15,6 +15,7 @@
 | R2 | `/users/me` restituiva l'hash della password | 2026-08-19 |
 | R3 | Command injection remota in `mars_seo.py` | 2026-08-19 |
 | R4 | Punteggi inventati in `mars_wapt.py` e `mars_seo.py` | 2026-08-19 |
+| R5 | `/audit/full` ricrawlava il sito 8 volte | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -196,6 +197,53 @@ deve verificare il percorso completo.
 - [x] `score: None` + `status: "unavailable"` quando lo strumento non c'è.
 - [ ] Escludere i moduli non misurati dal calcolo del composito (**C1**),
       quando C1 esisterà.
+
+### R5 — ✅ RISOLTO (2026-08-19): `/audit/full` ricrawlava il sito 8 volte
+`run_single_audit(module_name, req)` chiamava `build_context()` — e quindi
+`Crawler.crawl()` — **a ogni modulo**. Con 7 moduli erano 7 scansioni complete;
+poi una riga recuperava `urls` con un'ottava, accompagnata dal commento onesto
+`# Ricalcolo veloce, in prod cacheare`.
+
+Misurato prima della correzione, con un crawler strumentato: **8 crawl per una
+sola richiesta**. Su `max_pages=25` significa 200 richieste HTTP invece di 25 —
+e, cosa peggiore, i moduli potevano osservare **stati diversi del sito**,
+rendendo i loro punteggi non confrontabili fra loro.
+
+**Risoluzione applicata.** `build_context()` è stato spostato in
+`mars_core.py`, dove diventa l'unica fonte di verità: prima CLI e API
+costruivano ciascuna il proprio dizionario, con lo stesso contenuto scritto
+due volte. La funzione restituisce `None` se il sito è irraggiungibile —
+tradurre l'assenza in un errore HTTP spetta al chiamante, non al modulo core,
+che non deve conoscere FastAPI.
+
+`run_single_audit(module_name, context)` ora riceve il **contesto già
+costruito** invece della richiesta: è ciò che permette a `/audit/full` di
+scansionare una volta e riusare il risultato per tutti i moduli. Gli endpoint
+singoli chiamano `build_context(req)` una volta ciascuno.
+
+Nella CLI, `run_audit()` ha perso il parametro `force_proxy`: era ricalcolato
+in due punti da `embeddings == "none"`, ora lo deriva `build_context()`.
+
+**Risolto di conseguenza un difetto trovato durante i test di R1.** Il
+`try/except Exception` attorno a ogni modulo inghiottiva anche l'`HTTPException`
+sollevata da `build_context`: con un sito irraggiungibile `/audit/full`
+rispondeva **200** con `{"error": "Modulo fallito"}` sette volte, mentre i
+sette endpoint singoli rispondevano correttamente 404. Ora il contesto si
+costruisce **fuori** dal ciclo e il 404 propaga. Il gestore per-modulo, che
+resta necessario perché un modulo mancante non deve far fallire l'intero
+referto, registra ora l'errore reale (`tipo: messaggio`) invece della stringa
+generica.
+
+**Verificato.** Con crawler strumentato: `/audit/full` **1 crawl** (era 8), i
+quattro endpoint singoli provati 1 ciascuno, `rrf_analysis` presente nel
+referto. Sito irraggiungibile: `/audit/tech` e `/audit/full` entrambi **404**
+con lo stesso messaggio. CLI end-to-end su `example.com`: tutti e 7 i moduli
+eseguiti, Lighthouse reale 80/100, header 60/100, RRF con consenso Top-3 1/3.
+R1 e R2 non regrediti, `flake8` pulito.
+
+- [x] Costruire il `context` una volta sola in `/audit/full`.
+- [x] Rifattorizzare `run_single_audit` per ricevere il contesto.
+- [x] Eliminare la duplicazione CLI/API della costruzione del contesto.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

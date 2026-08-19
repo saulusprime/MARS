@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 import importlib.util
-from mars_core import Crawler, reciprocal_rank_fusion
+from mars_core import build_context, reciprocal_rank_fusion
 
 MODULES_REGISTRY = [
     ("mars_tech", "1. Tecnica"),
@@ -82,24 +82,13 @@ def print_report(results, urls):
         
     print("="*55 + "\n")
 
-def run_audit(url, max_pages, embeddings_model, force_proxy, market):
+def run_audit(url, max_pages, embeddings_model, market):
     print(f"Avvio scansione MARS Beacon su: {url}")
-    crawler = Crawler(url, max_pages)
-    pages = crawler.crawl()
-    
-    if not pages:
+    context = build_context(url, max_pages, embeddings_model, market)
+
+    if context is None:
         print("Nessuna pagina indicizzata.")
         return
-
-    context = {
-        "url": url,
-        "pages": pages,
-        "urls": list(pages.keys()),
-        "chunks": [p['text'][:500] for p in pages.values()],
-        "embeddings_model": embeddings_model,
-        "force_proxy": force_proxy,
-        "market": market
-    }
     
     print("\n--- Rilevamento Moduli Attivi ---")
     results = {}
@@ -129,5 +118,4 @@ if __name__ == "__main__":
     parser.add_argument("--market", default="global", help="Target market per citabilità IA")
     
     args = parser.parse_args()
-    force_proxy = args.embeddings.lower() == "none"
-    run_audit(args.url, args.max_pages, args.embeddings, force_proxy, args.market)
+    run_audit(args.url, args.max_pages, args.embeddings, args.market)

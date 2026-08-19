@@ -9,12 +9,13 @@ Licenza: Apache 2.0
 import requests
 from urllib.parse import urljoin
 
+
 def audit(context):
     issues = []
     url = context["url"]
     try:
         r = requests.get(urljoin(url, "/robots.txt"), timeout=5)
-        if r.status_code != 200: 
+        if r.status_code != 200:
             issues.append("robots.txt mancante")
         else:
             content = r.text.lower()

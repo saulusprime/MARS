@@ -11,14 +11,15 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, build_context, describe_chunk,
                        load_external_module, reciprocal_rank_fusion)
 
+
 def print_report(results, context=None):
     print("\n" + "="*55)
     print("           MARS BEACON - REPORT FINALE           ")
     print("="*55)
-    
+
     lex_res = results.get("mars_lexical")
     sem_res = results.get("mars_semantic")
-    
+
     for mod_name, desc in MODULES_REGISTRY:
         if mod_name in results:
             res = results[mod_name]
@@ -40,7 +41,7 @@ def print_report(results, context=None):
                 n = res.get("n_chunks", 0)
                 print(f"{desc:<20} : Analizzato "
                       f"({ratio:.0%} di {n} chunk answer-shaped)")
-                
+
     if lex_res and sem_res and "rank" in lex_res and "rank" in sem_res:
         chunks = (context or {}).get("chunks") or []
         rrf = reciprocal_rank_fusion([lex_res["rank"], sem_res["rank"]])
@@ -55,7 +56,7 @@ def print_report(results, context=None):
               f"su {len(chunks)} chunk")
         if rrf and rrf[0][0] < len(chunks):
             print(f"Top Chunk Ibrido     : {describe_chunk(chunks[rrf[0][0]])}")
-        
+
     if context:
         # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
         # cambiano il significato di ogni punteggio qui sopra.
@@ -73,6 +74,7 @@ def print_report(results, context=None):
 
     print("="*55 + "\n")
 
+
 def run_audit(url, max_pages, embeddings_model, market,
               delay=DEFAULT_DELAY, timeout=DEFAULT_TIMEOUT,
               owner_declaration=False):
@@ -84,13 +86,13 @@ def run_audit(url, max_pages, embeddings_model, market,
     if context is None:
         print("Nessuna pagina indicizzata.")
         return
-    
+
     print("\n--- Rilevamento Moduli Attivi ---")
     results = {}
-    
+
     for mod_name, mod_desc in MODULES_REGISTRY:
         ext_mod = load_external_module(mod_name)
-        
+
         if ext_mod:
             print(f"[✓] {mod_desc} ({mod_name}.py)")
             try:
@@ -104,6 +106,7 @@ def run_audit(url, max_pages, embeddings_model, market,
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
     print_report(results, context)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MARS Beacon - Meta-fusion Audit")
@@ -121,7 +124,7 @@ if __name__ == "__main__":
                         help="DICHIARAZIONE: sono il proprietario del dominio e "
                              "mi assumo la responsabilità dell'audit. Solo con "
                              "questa dichiarazione robots.txt viene ignorato.")
-    
+
     args = parser.parse_args()
     run_audit(args.url, args.max_pages, args.embeddings, args.market,
               delay=args.delay, timeout=args.timeout,

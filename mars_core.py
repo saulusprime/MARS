@@ -344,7 +344,7 @@ class LexicalRetriever:
             self.doc_freqs.append(freqs)
             for token in set(doc):
                 df[token] += 1
-                
+
         for token, freq in df.items():
             self.idf[token] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0)
 
@@ -363,9 +363,12 @@ class LexicalRetriever:
                 if token in self.idf:
                     tf = self.doc_freqs[i].get(token, 0)
                     idf = self.idf[token]
-                    score += idf * (tf * (self.k1 + 1)) / (tf + self.k1 * (1 - self.b + self.b * doc_len / self.avgdl))
+                    norm = self.k1 * (1 - self.b
+                                      + self.b * doc_len / self.avgdl)
+                    score += idf * (tf * (self.k1 + 1)) / (tf + norm)
             scores.append(score)
         return scores
+
 
 class VectorRetriever:
     def __init__(self, corpus, model_name=DEFAULT_EMBEDDINGS,

@@ -44,18 +44,22 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI(
     title="MARS Beacon API",
-    description="Meta-fusion, Accessibility, Ranking & Security Audit. Audit SEO, RRF, WCAG e WAPT esposti via REST API.",
+    description="Meta-fusion, Accessibility, Ranking & Security Audit. "
+                "Audit SEO, RRF, WCAG e WAPT esposti via REST API.",
     version="2.0.0",
     contact={"name": "MARS Team"}
 )
+
 
 def get_password_hash(password: str) -> str:
     """Hashing bcrypt. Il costo di calcolo e' voluto: rallenta il brute-force."""
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Confronto sicuro tra password in chiaro e hash bcrypt."""
     return pwd_context.verify(plain_password, hashed_password)
+
 
 # Fake DB Utenti (in produzione usa un DB reale)
 FAKE_USERS_DB = {
@@ -63,7 +67,7 @@ FAKE_USERS_DB = {
         "username": "admin",
         "full_name": "MARS Administrator",
         "email": "admin@mars.local",
-        #"hashed_password": hash_password("mars2026"),
+        # "hashed_password": hash_password("mars2026"),
         "hashed_password": get_password_hash("mars2026"),
         "disabled": False,
     }
@@ -73,9 +77,11 @@ FAKE_USERS_DB = {
 # MODELLI PYDANTIC
 # ==============================================================================
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 class User(BaseModel):
     """Utente come esce dall'API: senza credenziali."""
@@ -91,6 +97,7 @@ class UserInDB(User):
 
     hashed_password: str
 
+
 class AuditRequest(BaseModel):
     url: HttpUrl
     max_pages: int = 10
@@ -104,6 +111,7 @@ class AuditRequest(BaseModel):
                     "di responsabilità. È l'unico modo per ignorare "
                     "robots.txt; viene registrata nel referto.")
 
+
 class AuditResponse(BaseModel):
     module: str
     score: float | None = None
@@ -114,11 +122,13 @@ class AuditResponse(BaseModel):
 # LOGICHE DI AUTENTICAZIONE
 # ==============================================================================
 
+
 def get_user(db, username: str) -> UserInDB | None:
     """Cerca l'utente nel DB. Il risultato contiene l'hash: uso interno."""
     if username in db:
         return UserInDB(**db[username])
     return None
+
 
 def authenticate_user(fake_db, username: str,
                       password: str) -> UserInDB | None:
@@ -129,6 +139,7 @@ def authenticate_user(fake_db, username: str,
         return None
     return user
 
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -138,6 +149,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """Utente autenticato, gia' privato dell'hash.
@@ -158,7 +170,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-        
+
     user = get_user(FAKE_USERS_DB, username=username)
     if user is None:
         raise credentials_exception
@@ -167,6 +179,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 # ==============================================================================
 # HELPERS ESECUTORE AUDIT
 # ==============================================================================
+
 
 def build_context(req: AuditRequest) -> dict:
     """Contesto condiviso da tutti i moduli di una richiesta."""
@@ -203,6 +216,7 @@ def run_single_audit(module_name: str, context: dict) -> dict:
 async def root():
     return RedirectResponse(url="/docs")
 
+
 @app.post("/token", response_model=Token, tags=["Authentication"])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """
@@ -222,29 +236,36 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.get("/users/me", response_model=User, tags=["Authentication"])
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 # --- Endpoint Audit Specifici ---
 
+
 @app.post("/audit/tech", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_tech(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 1: Tecnica (robots.txt, sitemap, crawler IA)."""
     res = run_single_audit("mars_tech", build_context(req))
-    return AuditResponse(module="mars_tech", score=res.get("score"), issues=res.get("issues"), details=res)
+    return AuditResponse(module="mars_tech", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
 
 @app.post("/audit/seo", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 2: SEO (Lighthouse)."""
     res = run_single_audit("mars_seo", build_context(req))
-    return AuditResponse(module="mars_seo", score=res.get("score"), issues=res.get("issues"), details=res)
+    return AuditResponse(module="mars_seo", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
 
 @app.post("/audit/lexical", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_lexical(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 3: Lessicale (BM25 su title, heading, termini)."""
     res = run_single_audit("mars_lexical", build_context(req))
     return AuditResponse(module="mars_lexical", score=None, details=res)
+
 
 @app.post("/audit/semantic", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
@@ -257,23 +278,30 @@ async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_cur
                 if k in res}
     return AuditResponse(module="mars_semantic", details=dettagli)
 
+
 @app.post("/audit/schema", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 5: Dati strutturati (JSON-LD / Schema.org)."""
     res = run_single_audit("mars_schema", build_context(req))
-    return AuditResponse(module="mars_schema", score=res.get("score"), issues=res.get("issues"), details=res)
+    return AuditResponse(module="mars_schema", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
 
 @app.post("/audit/wcag", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 6: Accessibilità (WCAG)."""
     res = run_single_audit("mars_wcag", build_context(req))
-    return AuditResponse(module="mars_wcag", score=res.get("score"), issues=res.get("issues"), details=res)
+    return AuditResponse(module="mars_wcag", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
 
 @app.post("/audit/wapt", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 7: Sicurezza (WAPT, ZAP CLI o HTTP Headers)."""
     res = run_single_audit("mars_wapt", build_context(req))
-    return AuditResponse(module="mars_wapt", score=res.get("score"), issues=res.get("issues"), details=res)
+    return AuditResponse(module="mars_wapt", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
 
 @app.post("/audit/full", response_model=dict, tags=["Audit Modules"])
 async def audit_full(req: AuditRequest, current_user: User = Depends(get_current_user)):

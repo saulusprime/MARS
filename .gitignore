@@ -1,0 +1,33 @@
+# --- Ambiente Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Dipendenze Node (Lighthouse) ---
+node_modules/
+package-lock.json
+
+# --- Referti e artefatti generati ---
+# I referti si rigenerano: e' il sito la fonte di verita', non il report.
+report.html
+report.json
+referto.json
+*.report.html
+
+# --- Storico delle citazioni (dati, non codice) ---
+# mars_citations.py --history accoda qui: e' dato dell'utente.
+storico.jsonl
+
+# --- Cache di strumenti ---
+.pytest_cache/
+.mars-cache/
+.coverage
+htmlcov/
+
+# --- Editor e sistema ---
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,6 @@
+{
+  "url": "https://lymphatechnologies.com",
+  "max_pages": 25,
+  "embeddings": "paraphrase-multilingual-MiniLM-L12-v2",
+  "market": "eu"
+}

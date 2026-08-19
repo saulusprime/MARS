@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "corepack": "^0.35.0",
+    "lighthouse": "^13.4.1"
+  }
+}

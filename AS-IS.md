@@ -24,6 +24,7 @@
 | R11 | Igiene del codice (11 voci, 2 commit) | 2026-08-19 |
 | R12 | Incoerenze nel README; documentata l'API REST (con C11) | 2026-08-19 |
 | R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
+| R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -714,6 +715,49 @@ audit end-to-end e login API invariati. Il cambio di User-Agent da
 - [x] `mars_audit.py` allineato.
 - [x] `mars_api.py` allineato.
 - [x] I sette moduli d'area (fatti lungo il percorso, come previsto).
+
+### R14 — ✅ RISOLTO (2026-08-19): il campo `disabled` non era mai applicato
+`User` dichiarava `disabled: bool | None` e `FAKE_USERS_DB` lo valorizzava, ma
+**nessuna funzione lo leggeva**.
+
+**La classificazione iniziale era sbagliata, e va detto.** L'avevo marcato
+🔴 CRITICO. Verificando su domanda dell'autore: non esiste alcun endpoint che
+crei o modifichi utenti, `FAKE_USERS_DB` contiene un solo utente hardcoded, e
+per portare `disabled` a `True` bisogna **editare il sorgente** — chi può farlo
+ha già vinto. La "dimostrazione" che avevo prodotto creava l'utente sospeso da
+Python: uno scenario artificiale, non un attacco. Come difetto di sicurezza
+sfruttabile, R14 non lo era.
+
+**Il difetto reale era nel contratto OpenAPI.** Lo schema `User` pubblicato su
+`/docs` espone `disabled` a chiunque integri l'API, e chi lo legge conclude
+ragionevolmente che esista una sospensione degli account. Non esisteva. Dato
+che l'applicazione è consumata **esclusivamente via OpenAPI**, lo schema è la
+superficie del prodotto: la promessa non mantenuta viveva esattamente dove
+vive l'applicazione.
+
+**Risoluzione applicata** (scelta dell'autore fra applicare, rimuovere il campo
+o documentarlo come riservato):
+
+- `authenticate_user()` rifiuta gli utenti sospesi: niente token.
+- `get_current_user()` **ricontrolla a ogni richiesta**. È la parte che conta:
+  i JWT non si revocano e durano 30 minuti, quindi senza questo un account
+  sospeso resterebbe operativo fino alla scadenza. È l'unico meccanismo di
+  revoca che l'API possiede.
+- Il campo porta ora una `description` che finisce nello schema OpenAPI, così
+  la promessa è esplicita oltre che mantenuta.
+
+Vale anche in prospettiva: il codice dichiara `# Fake DB Utenti (in produzione
+usa un DB reale)`, e quando quel DB arriverà `disabled` sarà l'unico modo per
+revocare un accesso. Due righe ora, invece di ricordarsene dopo.
+
+**Verificato:** utente attivo 200; utente sospeso `/token` → 401; token emesso
+**prima** della sospensione → 200 prima, **401 dopo**, sia su `/users/me` sia
+su `/audit/tech`; admin non toccato; descrizione presente nello schema
+pubblicato.
+
+- [x] Rifiutare l'autenticazione degli utenti sospesi.
+- [x] Ricontrollare in `get_current_user()` perché i token già emessi decadano.
+- [ ] Test dedicato (**C12**): la verifica è stata manuale.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

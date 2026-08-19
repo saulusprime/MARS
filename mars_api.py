@@ -92,7 +92,11 @@ class User(BaseModel):
     username: str
     email: str | None = None
     full_name: str | None = None
-    disabled: bool | None = None
+    disabled: bool | None = Field(
+        default=None,
+        description="Account sospeso. Un utente sospeso non ottiene token "
+                    "e i token già emessi smettono di valere alla richiesta "
+                    "successiva.")
 
 
 class UserInDB(User):
@@ -140,6 +144,8 @@ def authenticate_user(fake_db, username: str,
         return None
     if not verify_password(password, user.hashed_password):
         return None
+    if user.disabled:
+        return None
     return user
 
 
@@ -176,7 +182,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
 
     user = get_user(FAKE_USERS_DB, username=username)
-    if user is None:
+    if user is None or user.disabled:
+        # Ricontrollato a ogni richiesta, non solo al rilascio del
+        # token: i JWT non si revocano e durano 30 minuti, quindi
+        # senza questo un account sospeso resterebbe operativo fino
+        # alla scadenza. E' l'unico meccanismo di revoca che esiste.
         raise credentials_exception
     return User(**user.model_dump(exclude={"hashed_password"}))
 

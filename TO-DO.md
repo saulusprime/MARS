@@ -262,32 +262,9 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R13 sono risolti**; resta il solo R14 — vedi
+Difetti nel codice esistente. **Tutte le correzioni R1-R14 sono risolte** — vedi [AS-IS.md](AS-IS.md).
+Questo capitolo è vuoto — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R14 — 🔴 Il campo `disabled` non è mai applicato
-Emerso verificando R2. `User` dichiara `disabled: bool | None` e `FAKE_USERS_DB`
-valorizza `"disabled": False`, ma **nessuna funzione lo legge mai**: né
-`authenticate_user()` né `get_current_user()`.
-
-Verificato in esecuzione con un utente `disabled: True`:
-
-```
-POST /token      -> 200  (token rilasciato)
-GET  /users/me   -> 200
-POST /audit/tech -> 404  (auth superata, si ferma solo sul sito irraggiungibile)
-```
-
-Un account sospeso continua quindi ad accedere a tutta l'API. Il campo dà
-l'impressione che esista una revoca degli accessi che in realtà non c'è — è
-peggio della sua assenza, perché induce a fidarsene.
-
-- [ ] Rifiutare l'autenticazione degli utenti disabilitati in
-      `authenticate_user()`, e ricontrollare in `get_current_user()` così che
-      un token già emesso smetta di funzionare quando l'utente viene sospeso
-      (altrimenti resta valido fino alla scadenza, 30 minuti).
-- [ ] Test dedicato: è esattamente il tipo di regressione silenziosa che
-      **C12** deve intercettare.
 
 ---
 

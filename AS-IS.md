@@ -21,6 +21,7 @@
 | R8 | Il proxy char-TFIDF era quadratico | 2026-08-19 |
 | R9 | Euristica "answer-shaped" imprecisa e monolingue | 2026-08-19 |
 | R10 | I "chunk" non erano chunk; l'RRF fondeva granularità diverse | 2026-08-19 |
+| R11 | Igiene del codice (11 voci, 2 commit) | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -556,6 +557,68 @@ e su tutti gli endpoint invariata.
 - [x] Chunker in `mars_core.py` con `{"url", "heading", "text"}`.
 - [x] Entrambi i retriever sulla stessa lista di chunk.
 - [x] Referto che mappa l'indice sul suo URL e heading.
+
+### R11 — ✅ RISOLTO (2026-08-19): igiene del codice
+Undici voci, chiuse in **due commit separati** — sostanza e formattazione —
+perché mescolarle rende la revisione impossibile (regola fissata in **R13**).
+
+**`pip install -r requirements.txt` falliva.** `bcrypt=4.0.1` non è una
+specifica PEP 508 valida: serve `==`. Il file è ora diviso in tre —
+`requirements.txt` (core: CLI e API), `requirements-optional.txt`,
+`requirements-dev.txt` — con le dipendenze che il codice importa davvero e non
+erano dichiarate (`fastapi`, `uvicorn`, `pydantic`, `python-jose`, `passlib`,
+`python-multipart`) e senza `tomli`, `jsonschema`, `PyYAML`, `idna`, `click`,
+che nessun file importa. Il pin di bcrypt porta ora scritta la ragione:
+passlib 1.7.4 non sa leggere la versione di bcrypt ≥ 4.1 e solleva
+`AttributeError` — è ciò che ha reso possibile la correzione di **R1**, e
+alzarlo distrattamente la romperebbe.
+
+**`SECRET_KEY` non è più nel sorgente.** Si legge da `MARS_SECRET_KEY`; in sua
+assenza se ne genera una effimera con un avviso esplicito. I token scadono a
+ogni riavvio, il che rende il ripiego inutilizzabile in produzione: è
+esattamente il punto, e il messaggio lo dice.
+
+**`datetime.utcnow()`**, deprecata da Python 3.12 su un progetto che gira su
+**3.14**, sostituita con `datetime.now(timezone.utc)`.
+
+**Il difetto della directory di lavoro.** `load_external_module()` risolveva
+`f"{module_name}.py"` rispetto alla CWD: lanciato da un'altra cartella il
+programma non trovava nessun modulo e stampava serenamente `[ ] ... ignorato`
+per tutte e sette le aree, producendo un referto vuoto **senza un solo
+errore** — il tipo di guasto peggiore, perché sembra un risultato. Ora il
+percorso si risolve da `__file__`. Verificato lanciando l'audit da `/tmp`:
+tutti e 7 i moduli caricati.
+
+**Duplicazione eliminata.** `MODULES_REGISTRY` e `load_external_module()` erano
+copiati verbatim in `mars_audit.py` e `mars_api.py` — la stessa duplicazione
+che aveva costretto a correggere il difetto `sys.modules` in due file invece
+che in uno. Ora stanno in `mars_core.py`, insieme a `build_context()` che ci
+era arrivato con **R5**.
+
+**Un parse invece di tre.** Il crawler estrae `json_ld` e `images` mentre ha il
+DOM in memoria; `mars_schema` e `mars_wcag` non riparsano più l'HTML. Si
+estraggono **dati grezzi, non giudizi**: decidere cosa sia un difetto resta
+compito dei moduli, e il layering regge.
+
+**`openapi.json` rinominato** in `examples/audit_request.json`: non era una
+specifica OpenAPI ma un payload di esempio con dentro un URL reale. La spec
+vera la genera FastAPI su `/openapi.json`.
+
+**Stile:** aggiunto `setup.cfg` (`max-line-length = 100`), così `flake8` gira
+senza flag. Da **49 avvisi a zero**, in un commit di sola formattazione.
+Verificato che il comportamento non cambia: BM25 su corpus noto
+`[0.444974, 0.0, 0.645499]`, audit end-to-end e login API identici. Nel
+riformattare, il denominatore della formula BM25 è stato estratto in una
+variabile `norm`, che la rende anche più leggibile.
+
+- [x] `requirements.txt` valido, completo e diviso per ruolo.
+- [x] `SECRET_KEY` da ambiente.
+- [x] `datetime.now(timezone.utc)`.
+- [x] Percorso dei moduli da `__file__`.
+- [x] Registro moduli deduplicato in `mars_core`.
+- [x] HTML parsato una volta sola.
+- [x] `openapi.json` rinominato.
+- [x] `setup.cfg` e stile a zero avvisi.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

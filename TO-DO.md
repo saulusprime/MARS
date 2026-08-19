@@ -257,6 +257,8 @@ un solo test**.
       [AS-IS.md](AS-IS.md).
 - [ ] `LICENSE` — ogni file sorgente dichiara "Licenza: Apache 2.0" ma il testo
       della licenza non è nel repo.
+- [ ] Documentare nel README i tre file di requirements e la variabile
+      d'ambiente `MARS_SECRET_KEY` introdotta da R11 (vedi **R12**/**C11**).
 - [ ] `CLAUDE.md` con il contratto dei moduli, utile per il lavoro assistito.
 - [ ] La cartella `versions/` (versionamento manuale: `mars_audit_1/2/3.py`,
       `mars_api_1.py`) **non è più presente** ed è quindi assente dal commit
@@ -267,59 +269,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R10 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R11 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R11 — Igiene del codice
-- [ ] `requirements.txt:13` — `bcrypt=4.0.1` non è una specifica PEP 508 valida
-      (serve `==`). **`pip install -r requirements.txt` fallisce**: verificato.
-- [ ] `requirements.txt` **non elenca** dipendenze che il codice importa
-      davvero: `fastapi`, `uvicorn`, `pydantic`, `python-jose[cryptography]`,
-      `passlib[bcrypt]`, `python-multipart` (tutte usate da `mars_api.py`),
-      più le opzionali `sentence-transformers`, `torch`, `scikit-learn`,
-      `numpy`, `zapcli`. Sono installate nel venv ma non dichiarate.
-      Valutare `requirements.txt` (core) + `requirements-optional.txt`,
-      coerentemente col principio 2.
-- [ ] `requirements.txt` include `tomli`, `jsonschema`, `PyYAML`, `idna`, `click`:
-      **nessuno è importato** da alcun file del progetto. Rimuovere o motivare.
-- [ ] `openapi.json` **non è una specifica OpenAPI**: contiene un payload di
-      esempio di `AuditRequest` (con un URL reale, `lymphatechnologies.com`).
-      Rinominare in `examples/audit_request.json`; la vera spec è generata da
-      FastAPI su `/openapi.json`.
-- [ ] `SECRET_KEY` in chiaro in [mars_api.py:26](mars_api.py#L26). Leggerla da
-      `os.environ` e rifiutare l'avvio in assenza (o generarne una effimera con
-      un warning esplicito).
-- [ ] `datetime.utcnow()` ([mars_api.py:124-126](mars_api.py#L124-L126)) è
-      deprecata da Python 3.12 e il progetto gira su **3.14**. Sostituire con
-      `datetime.now(timezone.utc)`.
-> Due voci di questo capitolo sono state chiuse — caricatore di moduli e
-> import pigro di sentence-transformers: vedi [AS-IS.md](AS-IS.md).
-
-- [ ] `load_external_module()` usa il percorso relativo `f"{module_name}.py"`
-      ([mars_audit.py:24](mars_audit.py#L24), [mars_api.py:156](mars_api.py#L156)):
-      **dipende dalla directory di lavoro**. Lanciato da un'altra cartella, il
-      programma non trova nessun modulo e stampa serenamente `[ ] ... ignorato`
-      per tutte e 7 le aree, producendo un report vuoto senza errori.
-      Usare `Path(__file__).parent`. *(Distinto dal difetto `sys.modules` qui
-      sopra: quello è risolto, questo no.)*
-- [ ] `MODULES_REGISTRY` e `load_external_module()` sono **duplicati** verbatim
-      in `mars_audit.py` e `mars_api.py`. Spostarli in `mars_core.py`
-      (o `mars_registry.py`), unica fonte di verità. *(R5 ha già spostato lì
-      `build_context()`: resta questa seconda metà della duplicazione, ed è
-      la stessa che ha costretto a correggere il difetto `sys.modules` in due
-      file invece che in uno.)*
-- [ ] `mars_schema.py` e `mars_wcag.py` ri-parsano l'HTML con BeautifulSoup a
-      ogni modulo. Parsare una volta nel `Crawler` e mettere il `soup` (o il
-      DOM già estratto) nel `context`. *(R9 ha fatto il primo passo: `lang` è
-      ora estratto dal crawler e `mars_wcag` non riparsifica più per quel
-      controllo. Restano `alt` e JSON-LD.)*
-- [ ] Eseguire `flake8 --select=F` dopo ogni modifica: è il controllo che ha
-      rivelato **R1**. Oggi riporta un solo errore logico; deve restare a zero.
-- [ ] ~200 avvisi di stile (E302, E501, W291, W293) su `flake8 --max-line-length=120`.
-      Aggiungere `setup.cfg` e normalizzare in un unico commit separato, per non
-      mescolare formattazione e correzioni sostanziali.
-- [ ] `__pycache__/` e `node_modules/` sono versionati nella cartella di lavoro
-      (vedi **C13**).
 
 ### R12 — Incoerenze nel README
 - [ ] *"valuta **quattro** aree"* seguito da un elenco di **sette** voci

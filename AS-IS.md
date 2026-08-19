@@ -25,6 +25,7 @@
 | R12 | Incoerenze nel README; documentata l'API REST (con C11) | 2026-08-19 |
 | R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
+| C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -758,6 +759,53 @@ pubblicato.
 - [x] Rifiutare l'autenticazione degli utenti sospesi.
 - [x] Ricontrollare in `get_current_user()` perché i token già emessi decadano.
 - [ ] Test dedicato (**C12**): la verifica è stata manuale.
+
+### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
+Il repository non era sotto controllo di versione e mancavano i file che
+rendono un progetto utilizzabile da qualcuno che non l'ha scritto.
+
+**Git.** Repository inizializzato su `main`, con `.gitignore` scritto **prima**
+dell'`init`: `.venv/` pesa 5,4 GB e `node_modules/` 162 MB, quindi l'ordine non
+era un dettaglio. Il repository sta in 708 KB. Esclusi anche i referti
+rigenerabili e lo storico JSONL delle citazioni, che è dato dell'utente e non
+codice.
+
+**LICENSE, CONTRIBUTING.md, CODE_OF_CONDUCT.md** aggiunti dall'autore. I
+primo è l'Apache 2.0 autentico; gli altri due erano però **file vuoti**, e un
+file vuoto è peggio di uno assente perché chi lo apre non trova nulla. Sono
+stati scritti.
+
+`CONTRIBUTING.md` codifica le regole emerse lavorando: `flake8` a zero,
+riprodurre il difetto prima e dimostrarlo chiuso dopo, riformattazione in un
+commit separato, una voce del TO-DO per commit, e lo spostamento in AS-IS
+quando è chiusa. Più cosa non cambiare senza discuterne: sostituire gli
+algoritmi scritti a mano, rendere obbligatoria una dipendenza opzionale,
+trasformare il `context` in classi.
+
+`CODE_OF_CONDUCT.md` adatta il Contributor Covenant 2.1 in italiano. Il
+recapito per le segnalazioni è **deliberatamente lasciato in bianco**, con una
+nota che lo dice: pubblicare un indirizzo in un file del repository è una
+scelta del responsabile, non un dettaglio da dare per scontato.
+
+**`CLAUDE.md`** documenta il contratto dei moduli — `audit(context) -> dict` —
+con la tabella di ciò che arriva nel `context`, la struttura di pagine e
+chunk, cosa restituire, e la distinzione fra `score: None` (non misurato) e
+`score: 0` (giudizio). Poi i sette principi, le regole di lavoro, e una
+sezione **"trappole già pagate"**: il pin di `bcrypt`, `sys.modules` nel
+caricatore, `RobotFileParser` che nega tutto senza `parse()`,
+`soup.title.string` a `None`, l'import pigro di sentence-transformers, il
+`context` da costruire una volta sola. Sono le ore spese in questa sessione,
+messe dove servono la prossima volta.
+
+**Il contratto documentato è stato verificato contro il codice**, non scritto a
+memoria: chiavi del `context`, chiavi di pagina e di chunk confrontate a
+runtime. Zero divergenze in entrambe le direzioni — nulla di documentato che
+non esista, nulla di esistente non documentato.
+
+- [x] `.gitignore` e repository git.
+- [x] `LICENSE` (dall'autore).
+- [x] `CLAUDE.md` con il contratto dei moduli.
+- [x] `CONTRIBUTING.md` e `CODE_OF_CONDUCT.md` scritti (erano vuoti).
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

@@ -244,19 +244,20 @@ un solo test**.
       (fallirebbe **oggi**, vedi **R1**).
 - [ ] Configurare flake8 (`setup.cfg`, `max-line-length = 120`) — vedi **R11**.
 
-### C13 — File di progetto mancanti
-- [x] `.gitignore` — creato. Esclude `.venv/` (5,4 GB) e `node_modules/`
-      (162 MB), le cache, i referti rigenerabili e lo storico JSONL delle
-      citazioni (che è dato dell'utente, non codice).
-- [x] **Repository git inizializzato** (branch `main`) — vedi
-      [AS-IS.md](AS-IS.md).
-- [ ] `LICENSE` — ogni file sorgente dichiara "Licenza: Apache 2.0" ma il testo
-      della licenza non è nel repo.
-- [ ] `CLAUDE.md` con il contratto dei moduli, utile per il lavoro assistito.
-- [ ] La cartella `versions/` (versionamento manuale: `mars_audit_1/2/3.py`,
-      `mars_api_1.py`) **non è più presente** ed è quindi assente dal commit
-      iniziale. Se quei file servono come riferimento storico, vanno
-      recuperati e committati prima che si perdano del tutto.
+### C13 — File di progetto: voci residue
+Il grosso è chiuso — vedi [AS-IS.md](AS-IS.md). Restano due punti aperti.
+
+- [ ] **Titolarità del copyright.** `LICENSE` è l'Apache 2.0 autentico, ma
+      l'appendice conserva il segnaposto `Copyright [yyyy] [name of copyright
+      owner]` e nessun file sorgente porta una riga di copyright: dichiarano
+      solo *"Licenza: Apache 2.0"*. Senza un titolare indicato la licenza è
+      difficile da far valere. Non l'ho compilato di mia iniziativa: attribuire
+      la titolarità è una decisione, non una formattazione.
+- [ ] **Recapito nel `CODE_OF_CONDUCT.md`**, lasciato in bianco di proposito:
+      pubblicare un indirizzo nel repository spetta al responsabile.
+- [ ] La cartella `versions/` (`mars_audit_1/2/3.py`, `mars_api_1.py`) **non è
+      più presente** ed è assente dal repository. Se serve come riferimento
+      storico va recuperata ora; altrimenti la voce si chiude togliendola.
 
 ---
 

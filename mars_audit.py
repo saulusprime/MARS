@@ -9,9 +9,17 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import argparse
+import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       MODULES_REGISTRY, build_context, describe_chunk,
-                       load_external_module, reciprocal_rank_fusion)
+                       MODULES_REGISTRY, __version__, build_context,
+                       describe_chunk, load_external_module,
+                       reciprocal_rank_fusion)
+
+
+# Codici di uscita, allineati a quelli di mars_citations.py.
+# Il valore 1 resta libero per una futura soglia --fail-under (idea I2).
+EXIT_OK = 0
+EXIT_NESSUNA_PAGINA = 2
 
 
 def print_report(results: dict, context: dict | None = None) -> None:
@@ -95,7 +103,9 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
 
     if context is None:
         print("Nessuna pagina indicizzata.")
-        return
+        # Codice 2, non 0: un audit che non ha guardato nulla non e'
+        # un audit riuscito, e una pipeline deve poterlo distinguere.
+        return EXIT_NESSUNA_PAGINA
 
     print("\n--- Rilevamento Moduli Attivi ---")
     results = {}
@@ -116,6 +126,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
     print_report(results, context)
+    return EXIT_OK
 
 
 if __name__ == "__main__":
@@ -129,6 +140,8 @@ if __name__ == "__main__":
                         help="Pausa fra le richieste in secondi (default %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help="Timeout di rete in secondi (default %(default)s)")
+    parser.add_argument("--version", action="version",
+                        version="MARS Beacon %s" % __version__)
     parser.add_argument("--i-own-this-domain", action="store_true",
                         dest="owner_declaration",
                         help="DICHIARAZIONE: sono il proprietario del dominio e "
@@ -136,6 +149,6 @@ if __name__ == "__main__":
                              "questa dichiarazione robots.txt viene ignorato.")
 
     args = parser.parse_args()
-    run_audit(args.url, args.max_pages, args.embeddings, args.market,
-              delay=args.delay, timeout=args.timeout,
-              owner_declaration=args.owner_declaration)
+    sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
+                       args.market, delay=args.delay, timeout=args.timeout,
+                       owner_declaration=args.owner_declaration))

@@ -24,7 +24,11 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-USER_AGENT = "MARSBeacon/2.0"
+__version__ = "2.0.0"
+
+# La versione compare nello User-Agent, in --version e nell'API:
+# tenerla in un posto solo evita che le tre divergano.
+USER_AGENT = "MARSBeacon/%s" % __version__
 DEFAULT_EMBEDDINGS = "paraphrase-multilingual-MiniLM-L12-v2"
 DEFAULT_DELAY = 0.5
 DEFAULT_TIMEOUT = 10

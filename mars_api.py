@@ -20,7 +20,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       MODULES_REGISTRY, load_external_module)
+                       MODULES_REGISTRY, __version__,
+                       load_external_module)
 from mars_core import build_context as core_build_context
 from mars_core import describe_chunk, reciprocal_rank_fusion
 
@@ -48,7 +49,7 @@ app = FastAPI(
     title="MARS Beacon API",
     description="Meta-fusion, Accessibility, Ranking & Security Audit. "
                 "Audit SEO, RRF, WCAG e WAPT esposti via REST API.",
-    version="2.0.0",
+    version=__version__,
     contact={"name": "MARS Team"}
 )
 

@@ -6,18 +6,19 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Licenza: Apache 2.0
 """
 
+import os
+import secrets
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, HttpUrl
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-import importlib.util
-import os
-import sys
 
-from mars_core import DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT
+from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
+                       MODULES_REGISTRY, load_external_module)
 from mars_core import build_context as core_build_context
 from mars_core import describe_chunk, reciprocal_rank_fusion
 
@@ -25,7 +26,16 @@ from mars_core import describe_chunk, reciprocal_rank_fusion
 # CONFIGURAZIONE API & SICUREZZA
 # ==============================================================================
 
-SECRET_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" # CAMBIA IN PROD!
+# La chiave NON sta nel sorgente: chiunque legga il repository potrebbe
+# firmare token validi. Senza MARS_SECRET_KEY se ne genera una effimera,
+# che invalida i token a ogni riavvio — inutilizzabile in produzione, ed
+# e' esattamente il punto: il messaggio lo dice.
+SECRET_KEY = os.environ.get("MARS_SECRET_KEY", "")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    print("ATTENZIONE: MARS_SECRET_KEY non impostata. Uso una chiave "
+          "effimera: i token scadranno al riavvio. In produzione "
+          "esportare MARS_SECRET_KEY.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -58,17 +68,6 @@ FAKE_USERS_DB = {
         "disabled": False,
     }
 }
-
-# Moduli Registry
-MODULES_REGISTRY = [
-    ("mars_tech", "1. Tecnica"),
-    ("mars_seo", "2. SEO"),
-    ("mars_lexical", "3. Lessicale"),
-    ("mars_semantic", "4. Semantica"),
-    ("mars_schema", "5. Dati Strutturati"),
-    ("mars_wcag", "6. Accessibilità"),
-    ("mars_wapt", "7. Sicurezza")
-]
 
 # ==============================================================================
 # MODELLI PYDANTIC
@@ -133,9 +132,9 @@ def authenticate_user(fake_db, username: str,
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -168,28 +167,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 # ==============================================================================
 # HELPERS ESECUTORE AUDIT
 # ==============================================================================
-
-def load_external_module(module_name):
-    """Carica un modulo di audit dal filesystem.
-
-    La registrazione in sys.modules prima di exec_module() non e'
-    facoltativa: senza, un modulo che usa @dataclass insieme a
-    "from __future__ import annotations" fallisce con un errore
-    incomprensibile, perche' dataclasses risolve le annotazioni
-    passando da sys.modules[cls.__module__].
-    """
-    file_path = f"{module_name}.py"
-    if os.path.exists(file_path):
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = mod
-            spec.loader.exec_module(mod)
-            return mod
-        except Exception as e:
-            sys.modules.pop(module_name, None)
-            print(f"Errore caricamento {file_path}: {e}")
-    return None
 
 def build_context(req: AuditRequest) -> dict:
     """Contesto condiviso da tutti i moduli di una richiesta."""

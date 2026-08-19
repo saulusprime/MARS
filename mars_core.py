@@ -7,7 +7,10 @@ Licenza: Apache 2.0
 """
 
 import gzip
+import importlib.util
 import math
+import os
+import sys
 import time
 from collections import defaultdict
 from typing import List, Optional, Tuple
@@ -64,6 +67,47 @@ def host_matches(url: str, target_host: str) -> bool:
     """True se l'URL appartiene all'host (sottodomini inclusi)."""
     host = norm_host(url)
     return host == target_host or host.endswith("." + target_host)
+
+
+MODULES_REGISTRY = [
+    ("mars_tech", "1. Tecnica"),
+    ("mars_seo", "2. SEO"),
+    ("mars_lexical", "3. Lessicale"),
+    ("mars_semantic", "4. Semantica"),
+    ("mars_schema", "5. Dati Strutturati"),
+    ("mars_wcag", "6. Accessibilità"),
+    ("mars_wapt", "7. Sicurezza"),
+]
+
+
+def load_external_module(module_name: str):
+    """Carica un modulo di audit dalla cartella di MARS.
+
+    Il percorso e' relativo a __file__, non alla directory di lavoro:
+    lanciato da un'altra cartella il programma non trovava nessun
+    modulo e stampava "ignorato" per tutte e sette le aree, producendo
+    un referto vuoto senza un solo errore.
+
+    La registrazione in sys.modules prima di exec_module() non e'
+    facoltativa: senza, un modulo che usa @dataclass insieme a
+    "from __future__ import annotations" fallisce con un errore
+    incomprensibile, perche' dataclasses risolve le annotazioni
+    passando da sys.modules[cls.__module__].
+    """
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             f"{module_name}.py")
+    if os.path.exists(file_path):
+        try:
+            spec = importlib.util.spec_from_file_location(module_name,
+                                                          file_path)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = mod
+            spec.loader.exec_module(mod)
+            return mod
+        except Exception as e:
+            sys.modules.pop(module_name, None)
+            print(f"Errore caricamento {file_path}: {e}")
+    return None
 
 
 def _local_name(tag: str) -> str:
@@ -255,9 +299,17 @@ class Crawler:
             lingua = (html_tag.get("lang") or "") if html_tag else ""
             self.pages[url] = {
                 "title": title,
-                # Segmentati qui, dove il DOM e' gia' in memoria:
-                # rifarlo a valle vorrebbe dire riparsare l'HTML.
+                # Estratti qui, dove il DOM e' gia' in memoria: prima
+                # mars_schema e mars_wcag riparsavano l'HTML ciascuno
+                # per conto suo, tre parse per pagina invece di uno.
+                # Si estraggono DATI grezzi, non giudizi: decidere cosa
+                # sia un difetto resta compito dei moduli.
                 "chunks": chunk_page(soup, url, title),
+                "json_ld": [t.get_text(strip=True) for t in soup.find_all(
+                    "script", type="application/ld+json")],
+                "images": [{"alt": i.get("alt"),
+                            "aria-label": i.get("aria-label")}
+                           for i in soup.find_all("img")],
                 # Letto qui una volta sola: serve a mars_wcag (criterio
                 # WCAG 3.1.1) e a mars_semantic per scegliere i termini
                 # interrogativi giusti.

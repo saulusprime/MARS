@@ -1,13 +1,21 @@
+# MARS Beacon — dipendenze necessarie a CLI e API.
+# Le funzionalità opzionali stanno in requirements-optional.txt: senza,
+# lo strumento degrada con un messaggio invece di fallire (principio 2).
+
+# --- Scansione e analisi (mars_audit.py) ---
 requests>=2.28
 beautifulsoup4>=4.11
 lxml>=4.9
-pytest>=7
-flake8>=6
-anthropic>=0.120
-playwright>=1.40
-tomli>=2; python_version < "3.11"
-jsonschema>=4
-PyYAML>=6
-idna>=2.8
-click<9.0.0,>=8.4.2
-bcrypt=4.0.1
+
+# --- API REST (mars_api.py) ---
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.5
+python-jose[cryptography]>=3.3
+passlib>=1.7.4
+python-multipart>=0.0.9
+
+# bcrypt PINNATO: passlib 1.7.4 non sa leggere la versione di bcrypt >= 4.1
+# e solleva AttributeError. Non alzare questo vincolo senza prima
+# verificare che passlib sia stato aggiornato.
+bcrypt==4.0.1

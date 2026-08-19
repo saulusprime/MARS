@@ -7,44 +7,9 @@ Licenza: Apache 2.0
 """
 
 import argparse
-import os
-import sys
-import importlib.util
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       build_context, describe_chunk,
-                       reciprocal_rank_fusion)
-
-MODULES_REGISTRY = [
-    ("mars_tech", "1. Tecnica"),
-    ("mars_seo", "2. SEO"),
-    ("mars_lexical", "3. Lessicale"),
-    ("mars_semantic", "4. Semantica"),
-    ("mars_schema", "5. Dati Strutturati"),
-    ("mars_wcag", "6. Accessibilità"),
-    ("mars_wapt", "7. Sicurezza")
-]
-
-def load_external_module(module_name):
-    """Carica un modulo di audit dal filesystem.
-
-    La registrazione in sys.modules prima di exec_module() non e'
-    facoltativa: senza, un modulo che usa @dataclass insieme a
-    "from __future__ import annotations" fallisce con un errore
-    incomprensibile, perche' dataclasses risolve le annotazioni
-    passando da sys.modules[cls.__module__].
-    """
-    file_path = f"{module_name}.py"
-    if os.path.exists(file_path):
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = mod
-            spec.loader.exec_module(mod)
-            return mod
-        except Exception as e:
-            sys.modules.pop(module_name, None)
-            print(f"Errore caricamento {file_path}: {e}")
-    return None
+                       MODULES_REGISTRY, build_context, describe_chunk,
+                       load_external_module, reciprocal_rank_fusion)
 
 def print_report(results, context=None):
     print("\n" + "="*55)

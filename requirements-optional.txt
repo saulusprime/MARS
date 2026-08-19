@@ -1,0 +1,19 @@
+# MARS Beacon — funzionalità opzionali.
+# Ognuna migliora un'area; se manca, il modulo corrispondente ripiega su
+# un'alternativa e lo dichiara nel referto.
+
+# Embedding reali al posto del proxy char-TFIDF (mars_core.py).
+# Trascina torch: sono alcuni GB.
+sentence-transformers>=2.2
+scikit-learn>=1.3
+numpy>=1.24
+
+# Monitoraggio delle citazioni IA e giudizio LLM (mars_citations.py).
+anthropic>=0.120
+
+# Scan WAPT attivo al posto del solo controllo header (mars_wapt.py).
+# Richiede anche il daemon ZAP (Java), che non è un pacchetto pip.
+zapcli>=0.10
+
+# Audit WCAG reale via axe-core (previsto, non ancora integrato: vedi C8).
+playwright>=1.40

@@ -19,6 +19,7 @@
 | R6 | Crash su `<title>` vuoto e tre casi limite vicini | 2026-08-19 |
 | R7 | Il crawler non era un buon cittadino della rete | 2026-08-19 |
 | R8 | Il proxy char-TFIDF era quadratico | 2026-08-19 |
+| R9 | Euristica "answer-shaped" imprecisa e monolingue | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -427,6 +428,62 @@ pareggio. Il guadagno reale di R8 è la velocità, non la memoria.
 - [x] Vettori sparsi (utile per la struttura, **non** per la memoria: vedi
       sopra).
 - [x] Norme dei documenti precalcolate.
+
+### R9 — ✅ RISOLTO (2026-08-19): l'euristica "answer-shaped" era imprecisa e monolingue
+```python
+has_question = any(w in chunk.lower() for w in ["?", "come", "cosa", "perché", "chi", "dove", "quando"])
+```
+Test di **sottostringa**, non di parola. Misurato quali termini causano
+davvero falsi positivi: `chi` (dentro *chiave, chiaro, chiesa, macchina,
+architettura, archivio*), `cosa` (*qualcosa*), `dove` (*dovere, doveroso*).
+
+**Due affermazioni del TO-DO erano sbagliate e sono state corrette:**
+`"come"` **non** matcha *comodo* (che contiene "como", non "come"); e la
+metrica **non** era "vicina a zero" sull'inglese, perché `"?"` è nell'elenco
+e le domande inglesi con punto interrogativo passavano. Restava cieca solo
+sulle domande senza punto interrogativo in lingue diverse dall'italiano.
+
+**I confini di parola da soli non bastavano.** Misurato: eliminano tutti i
+falsi positivi da sottostringa, ma non quelli grammaticali, perché in italiano
+gli interrogativi sono anche congiunzioni — *"comodo **come** la neve"*,
+*"il luogo **dove** abbiamo aperto"*, *"ricordiamo **quando** abbiamo
+iniziato"*. Da qui la scelta di un segnale **posizionale**.
+
+**Risoluzione applicata.** Quattro segnali indipendenti al posto di un elenco
+di parole:
+
+1. **punto interrogativo** nel testo;
+2. **interrogativo a inizio frase** (dopo `. ! ? ; :` o a inizio testo), che è
+   ciò che distingue una domanda da una congiunzione;
+3. **titolo interrogativo** fra gli `headings` della pagina — segnale molto
+   più forte di un termine nel corpo del testo;
+4. **FAQPage JSON-LD** nella pagina (controllo volutamente grezzo: `mars_schema`
+   legge già il JSON-LD, ma i moduli non si scambiano ancora i risultati —
+   vedi **C7**).
+
+Cinque lingue coperte (it, en, es, fr, de), scelte in base all'attributo
+`lang`; senza lingua nota si provano tutte, perché un falso positivo è
+preferibile a una metrica sistematicamente a zero.
+
+`Crawler` conserva ora `lang` nel dizionario di pagina: letto una volta sola,
+serve sia qui sia a `mars_wcag`, che è stato collegato e non riparsifica più
+l'HTML per quel controllo. Effetto collaterale desiderabile: `lang=""` ora
+conta come mancante, dove `has_attr('lang')` lo accettava — una stringa vuota
+non è una dichiarazione di lingua valida (WCAG 3.1.1).
+
+Il modulo restituisce anche `answer_shaped_signals` e `languages`, e
+`/audit/semantic` li espone (continuando a escludere `scores`/`rank`, che sono
+array lunghi quanto il corpus).
+
+**Verificato** su 10 casi costruiti — 4 falsi positivi noti e 6 vere domande in
+5 lingue: la vecchia euristica sbagliava 7 volte, la nuova **10/10**. Su un
+sito sintetico con vere FAQ: 67% di chunk answer-shaped, con i quattro segnali
+distinti nel referto; il chunk pieno di *chiavi/archivio/comodo come* non
+produce alcun segnale.
+
+- [x] Confini di parola — e oltre: posizione a inizio frase.
+- [x] Multilingue (it, en, es, fr, de) guidato da `lang`.
+- [x] Segnali strutturali: titoli interrogativi e FAQPage JSON-LD.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

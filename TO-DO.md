@@ -265,28 +265,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R8 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R9 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R9 — L'euristica "answer-shaped" è imprecisa e monolingue
-[mars_semantic.py:20](mars_semantic.py#L20):
-```python
-has_question = any(w in chunk.lower() for w in ["?", "come", "cosa", "perché", "chi", "dove", "quando"])
-```
-È un test di **sottostringa**, non di parola: `"chi"` matcha *chiave*,
-*macchina*, *architettura*; `"come"` matcha *comodo*. In pratica quasi ogni
-chunk italiano risulta "answer-shaped" e la metrica perde significato.
-
-Inoltre il termini sono solo italiani, mentre il modello di embedding di default
-(`paraphrase-multilingual-MiniLM-L12-v2`) è **multilingue**: su un sito inglese
-la metrica è sistematicamente vicina a zero.
-
-- [ ] Usare confini di parola (`re.search(r'\b(...)\b')`).
-- [ ] Estendere ad almeno IT/EN, o derivare la lingua dall'attributo `lang`
-      già letto da `mars_wcag.py`.
-- [ ] Aggiungere segnali strutturali più robusti dell'elenco di parole:
-      presenza di liste, definizioni, `<h2>` in forma interrogativa, FAQPage
-      JSON-LD (dato che `mars_schema.py` lo sta già leggendo).
 
 ### R10 — I "chunk" non sono chunk
 [mars_audit.py:81](mars_audit.py#L81) e [mars_api.py:176](mars_api.py#L176):
@@ -352,7 +332,9 @@ significato dichiarato nel README.
       file invece che in uno.)*
 - [ ] `mars_schema.py` e `mars_wcag.py` ri-parsano l'HTML con BeautifulSoup a
       ogni modulo. Parsare una volta nel `Crawler` e mettere il `soup` (o il
-      DOM già estratto) nel `context`.
+      DOM già estratto) nel `context`. *(R9 ha fatto il primo passo: `lang` è
+      ora estratto dal crawler e `mars_wcag` non riparsifica più per quel
+      controllo. Restano `alt` e JSON-LD.)*
 - [ ] Eseguire `flake8 --select=F` dopo ogni modifica: è il controllo che ha
       rivelato **R1**. Oggi riporta un solo errore logico; deve restare a zero.
 - [ ] ~200 avvisi di stile (E302, E501, W291, W293) su `flake8 --max-line-length=120`.

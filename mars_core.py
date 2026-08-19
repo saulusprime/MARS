@@ -251,8 +251,14 @@ class Crawler:
             # un TypeError dentro " ".join() in mars_lexical,
             # facendo cadere il modulo lessicale e con esso l'RRF.
             title = soup.title.get_text(strip=True) if soup.title else ""
+            html_tag = soup.find("html")
+            lingua = (html_tag.get("lang") or "") if html_tag else ""
             self.pages[url] = {
                 "title": title,
+                # Letto qui una volta sola: serve a mars_wcag (criterio
+                # WCAG 3.1.1) e a mars_semantic per scegliere i termini
+                # interrogativi giusti.
+                "lang": lingua.strip().lower()[:2],
                 "text": soup.get_text(separator=" ", strip=True),
                 "headings": [h.get_text(strip=True)
                              for h in soup.find_all(["h1", "h2", "h3"])],

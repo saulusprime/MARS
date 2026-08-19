@@ -16,13 +16,15 @@ def audit(context: dict) -> dict:
 
     issues = []
     score = 100
+    # lang e' gia' estratto dal crawler: evita una riparsificazione
+    # dell'HTML. Piu' severo del vecchio has_attr(): un lang="" vuoto
+    # non e' una dichiarazione di lingua valida (WCAG 3.1.1).
     first_page = next(iter(pages.values()))
-    soup = BeautifulSoup(first_page['html'], 'lxml')
-    
-    if not soup.html or not soup.html.has_attr('lang'):
+    if not first_page.get("lang"):
         issues.append("Attributo 'lang' mancante nel tag <html>")
         score -= 20
-        
+
+
     total_imgs = 0
     missing_alt = 0
     for url, data in pages.items():

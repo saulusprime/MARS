@@ -273,7 +273,12 @@ async def audit_lexical(req: AuditRequest, current_user: User = Depends(get_curr
 async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 4: Semantica (chunk answer-shaped, vector retrieval)."""
     res = run_single_audit("mars_semantic", build_context(req))
-    return AuditResponse(module="mars_semantic", details={"answer_shaped_ratio": res.get("answer_shaped_ratio")})
+    # Si escludono scores/rank: sono array lunghi quanto il corpus e
+    # non servono a chi consuma l'endpoint.
+    dettagli = {k: res[k] for k in
+                ("answer_shaped_ratio", "answer_shaped_signals", "languages")
+                if k in res}
+    return AuditResponse(module="mars_semantic", details=dettagli)
 
 @app.post("/audit/schema", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):

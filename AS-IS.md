@@ -16,6 +16,7 @@
 | R3 | Command injection remota in `mars_seo.py` | 2026-08-19 |
 | R4 | Punteggi inventati in `mars_wapt.py` e `mars_seo.py` | 2026-08-19 |
 | R5 | `/audit/full` ricrawlava il sito 8 volte | 2026-08-19 |
+| R6 | Crash su `<title>` vuoto e tre casi limite vicini | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -244,6 +245,67 @@ R1 e R2 non regrediti, `flake8` pulito.
 - [x] Costruire il `context` una volta sola in `/audit/full`.
 - [x] Rifattorizzare `run_single_audit` per ricevere il contesto.
 - [x] Eliminare la duplicazione CLI/API della costruzione del contesto.
+
+### R6 — ✅ RISOLTO (2026-08-19): crash su `<title>` vuoto, e tre casi limite vicini
+`title = soup.title.string if soup.title else ""`: su `<title></title>` il tag
+esiste ma `.string` è **`None`**, non `""`. Quel `None` finiva in
+`pages[url]["title"]` e poi dentro `" ".join(parts)` in `mars_lexical.py`:
+
+```
+TypeError: sequence item 0: expected str instance, NoneType found
+```
+
+Un solo `<title></title>` in tutto il sito faceva cadere l'intero modulo
+lessicale, e con esso la simulazione RRF — il cuore del progetto.
+
+**Risoluzione applicata**, su quattro punti:
+
+1. **`mars_core.Crawler`** usa `soup.title.get_text(strip=True)`, che
+   restituisce `""` dove `.string` dava `None`. Verificato su `<title></title>`
+   → `''`, `<title>  Spazi  </title>` → `'Spazi'`, titolo assente → `''`.
+   Su `<title><b>x</b></title>` restituisce `'<b>x</b>'`: **corretto**, perché
+   `<title>` è un elemento a testo grezzo e un browser mostrerebbe proprio
+   quella stringa.
+2. **`mars_lexical`** si difende comunque a valle: i moduli non devono fidarsi
+   ciecamente del `context`. Verificato con `title` **e** `headings` a `None`.
+3. **`LexicalRetriever.get_scores`** ha ora una guardia esplicita su
+   `avgdl == 0`. Non era un crash reale: `avgdl` è 0 solo se *tutti* i
+   documenti sono vuoti, e allora `idf` è vuoto e il ciclo interno non entra.
+   Era una protezione **accidentale**, che un refactor avrebbe potuto togliere
+   senza accorgersene.
+4. **`mars_wcag`** andava in `IndexError` con `pages` vuoto
+   (`list(...values())[0]`). Ora restituisce `score: None` +
+   `status: "unavailable"`, come lo schema introdotto da R4. Stessa guardia
+   aggiunta a `mars_schema`.
+
+**`mars_schema`: vuoto ≠ malformato.** `json.loads(script.string)` con
+`.string` a `None` sollevava `TypeError`, che l'`except Exception` catturava
+riportandolo come *"JSON-LD malformato"* — **diagnosi sbagliata**: il blocco
+non era malformato, era vuoto. Ora si usa `get_text(strip=True)`, si distingue
+`JSON-LD vuoto` (−5) da `JSON-LD malformato` (−10), e si cattura
+`json.JSONDecodeError` invece di `Exception`.
+
+Verificato: script vuoto → 95 con "vuoto"; JSON malformato → 90 con
+"malformato"; JSON-LD valido → 100 senza rilievi; script con testo estraneo al
+JSON → 90 "malformato", ora per la ragione giusta.
+
+**Una precisazione emersa durante il lavoro.** Avevo scritto, sia nel TO-DO che
+in un primo commento nel codice, che `.string` è `None` anche quando il tag ha
+più di un figlio. Con lxml **non vale** per `<title>` e `<script>`, che sono
+elementi a testo grezzo: lì `.string` è `None` solo se l'elemento è vuoto.
+I commenti sono stati corretti per non lasciare in giro una spiegazione falsa.
+
+**Prova decisiva.** Audit completo su un sito con una pagina a `<title>` vuoto
+e `title` forzato a `None` nel contesto: `mars_lexical` e `mars_semantic`
+completano entrambi, l'RRF viene calcolato. Prima il modulo lessicale sarebbe
+caduto e la fusione non sarebbe avvenuta affatto. CLI end-to-end su
+`example.com` invariata.
+
+- [x] `title` robusto nel crawler.
+- [x] Difesa a valle in `mars_lexical.py`.
+- [x] Guardia esplicita su `avgdl`.
+- [x] `mars_wcag` e `mars_schema` con `pages` vuoto.
+- [x] `mars_schema`: vuoto distinto da malformato, eccezione specifica.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

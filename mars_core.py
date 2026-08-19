@@ -79,7 +79,11 @@ class Crawler:
             try:
                 resp = requests.get(url, timeout=10)
                 soup = BeautifulSoup(resp.text, 'lxml')
-                title = soup.title.string if soup.title else ""
+                # get_text() invece di .string: su <title></title>
+                # .string e' None (non ""), e quel None propagava fino a
+                # un TypeError dentro " ".join() in mars_lexical,
+                # facendo cadere il modulo lessicale e con esso l'RRF.
+                title = soup.title.get_text(strip=True) if soup.title else ""
                 text = soup.get_text(separator=" ", strip=True)
                 
                 self.pages[url] = {
@@ -119,6 +123,12 @@ class LexicalRetriever:
             self.idf[token] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0)
 
     def get_scores(self, query):
+        # Guardia esplicita: con avgdl a 0 la formula BM25 dividerebbe
+        # per zero. Oggi non accade perche' avgdl e' 0 solo se tutti i
+        # documenti sono vuoti, e allora idf e' vuoto e il ciclo interno
+        # non entra mai — una protezione accidentale, non voluta.
+        if not self.avgdl:
+            return [0.0] * self.corpus_size
         scores = []
         for i in range(self.corpus_size):
             score = 0.0

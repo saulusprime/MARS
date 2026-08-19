@@ -8,10 +8,15 @@ Licenza: Apache 2.0
 
 from bs4 import BeautifulSoup
 
-def audit(context):
+def audit(context: dict) -> dict:
+    pages = context.get("pages") or {}
+    if not pages:
+        return {"score": None, "status": "unavailable",
+                "issues": ["Nessuna pagina da analizzare"]}
+
     issues = []
     score = 100
-    first_page = list(context["pages"].values())[0]
+    first_page = next(iter(pages.values()))
     soup = BeautifulSoup(first_page['html'], 'lxml')
     
     if not soup.html or not soup.html.has_attr('lang'):
@@ -20,7 +25,7 @@ def audit(context):
         
     total_imgs = 0
     missing_alt = 0
-    for url, data in context["pages"].items():
+    for url, data in pages.items():
         soup = BeautifulSoup(data['html'], 'lxml')
         imgs = soup.find_all('img')
         total_imgs += len(imgs)

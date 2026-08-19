@@ -262,35 +262,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R5 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R6 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R6 — Crash su `<title>` vuoto
-[mars_core.py:49](mars_core.py#L49): `title = soup.title.string if soup.title else ""`.
-Se il tag esiste ma è vuoto (`<title></title>`), `.string` è **`None`**, non `""`.
-Quel `None` finisce in `pages[url]["title"]` e poi in
-[mars_lexical.py:14-15](mars_lexical.py#L14-L15), dentro `" ".join(parts)`.
-
-Verificato:
-```
-TypeError: sequence item 0: expected str instance, NoneType found
-```
-Un solo `<title></title>` in tutto il sito fa fallire l'intero modulo lessicale
-— e con esso la simulazione RRF, che è il cuore del progetto.
-
-- [ ] `title = (soup.title.string or "").strip() if soup.title else ""`.
-- [ ] Difesa anche a valle in `mars_lexical.py` (i moduli non devono fidarsi
-      ciecamente del `context`).
-
-Altri casi limite nella stessa area, da coprire con i test di **C12**:
-- [ ] `LexicalRetriever.avgdl` è `0` con corpus di documenti vuoti →
-      la divisione a [mars_core.py:97](mars_core.py#L97) è protetta solo perché
-      `self.idf` risulta vuoto. Fragile: rendere la guardia esplicita.
-- [ ] `mars_wcag.py:13` — `list(context["pages"].values())[0]` va in `IndexError`
-      su `pages` vuoto. Oggi non accade solo grazie al controllo a monte.
-- [ ] `mars_schema.py:22` — `json.loads(script.string)` con `script.string`
-      a `None` solleva `TypeError`, catturato dall'`except Exception` e
-      riportato come *"JSON-LD malformato"*: **diagnosi sbagliata**.
 
 ### R7 — Il crawler non è un buon cittadino della rete
 `Crawler` ([mars_core.py:22-60](mars_core.py#L22-L60)) manca di tutto ciò che

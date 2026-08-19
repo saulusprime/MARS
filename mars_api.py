@@ -9,7 +9,7 @@ Licenza: Apache 2.0
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -17,6 +17,7 @@ import importlib.util
 import os
 import sys
 
+from mars_core import DEFAULT_DELAY, DEFAULT_TIMEOUT
 from mars_core import build_context as core_build_context
 from mars_core import reciprocal_rank_fusion
 
@@ -96,6 +97,13 @@ class AuditRequest(BaseModel):
     max_pages: int = 10
     embeddings: str = "paraphrase-multilingual-MiniLM-L12-v2"
     market: str = "global"
+    delay: float = DEFAULT_DELAY
+    timeout: int = DEFAULT_TIMEOUT
+    i_own_this_domain: bool = Field(
+        default=False,
+        description="DICHIARAZIONE di proprietà del dominio e di assunzione "
+                    "di responsabilità. È l'unico modo per ignorare "
+                    "robots.txt; viene registrata nel referto.")
 
 class AuditResponse(BaseModel):
     module: str
@@ -186,7 +194,9 @@ def load_external_module(module_name):
 def build_context(req: AuditRequest) -> dict:
     """Contesto condiviso da tutti i moduli di una richiesta."""
     context = core_build_context(str(req.url), req.max_pages,
-                                 req.embeddings, req.market)
+                                 req.embeddings, req.market,
+                                 delay=req.delay, timeout=req.timeout,
+                                 owner_declaration=req.i_own_this_domain)
     if context is None:
         raise HTTPException(
             status_code=404,

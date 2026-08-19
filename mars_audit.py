@@ -10,7 +10,8 @@ import argparse
 import os
 import sys
 import importlib.util
-from mars_core import build_context, reciprocal_rank_fusion
+from mars_core import (DEFAULT_DELAY, DEFAULT_TIMEOUT, build_context,
+                       reciprocal_rank_fusion)
 
 MODULES_REGISTRY = [
     ("mars_tech", "1. Tecnica"),
@@ -44,7 +45,7 @@ def load_external_module(module_name):
             print(f"Errore caricamento {file_path}: {e}")
     return None
 
-def print_report(results, urls):
+def print_report(results, urls, context=None):
     print("\n" + "="*55)
     print("           MARS BEACON - REPORT FINALE           ")
     print("="*55)
@@ -80,11 +81,30 @@ def print_report(results, urls):
         print(f"Simulazione RRF      : Consenso Top-3 = {consensus}/3")
         print(f"Top Chunk Ibrido     : {urls[rrf[0][0]] if rrf else 'N/A'}")
         
+    if context:
+        # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
+        # cambiano il significato di ogni punteggio qui sopra.
+        saltati = context.get("skipped") or []
+        if context.get("robots_ignored"):
+            print("-" * 55)
+            print("\u26a0 robots.txt IGNORATO per dichiarazione di proprieta'")
+        if saltati:
+            print("-" * 55)
+            print(f"URL saltati          : {len(saltati)}")
+            for motivo in saltati[:3]:
+                print(f"  · {motivo}")
+            if len(saltati) > 3:
+                print(f"  · ... e altri {len(saltati) - 3}")
+
     print("="*55 + "\n")
 
-def run_audit(url, max_pages, embeddings_model, market):
+def run_audit(url, max_pages, embeddings_model, market,
+              delay=DEFAULT_DELAY, timeout=DEFAULT_TIMEOUT,
+              owner_declaration=False):
     print(f"Avvio scansione MARS Beacon su: {url}")
-    context = build_context(url, max_pages, embeddings_model, market)
+    context = build_context(url, max_pages, embeddings_model, market,
+                            delay=delay, timeout=timeout,
+                            owner_declaration=owner_declaration)
 
     if context is None:
         print("Nessuna pagina indicizzata.")
@@ -108,7 +128,7 @@ def run_audit(url, max_pages, embeddings_model, market):
         else:
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
-    print_report(results, context["urls"])
+    print_report(results, context["urls"], context)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MARS Beacon - Meta-fusion Audit")
@@ -116,6 +136,17 @@ if __name__ == "__main__":
     parser.add_argument("--max-pages", type=int, default=10, help="Numero massimo di pagine")
     parser.add_argument("--embeddings", default="paraphrase-multilingual-MiniLM-L12-v2", help="Modello ST o 'none'")
     parser.add_argument("--market", default="global", help="Target market per citabilità IA")
+    parser.add_argument("--delay", type=float, default=DEFAULT_DELAY,
+                        help="Pausa fra le richieste in secondi (default %(default)s)")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
+                        help="Timeout di rete in secondi (default %(default)s)")
+    parser.add_argument("--i-own-this-domain", action="store_true",
+                        dest="owner_declaration",
+                        help="DICHIARAZIONE: sono il proprietario del dominio e "
+                             "mi assumo la responsabilità dell'audit. Solo con "
+                             "questa dichiarazione robots.txt viene ignorato.")
     
     args = parser.parse_args()
-    run_audit(args.url, args.max_pages, args.embeddings, args.market)
+    run_audit(args.url, args.max_pages, args.embeddings, args.market,
+              delay=args.delay, timeout=args.timeout,
+              owner_declaration=args.owner_declaration)

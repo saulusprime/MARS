@@ -150,6 +150,9 @@ senso su un set di query.
 - [ ] Calcolare consenso e RRF aggregati su tutte le query, non sulla prima.
 
 ### C6 — Crawling interno (fallback quando manca la sitemap) — *mancante*
+> R7 ha reso il crawler rispettoso (robots.txt, User-Agent, rate limit,
+> filtro same-host, normalizzazione URL): la BFS sui link interni va
+> innestata su quelle regole, non aggiunta a fianco.
 Il README: *"esegue una scansione di un sito (**via sitemap o crawling
 interno**)"*. In [mars_core.py:40-44](mars_core.py#L40-L44), se
 `fetch_sitemap()` non restituisce nulla il fallback è
@@ -262,32 +265,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R6 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R7 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R7 — Il crawler non è un buon cittadino della rete
-`Crawler` ([mars_core.py:22-60](mars_core.py#L22-L60)) manca di tutto ciò che
-distingue un crawler da un ciclo di `requests.get`:
-
-- [ ] **Non rispetta robots.txt.** Paradossale in uno strumento che *valuta*
-      robots.txt in `mars_tech.py`. Usare `urllib.robotparser` (stdlib).
-- [ ] **Nessun User-Agent**: si presenta come `python-requests/2.x`, che molti
-      siti bloccano. Identificarsi come `MARSBeacon/2.0 (+url)`.
-- [ ] **Nessun rate limit**: richieste in sequenza serrata. Aggiungere un
-      `--delay` (default ~0.5s).
-- [ ] **Nessun controllo dello status code** ([riga 48](mars_core.py#L48)):
-      `resp.text` viene passato a BeautifulSoup anche per 404 e 500, e la pagina
-      d'errore entra nel corpus BM25 falsando i ranking.
-- [ ] **Nessun controllo del `Content-Type`**: una sitemap che elenca PDF o
-      immagini li fa parsare come HTML.
-- [ ] **Nessuna deduplicazione/normalizzazione** degli URL: `/a` e `/a#top`
-      sono due pagine distinte.
-- [ ] **Nessun filtro same-host** sugli URL della sitemap.
-- [ ] **Sitemap**: non gestisce `<sitemapindex>` annidati, né `.xml.gz`, né la
-      direttiva `Sitemap:` dentro robots.txt. Cerca solo `/sitemap.xml`
-      ([riga 29](mars_core.py#L29)).
-- [ ] Timeout fissi a 10s ([riga 31](mars_core.py#L31), [riga 47](mars_core.py#L47)):
-      renderli configurabili.
 
 ### R8 — Il proxy char-TFIDF è quadratico
 [mars_core.py:155](mars_core.py#L155), dentro `get_scores`:

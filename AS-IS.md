@@ -17,6 +17,7 @@
 | R4 | Punteggi inventati in `mars_wapt.py` e `mars_seo.py` | 2026-08-19 |
 | R5 | `/audit/full` ricrawlava il sito 8 volte | 2026-08-19 |
 | R6 | Crash su `<title>` vuoto e tre casi limite vicini | 2026-08-19 |
+| R7 | Il crawler non era un buon cittadino della rete | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -306,6 +307,74 @@ caduto e la fusione non sarebbe avvenuta affatto. CLI end-to-end su
 - [x] Guardia esplicita su `avgdl`.
 - [x] `mars_wcag` e `mars_schema` con `pages` vuoto.
 - [x] `mars_schema`: vuoto distinto da malformato, eccezione specifica.
+
+### R7 — ✅ RISOLTO (2026-08-19): il crawler è ora un buon cittadino della rete
+`Crawler` era un ciclo di `requests.get` su `/sitemap.xml`. Nove difetti,
+tutti chiusi.
+
+**robots.txt, con dichiarazione di proprietà.** Era il difetto più
+imbarazzante: uno strumento che *valuta* robots.txt in `mars_tech.py` non lo
+rispettava. Ora si usa `urllib.robotparser`, e l'unico modo per ignorarlo è
+una **dichiarazione esplicita di proprietà del dominio e di responsabilità** —
+`--i-own-this-domain` da CLI, `i_own_this_domain: bool` nel corpo della
+richiesta API. Non è un interruttore di comodo: il nome del flag *è* la
+dichiarazione, l'uso stampa un avviso, e il fatto viene registrato in
+`context["robots_ignored"]` e dichiarato in fondo al referto. Via API la
+dichiarazione è per di più attribuibile all'utente autenticato.
+
+Due trappole di `robotparser`, verificate prima di scrivere il codice:
+
+- un `RobotFileParser` su cui non si è mai chiamato `parse()` risponde
+  **`False` a ogni `can_fetch()`**. Va quindi chiamato `parse([])` anche
+  quando robots.txt manca, altrimenti il crawler non scaricherebbe nulla
+  senza spiegare perché.
+- `crawl_delay()` per un agente specifico **non eredita** da `*`. Si
+  interrogano entrambi e si prende il valore più prudente fra quello del sito
+  e il nostro.
+
+**Gli altri otto.** User-Agent `MARSBeacon/2.0` invece di
+`python-requests/2.x`; pausa fra le richieste (`--delay`, default 0,5 s, che
+cede al `Crawl-delay` del sito se più alto); scarto delle risposte non-200,
+che prima finivano nel corpus BM25 come pagine d'errore falsando i ranking;
+controllo del `Content-Type`, che prima faceva parsare i PDF come HTML;
+normalizzazione degli URL (`normalize_url()`: via il frammento, host
+minuscolo, porta implicita) così che `/a` e `/a#top` non siano due pagine;
+filtro same-host sugli URL della sitemap; sitemap lette dalle direttive
+`Sitemap:` di robots.txt prima che da `/sitemap.xml`, con `<sitemapindex>`
+annidati (fino a 3 livelli) e `.xml.gz` decompressi; timeout configurabile
+(`--timeout`).
+
+**Il referto dichiara cosa non ha guardato.** Il crawler raccoglie in
+`skipped` il motivo di ogni URL scartato e `print_report()` lo mostra: dodici
+pagine saltate cambiano il significato di ogni punteggio del referto, e
+tacerlo sarebbe una bugia per omissione (principio 6).
+
+**Verificato** con un server HTTP locale costruito apposta, che riproduce
+robots.txt con `Disallow` e `Crawl-delay`, un `<sitemapindex>` che punta a una
+sitemap normale e a una `.xml.gz`, un URL con frammento, un host esterno, un
+404 e un PDF:
+
+```
+pagine scaricate : ok1, ok2
+URL saltati      : vietato da robots.txt: /privato/segreto
+                   host esterno: http://esterno.test/pagina
+                   HTTP 404: /mancante
+                   non HTML (application/pdf): /documento.pdf
+User-Agent       : MARSBeacon/2.0
+delay applicato  : 1.0s  (il nostro era 0,5; robots.txt chiedeva 1)
+```
+
+`/ok1` e `/ok1#top` producono una sola pagina; `ok2` arriva dalla sitemap
+compressa, quindi indice annidato e gzip funzionano. Con
+`owner_declaration=True` compare anche `/privato/segreto`. Referto CLI e
+schema OpenAPI mostrano entrambi la dichiarazione. Regressione su
+`example.com` invariata.
+
+- [x] Rispettare robots.txt, con bypass solo su dichiarazione di proprietà.
+- [x] User-Agent, rate limit, status code, Content-Type.
+- [x] Normalizzazione/deduplicazione URL e filtro same-host.
+- [x] Sitemap: direttive in robots.txt, indici annidati, `.xml.gz`.
+- [x] Timeout configurabile.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

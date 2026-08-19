@@ -6,13 +6,25 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Licenza: Apache 2.0
 """
 
+import gzip
 import math
+import time
 from collections import defaultdict
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import xml.etree.ElementTree as ET
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
+from urllib.robotparser import RobotFileParser
 import requests
 from bs4 import BeautifulSoup
+
+# Identificarsi e' la prima regola della buona educazione fra crawler:
+# "python-requests/2.x" viene bloccato da molti siti, e giustamente.
+# Quando il progetto avra' una pagina pubblica, va aggiunta qui.
+USER_AGENT = "MARSBeacon/2.0"
+DEFAULT_DELAY = 0.5
+DEFAULT_TIMEOUT = 10
+HTML_TYPES = ("text/html", "application/xhtml+xml")
+MAX_SITEMAP_DEPTH = 3
 
 _ST_CACHE = None  # None = non ancora tentato; False = non disponibile
 
@@ -52,49 +64,201 @@ def host_matches(url: str, target_host: str) -> bool:
     host = norm_host(url)
     return host == target_host or host.endswith("." + target_host)
 
+
+def _local_name(tag: str) -> str:
+    """Nome del tag senza namespace: le sitemap reali ne usano di vari."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def normalize_url(url: str) -> str:
+    """URL confrontabile: senza frammento, host minuscolo, porta implicita.
+
+    Serve a non trattare /a e /a#top come due pagine distinte, che
+    finirebbero due volte nel corpus falsando BM25.
+    """
+    parts = urlsplit(url.strip())
+    host = parts.hostname or ""
+    default = {"http": 80, "https": 443}.get(parts.scheme.lower())
+    if parts.port and parts.port != default:
+        host = "%s:%d" % (host, parts.port)
+    return urlunsplit((parts.scheme.lower(), host, parts.path or "/",
+                       parts.query, ""))
+
+
 class Crawler:
-    def __init__(self, base_url, max_pages=20):
+    """Scansione di un sito via sitemap.
+
+    Rispetta robots.txt, si identifica, mette una pausa fra le
+    richieste e scarta cio' che non e' HTML servito con successo.
+    """
+
+    def __init__(self, base_url: str, max_pages: int = 20,
+                 delay: float = DEFAULT_DELAY,
+                 timeout: int = DEFAULT_TIMEOUT,
+                 user_agent: str = USER_AGENT,
+                 owner_declaration: bool = False):
+        """owner_declaration: chi lancia l'audit dichiara di essere il
+        proprietario del dominio e se ne assume la responsabilita'.
+        E' l'unico modo per ignorare robots.txt: non e' un interruttore
+        di comodo ma una dichiarazione, ed e' registrata nel referto.
+        """
         self.base_url = base_url
         self.max_pages = max_pages
-        self.pages = {}
+        self.delay = delay
+        self.timeout = timeout
+        self.user_agent = user_agent
+        self.owner_declaration = owner_declaration
+        self.base_host = norm_host(base_url)
+        self.pages: dict = {}
+        self.skipped: List[str] = []
+        self.session = requests.Session()
+        self.session.headers["User-Agent"] = user_agent
+        self._robots: Optional[RobotFileParser] = None
+        self._last_request = 0.0
 
-    def fetch_sitemap(self):
-        sitemap_url = urljoin(self.base_url, "/sitemap.xml")
-        try:
-            resp = requests.get(sitemap_url, timeout=10)
-            if resp.status_code == 200:
-                root = ET.fromstring(resp.content)
-                urls = [elem.text for elem in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
-                return urls[:self.max_pages]
-        except Exception:
-            pass
-        return []
+    # -- rete -----------------------------------------------------
 
-    def crawl(self):
-        urls = self.fetch_sitemap()
-        if not urls:
-            urls = [self.base_url]
-        
-        for url in urls[:self.max_pages]:
+    def _get(self, url: str) -> requests.Response:
+        """GET con User-Agent, timeout e pausa rispetto alla richiesta
+        precedente."""
+        attesa = self.delay - (time.monotonic() - self._last_request)
+        if attesa > 0:
+            time.sleep(attesa)
+        self._last_request = time.monotonic()
+        return self.session.get(url, timeout=self.timeout)
+
+    # -- robots.txt -----------------------------------------------
+
+    def robots(self) -> RobotFileParser:
+        """robots.txt del sito, letto una volta sola.
+
+        parse() va chiamato SEMPRE, anche quando il file manca: un
+        RobotFileParser mai popolato risponde False a ogni can_fetch(),
+        e il crawler non scaricherebbe nulla senza dire perche'.
+        """
+        if self._robots is None:
+            self._robots = RobotFileParser()
+            righe: List[str] = []
             try:
-                resp = requests.get(url, timeout=10)
-                soup = BeautifulSoup(resp.text, 'lxml')
-                # get_text() invece di .string: su <title></title>
-                # .string e' None (non ""), e quel None propagava fino a
-                # un TypeError dentro " ".join() in mars_lexical,
-                # facendo cadere il modulo lessicale e con esso l'RRF.
-                title = soup.title.get_text(strip=True) if soup.title else ""
-                text = soup.get_text(separator=" ", strip=True)
-                
-                self.pages[url] = {
-                    "title": title,
-                    "text": text,
-                    "headings": [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2', 'h3'])],
-                    "html": resp.text
-                }
-            except Exception as e:
-                print(f"Errore nel crawling di {url}: {e}")
+                resp = self._get(urljoin(self.base_url, "/robots.txt"))
+                if resp.status_code == 200:
+                    righe = resp.text.splitlines()
+            except requests.RequestException:
+                pass
+            self._robots.parse(righe)
+            ritardo = (self._robots.crawl_delay(self.user_agent)
+                       or self._robots.crawl_delay("*"))
+            if ritardo:
+                # crawl_delay() non eredita da "*" verso un agente
+                # specifico: si guardano entrambi e si prende il piu'
+                # prudente fra quello del sito e il nostro.
+                self.delay = max(self.delay, float(ritardo))
+        return self._robots
+
+    def can_fetch(self, url: str) -> bool:
+        if self.owner_declaration:
+            return True
+        return self.robots().can_fetch(self.user_agent, url)
+
+    # -- sitemap --------------------------------------------------
+
+    def sitemap_urls(self) -> List[str]:
+        """Sitemap dichiarate in robots.txt, altrimenti /sitemap.xml."""
+        dichiarate = list(self.robots().site_maps() or [])
+        return dichiarate or [urljoin(self.base_url, "/sitemap.xml")]
+
+    def _read_sitemap(self, url: str) -> Optional[ET.Element]:
+        try:
+            resp = self._get(url)
+            if resp.status_code != 200:
+                return None
+            dati = resp.content
+            if dati[:2] == b"\x1f\x8b":  # sitemap compressa (.xml.gz)
+                dati = gzip.decompress(dati)
+            return ET.fromstring(dati)
+        except (requests.RequestException, ET.ParseError, OSError, ValueError):
+            return None
+
+    def fetch_sitemap(self) -> List[str]:
+        """URL dalla sitemap, seguendo gli indici annidati."""
+        trovati: List[str] = []
+        coda = [(u, 0) for u in self.sitemap_urls()]
+        visti = set()
+        while coda and len(trovati) < self.max_pages:
+            url, profondita = coda.pop(0)
+            if url in visti or profondita > MAX_SITEMAP_DEPTH:
+                continue
+            visti.add(url)
+            root = self._read_sitemap(url)
+            if root is None:
+                continue
+            indice = _local_name(root.tag) == "sitemapindex"
+            for elem in root.iter():
+                if _local_name(elem.tag) != "loc" or not elem.text:
+                    continue
+                loc = elem.text.strip()
+                if indice:
+                    coda.append((loc, profondita + 1))
+                elif len(trovati) < self.max_pages:
+                    trovati.append(loc)
+        return trovati
+
+    # -- scansione ------------------------------------------------
+
+    def crawl(self) -> dict:
+        if self.owner_declaration:
+            print("  \u26a0 Dichiarazione di proprieta' attiva su %s: "
+                  "robots.txt ignorato." % self.base_host)
+        urls = self.fetch_sitemap() or [self.base_url]
+        visti = set()
+
+        for grezzo in urls:
+            if len(self.pages) >= self.max_pages:
+                break
+            url = normalize_url(grezzo)
+            if url in visti:
+                continue
+            visti.add(url)
+
+            if not host_matches(url, self.base_host):
+                self.skipped.append("host esterno: %s" % url)
+                continue
+            if not self.can_fetch(url):
+                self.skipped.append("vietato da robots.txt: %s" % url)
+                continue
+
+            try:
+                resp = self._get(url)
+            except requests.RequestException as exc:
+                print("Errore nel crawling di %s: %s" % (url, exc))
+                continue
+
+            if resp.status_code != 200:
+                # Senza questo controllo la pagina d'errore entrava nel
+                # corpus BM25 e falsava i ranking.
+                self.skipped.append("HTTP %d: %s" % (resp.status_code, url))
+                continue
+            tipo = resp.headers.get("Content-Type", "")
+            tipo = tipo.split(";")[0].strip().lower()
+            if tipo and tipo not in HTML_TYPES:
+                self.skipped.append("non HTML (%s): %s" % (tipo, url))
+                continue
+
+            soup = BeautifulSoup(resp.text, "lxml")
+            # get_text() invece di .string: su <title></title>
+            # .string e' None (non ""), e quel None propagava fino a
+            # un TypeError dentro " ".join() in mars_lexical,
+            # facendo cadere il modulo lessicale e con esso l'RRF.
+            title = soup.title.get_text(strip=True) if soup.title else ""
+            self.pages[url] = {
+                "title": title,
+                "text": soup.get_text(separator=" ", strip=True),
+                "headings": [h.get_text(strip=True)
+                             for h in soup.find_all(["h1", "h2", "h3"])],
+                "html": resp.text,
+            }
         return self.pages
+
 
 class LexicalRetriever:
     def __init__(self, corpus, k1=1.5, b=0.75):
@@ -218,7 +382,10 @@ CHUNK_CHARS = 500  # troncamento provvisorio: non e' ancora un chunker
 
 def build_context(url: str, max_pages: int = 10,
                   embeddings_model: str = "paraphrase-multilingual-MiniLM-L12-v2",
-                  market: str = "global") -> Optional[dict]:
+                  market: str = "global",
+                  delay: float = DEFAULT_DELAY,
+                  timeout: int = DEFAULT_TIMEOUT,
+                  owner_declaration: bool = False) -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -230,7 +397,9 @@ def build_context(url: str, max_pages: int = 10,
     Restituisce None se il sito e' irraggiungibile: tradurre l'assenza
     in un errore HTTP spetta al chiamante, non a questo modulo.
     """
-    pages = Crawler(url, max_pages).crawl()
+    crawler = Crawler(url, max_pages, delay=delay, timeout=timeout,
+                      owner_declaration=owner_declaration)
+    pages = crawler.crawl()
     if not pages:
         return None
     return {
@@ -241,6 +410,11 @@ def build_context(url: str, max_pages: int = 10,
         "embeddings_model": embeddings_model,
         "force_proxy": embeddings_model.lower() == "none",
         "market": market,
+        # Registrati nel contesto perche' finiscano nel referto: chi lo
+        # legge deve sapere se e cosa e' stato saltato, e se robots.txt
+        # e' stato ignorato per dichiarazione di proprieta'.
+        "robots_ignored": owner_declaration,
+        "skipped": crawler.skipped,
     }
 
 

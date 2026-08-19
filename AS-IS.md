@@ -22,6 +22,7 @@
 | R9 | Euristica "answer-shaped" imprecisa e monolingue | 2026-08-19 |
 | R10 | I "chunk" non erano chunk; l'RRF fondeva granularità diverse | 2026-08-19 |
 | R11 | Igiene del codice (11 voci, 2 commit) | 2026-08-19 |
+| R12 | Incoerenze nel README; documentata l'API REST (con C11) | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -619,6 +620,49 @@ variabile `norm`, che la rende anche più leggibile.
 - [x] HTML parsato una volta sola.
 - [x] `openapi.json` rinominato.
 - [x] `setup.cfg` e stile a zero avvisi.
+
+### R12 — ✅ RISOLTO (2026-08-19): incoerenze nel README
+Delle voci originali ne restavano due (le altre erano già state sistemate
+dall'autore, incluso *"valuta quattro aree"* seguito da un elenco di sette).
+
+**Avvertenza sul virtualenv.** Il blocco di comandi suggerito per i
+prerequisiti di `zap-cli` contiene
+`pip uninstall -y urllib3 requests six`: eseguito sul Python di sistema può
+rompere altri programmi e, su alcune distribuzioni, strumenti del sistema
+operativo. Aggiunta un'avvertenza esplicita, con il controllo da fare prima
+(`which python` deve puntare dentro il virtualenv).
+
+**Documentazione dell'API REST** (chiude anche **C11**). `mars_api.py` è metà
+del progetto e il README lo citava solo come elenco di pacchetti da
+installare. Aggiunta una sezione con avvio, `MARS_SECRET_KEY`, flusso di
+autenticazione, tabella dei dieci endpoint, campi di `AuditRequest` — inclusa
+la dichiarazione `i_own_this_domain` — e codici di risposta.
+
+L'elenco degli endpoint **non è stato scritto a memoria**: è stato estratto
+dalla specifica OpenAPI che FastAPI genera, così non può divergere dal codice.
+
+**Ogni comando documentato è stato eseguito**, non solo scritto. È così che è
+emerso un problema reale: sulla macchina di sviluppo la porta 8000 è occupata
+da un'altra applicazione dell'utente (`LymphaGest`). Uvicorn non riusciva ad
+agganciarsi ed **usciva**, ma le richieste continuavano a ricevere risposta —
+dall'altra applicazione. I 404 sembravano provenire da MARS. Rifatta la prova
+su porta libera:
+
+```
+GET  /docs            -> 200      senza token          -> 401
+GET  /                -> 307      url non valido       -> 422
+POST /token           -> JWT a 3 segmenti, 124 caratteri
+POST /audit/wcag      -> 200      sito irraggiungibile -> 404
+```
+
+Il README avverte ora di questo caso: un server che non si è agganciato lascia
+rispondere qualunque altra cosa stia su quella porta.
+
+**Installazione per ruolo.** Documentati i tre file di requirements introdotti
+da **R11** e il pin di `bcrypt==4.0.1` con la sua ragione.
+
+- [x] Avvertenza virtualenv sul blocco `zap-cli`.
+- [x] Documentazione dell'API REST (chiude **C11**).
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

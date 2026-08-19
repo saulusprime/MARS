@@ -227,15 +227,6 @@ crawler IA"*. Il file implementa **solo robots.txt** (24 righe totali).
       distinguendo *assente* da *esplicitamente bloccato*.
 - [ ] Sostituire `100 - len(issues)*15` con una scala pesata per gravità.
 
-### C11 — Documentare l'API REST nel README
-`mars_api.py` (300 righe, 10 endpoint, JWT) è metà del progetto, ma il README lo
-menziona solo come elenco di pacchetti da installare. La sezione `Uso:` copre
-esclusivamente la CLI.
-
-- [ ] Sezione README con: avvio (`uvicorn mars_api:app`), flusso di
-      autenticazione, tabella degli endpoint, esempio `curl` completo.
-- [ ] Documentare che `/` reindirizza a `/docs` (Swagger UI).
-
 ### C12 — Test
 `pytest>=7` e `flake8>=6` sono in `requirements.txt`; **nel progetto non esiste
 un solo test**.
@@ -257,8 +248,6 @@ un solo test**.
       [AS-IS.md](AS-IS.md).
 - [ ] `LICENSE` — ogni file sorgente dichiara "Licenza: Apache 2.0" ma il testo
       della licenza non è nel repo.
-- [ ] Documentare nel README i tre file di requirements e la variabile
-      d'ambiente `MARS_SECRET_KEY` introdotta da R11 (vedi **R12**/**C11**).
 - [ ] `CLAUDE.md` con il contratto dei moduli, utile per il lavoro assistito.
 - [ ] La cartella `versions/` (versionamento manuale: `mars_audit_1/2/3.py`,
       `mars_api_1.py`) **non è più presente** ed è quindi assente dal commit
@@ -269,22 +258,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R11 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R12 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R12 — Incoerenze nel README
-- [ ] *"valuta **quattro** aree"* seguito da un elenco di **sette** voci
-      numerate 1-7. Correggere in "sette aree".
-- [ ] L'`Uso:` documenta `--format`, `--output` e `--queries`, che non esistono
-      (**C4**, **C5**). O si implementano, o si toglie la riga: un README che
-      documenta comandi che falliscono è peggio di uno incompleto.
-- [ ] Il README dice che WCAG/WAPT sono *"stub euristici"*: onesto per WCAG, ma
-      per WAPT sottostima il problema, perché i punteggi sono **inventati**
-      (**R4**), non euristici.
-- [ ] Il blocco di comandi per i prerequisiti `zap-cli` disinstalla
-      `urllib3`/`requests`/`six` a livello globale: aggiungere l'avvertenza di
-      eseguirlo **dentro un virtualenv**.
-- [ ] Manca del tutto la documentazione dell'API REST (**C11**).
 
 ### R13 — Allineamento graduale allo stile di riferimento
 Decisione del 2026-08-19 (principio 8): `mars_citations.py` è il modello.

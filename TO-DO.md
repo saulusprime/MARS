@@ -39,7 +39,11 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
    modello da seguire per il codice nuovo:
    - `from __future__ import annotations` e **type hints** sulle firme
      pubbliche;
-   - `@dataclass` per le strutture dati, invece di dizionari anonimi;
+   - `@dataclass` per le strutture dati **interne** a un modulo. Il
+     `context` e i dizionari che vi stanno dentro (pagine, chunk) restano
+     invece **dict**: attraversano il confine dei plugin, e imporre classi
+     di `mars_core` costringerebbe ogni modulo esterno a importarle,
+     contro il principio 3. Deciso applicando R13 il 2026-08-19;
    - **I/O separato dalla logica**: le funzioni pure (`evaluate_answer`,
      `overall_rate`, `norm_host`) sono testabili senza rete né chiavi API —
      è ciò che ha permesso di verificarne il comportamento in pochi secondi;
@@ -258,32 +262,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R12 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R13 sono risolti**; resta il solo R14 — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R13 — Allineamento graduale allo stile di riferimento
-Decisione del 2026-08-19 (principio 8): `mars_citations.py` è il modello.
-L'allineamento è **graduale e opportunistico** — si adegua un modulo quando lo
-si tocca per altri motivi, non in un rifacimento di massa che
-mescolerebbe riformattazione e correzioni sostanziali.
-
-Ordine suggerito, dal ritorno più alto al più basso:
-
-- [ ] `mars_core.py` — è la base di tutto. `Crawler` e i due retriever
-      diventerebbero molto più chiari con dataclass e type hints, e la cosa si
-      combina naturalmente con **R7** (crawler) e **R8** (proxy quadratico).
-      Le funzioni aggiunte oggi (`load_sentence_transformers`, `norm_host`,
-      `host_matches`) sono già nel nuovo stile: il file è misto.
-- [ ] `mars_audit.py` — la separazione dato/presentazione di **C4** è
-      esattamente il rifacimento di `print_report()`. Farli insieme.
-- [ ] `mars_api.py` — ha già i type hints (via Pydantic); mancano la
-      separazione I/O e la deduplicazione con `mars_audit.py`. Si combina
-      con **R5**.
-- [ ] I 7 moduli d'area — sono corti; conviene adeguarli quando si estendono
-      (**C8**, **C9**, **C10**).
-
-Regola pratica: **un commit di sola riformattazione, separato** da quello che
-cambia il comportamento. Altrimenti la revisione diventa impossibile.
 
 ### R14 — 🔴 Il campo `disabled` non è mai applicato
 Emerso verificando R2. `User` dichiara `disabled: bool | None` e `FAKE_USERS_DB`

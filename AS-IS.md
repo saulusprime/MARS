@@ -23,6 +23,7 @@
 | R10 | I "chunk" non erano chunk; l'RRF fondeva granularità diverse | 2026-08-19 |
 | R11 | Igiene del codice (11 voci, 2 commit) | 2026-08-19 |
 | R12 | Incoerenze nel README; documentata l'API REST (con C11) | 2026-08-19 |
+| R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -663,6 +664,56 @@ da **R11** e il pin di `bcrypt==4.0.1` con la sua ragione.
 
 - [x] Avvertenza virtualenv sul blocco `zap-cli`.
 - [x] Documentazione dell'API REST (chiude **C11**).
+
+### R13 — ✅ RISOLTO (2026-08-19): allineamento allo stile di riferimento
+L'allineamento era previsto graduale; su richiesta è stato completato in una
+sola sessione, ma rispettandone la regola: **due commit separati**, uno di
+sole annotazioni e uno di sostanza.
+
+Buona parte del lavoro era già stata fatta *opportunisticamente*, come R13
+prescriveva: i sette moduli d'area erano stati riscritti nel nuovo stile
+mentre si correggevano R3, R4, R9, R10 e R11. Restavano scoperti
+`mars_audit.py`, `mars_tech.py`, parte di `mars_api.py` e i due retriever di
+`mars_core.py`.
+
+**Annotazioni.** `from __future__ import annotations` ora in tutti e undici i
+moduli; annotate le firme rimaste scoperte. Le docstring aggiunte spiegano il
+*perché*, non il cosa: `reciprocal_rank_fusion` documenta che usa la
+posizione e non il punteggio — che non è confrontabile fra recuperatori
+diversi — e che le classifiche in ingresso devono riferirsi alle stesse unità.
+`mars_tech`, `mars_schema` e `mars_wcag` **dichiarano quanto del proprio nome
+non coprono ancora**, con il rimando alla voce di TO-DO che completerebbe
+l'area: una docstring onesta vale più di una che promette l'area intera.
+
+**Sostanza.** `__version__` vive in `mars_core` ed è l'unica fonte: alimenta
+User-Agent, `--version` e la versione dell'API, che erano tre stringhe
+indipendenti destinate a divergere. Aggiunto `--version` alla CLI.
+
+**Codici di uscita.** Un audit su sito irraggiungibile usciva con **0**, cioè
+"successo": nessuna pipeline poteva distinguerlo da un audit riuscito. Ora
+`0` = referto prodotto, `2` = nessuna pagina indicizzata, allineati a
+`mars_citations.py`; il valore `1` resta libero per una futura soglia
+`--fail-under` (idea **I2**).
+
+**Un punto di R13 è stato deliberatamente NON applicato.** Il principio 8
+chiedeva `@dataclass` al posto dei dizionari anonimi. Applicato al `context`
+e a ciò che contiene — pagine, chunk — avrebbe violato il **principio 3**:
+quelle strutture attraversano il confine dei plugin, e imporre classi di
+`mars_core` costringerebbe ogni modulo esterno a importarle per rispettare il
+contratto `audit(context) -> dict`. I dataclass restano per le strutture
+interne a un modulo (`ProviderAnswer` in `mars_citations` ne è l'esempio).
+Il principio 8 nel TO-DO è stato riscritto per dirlo.
+
+Verificato che nulla cambia: BM25 `[0.470004, 0.0, 0.578466]`, RRF
+`[(0, 0.032266458), (2, 0.032266458), (1, 0.032258065)]`, proxy `[0.548, 0.0]`,
+audit end-to-end e login API invariati. Il cambio di User-Agent da
+`MARSBeacon/2.0` a `MARSBeacon/2.0.0` non altera il rispetto di robots.txt:
+`robotparser` confronta la parte prima della barra. `flake8` a zero avvisi.
+
+- [x] `mars_core.py` allineato.
+- [x] `mars_audit.py` allineato.
+- [x] `mars_api.py` allineato.
+- [x] I sette moduli d'area (fatti lungo il percorso, come previsto).
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

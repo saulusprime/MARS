@@ -11,7 +11,8 @@ import os
 import sys
 import importlib.util
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       build_context, reciprocal_rank_fusion)
+                       build_context, describe_chunk,
+                       reciprocal_rank_fusion)
 
 MODULES_REGISTRY = [
     ("mars_tech", "1. Tecnica"),
@@ -45,7 +46,7 @@ def load_external_module(module_name):
             print(f"Errore caricamento {file_path}: {e}")
     return None
 
-def print_report(results, urls, context=None):
+def print_report(results, context=None):
     print("\n" + "="*55)
     print("           MARS BEACON - REPORT FINALE           ")
     print("="*55)
@@ -67,19 +68,28 @@ def print_report(results, urls, context=None):
                     for iss in res["issues"][:2]:
                         print(f"  ⚠ {iss}")
             elif mod_name == "mars_lexical":
-                print(f"{desc:<20} : Analizzato (Top: {res.get('top_url', 'N/A')})")
+                print(f"{desc:<20} : Analizzato "
+                      f"(Top: {res.get('top_chunk', 'N/A')})")
             elif mod_name == "mars_semantic":
                 ratio = res.get("answer_shaped_ratio", 0)
-                print(f"{desc:<20} : Analizzato ({ratio:.0%} chunk answer-shaped)")
+                n = res.get("n_chunks", 0)
+                print(f"{desc:<20} : Analizzato "
+                      f"({ratio:.0%} di {n} chunk answer-shaped)")
                 
-    if lex_res and sem_res:
+    if lex_res and sem_res and "rank" in lex_res and "rank" in sem_res:
+        chunks = (context or {}).get("chunks") or []
         rrf = reciprocal_rank_fusion([lex_res["rank"], sem_res["rank"]])
         top_3_lex = set(lex_res["rank"][:3])
         top_3_sem = set(sem_res["rank"][:3])
         consensus = len(top_3_lex.intersection(top_3_sem))
         print("-" * 55)
-        print(f"Simulazione RRF      : Consenso Top-3 = {consensus}/3")
-        print(f"Top Chunk Ibrido     : {urls[rrf[0][0]] if rrf else 'N/A'}")
+        # Ora i due ranghi si riferiscono agli STESSI chunk: prima uno
+        # indicizzava pagine e l'altro chunk, e il consenso non aveva
+        # il significato dichiarato nel README.
+        print(f"Simulazione RRF      : Consenso Top-3 = {consensus}/3 "
+              f"su {len(chunks)} chunk")
+        if rrf and rrf[0][0] < len(chunks):
+            print(f"Top Chunk Ibrido     : {describe_chunk(chunks[rrf[0][0]])}")
         
     if context:
         # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
@@ -128,7 +138,7 @@ def run_audit(url, max_pages, embeddings_model, market,
         else:
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
-    print_report(results, context["urls"], context)
+    print_report(results, context)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MARS Beacon - Meta-fusion Audit")

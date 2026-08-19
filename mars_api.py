@@ -19,7 +19,7 @@ import sys
 
 from mars_core import DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT
 from mars_core import build_context as core_build_context
-from mars_core import reciprocal_rank_fusion
+from mars_core import describe_chunk, reciprocal_rank_fusion
 
 # ==============================================================================
 # CONFIGURAZIONE API & SICUREZZA
@@ -320,10 +320,14 @@ async def audit_full(req: AuditRequest, current_user: User = Depends(get_current
         top_3_sem = set(sem_res["rank"][:3])
         consensus = len(top_3_lex.intersection(top_3_sem))
 
-        urls = context["urls"]  # stesso crawl, nessun ricalcolo
+        chunks = context["chunks"]  # stesso crawl, nessun ricalcolo
+        top = chunks[rrf[0][0]] if rrf and rrf[0][0] < len(chunks) else None
         results["rrf_analysis"] = {
             "consensus_top3": consensus,
-            "top_chunk_url": urls[rrf[0][0]] if rrf else None
+            "n_chunks": len(chunks),
+            "top_chunk": describe_chunk(top) if top else None,
+            "top_chunk_url": top.get("url") if top else None,
+            "top_chunk_heading": top.get("heading") if top else None,
         }
 
     return results

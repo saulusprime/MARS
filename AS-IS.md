@@ -20,6 +20,7 @@
 | R7 | Il crawler non era un buon cittadino della rete | 2026-08-19 |
 | R8 | Il proxy char-TFIDF era quadratico | 2026-08-19 |
 | R9 | Euristica "answer-shaped" imprecisa e monolingue | 2026-08-19 |
+| R10 | I "chunk" non erano chunk; l'RRF fondeva granularità diverse | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -484,6 +485,77 @@ produce alcun segnale.
 - [x] Confini di parola — e oltre: posizione a inizio frase.
 - [x] Multilingue (it, en, es, fr, de) guidato da `lang`.
 - [x] Segnali strutturali: titoli interrogativi e FAQPage JSON-LD.
+
+### R10 — ✅ RISOLTO (2026-08-19): i "chunk" non erano chunk
+```python
+"chunks": [p['text'][:500] for p in pages.values()]
+```
+Un chunk erano i **primi 500 caratteri** di una pagina — tipicamente il menu di
+navigazione. Tutto il resto era invisibile all'audit semantico, mentre il
+README prometteva *"chunk autoconsistenti"*.
+
+Il danno peggiore era però a valle: `mars_lexical` indicizzava le **pagine**
+(primi 1000 caratteri) e `mars_semantic` i **chunk**, ma i due ranghi venivano
+fusi dall'RRF **come se si riferissero alle stesse unità**. Il "consenso Top-3"
+non aveva il significato dichiarato nel README, che presenta l'RRF come il
+cuore del progetto.
+
+**Risoluzione applicata.**
+
+`chunk_page()` in `mars_core.py` segmenta una pagina in passaggi
+autoconsistenti: un chunk = un heading più il testo che lo segue fino
+all'heading successivo, con `{"url", "heading", "text"}`. Le sezioni troppo
+lunghe passano per `split_windows()`, che le divide in finestre da 1000
+caratteri con 150 di sovrapposizione, tagliando su confine di parola — la
+sovrapposizione serve a non spezzare a metà un'affermazione, perché un
+passaggio citabile deve reggersi da solo.
+
+Scelta implementativa che vale la pena spiegare: si cammina sui **nodi di
+testo** (`descendants`) invece che sugli elementi di blocco, perché ogni nodo
+viene visitato una volta sola. Con `find_all(["p", "li", ...])` il testo di un
+`<p>` dentro un `<li>` verrebbe contato due volte, gonfiando il chunk.
+`script`, `style`, `noscript` e `template` sono esclusi.
+
+La segmentazione avviene **dentro il crawler**, dove il DOM è già in memoria:
+farlo a valle avrebbe richiesto di riparsare l'HTML.
+
+**Entrambi i retriever lavorano ora sulla stessa lista.** `mars_lexical`
+indicizza i chunk (heading + testo: l'heading pesa, ed è spesso la forma in cui
+la domanda è posta) e `mars_semantic` gli stessi chunk. Gli indici dei due
+ranghi si riferiscono finalmente alle stesse unità, ed è la condizione perché
+l'RRF significhi quello che il README dice.
+
+Effetto collaterale che risolve una fragilità introdotta da **R9**: ogni chunk
+porta con sé il proprio URL, quindi `mars_semantic` risale alla pagina per
+chiave invece che per posizione nell'elenco — corrispondenza che reggeva solo
+finché i chunk erano uno per pagina.
+
+**Il referto identifica il passaggio, non un numero.** `describe_chunk()`
+produce `URL § heading`, e sia la CLI sia `rrf_analysis` dell'API lo usano.
+Prima si stampava `urls[rrf[0][0]]`, cioè l'URL di una pagina indicizzata con
+l'indice di un chunk.
+
+**Prova decisiva.** Pagina di 1051 caratteri con la risposta utile che inizia
+al carattere **841**:
+
+```
+PRIMA (primi 500 caratteri) : 'preventivo' presente? False
+DOPO  (segmentato)          : [0] 'Chi siamo'                       759 car.  False
+                              [1] 'Come si richiede un preventivo?' 198 car.  True
+query "come richiedere un preventivo"
+  rango lessicale : [1, 0]      rango vettoriale: [1, 0]      vincitore RRF: chunk 1
+```
+
+Contenuto prima invisibile, ora trovato da entrambi i recuperatori, che
+concordano perché finalmente ordinano le stesse cose.
+
+Su sito di prova con due pagine strutturate: 6 chunk, consenso Top-3 2/3,
+top chunk `.../ok1 § Quando conviene adottarla`. Regressione su `example.com`
+e su tutti gli endpoint invariata.
+
+- [x] Chunker in `mars_core.py` con `{"url", "heading", "text"}`.
+- [x] Entrambi i retriever sulla stessa lista di chunk.
+- [x] Referto che mappa l'indice sul suo URL e heading.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

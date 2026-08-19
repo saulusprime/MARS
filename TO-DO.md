@@ -132,6 +132,8 @@ il comando documentato termina con un errore.
       a questo report: agganciarli (inline base64) o rimuoverli.
 
 ### C5 — Query personalizzate (`--queries q.txt`) — *mancante al 100%*
+> R10 ha rimosso il presupposto mancante: i due retriever lavorano ora sugli
+> stessi chunk, quindi far ciclare più query produce ranghi fondibili.
 Il README mostra `--queries q.txt`. Oggi la query è **una sola, hardcoded**, e
 per giunta duplicata in due file:
 `"cos'è questo sito"` in [mars_lexical.py:19](mars_lexical.py#L19) e
@@ -265,32 +267,8 @@ un solo test**.
 
 ## Correzioni
 
-Difetti nel codice esistente. **R1-R9 sono tutti risolti** — vedi
+Difetti nel codice esistente. **R1-R10 sono tutti risolti** — vedi
 [AS-IS.md](AS-IS.md). R13 è una direzione di lavoro, non un difetto.
-
-### R10 — I "chunk" non sono chunk
-[mars_audit.py:81](mars_audit.py#L81) e [mars_api.py:176](mars_api.py#L176):
-```python
-"chunks": [p['text'][:500] for p in pages.values()]
-```
-Un chunk = i **primi 500 caratteri** di una pagina — cioè, tipicamente, il menu
-di navigazione. Tutto il contenuto oltre il carattere 500 è invisibile all'audit
-semantico. Il README promette invece *"chunk autoconsistenti"*.
-
-Conseguenza a catena: `mars_lexical` indicizza le **pagine**
-([mars_lexical.py:14](mars_lexical.py#L14), primi 1000 caratteri) mentre
-`mars_semantic` indicizza i **chunk** — ma gli indici delle due liste vengono
-poi fusi insieme come se si riferissero alle stesse unità
-([mars_audit.py:58-61](mars_audit.py#L58-L61)). **L'RRF sta fondendo due
-ranking su granularità diverse**: il "consenso Top-3" che ne esce non ha il
-significato dichiarato nel README.
-
-- [ ] Costruire un vero chunker in `mars_core.py`: segmentazione per heading
-      o per finestre di ~1000 caratteri con overlap, ciascun chunk con
-      `{"url", "heading", "text"}`.
-- [ ] Far lavorare **entrambi** i retriever sulla stessa lista di chunk. È la
-      correzione singola più importante per la validità della simulazione RRF.
-- [ ] Nel report, mappare l'indice del chunk sul suo URL *e* sul suo heading.
 
 ### R11 — Igiene del codice
 - [ ] `requirements.txt:13` — `bcrypt=4.0.1` non è una specifica PEP 508 valida

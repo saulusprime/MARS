@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
@@ -255,6 +255,9 @@ class Crawler:
             lingua = (html_tag.get("lang") or "") if html_tag else ""
             self.pages[url] = {
                 "title": title,
+                # Segmentati qui, dove il DOM e' gia' in memoria:
+                # rifarlo a valle vorrebbe dire riparsare l'HTML.
+                "chunks": chunk_page(soup, url, title),
                 # Letto qui una volta sola: serve a mars_wcag (criterio
                 # WCAG 3.1.1) e a mars_semantic per scegliere i termini
                 # interrogativi giusti.
@@ -404,7 +407,99 @@ class VectorRetriever:
         return scores
 
 
-CHUNK_CHARS = 500  # troncamento provvisorio: non e' ancora un chunker
+CHUNK_CHARS = 1000     # lunghezza massima di un chunk
+CHUNK_OVERLAP = 150    # sovrapposizione fra finestre consecutive
+MIN_CHUNK_CHARS = 120  # sotto, non e' un passaggio autoconsistente
+HEADINGS = ("h1", "h2", "h3")
+NON_CONTENUTO = ("script", "style", "noscript", "template")
+
+
+def split_windows(testo: str, size: int = CHUNK_CHARS,
+                  overlap: int = CHUNK_OVERLAP) -> List[str]:
+    """Spezza un testo lungo in finestre sovrapposte.
+
+    La sovrapposizione serve a non tagliare a meta' un'affermazione:
+    un passaggio citabile deve reggersi da solo anche se la frase
+    iniziava poco prima del taglio.
+    """
+    if len(testo) <= size:
+        return [testo]
+    finestre = []
+    inizio = 0
+    while inizio < len(testo):
+        fine = inizio + size
+        if fine < len(testo):
+            # taglio su confine di parola, se ce n'e' uno vicino
+            spazio = testo.rfind(" ", inizio + size - 120, fine)
+            if spazio > inizio:
+                fine = spazio
+        finestre.append(testo[inizio:fine].strip())
+        if fine >= len(testo):
+            break
+        inizio = max(fine - overlap, inizio + 1)
+    return [f for f in finestre if f]
+
+
+def describe_chunk(chunk: dict) -> str:
+    """Etichetta leggibile di un chunk: URL e, se c'e', il suo heading.
+
+    Un indice numerico nel referto non dice nulla a chi legge: deve
+    essere risalibile al passaggio esatto del sito.
+    """
+    heading = (chunk.get("heading") or "").strip()
+    url = chunk.get("url") or "?"
+    return "%s § %s" % (url, heading) if heading else url
+
+
+def chunk_page(soup: BeautifulSoup, url: str, titolo: str = "") -> List[dict]:
+    """Segmenta una pagina in passaggi autoconsistenti.
+
+    Un chunk = un heading piu' il testo che lo segue fino all'heading
+    successivo. E' l'unita' che un motore ibrido o una pipeline RAG
+    cita davvero. Prima si usavano i primi 500 caratteri della pagina,
+    che sono tipicamente il menu di navigazione: tutto il contenuto
+    oltre quella soglia era invisibile all'audit semantico.
+
+    Si cammina sui nodi di testo invece che sugli elementi di blocco
+    perche' ogni nodo viene visitato una volta sola: con find_all() il
+    testo di un <p> dentro un <li> verrebbe contato due volte.
+    """
+    corpo = soup.body or soup
+    sezioni: List[Tuple[str, str]] = []
+    heading = ""
+    parti: List[str] = []
+
+    for nodo in corpo.descendants:
+        if isinstance(nodo, Tag):
+            if nodo.name in HEADINGS:
+                if parti:
+                    sezioni.append((heading, " ".join(parti)))
+                    parti = []
+                heading = nodo.get_text(" ", strip=True)
+            continue
+        if isinstance(nodo, Comment) or not isinstance(nodo, NavigableString):
+            continue
+        if nodo.find_parent(NON_CONTENUTO + HEADINGS):
+            continue
+        testo = " ".join(str(nodo).split())
+        if testo:
+            parti.append(testo)
+    if parti:
+        sezioni.append((heading, " ".join(parti)))
+
+    chunks = []
+    for intestazione, testo in sezioni:
+        for finestra in split_windows(testo):
+            if len(finestra) >= MIN_CHUNK_CHARS:
+                chunks.append({"url": url, "heading": intestazione,
+                               "text": finestra})
+    if not chunks:
+        # Pagina troppo corta per essere segmentata: meglio un chunk
+        # solo che nessuno, altrimenti sparisce dall'analisi.
+        intero = soup.get_text(" ", strip=True)
+        if intero:
+            chunks.append({"url": url, "heading": titolo, "text": intero})
+    return chunks
 
 
 def build_context(url: str, max_pages: int = 10,
@@ -433,7 +528,10 @@ def build_context(url: str, max_pages: int = 10,
         "url": url,
         "pages": pages,
         "urls": list(pages.keys()),
-        "chunks": [p["text"][:CHUNK_CHARS] for p in pages.values()],
+        # Lista unica di chunk, ciascuno con url e heading: e' su
+        # QUESTA che lavorano entrambi i retriever, perche' l'RRF ha
+        # senso solo fondendo ranking sulle stesse unita'.
+        "chunks": [c for p in pages.values() for c in p.get("chunks", [])],
         "embeddings_model": embeddings_model,
         "force_proxy": embeddings_model.lower() == "none",
         "market": market,

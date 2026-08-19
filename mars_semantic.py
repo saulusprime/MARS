@@ -89,35 +89,41 @@ def question_signals(testo: str, pagina: Optional[dict] = None,
 
 def audit(context: dict) -> dict:
     chunks = context["chunks"]
-    vec = VectorRetriever(chunks, context["embeddings_model"],
+    testi = [c.get("text") or "" for c in chunks]
+    vec = VectorRetriever(testi, context["embeddings_model"],
                           context["force_proxy"])
     query = "cos'è questo sito"
     scores = vec.get_scores(query)
     rank = [i for i, _ in sorted(enumerate(scores), key=lambda x: x[1],
                                  reverse=True)]
 
-    pagine = list((context.get("pages") or {}).values())
+    pagine = context.get("pages") or {}
     conteggio: dict = defaultdict(int)
     lingue: dict = defaultdict(int)
     answer_shaped = 0
 
-    for i, chunk in enumerate(chunks):
-        # I chunk sono oggi uno per pagina e nello stesso ordine; se la
-        # corrispondenza non regge si rinuncia ai segnali di pagina
-        # invece di accoppiare il chunk sbagliato.
-        pagina = pagine[i] if i < len(pagine) else None
+    for chunk, testo in zip(chunks, testi):
+        # Ogni chunk porta con se' il proprio URL: niente piu'
+        # corrispondenza posizionale con l'elenco delle pagine, che
+        # reggeva solo finche' i chunk erano uno per pagina.
+        pagina = pagine.get(chunk.get("url"))
         lingua = lingua_pagina(pagina)
         lingue[lingua or "n/d"] += 1
-        segnali = question_signals(chunk, pagina, lingua)
+        # L'heading fa parte del passaggio: "Come funziona?" come
+        # titolo e' un segnale forte quanto la stessa frase nel corpo.
+        segnali = question_signals(
+            " ".join(x for x in (chunk.get("heading"), testo) if x),
+            pagina, lingua)
         for s in segnali:
             conteggio[s] += 1
-        if segnali and len(chunk.split()) > MIN_PAROLE:
+        if segnali and len(testo.split()) > MIN_PAROLE:
             answer_shaped += 1
 
     return {
         "scores": scores,
         "rank": rank,
         "answer_shaped_ratio": answer_shaped / len(chunks) if chunks else 0,
+        "n_chunks": len(chunks),
         "answer_shaped_signals": dict(conteggio),
         "languages": dict(lingue),
     }

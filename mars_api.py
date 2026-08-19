@@ -322,6 +322,7 @@ async def audit_full(req: AuditRequest, current_user: User = Depends(get_current
     """Esegue tutti gli audit disponibili, calcolando anche la fusione RRF."""
     context = build_context(req)  # una volta sola, per tutti i moduli
     results = {}
+    context["results"] = results  # sintesi: vedi mars_citability
     for mod_name, mod_desc in MODULES_REGISTRY:
         try:
             results[mod_name] = run_single_audit(mod_name, context)

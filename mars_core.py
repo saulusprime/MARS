@@ -82,6 +82,8 @@ MODULES_REGISTRY = [
     ("mars_schema", "5. Dati Strutturati"),
     ("mars_wcag", "6. Accessibilità"),
     ("mars_wapt", "7. Sicurezza"),
+    # La sintesi va per ultima: legge context["results"].
+    ("mars_citability", "8. Citabilità IA"),
 ]
 
 

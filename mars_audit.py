@@ -38,6 +38,8 @@ def print_report(results: dict, context: dict | None = None) -> None:
     sem_res = results.get("mars_semantic")
 
     for mod_name, desc in MODULES_REGISTRY:
+        if mod_name == "mars_citability":
+            continue  # ha un blocco tutto suo, in fondo
         if mod_name in results:
             res = results[mod_name]
             if "score" in res:
@@ -74,6 +76,22 @@ def print_report(results: dict, context: dict | None = None) -> None:
         if rrf and rrf[0][0] < len(chunks):
             print(f"Top Chunk Ibrido     : {describe_chunk(chunks[rrf[0][0]])}")
 
+    cit = results.get("mars_citability")
+    if cit and cit.get("profiles"):
+        print("-" * 55)
+        print(f"Profili di citabilità IA  (mercato: {cit.get('market')})")
+        for assistente, valore in cit["profiles"].items():
+            barra = "█" * int((valore or 0) / 5)
+            testo = f"{valore:>5.1f}" if valore is not None else "  n/d"
+            print(f"  {assistente:<20} {testo}  {barra}")
+        if cit.get("score") is not None:
+            print(f"  {'INDICE COMPOSITO':<20} {cit['score']:>5.1f}")
+        # Il disclaimer sta QUI e non in fondo: chi legge il numero
+        # deve leggere anche cosa non è.
+        print(f"  ({cit.get('disclaimer', '')})")
+        for nota in cit.get("issues", [])[:3]:
+            print(f"  · {nota}")
+
     if context:
         # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
         # cambiano il significato di ogni punteggio qui sopra.
@@ -109,6 +127,10 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
 
     print("\n--- Rilevamento Moduli Attivi ---")
     results = {}
+    # Stesso dict, popolato mentre il ciclo avanza: un modulo di
+    # sintesi puo' cosi' leggere i punteggi delle aree gia' eseguite.
+    # I moduli girano nell'ordine di MODULES_REGISTRY.
+    context["results"] = results
 
     for mod_name, mod_desc in MODULES_REGISTRY:
         ext_mod = load_external_module(mod_name)

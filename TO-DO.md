@@ -66,28 +66,6 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
 Funzionalità **promesse dal README ma assenti nel codice**, in ordine di
 distanza tra promessa e realtà.
 
-### C1 — Profili di citabilità IA e indice composito per mercato — *mancante al 100%*
-Il README promette: *"Dai punteggi di area deriva i profili di citabilita' per
-assistente IA (Claude, ChatGPT/Perplexity, Qwen, Kimi) con indice composito
-pesato per mercato (`--market`)"*.
-
-Nel codice `market` viene passato lungo tutta la catena
-([mars_audit.py:84](mars_audit.py#L84), [mars_api.py:179](mars_api.py#L179))
-ma **non è mai letto da nessun modulo**. Nessun profilo viene calcolato.
-
-> Da non confondere con `mars_citations.py` (**C3**, già scritto): quello
-> *misura* le citazioni reali interrogando gli assistenti; questo le *stima*
-> dai punteggi d'area, senza rete e senza chiavi API.
-
-- [ ] Creare `mars_citability.py` che rispetti il contratto `audit(context)`.
-- [ ] Definire una matrice di pesi per assistente × area (7 aree) e per mercato
-      (`global`, `eu`, `us`, `cn`, …), come tabella dichiarativa in testa al file.
-- [ ] Ricevere i punteggi di area già calcolati: serve che `run_audit()` passi
-      i `results` parziali nel `context` (vedi **C7**).
-- [ ] Stampare nel report finale un blocco `Profili di citabilità` con il
-      composito per assistente.
-- [ ] Marcare esplicitamente in output che sono stime euristiche (principio 6).
-
 ### C2 — Giudizio LLM sulla citabilità ("modalità auto" con `ANTHROPIC_API_KEY`) — *mancante al 100%*
 Il README: *"per il giudizio LLM sulla citabilità (attivo di default in modalità
 'auto' quando la chiave `ANTHROPIC_API_KEY` è presente)"*.
@@ -170,18 +148,6 @@ interno; `--max-pages 40` su un sito senza sitemap produce 1 pagina.
       normalizzazione (drop di fragment e query di tracking), stop a `max_pages`.
 - [ ] Rimanere no-dipendenze: `urllib.parse` + BeautifulSoup, già presenti.
 - [ ] Vedi anche **R7** (robots.txt, User-Agent, rate limit) — vanno insieme.
-
-### C7 — Riuso dei risultati fra moduli
-`run_audit()` passa a ogni modulo lo stesso `context` immutabile e raccoglie i
-`results` fuori dal loop ([mars_audit.py:90-103](mars_audit.py#L90-L103)).
-Un modulo di sintesi (C1, C2) non può quindi vedere i punteggi delle aree
-precedenti.
-
-- [ ] Aggiungere `context["results"] = results` **prima** del loop (stesso dict,
-      popolato incrementalmente). È una riga, non rompe nessun modulo esistente
-      e mantiene il contratto `audit(context)` intatto (principio 3).
-- [ ] Documentare nel README che i moduli sono eseguiti nell'ordine di
-      `MODULES_REGISTRY` e possono leggere `context["results"]`.
 
 ### C8 — WCAG reale via axe-core / Playwright
 Il README lo indica come raccomandazione: *"Per un audit WCAG reale ti consiglio

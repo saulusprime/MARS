@@ -31,6 +31,23 @@ assistente IA (Claude, ChatGPT/Perplexity, Qwen, Kimi) con indice
 composito pesato per mercato (--market): stime euristiche
 dichiarate, non comportamento documentato dai vendor.
 
+I mercati riconosciuti sono global (predefinito), eu, us, cn; un
+valore diverso ricade su global e lo dichiara nel referto. Il mercato
+agisce su due piani: quanto ciascun assistente conta in quell'area
+geografica, e — dove esiste una ragione concreta — un moltiplicatore
+sui segnali. L'unico oggi attivo e' l'accessibilita' per il mercato
+eu, per via dell'European Accessibility Act.
+
+La matrice dei pesi sta in chiaro in testa a mars_citability.py, con
+la motivazione di ogni riga. E' fatta per essere discussa e corretta:
+Qwen e Kimi hanno pesi identici perche' non ci sono basi pubbliche per
+differenziarli, e inventare una differenza sarebbe falsa precisione.
+
+Il profilo si ottiene con l'audit completo (CLI, oppure POST
+/audit/full), perche' e' una sintesi dei punteggi delle altre aree.
+Per MISURARE le citazioni reali invece di stimarle c'e'
+mars_citations.py.
+
 Implementato nativamente le parti algoritmiche più complesse
 (il crawler, il retriever lessicale BM25, il proxy vettoriale TF-IDF
 sui caratteri e la fusione RRF)

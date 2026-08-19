@@ -26,6 +26,7 @@
 | R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
+| C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -806,6 +807,61 @@ non esista, nulla di esistente non documentato.
 - [x] `LICENSE` (dall'autore).
 - [x] `CLAUDE.md` con il contratto dei moduli.
 - [x] `CONTRIBUTING.md` e `CODE_OF_CONDUCT.md` scritti (erano vuoti).
+
+### C1 + C7 — ✅ FATTI (2026-08-19): profili di citabilità IA e riuso dei risultati
+Il README prometteva i profili di citabilità per assistente con indice
+composito pesato per mercato. `market` veniva passato lungo tutta la catena ma
+**non era letto da nessun modulo**: nessun profilo veniva calcolato.
+
+**C7 era il prerequisito** ed era davvero una riga: `context["results"] =
+results` **prima** del ciclo, stesso dict popolato mentre il ciclo avanza. Un
+modulo di sintesi può così leggere i punteggi delle aree già eseguite senza
+che il contratto `audit(context) -> dict` cambi di una virgola.
+
+**Solo 5 aree su 7 producono un punteggio.** `mars_lexical` e `mars_semantic`
+restituiscono classifiche, non voti. C1 ne deriva quindi due segnali:
+
+- *Contenuto in forma di risposta* = `answer_shaped_ratio × 100`;
+- *Recuperabilità ibrida* = consenso RRF fra i primi tre chunk dei due
+  recuperatori. È la misura più vicina a "questo passaggio verrebbe davvero
+  selezionato da una ricerca ibrida", ed è possibile solo perché **R10** ha
+  reso i due ranghi commensurabili.
+
+**Il modello è esplicito e discutibile, per scelta.** Pesi 0-3 per assistente ×
+segnale, con la motivazione di ogni riga scritta accanto; il mercato agisce su
+due piani — quanto conta ciascun assistente, e moltiplicatori sui segnali dove
+esiste una ragione concreta. L'unico attivo è l'accessibilità per `eu`, per
+l'European Accessibility Act: una ragione **normativa verificabile**, non una
+stima.
+
+Due scelte di onestà metodologica (principio 6):
+
+- **Qwen e Kimi hanno pesi identici**, ed è dichiarato: non ci sono basi
+  pubbliche per differenziarli, e inventare una differenza per far sembrare la
+  tabella più informata sarebbe esattamente la falsa precisione che il
+  principio vieta.
+- **La scala è volutamente grossolana** (0-3). Una scala fine suggerirebbe una
+  precisione che non abbiamo.
+
+I segnali non misurati sono **esclusi** dalla media e i pesi si rinormalizzano:
+un'area senza strumento non abbassa il profilo, lo rende solo meno informato —
+ed è dichiarato nel referto quali segnali mancano. È il seguito naturale della
+distinzione `score: None` vs `score: 0` introdotta da **R4**.
+
+Il disclaimer è stampato **dentro il blocco**, subito sotto i numeri: chi legge
+il punteggio deve leggere anche cosa non è.
+
+**Verificato:** mercati `global`/`eu`/`us`/`cn` producono compositi diversi
+(l'`eu` sale per il moltiplicatore accessibilità, il `cn` per lo spostamento
+verso Qwen e Kimi); un mercato inesistente ricade su `global` dichiarandolo;
+Lighthouse assente compare fra i "segnali non misurati" invece di contare zero;
+`/audit/full` restituisce profili, composito e disclaimer.
+
+- [x] `mars_citability.py` col contratto `audit(context)`.
+- [x] Matrice pesi assistente × segnale e per mercato, dichiarativa.
+- [x] `context["results"]` popolato incrementalmente (**C7**).
+- [x] Blocco `Profili di citabilità` nel referto.
+- [x] Natura euristica marcata in output.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

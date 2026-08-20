@@ -618,6 +618,80 @@ def test_seo_score_valido_resta_valido(monkeypatch):
         assert mars_seo.audit({"url": "https://x/"})["score"] == atteso
 
 
+# ----------------------------------------------------------------------
+# Query che non trovano nulla (R23)
+# ----------------------------------------------------------------------
+
+CHUNK_R23 = [
+    {"url": "https://x/", "heading": "Chi siamo",
+     "text": "Siamo una organizzazione che opera nella ricerca applicata."},
+    {"url": "https://x/", "heading": "Contatti",
+     "text": "Scrivete al nostro indirizzo oppure telefonate in ufficio."},
+]
+
+
+def _ctx_r23(queries):
+    return {"url": "https://x/", "chunks": CHUNK_R23, "queries": queries,
+            "pages": {"https://x/": {"lang": "it", "headings": [],
+                                     "html": ""}},
+            "embeddings_model": "none", "force_proxy": True,
+            "credentials": {}, "market": "global"}
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_query_senza_riscontro_e_dichiarata(modulo):
+    """Regressione R23: l'ordine di scansione spacciato per classifica.
+
+    Quando nessun termine trova riscontro i punteggi sono tutti zero e
+    sorted() restituisce l'ordine naturale dei chunk. Non e' una
+    classifica: e' l'ordine in cui sono stati scansionati, e dichiarare
+    un top_chunk su quella base e' inventare un vincitore.
+    """
+    esito = modulo.audit(_ctx_r23(["zzzzz qqqqq wwwww"]))
+    voce = esito["per_query"][0]
+    assert voce["matched"] is False
+    assert voce["top_chunk"] is None
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_query_con_riscontro_resta_una_classifica(modulo):
+    """La guardia non deve mangiarsi le query che funzionano."""
+    esito = modulo.audit(_ctx_r23(["organizzazione ricerca"]))
+    voce = esito["per_query"][0]
+    assert voce["matched"] is True
+    assert voce["top_chunk"] is not None
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_query_a_vuoto_esclusa_dal_rango_aggregato(modulo):
+    """Fondere un ordine di scansione con una classifica vera sposta il
+    risultato senza dire nulla sul sito."""
+    solo_vuote = modulo.audit(_ctx_r23(["zzzzz qqqqq", "kkkkk jjjjj"]))
+    assert solo_vuote["rank"] == [], \
+        "senza una sola query utile non c'e' rango aggregato"
+    misto = modulo.audit(_ctx_r23(["zzzzz qqqqq", "organizzazione ricerca"]))
+    assert misto["rank"], "la query utile deve comunque produrre un rango"
+
+
+def test_citability_non_prende_cento_dal_nulla():
+    """Regressione R23: il segnale "Recuperabilità ibrida" leggeva 100.
+
+    Due ordini di scansione identici davano consenso 3/3, cioe' il
+    massimo, proprio dove non c'era un solo riscontro — e quel numero
+    pesa 2 o 3 su 3 per ogni assistente nel profilo di citabilita'.
+    """
+    ctx = _ctx_r23(["zzzzz qqqqq wwwww"])
+    ctx["results"] = {"mars_lexical": mars_lexical.audit(ctx),
+                      "mars_semantic": mars_semantic.audit(ctx),
+                      "mars_tech": {"score": 80}}
+    segnali = mars_citability.audit(ctx)["signals"]
+    assert segnali["Recuperabilità ibrida (consenso RRF)"] is None, \
+        "non misurato, non cento"
+
+
 def test_semantic_falsi_positivi_answer_shaped():
     """Regressione R9: "chi" dentro chiave/archivio/macchina, e "come"
     e "dove" come congiunzioni."""

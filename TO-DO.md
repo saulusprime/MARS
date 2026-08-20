@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R22 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R23-R34.
+> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R23 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R24-R35.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -97,36 +97,16 @@ mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
 **R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), **R20** (axe
 che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
 di superficie da una misura piena) e **R22** (esecutore di moduli non robusto
-ai plugin che rompono), tutte il 2026-08-20: difetto, soluzione e verifiche in
-[AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
+ai plugin che rompono) e **R23** (query che non sopravvivevano a un retriever
+caduto, e ranghi a informazione zero), tutte il 2026-08-20: difetto, soluzione e
+verifiche in [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R23-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R24-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R23 — 🟡 MEDIO: le query non sopravvivono a un retriever caduto; ranghi a informazione zero
-- **`--from-audit` fragile.** `build_report`
-  ([mars_report.py:58-83](mars_report.py#L58)) non serializza mai
-  `context["queries"]` a livello alto: le query vivono solo dentro
-  `rrf_simulation`, vuota se anche **un solo** retriever non ha prodotto
-  `per_query` (es. eccezione catturata). In quel caso `mars_citations
-  --from-audit` esce 2 con *«Nessuna query nel referto»*, benché `load_queries`
-  ([mars_core.py:708](mars_core.py#L708)) sappia già leggere un `queries` di
-  primo livello.
-- **Rango a informazione zero presentato come classifica.** Quando una query non
-  matcha alcun token, tutti i punteggi sono 0 e `sorted()` restituisce l'ordine
-  naturale `[0,1,2,…]` ([mars_lexical.py:37](mars_lexical.py#L37),
-  [mars_semantic.py:101](mars_semantic.py#L101)): il modulo dichiara comunque un
-  `top_chunk`, indistinguibile da un vincitore reale, e quel rango entra nell'RRF
-  aggregato e nel consenso *recuperabilità ibrida* di C1, che lì misura una
-  coincidenza d'ordine di scansione.
-
-- [ ] Serializzare `queries` a livello alto del referto.
-- [ ] Marcare (o escludere dal consenso) una query senza alcun match, invece di
-      spacciare l'ordine naturale per classifica.
 
 ### R24 — 🟡 MEDIO: casi limite del crawler sugli URL
 Raggruppati perché toccano la stessa area (gestione URL in `mars_core`):
@@ -335,6 +315,34 @@ interrogativo ce l'hanno quasi sempre. Costo: qualche falso negativo sulle FAQ
 scritte senza `?`. Da misurare su contenuto reale prima di decidere, ed
 eventualmente da applicare **solo** al segnale «titolo interrogativo», non a
 quello sul corpo del testo.
+
+### R35 — 🟡 MEDIO: i due recuperatori indicizzano contenuti diversi
+*(trovata misurando, chiudendo R23 il 2026-08-20)*
+
+`mars_lexical` costruisce il corpus con **heading + testo** del chunk
+([mars_lexical.py:29](mars_lexical.py#L29)); `mars_semantic` indicizza il
+**solo testo** ([mars_semantic.py:117](mars_semantic.py#L117)). I due
+recuperatori ordinano quindi le stesse unità partendo da contenuti diversi.
+
+**R10** aveva lavorato perché i due ranghi si riferissero alle **stesse
+unità** — è la condizione perché l'RRF significhi quello che il README dice.
+Nessuno ha poi controllato che leggessero lo **stesso contenuto** di quelle
+unità. Misurato, con `servizi` presente solo nell'heading:
+
+```
+lessicale  -> matched = True    (indicizza heading + testo)
+vettoriale -> matched = False   (indicizza il solo testo)
+```
+
+L'heading è spesso la forma in cui la domanda è posta — è la ragione per cui
+`mars_lexical` lo include, scritta nel suo stesso commento. Il recuperatore
+vettoriale ne è cieco, quindi su un sito con FAQ nei titoli i due sono in
+disaccordo per costruzione, e il consenso RRF ne esce depresso per una ragione
+che non riguarda il sito.
+
+La correzione probabile è una riga (indicizzare `heading + testo` anche nel
+vettoriale), ma **cambia tutti i punteggi vettoriali**: va misurata prima e
+dopo su un sito reale, non applicata a intuito.
 
 ---
 

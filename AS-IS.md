@@ -35,6 +35,7 @@
 | R21 | «Di superficie» era indistinguibile da una misura piena | 2026-08-20 |
 | R22 | L'esecutore di moduli non reggeva i plugin che rompono | 2026-08-20 |
 | — | La sezione SEO riporta i controlli di Lighthouse, non il solo voto | 2026-08-20 |
+| R23 | Query perse con un retriever caduto; ranghi a informazione zero | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1722,6 +1723,101 @@ prova è deliberatamente in ordine sbagliato.
 
 E, per la seconda volta, un'asserzione è caduta su un apostrofo reso come
 `&#x27;`: l'escape funziona, era il test a essere ingenuo.
+
+### R23 — ✅ RISOLTO (2026-08-20): query perse, e ranghi a informazione zero
+Due difetti attorno alla simulazione RRF, il cuore dichiarato del progetto.
+
+**1. Un rango a informazione zero veniva presentato come una classifica — anzi,
+come la classifica migliore possibile.** Quando nessun termine della query
+trova riscontro, i punteggi sono tutti zero e `sorted()` restituisce l'**ordine
+naturale** dei chunk, cioè l'ordine di scansione. I due recuperatori
+restituivano quindi lo stesso ordine, che coincide con se stesso:
+
+```
+rango lessicale  : [0, 1, 2]      rango vettoriale : [0, 1, 2]
+CONSENSO riportato: 3/3           <- su una domanda senza un solo riscontro
+```
+
+**3/3 è il risultato migliore possibile.** E si propagava: il rango entrava
+nella fusione aggregata, e il segnale *Recuperabilità ibrida* di **C1** —
+che pesa 2 o 3 su 3 per ogni assistente — leggeva **100.0**. È lo stesso
+difetto incontrato dal vivo chiudendo **R18**, dove un test passava
+vacuamente proprio perché l'ordine naturale metteva per caso il chunk atteso
+in testa.
+
+**2. Le query non sopravvivevano alla caduta di un retriever.** Vivevano solo
+dentro `rrf_simulation`, che è vuota se anche uno solo dei due non ha prodotto
+`per_query`. In quel caso `mars_citations --from-audit` usciva con *«Nessuna
+query nel referto»* — benché `load_queries` sapesse già leggere una chiave
+`queries` di primo livello, che però nessuno scriveva.
+
+**Risoluzione applicata.** I due retriever dichiarano ora, per ogni query, se
+hanno trovato **qualcosa** (`matched`), e senza riscontro non dichiarano alcun
+`top_chunk`: non c'è un vincitore da nominare. Le classifiche a vuoto sono
+**escluse dalla fusione aggregata**, perché fondere un ordine di scansione con
+una classifica vera sposta il risultato senza dire nulla sul sito.
+
+Nel referto, il consenso di una query senza riscontro **non è zero: è non
+misurabile**, e vale la stessa distinzione di R4 e R21. *«nessun riscontro»* e
+*«0/3»* dicono cose diverse — la prima che la domanda non ha trovato nulla, la
+seconda che i due recuperatori hanno trovato cose diverse — e confonderle
+nascondeva proprio il caso peggiore. Le query stanno ora anche al primo livello
+del referto, così il contratto con `--from-audit` non dipende più
+dall'essere sopravvissuti entrambi i recuperatori.
+
+**Verificato**, su un sito di prova con le query generiche:
+
+```
+prima : cos'è questo sito 2/3 · come funziona 2/3 · chi siamo 3/3 · quali servizi 3/3
+dopo  : cos'è questo sito nessun riscontro · come funziona nessun riscontro
+        chi siamo 3/3 · quali servizi nessun riscontro
+```
+
+Tre numeri fabbricati spariti; l'unico che restava era l'unico misurato.
+L'indice composito non cambia (62,1), perché il rango aggregato conserva la
+query che ha funzionato: la correzione toglie le invenzioni senza impoverire
+ciò che era misurato. E la catena `--format json` → `--from-audit` funziona
+ora anche con un retriever caduto.
+
+**Un'ipotesi mia, smentita dalla misura.** Vedendo tre query su quattro
+dichiarare «nessun riscontro» ho supposto che la colpa fosse del recuperatore
+**vettoriale**. Misurato: è il **lessicale** a non trovare nulla, mentre il
+vettoriale matcha tutto. La ragione è che `matched` significa cose diverse per
+i due: per BM25 vuol dire *«un termine della query compare nel corpus»*, un
+segnale forte; per il proxy char-TFIDF vuol dire *«qualche trigramma si
+sovrappone»*, che fra due testi nella stessa lingua è quasi sempre vero. La
+guardia coglie quindi il caso patologico — quello che produceva il 3/3 finto —
+ma sul lato vettoriale scatterà di rado, e va detto invece di lasciar credere
+il contrario.
+
+**Un difetto nuovo, trovato mentre si indagava quell'ipotesi.** `mars_lexical`
+indicizza **heading + testo**, `mars_semantic` il **solo testo**: i due
+recuperatori ordinano le stesse unità partendo da contenuti diversi. R10 aveva
+lavorato perché i ranghi si riferissero alle stesse **unità**; nessuno aveva
+controllato che leggessero lo stesso **contenuto**. Aperto come **R35** con la
+misura già fatta, non corretto qui.
+
+**La prova che conta: reintrodurre il difetto.** Sette mutazioni, tutte
+rilevate al primo tentativo:
+
+```
+1. lessicale: tutto considerato trovato           -> 2 falliti
+2. vettoriale: tutto considerato trovato          -> 2 falliti
+3. le query a vuoto rientrano nel rango aggregato -> 1 fallito
+4. il consenso torna a essere sempre misurabile   -> 4 falliti
+5. il flag matched non viene letto dal referto    -> 4 falliti
+6. le query non stanno piu' al primo livello      -> 1 fallito
+7. top_chunk dichiarato anche senza riscontro     -> 1 fallito
+```
+
+C'è anche un test che fissa la **lettura compatibile**: una voce `per_query`
+senza il flag `matched` viene considerata misurata, così un modulo esterno
+scritto prima di questa modifica continua a funzionare.
+
+- [x] `matched` dichiarato da entrambi i retriever.
+- [x] Classifiche a vuoto fuori dalla fusione aggregata.
+- [x] Consenso non misurabile distinto da consenso zero.
+- [x] `queries` al primo livello del referto.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

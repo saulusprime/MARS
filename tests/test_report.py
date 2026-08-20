@@ -235,6 +235,84 @@ def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):
 
 
 # ----------------------------------------------------------------------
+# Query senza riscontro (R23)
+# ----------------------------------------------------------------------
+
+def _referto_rrf(matched_lex=True, matched_sem=True, chiavi=True):
+    voce_lex = {"query": "q", "rank": [0, 1]}
+    voce_sem = {"query": "q", "rank": [0, 1]}
+    if chiavi:
+        voce_lex["matched"] = matched_lex
+        voce_sem["matched"] = matched_sem
+    return build_report(
+        {"mars_lexical": {"rank": [0, 1], "per_query": [voce_lex],
+                          "queries": ["q"]},
+         "mars_semantic": {"rank": [0, 1], "per_query": [voce_sem]}},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "queries": ["q"], "discovery": "sitemap", "skipped": [],
+         "chunks": [{"url": "https://x/", "heading": "A", "text": "a"},
+                    {"url": "https://x/", "heading": "B", "text": "b"}]})
+
+
+def test_consenso_di_una_query_a_vuoto_non_e_un_numero():
+    """Regressione R23: due ordini di scansione identici coincidono.
+
+    Il consenso usciva 3/3 — il risultato migliore possibile — proprio
+    dove non c'era un solo riscontro. "nessun riscontro" e "0/3" sono
+    cose diverse: la prima dice che la domanda non ha trovato nulla, la
+    seconda che i due recuperatori hanno trovato cose diverse.
+    """
+    voce = _referto_rrf(matched_lex=False)["rrf_simulation"][0]
+    assert voce["consensus_top3"] is None
+    assert voce["matched"] is False
+    assert voce["top_chunk"] is None
+
+
+def test_basta_un_retriever_a_vuoto_perche_non_ci_sia_confronto():
+    for lex, sem in ((False, True), (True, False), (False, False)):
+        voce = _referto_rrf(lex, sem)["rrf_simulation"][0]
+        assert voce["consensus_top3"] is None
+    assert _referto_rrf(True, True)["rrf_simulation"][0][
+        "consensus_top3"] is not None
+
+
+def test_referto_vecchio_senza_il_flag_resta_leggibile():
+    """Chi non dichiara `matched` viene considerato misurato: e' la
+    lettura compatibile, e vale per i moduli esterni scritti prima."""
+    assert _referto_rrf(chiavi=False)["rrf_simulation"][0][
+        "consensus_top3"] == 2
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html],
+                         ids=["testo", "html"])
+def test_le_viste_dicono_nessun_riscontro(vista):
+    assert "nessun riscontro" in vista(_referto_rrf(matched_lex=False))
+    assert "nessun riscontro" not in vista(_referto_rrf())
+
+
+def test_le_query_sopravvivono_a_un_retriever_caduto(tmp_path):
+    """Regressione R23: le query vivevano solo dentro rrf_simulation.
+
+    Se un retriever cadeva quella lista era vuota, e `mars_citations
+    --from-audit` usciva 2 con "Nessuna query nel referto" — benche'
+    load_queries sapesse gia' leggere una chiave `queries` di primo
+    livello, che nessuno scriveva.
+    """
+    r = build_report(
+        {"mars_semantic": {"rank": [0], "per_query": []}},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "chunks": [], "discovery": "sitemap", "skipped": [],
+         "queries": ["alfa", "beta"]})
+    assert r["rrf_simulation"] == [], "il retriever caduto non la produce"
+    assert r["queries"] == ["alfa", "beta"]
+    f = tmp_path / "r.json"
+    f.write_text(render_json(r), encoding="utf-8")
+    query, errore = load_queries(report_path=str(f))
+    assert errore == ""
+    assert query == ["alfa", "beta"]
+
+
+# ----------------------------------------------------------------------
 # L'elenco dei controlli, come lo mostra Lighthouse
 # ----------------------------------------------------------------------
 

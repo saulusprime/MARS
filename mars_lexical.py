@@ -38,18 +38,31 @@ def audit(context: dict) -> dict:
     per_query = []
     for query in queries:
         scores = bm25.get_scores(tokenize(query))
+        # Nessun termine della query compare nel corpus: i punteggi
+        # sono tutti zero e sorted() restituisce l'ORDINE NATURALE dei
+        # chunk. Quella non e' una classifica, e' l'ordine di
+        # scansione — e presentarla come tale faceva riportare un
+        # consenso 3/3, il risultato migliore possibile, proprio dove
+        # non c'era un solo riscontro.
+        trovato = any(s > 0 for s in scores)
         rank = sorted(range(len(scores)),
                       key=lambda i: scores[i], reverse=True)
         per_query.append({
             "query": query,
             "rank": rank,
-            "top_chunk": describe_chunk(chunks[rank[0]]) if rank else None,
+            "matched": trovato,
+            "top_chunk": (describe_chunk(chunks[rank[0]])
+                          if rank and trovato else None),
         })
 
     # Rango aggregato: le classifiche per query si fondono con lo
     # stesso RRF che il progetto usa fra recuperatori. Un chunk in alto
     # su piu' domande e' piu' citabile di uno che vince una sola volta.
-    fusi = reciprocal_rank_fusion([p["rank"] for p in per_query])
+    # Entrano solo le classifiche che portano informazione: fondere un
+    # ordine di scansione con una classifica vera sposta il risultato
+    # senza dire nulla sul sito.
+    fusi = reciprocal_rank_fusion([p["rank"] for p in per_query
+                                   if p["matched"]])
     rank = [indice for indice, _ in fusi]
 
     return {

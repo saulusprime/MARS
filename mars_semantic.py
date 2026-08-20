@@ -122,18 +122,26 @@ def audit(context: dict) -> dict:
     per_query = []
     for query in queries:
         punteggi = vec.get_scores(query)
+        # Come in mars_lexical: senza alcun riscontro i punteggi sono
+        # tutti zero e l'ordinamento restituisce l'ordine di scansione,
+        # non una classifica. Va distinto, altrimenti due ordini
+        # naturali identici vengono letti come consenso perfetto.
+        trovato = any(p > 0 for p in punteggi)
         classifica = [i for i, _ in sorted(enumerate(punteggi),
                                            key=lambda x: x[1], reverse=True)]
         per_query.append({
             "query": query,
             "rank": classifica,
+            "matched": trovato,
             "top_chunk": (describe_chunk(chunks[classifica[0]])
-                          if classifica else None),
+                          if classifica and trovato else None),
         })
     # Stesso criterio di mars_lexical: le classifiche per query si
-    # fondono con l'RRF per ottenere il rango aggregato.
+    # fondono con l'RRF per ottenere il rango aggregato, e solo quelle
+    # che hanno trovato qualcosa vi partecipano.
     rank = [indice for indice, _
-            in reciprocal_rank_fusion([p["rank"] for p in per_query])]
+            in reciprocal_rank_fusion([p["rank"] for p in per_query
+                                       if p["matched"]])]
 
     pagine = context.get("pages") or {}
     conteggio: dict = defaultdict(int)

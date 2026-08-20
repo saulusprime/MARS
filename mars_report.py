@@ -82,6 +82,12 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "discovery": context.get("discovery"),
         "chunks": len(chunks),
         "robots_ignored": bool(context.get("robots_ignored")),
+        # Le query stanno anche qui, non solo dentro rrf_simulation:
+        # se un retriever cade, quella lista e' vuota e
+        # `mars_citations --from-audit` non trovava piu' nulla da
+        # riusare, benche' load_queries sappia gia' leggere questa
+        # chiave.
+        "queries": list(context.get("queries") or []),
         "skipped": list(context.get("skipped") or []),
         "areas": aree,
         # Chiave del contratto con mars_citations.py --from-audit:
@@ -101,9 +107,21 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     return referto
 
 
-def _consenso(rank_a: List[int], rank_b: List[int],
-              chunks: List[dict], query: str) -> dict:
-    """Consenso fra due classifiche sui primi tre chunk."""
+def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
+              query: str, misurabile: bool = True) -> dict:
+    """Consenso fra due classifiche sui primi tre chunk.
+
+    `misurabile` distingue "i due recuperatori non concordano" da "non
+    c'e' nulla su cui concordare": quando una query non trova alcun
+    riscontro entrambi restituiscono l'ordine di scansione, che coincide
+    con se stesso e produrrebbe un consenso 3/3 — il risultato migliore
+    possibile proprio dove l'informazione e' zero. Si riporta None,
+    come per un'area non misurata.
+    """
+    if not misurabile:
+        return {"query": query, "consensus_top3": None,
+                "consensus_out_of": None, "top_chunk": None,
+                "top_chunk_url": None, "matched": False}
     attesi = min(3, len(rank_a), len(rank_b))
     fusi = reciprocal_rank_fusion([rank_a, rank_b])
     top = fusi[0][0] if fusi and fusi[0][0] < len(chunks) else None
@@ -113,6 +131,7 @@ def _consenso(rank_a: List[int], rank_b: List[int],
         "consensus_out_of": attesi,
         "top_chunk": describe_chunk(chunks[top]) if top is not None else None,
         "top_chunk_url": chunks[top]["url"] if top is not None else None,
+        "matched": True,
     }
 
 
@@ -125,10 +144,15 @@ def rrf_simulation(results: dict, chunks: List[dict]) -> List[dict]:
     """
     lex = results.get("mars_lexical") or {}
     sem = results.get("mars_semantic") or {}
-    voci_lex = {v["query"]: v["rank"] for v in lex.get("per_query") or []}
-    voci_sem = {v["query"]: v["rank"] for v in sem.get("per_query") or []}
+    voci_lex = {v["query"]: v for v in lex.get("per_query") or []}
+    voci_sem = {v["query"]: v for v in sem.get("per_query") or []}
     comuni = [q for q in voci_lex if q in voci_sem]
-    return [_consenso(voci_lex[q], voci_sem[q], chunks, q) for q in comuni]
+    # Basta che UNO dei due non abbia trovato nulla perche' il
+    # confronto non abbia oggetto.
+    return [_consenso(voci_lex[q]["rank"], voci_sem[q]["rank"], chunks, q,
+                      misurabile=(voci_lex[q].get("matched", True)
+                                  and voci_sem[q].get("matched", True)))
+            for q in comuni]
 
 
 def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
@@ -143,7 +167,8 @@ def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
     if "rank" not in lex or "rank" not in sem:
         return None
     aggregato = _consenso(lex["rank"], sem["rank"], chunks,
-                          "(aggregato su tutte le query)")
+                          "(aggregato su tutte le query)",
+                          misurabile=bool(lex["rank"] and sem["rank"]))
     aggregato["queries"] = lex.get("queries") or []
     return aggregato
 
@@ -205,6 +230,26 @@ def _qualificatori(area: dict) -> List[str]:
     return pezzi
 
 
+def _quota_consenso(voce: dict) -> Optional[float]:
+    """Il consenso in percentuale, o None se non era misurabile."""
+    if voce.get("consensus_top3") is None or not voce.get("consensus_out_of"):
+        return None
+    return 100.0 * voce["consensus_top3"] / voce["consensus_out_of"]
+
+
+def _consenso_leggibile(voce: dict) -> str:
+    """Il consenso come lo legge una persona.
+
+    "nessun riscontro" e "0/3" sono cose diverse: la prima dice che la
+    domanda non ha trovato nulla nel sito, la seconda che i due
+    recuperatori hanno trovato cose diverse. Confonderle nascondeva il
+    caso peggiore — una query a vuoto riportata come consenso pieno.
+    """
+    if voce.get("consensus_top3") is None:
+        return "nessun riscontro"
+    return "%d/%d" % (voce["consensus_top3"], voce["consensus_out_of"])
+
+
 def _riga_area(area: dict) -> str:
     if area["score"] is None:
         stato = STATO_LEGGIBILE.get(area["status"], "non misurato")
@@ -245,18 +290,16 @@ def render_text(referto: dict) -> str:
     aggregato = referto.get("rrf_aggregate")
     if aggregato:
         righe.append("-" * 55)
-        righe.append("Simulazione RRF      : Consenso Top-3 = %d/%d su %d "
-                     "chunk" % (aggregato["consensus_top3"],
-                                aggregato["consensus_out_of"],
+        righe.append("Simulazione RRF      : Consenso Top-3 = %s su %d "
+                     "chunk" % (_consenso_leggibile(aggregato),
                                 referto["chunks"]))
         righe.append("  aggregato su %d query"
                      % len(referto["rrf_simulation"]))
         if aggregato["top_chunk"]:
             righe.append(f"Top Chunk Ibrido     : {aggregato['top_chunk']}")
         for voce in referto["rrf_simulation"]:
-            righe.append("  %-34s %d/%d"
-                         % (voce["query"][:34], voce["consensus_top3"],
-                            voce["consensus_out_of"]))
+            righe.append("  %-34s %s" % (voce["query"][:34],
+                                         _consenso_leggibile(voce)))
 
     cit = referto.get("citability")
     if cit and cit.get("profiles"):
@@ -666,16 +709,13 @@ def _sezione_rrf(referto: dict, p: List[str]) -> None:
         return
     p.append("<h2>Simulazione RRF</h2>")
     if aggregato:
-        quota = (100.0 * aggregato["consensus_top3"]
-                 / max(aggregato["consensus_out_of"], 1))
         p.append("<div class='card'><p class='meta'>Consenso fra il "
                  "recuperatore lessicale e quello vettoriale, aggregato su "
                  "%d query — la misura più solida, perché un accordo su "
                  "una sola domanda può essere un caso.</p>"
-                 "<p class='grande %s'>%d/%d</p>"
-                 % (len(simulazione), _classe(quota),
-                    aggregato["consensus_top3"],
-                    aggregato["consensus_out_of"]))
+                 "<p class='grande %s'>%s</p>"
+                 % (len(simulazione), _classe(_quota_consenso(aggregato)),
+                    _e(_consenso_leggibile(aggregato))))
         if aggregato.get("top_chunk"):
             p.append("<p class='meta'>Passaggio più recuperabile:<br>"
                      "<code>%s</code></p>" % _e(aggregato["top_chunk"]))
@@ -684,12 +724,10 @@ def _sezione_rrf(referto: dict, p: List[str]) -> None:
         p.append("<table><tr><th>Query</th><th>Consenso</th>"
                  "<th>Passaggio migliore</th></tr>")
         for voce in simulazione:
-            quota = (100.0 * voce["consensus_top3"]
-                     / max(voce["consensus_out_of"], 1))
             p.append("<tr><td><code>%s</code></td>"
-                     "<td class='num %s'>%d/%d</td><td>%s</td></tr>"
-                     % (_e(voce["query"]), _classe(quota),
-                        voce["consensus_top3"], voce["consensus_out_of"],
+                     "<td class='num %s'>%s</td><td>%s</td></tr>"
+                     % (_e(voce["query"]), _classe(_quota_consenso(voce)),
+                        _e(_consenso_leggibile(voce)),
                         _e(voce["top_chunk"] or "—")))
         p.append("</table>")
 

@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| — | Verifica sistematica dei parametri API; `max_pages` corretto | 2026-08-20 |
 | — | Credenziali nella richiesta API; esempio completo | 2026-08-20 |
 | C13 (residue) | Titolarità del copyright e recapito del codice di condotta | 2026-08-20 |
 | C9 (residue) | Verificato contro ZAP 2.17 reale; active scan autorizzato | 2026-08-20 |
@@ -926,6 +927,45 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### Verifica sistematica dei parametri API (2026-08-20)
+Controllo completo che ogni parametro dell'API sia passabile da
+`examples/audit_request.json` **e abbia effetto**, perché un campo accettato e
+poi ignorato è peggio di uno mancante.
+
+**Struttura: completa.** Tutti e 10 i campi di `AuditRequest` e tutti e 4 di
+`Credentials` sono nell'esempio; nessun campo estraneo; tutti e 8 gli endpoint
+di audit accettano lo stesso corpo.
+
+**Comportamento: verificato uno per uno.** Con una spia sul `Crawler`,
+`max_pages`, `delay`, `timeout` e `i_own_this_domain` arrivano con i valori
+inviati; nel contesto arrivano `market`, `force_proxy`, `queries`, `llm` e le
+quattro credenziali. Via HTTP l'effetto è osservabile nel referto: `market`
+cambia l'indice composito (cn 68,7 / eu 71,1), `queries` produce una voce per
+query, `llm=off` disattiva il modulo, `i_own_this_domain` accende
+`robots_ignored`, e una chiave riconoscibile non compare in risposta.
+
+**Parità CLI/API:** ogni flag della CLI ha il suo campo. `--format` e
+`--output` restano solo CLI perché riguardano la resa del referto, non l'audit;
+`credentials` resta solo API perché da riga di comando si usano le variabili
+d'ambiente.
+
+**Un difetto trovato dalla verifica: `max_pages` non limitava le pagine.**
+`max_pages=2` restituiva **1 pagina**. `fetch_sitemap()` limitava gli URL
+**candidati** a `max_pages`, ma i candidati vengono scartati a valle —
+duplicati dopo la normalizzazione, host esterni, vietati da robots.txt, 404,
+risorse non HTML. Sul sito di prova con `max_pages=2` la sitemap restituiva
+`/ok1` e `/ok1#top`, che sono la stessa pagina: il budget se ne andava in URL
+che non diventavano mai pagine.
+
+Ora i candidati si raccolgono con un margine dichiarato
+(`CANDIDATI_PER_PAGINA = 5`, minimo 50, tetto `MAX_CODA`) ed è il ciclo di
+`crawl()` a fermarsi a `max_pages`, come dovrebbe. Verificato:
+`max_pages=1` → 1 pagina, `max_pages=2` → 2 pagine.
+
+Il difetto era invisibile finora perché tutte le prove precedenti usavano
+`max_pages` generoso rispetto al sito di prova: chiedere **poco** era il caso
+che nessuno aveva provato.
 
 ### Credenziali nella richiesta API (2026-08-20)
 `examples/audit_request.json` era fermo a quattro campi su nove ed era stato

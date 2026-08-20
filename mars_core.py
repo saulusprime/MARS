@@ -37,6 +37,12 @@ DEFAULT_TIMEOUT = 10
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 MAX_SITEMAP_DEPTH = 3
 MAX_CODA = 2000       # tetto alla coda di scoperta, non alle pagine
+# Quanti URL candidati raccogliere per ogni pagina richiesta. Servono
+# di piu' delle pagine volute perche' molti candidati vengono scartati
+# a valle: duplicati dopo la normalizzazione, host esterni, vietati da
+# robots.txt, 404, risorse non HTML. Limitare i candidati a max_pages
+# faceva consumare il budget a URL che non diventavano mai pagine.
+CANDIDATI_PER_PAGINA = 5
 SCHEMI_NON_HTTP = ("#", "mailto:", "tel:", "javascript:", "data:")
 
 _ST_CACHE = None  # None = non ancora tentato; False = non disponibile
@@ -241,9 +247,10 @@ class Crawler:
     def fetch_sitemap(self) -> List[str]:
         """URL dalla sitemap, seguendo gli indici annidati."""
         trovati: List[str] = []
+        tetto = min(max(self.max_pages * CANDIDATI_PER_PAGINA, 50), MAX_CODA)
         coda = [(u, 0) for u in self.sitemap_urls()]
         visti = set()
-        while coda and len(trovati) < self.max_pages:
+        while coda and len(trovati) < tetto:
             url, profondita = coda.pop(0)
             if url in visti or profondita > MAX_SITEMAP_DEPTH:
                 continue
@@ -258,7 +265,7 @@ class Crawler:
                 loc = elem.text.strip()
                 if indice:
                     coda.append((loc, profondita + 1))
-                elif len(trovati) < self.max_pages:
+                elif len(trovati) < tetto:
                     trovati.append(loc)
         return trovati
 

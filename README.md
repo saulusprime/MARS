@@ -84,11 +84,26 @@ criteri che richiedono rendering. Il referto dichiara sempre quale dei
 due percorsi ha prodotto il punteggio.
 
 WAPT: se un daemon ZAP e' raggiungibile, la sicurezza viene misurata
-con una scansione reale (spider piu' active scan) tramite il client
-ufficiale python-owasp-zap-v2.4. MARS si collega a un daemon GIA' in
-esecuzione e non lo avvia: orchestrare un processo Java dal codice
-significa rischiare di lasciarlo orfano dopo un timeout, e delegarlo a
-chi lancia l'audit e' piu' semplice e piu' onesto. Il modo piu' rapido:
+con una scansione reale. MARS parla direttamente l'API JSON di ZAP: il
+client ufficiale python-owasp-zap-v2.4 non e' utilizzabile perche'
+cabla l'indirizzo "http://zap/" e ZAP 2.17 non serve piu' quell'alias
+attraverso il proxy. Non serve alcun pacchetto pip, solo il daemon.
+
+    ATTENZIONE. L'active scan invia payload d'attacco (XSS, SQL
+    injection, path traversal). Contro un sito che non si possiede e'
+    un attacco e, a seconda della giurisdizione, un reato. Per questo
+    l'active scan richiede --i-own-this-domain, la stessa dichiarazione
+    di proprieta' che permette di ignorare robots.txt.
+
+    Senza dichiarazione viene eseguito solo lo spider e si raccolgono
+    gli alert PASSIVI, ricavati osservando le risposte: header
+    mancanti, informazioni divulgate, cookie senza attributi. Utili e
+    innocui. Il referto dichiara quale delle due scansioni ha girato.
+
+MARS si collega a un daemon GIA' in esecuzione e non lo avvia:
+orchestrare un processo Java dal codice significa rischiare di
+lasciarlo orfano dopo un timeout, e delegarlo a chi lancia l'audit e'
+piu' semplice e piu' onesto. Il modo piu' rapido:
 
     docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon \
         -host 0.0.0.0 -port 8080 -config api.disablekey=true
@@ -101,9 +116,9 @@ parziali vengono riportati come tali.
 
 Nota: L'integrazione di ZAP (Zed Attack Proxy) 
 (pip install zapcli) tramite zap-cli eleva notevolmente il valore dell'audit 
-di sicurezza (WAPT), passando da un semplice controllo degli header a uno 
-scan attivo (spidering, active scan delle vulnerabilità comuni come XSS, 
-SQLi, ecc.).
+di sicurezza (WAPT: sudo snap install zaproxy --classic), passando da un 
+semplice controllo degli header a uno scan attivo (spidering, active scan 
+delle vulnerabilità comuni come XSS, SQLi, ecc.).
 
 In caso di problemi con pacchetti prerequisito per zap-cli provare a 
 lanciare i comandi qui sotto.

@@ -736,6 +736,9 @@ def build_context(url: str, max_pages: int = 10,
         # legge deve sapere se e cosa e' stato saltato, e se robots.txt
         # e' stato ignorato per dichiarazione di proprieta'.
         "robots_ignored": owner_declaration,
+        # Distinto da robots_ignored: la dichiarazione di proprieta'
+        # abilita anche l'active scan WAPT, che invia payload d'attacco.
+        "owner_declaration": owner_declaration,
         "skipped": crawler.skipped,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.

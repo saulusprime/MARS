@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C9 (residue) | Verificato contro ZAP 2.17 reale; active scan autorizzato | 2026-08-20 |
 | C9 | WAPT via ZAP: client ufficiale, orchestrazione eseguita | 2026-08-20 |
 | C8 | WCAG reale via axe-core su Chromium | 2026-08-20 |
 | C6 | Crawling interno quando manca la sitemap | 2026-08-20 |
@@ -923,6 +924,74 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C9 (residue) — ✅ CHIUSE (2026-08-20): verificato contro ZAP 2.17 reale
+L'autore ha installato ZAP. Le due voci che richiedevano il daemon sono chiuse,
+e la verifica sul campo ha rovesciato una delle scelte fatte a tavolino.
+
+**Il client ufficiale non funziona con ZAP 2.17.**
+`python-owasp-zap-v2.4` 0.0.14 cabla l'indirizzo `http://zap/` e **rifiuta ogni
+altro URL** — c'è un controllo esplicito nel suo codice, per non far trapelare
+la chiave API. Ma ZAP 2.17 non serve più quell'alias attraverso il proxy.
+Misurato: il proxy inoltra regolarmente `example.com` (200), mentre
+`http://zap/` chiude la connessione; nessun alias alternativo (`zap.local`,
+`localhost`, `127.0.0.1`) funziona. L'API diretta invece risponde.
+
+Il finto daemon costruito in precedenza non poteva rivelarlo: rispondeva a
+qualunque percorso, mentre quello vero è selettivo. **Un banco di prova troppo
+accomodante conferma anche ciò che è sbagliato.**
+
+**Sostituito con un client scritto a mano**, una trentina di righe su
+`requests`, che era già una dipendenza. L'API di ZAP è un GET che restituisce
+JSON: farlo a mano costa meno che dipendere da un wrapper fermo al 2018.
+`zapcli` e il client ufficiale sono usciti da `requirements-optional.txt`, con
+la ragione scritta accanto: per ZAP **non serve alcun pacchetto pip**.
+
+**Un problema di sicurezza sollevato dal collaudo.** Per verificare ho dovuto
+lanciare scansioni, e questo ha reso evidente che `ascan` **invia payload
+d'attacco** — XSS, SQL injection, path traversal. `mars_wapt` lo lanciava
+contro qualunque URL ricevesse: contro un sito che non si possiede è un
+attacco, e a seconda della giurisdizione un reato.
+
+L'active scan richiede ora la **stessa dichiarazione di proprietà** introdotta
+da **R7** per ignorare robots.txt. Senza, gira solo lo spider e si raccolgono
+gli alert **passivi** — header mancanti, informazioni divulgate — che sono utili
+e innocui. Il referto dichiara quale delle due ha girato (`ZAP (attiva)` /
+`ZAP (passiva)`). Per distinguere i due significati, `context` porta ora
+`owner_declaration` accanto a `robots_ignored`.
+
+**Verificato su ZAP 2.17.0 reale**, contro server locali di nostra proprietà:
+sequenza `version` → `spider/action/scan` → `spider/view/status` →
+`ascan/action/scan` → `ascan/view/status` → `core/view/alerts`; chiavi
+`pluginId`, `alert`, `risk`, `url` tutte presenti.
+
+**Il raggruppamento per regola confermato sul campo:** 27 alert grezzi da una
+scansione reale → **4 regole distinte**, con *Missing Anti-clickjacking Header*
+su 6 URL contata una volta. Senza raggruppamento quella sola regola sarebbe
+costata 60 punti.
+
+**Taratura dei pesi, due punti reali** (entrambi su server locali nostri):
+
+| sito | score | regole |
+|---|---|---|
+| mal configurato | 58 | 2 Medium + 2 Low |
+| ben configurato | 76 | 2 Medium (residui: CSP fallback, sito solo HTTP) |
+
+La scala ordina correttamente e lascia spazio sotto per un rilievo *High*.
+Due punti non sono una calibrazione su corpus, e resta scritto così.
+
+**Un difetto del prodotto trovato mentre si tarava.** Il server di prova
+blindato risultava privo di HSTS e CSP che invece impostava: `audit_headers`
+usava `requests.head()` **senza controllare lo status code**, e leggeva gli
+header di una risposta `501 Unsupported method`. Esistono server reali che
+rifiutano HEAD: avrebbero ricevuto un *"mancano tutti gli header di
+sicurezza"*, falso e dato con sicurezza. Ora si controlla lo status e si
+ripiega su GET. Verificato: il server blindato passa da 60 a **100/100**.
+
+Il daemon ZAP avviato per il collaudo è stato spento.
+
+- [x] Verifica contro un daemon ZAP reale (2.17.0).
+- [x] Pesi tarati su scansioni reali — due punti, dichiarati come tali.
 
 ### C9 — ✅ IN GRAN PARTE FATTO (2026-08-20): WAPT via ZAP, orchestrazione eseguita
 Dopo **R4** il modulo derivava il punteggio dagli alert reali, ma il percorso

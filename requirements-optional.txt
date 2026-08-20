@@ -11,9 +11,11 @@ numpy>=1.24
 # Monitoraggio delle citazioni IA e giudizio LLM (mars_citations.py).
 anthropic>=0.120
 
-# Scan WAPT attivo al posto del solo controllo header (mars_wapt.py).
-# Richiede anche il daemon ZAP (Java), che non è un pacchetto pip.
-zapcli>=0.10
+# Scan WAPT con ZAP (mars_wapt.py): NESSUN pacchetto pip serve.
+# MARS parla direttamente l'API JSON di ZAP con requests. Il client
+# ufficiale python-owasp-zap-v2.4 (0.0.14) NON è utilizzabile: cabla
+# l'indirizzo "http://zap/" e ZAP 2.17 non serve più quell'alias
+# attraverso il proxy. Serve solo il daemon ZAP in esecuzione.
 
 # Audit WCAG reale via axe-core (previsto, non ancora integrato: vedi C8).
 playwright>=1.40

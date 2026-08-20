@@ -75,18 +75,6 @@ non dipende dal codice.
       Il referto JSON ora conserva per intero motivazione, punti forti e
       deboli, quindi è il formato giusto per controllarne l'esito.
 
-### C9 — WAPT via ZAP: voci residue
-Client ufficiale, orchestrazione eseguita contro un daemon simulato,
-raggruppamento per regola — vedi [AS-IS.md](AS-IS.md). Restano i due punti che
-richiedono ZAP vero.
-
-- [ ] **Verifica contro un daemon ZAP reale.** Qui Java non è installato e il
-      collaudo è avvenuto contro un finto daemon che risponde all'API. La
-      sequenza e le chiavi sono confermate; resta da vedere se ZAP reale si
-      comporta come il suo contratto documentato.
-- [ ] Tarare `ZAP_PENALTIES` su scansioni vere: oggi sono un ordinamento
-      dichiarato, non una misura calibrata.
-
 ### C10 — `mars_tech`: coprire tutto ciò che il README dichiara
 Il README assegna a `mars_tech` *"indicizzabilita', robots.txt, sitemap,
 crawler IA"*. Il file implementa **solo robots.txt** (24 righe totali).

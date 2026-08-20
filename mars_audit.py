@@ -12,125 +12,23 @@ import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__, build_context,
-                       describe_chunk, load_external_module,
-                       reciprocal_rank_fusion)
+                       load_external_module)
+from mars_report import RENDERERS, build_report
 
 
 # Codici di uscita, allineati a quelli di mars_citations.py.
 # Il valore 1 resta libero per una futura soglia --fail-under (idea I2).
 EXIT_OK = 0
 EXIT_NESSUNA_PAGINA = 2
-
-
-def print_report(results: dict, context: dict | None = None) -> None:
-    """Stampa il referto finale a video.
-
-    Dichiara anche cio' che NON e' stato misurato: aree senza strumento
-    e URL saltati dal crawler. Dodici pagine escluse cambiano il
-    significato di ogni punteggio, e tacerlo sarebbe una bugia per
-    omissione.
-    """
-    print("\n" + "="*55)
-    print("           MARS BEACON - REPORT FINALE           ")
-    print("="*55)
-
-    lex_res = results.get("mars_lexical")
-    sem_res = results.get("mars_semantic")
-
-    for mod_name, desc in MODULES_REGISTRY:
-        if mod_name == "mars_citability":
-            continue  # ha un blocco tutto suo, in fondo
-        if mod_name in results:
-            res = results[mod_name]
-            if "score" in res:
-                # score None = area non misurabile (strumento assente o
-                # fallito): va distinta da 0/100, che e' un giudizio.
-                if res["score"] is None:
-                    stato = res.get("status")
-                    etichetta = ("disattivato" if stato == "disabled"
-                                 else "non misurato")
-                    print(f"{desc:<20} : {etichetta}")
-                else:
-                    print(f"{desc:<20} : {res['score']:>3.0f}/100")
-                if "issues" in res and res["issues"]:
-                    for iss in res["issues"][:2]:
-                        print(f"  ⚠ {iss}")
-            elif mod_name == "mars_lexical":
-                print(f"{desc:<20} : Analizzato "
-                      f"(Top: {res.get('top_chunk', 'N/A')})")
-            elif mod_name == "mars_semantic":
-                ratio = res.get("answer_shaped_ratio", 0)
-                n = res.get("n_chunks", 0)
-                print(f"{desc:<20} : Analizzato "
-                      f"({ratio:.0%} di {n} chunk answer-shaped)")
-
-    if lex_res and sem_res and "rank" in lex_res and "rank" in sem_res:
-        chunks = (context or {}).get("chunks") or []
-        rrf = reciprocal_rank_fusion([lex_res["rank"], sem_res["rank"]])
-        top_3_lex = set(lex_res["rank"][:3])
-        top_3_sem = set(sem_res["rank"][:3])
-        consensus = len(top_3_lex.intersection(top_3_sem))
-        print("-" * 55)
-        # Ora i due ranghi si riferiscono agli STESSI chunk: prima uno
-        # indicizzava pagine e l'altro chunk, e il consenso non aveva
-        # il significato dichiarato nel README.
-        print(f"Simulazione RRF      : Consenso Top-3 = {consensus}/3 "
-              f"su {len(chunks)} chunk")
-        if rrf and rrf[0][0] < len(chunks):
-            print(f"Top Chunk Ibrido     : {describe_chunk(chunks[rrf[0][0]])}")
-
-    cit = results.get("mars_citability")
-    if cit and cit.get("profiles"):
-        print("-" * 55)
-        print(f"Profili di citabilità IA  (mercato: {cit.get('market')})")
-        for assistente, valore in cit["profiles"].items():
-            barra = "█" * int((valore or 0) / 5)
-            testo = f"{valore:>5.1f}" if valore is not None else "  n/d"
-            print(f"  {assistente:<20} {testo}  {barra}")
-        if cit.get("score") is not None:
-            print(f"  {'INDICE COMPOSITO':<20} {cit['score']:>5.1f}")
-        # Il disclaimer sta QUI e non in fondo: chi legge il numero
-        # deve leggere anche cosa non è.
-        print(f"  ({cit.get('disclaimer', '')})")
-        for nota in cit.get("issues", [])[:3]:
-            print(f"  · {nota}")
-
-    llm = results.get("mars_llm_judge") or {}
-    if llm.get("motivazione"):
-        print("-" * 55)
-        print(f"Giudizio LLM ({llm.get('model')})  su "
-              f"{llm.get('chunk_valutati')} passaggi")
-        if llm.get("score") is not None:
-            print(f"  Citabilità stimata   : {llm['score']}/100")
-        print(f"  {llm['motivazione']}")
-        if llm.get("passaggio_migliore"):
-            print(f"  Passaggio migliore   : {llm['passaggio_migliore']}")
-        for punto in (llm.get("punti_deboli") or [])[:2]:
-            print(f"  · da migliorare: {punto}")
-
-    if context:
-        # Un referto deve dire cosa NON ha guardato: 12 pagine saltate
-        # cambiano il significato di ogni punteggio qui sopra.
-        saltati = context.get("skipped") or []
-        if context.get("robots_ignored"):
-            print("-" * 55)
-            print("\u26a0 robots.txt IGNORATO per dichiarazione di proprieta'")
-        if saltati:
-            print("-" * 55)
-            print(f"URL saltati          : {len(saltati)}")
-            for motivo in saltati[:3]:
-                print(f"  · {motivo}")
-            if len(saltati) > 3:
-                print(f"  · ... e altri {len(saltati) - 3}")
-
-    print("="*55 + "\n")
+EXIT_SCRITTURA = 3
 
 
 def run_audit(url: str, max_pages: int, embeddings_model: str,
               market: str, delay: float = DEFAULT_DELAY,
               timeout: int = DEFAULT_TIMEOUT,
               owner_declaration: bool = False,
-              llm: str = "auto") -> int:
+              llm: str = "auto", formato: str = "text",
+              output: str | None = None) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
@@ -165,7 +63,18 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
         else:
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
-    print_report(results, context)
+    referto = build_report(results, context)
+    testo = RENDERERS[formato](referto)
+    if output:
+        try:
+            with open(output, "w", encoding="utf-8") as handle:
+                handle.write(testo)
+        except OSError as exc:
+            print(f"Impossibile scrivere {output}: {exc}")
+            return EXIT_SCRITTURA
+        print(f"Referto scritto in {output}")
+    else:
+        print(testo)
     return EXIT_OK
 
 
@@ -180,6 +89,11 @@ if __name__ == "__main__":
                         help="Pausa fra le richieste in secondi (default %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help="Timeout di rete in secondi (default %(default)s)")
+    parser.add_argument("--format", choices=tuple(RENDERERS),
+                        default="text", dest="formato",
+                        help="Formato del referto (default: text)")
+    parser.add_argument("--output", metavar="FILE",
+                        help="Scrive il referto su file invece che a video")
     parser.add_argument("--llm", choices=("auto", "on", "off"),
                         default="auto",
                         help="Giudizio LLM sulla citabilità: 'auto' solo se "
@@ -198,4 +112,5 @@ if __name__ == "__main__":
     sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
                        args.market, delay=args.delay, timeout=args.timeout,
                        owner_declaration=args.owner_declaration,
-                       llm=args.llm))
+                       llm=args.llm, formato=args.formato,
+                       output=args.output))

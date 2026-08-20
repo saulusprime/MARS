@@ -66,38 +66,23 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
 Funzionalità **promesse dal README ma assenti nel codice**, in ordine di
 distanza tra promessa e realtà.
 
-### C4 — Output HTML e JSON (`--format`, `--output`) — *mancante al 100%*
-> Ora serve anche a C2 e C3.
->
-> **Contratto da rispettare** (`mars_core.load_queries` lo legge già): il
-> referto JSON deve esporre `rrf_simulation` come lista di voci con chiave
-> `query` — oppure un `queries` di primo livello. È ciò che sblocca
-> `--from-audit` di `mars_citations.py`, oggi dormiente.
->
-> Serve anche a C2: il giudizio LLM produce motivazione, punti forti e
-> deboli che il referto testuale tronca. Il JSON li conserverebbe interi.
+### C4 — voce residua
+Il referto JSON e HTML è fatto — vedi [AS-IS.md](AS-IS.md). Resta un punto che
+non dipende dal codice.
 
 - [ ] **Verificare sul campo il giudizio LLM (C2)** con una credenziale
       Anthropic reale: la chiamata non è mai stata eseguita, solo simulata.
-Il README mostra nell'`Uso:` la riga
-`python3 mars_audit.py https://example.com --max-pages 40 --format html --output report.html`.
-`argparse` in [mars_audit.py:107-114](mars_audit.py#L107-L114) espone solo
-`url`, `--max-pages`, `--embeddings`, `--market`. I due flag **non esistono**:
-il comando documentato termina con un errore.
-
-- [ ] Aggiungere `--format {text,json,html}` (default `text`) e `--output PATH`
-      (default stdout).
-- [ ] Estrarre da `print_report()` una funzione `build_report(results, urls) -> dict`
-      pura, e tre renderer che la consumano. Così il JSON è la struttura
-      canonica e HTML/testo ne sono viste — e l'API può riusare lo stesso dict.
-- [ ] Il renderer HTML deve essere self-contained (CSS inline, nessuna CDN),
-      coerente con il principio "nessuna dipendenza aggiuntiva".
-- [ ] `favicon.ico` / `favicon.png` sono già in root e presumibilmente destinati
-      a questo report: agganciarli (inline base64) o rimuoverli.
+      Il referto JSON ora conserva per intero motivazione, punti forti e
+      deboli, quindi è il formato giusto per controllarne l'esito.
+- [ ] `favicon.png` (344 KB) non è più usata da nulla: l'HTML incorpora il
+      `.ico`. Rimuoverla o dichiararne l'uso.
 
 ### C5 — Query personalizzate (`--queries q.txt`) — *mancante al 100%*
-> R10 ha rimosso il presupposto mancante: i due retriever lavorano ora sugli
-> stessi chunk, quindi far ciclare più query produce ranghi fondibili.
+> Tutti i presupposti sono pronti: **R10** ha reso i due retriever
+> commensurabili, **C3** ha estratto `mars_core.load_queries()` che legge già
+> file e referti, e **C4** ha fissato `rrf_simulation` come lista di voci — una
+> per query. Resta da far ciclare i due retriever sulle query e aggiungere una
+> voce per ciascuna.
 Il README mostra `--queries q.txt`. Oggi la query è **una sola, hardcoded**, e
 per giunta duplicata in due file:
 `"cos'è questo sito"` in [mars_lexical.py:19](mars_lexical.py#L19) e

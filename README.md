@@ -235,6 +235,22 @@ Uso:
     python3 mars_audit.py https://example.com --queries q.txt \\
         --embeddings sentence-transformers/all-MiniLM-L6-v2
 
+Formati del referto (--format, predefinito text):
+
+    text   il referto a video, come sopra
+    json   la struttura canonica: testo e HTML ne sono viste, e l'API
+           restituisce gli stessi campi su POST /audit/full
+    html   pagina autoconsistente — CSS incorporato, favicon inclusa,
+           nessuna CDN e nessuno script — con tema chiaro e scuro
+
+Con --output il referto va su file invece che a video. Il referto JSON
+si dà in pasto a mars_citations.py --from-audit, che ne riusa le stesse
+query della simulazione RRF: cosi' stima e misura della citabilita'
+guardano le stesse domande.
+
+Codici di uscita di mars_audit.py: 0 referto prodotto; 2 nessuna pagina
+indicizzata; 3 impossibile scrivere il file di --output.
+
 Monitoraggio delle citazioni IA effettive di un sito.
 
 Interroga i principali assistenti IA con ricerca web sulle query

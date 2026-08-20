@@ -23,7 +23,7 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__,
                        load_external_module)
 from mars_core import build_context as core_build_context
-from mars_core import describe_chunk, reciprocal_rank_fusion
+from mars_report import build_report
 
 # ==============================================================================
 # CONFIGURAZIONE API & SICUREZZA
@@ -338,26 +338,13 @@ async def audit_full(req: AuditRequest, current_user: User = Depends(get_current
         except Exception as exc:
             results[mod_name] = {"error": f"{type(exc).__name__}: {exc}"}
 
-    # Calcolo RRF se entrambi i retriever sono attivi
-    lex_res = results.get("mars_lexical", {})
-    sem_res = results.get("mars_semantic", {})
-    if "rank" in lex_res and "rank" in sem_res:
-        rrf = reciprocal_rank_fusion([lex_res["rank"], sem_res["rank"]])
-        top_3_lex = set(lex_res["rank"][:3])
-        top_3_sem = set(sem_res["rank"][:3])
-        consensus = len(top_3_lex.intersection(top_3_sem))
+    # Stessa struttura canonica del referto CLI: l'API non ricalcola
+    # per conto proprio cio' che mars_report sa gia' produrre, ed
+    # espone di conseguenza gli stessi campi.
+    referto = build_report(results, context)
+    referto["modules"] = results
+    return referto
 
-        chunks = context["chunks"]  # stesso crawl, nessun ricalcolo
-        top = chunks[rrf[0][0]] if rrf and rrf[0][0] < len(chunks) else None
-        results["rrf_analysis"] = {
-            "consensus_top3": consensus,
-            "n_chunks": len(chunks),
-            "top_chunk": describe_chunk(top) if top else None,
-            "top_chunk_url": top.get("url") if top else None,
-            "top_chunk_heading": top.get("heading") if top else None,
-        }
-
-    return results
 
 # ==============================================================================
 # ESECUZIONE DIRETTA

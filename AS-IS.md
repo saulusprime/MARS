@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C4 | Referto JSON e HTML; l'API riusa la struttura canonica | 2026-08-20 |
 | C3 (residue) | Modello OpenAI, `include` delle fonti, caricatore query | 2026-08-20 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
@@ -918,6 +919,56 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C4 — ✅ FATTO (2026-08-20): referto JSON e HTML
+Il README mostrava nell'`Uso:` il comando
+`--format html --output report.html`, ma `argparse` non conosceva né l'uno né
+l'altro flag: **il comando documentato terminava con un errore**.
+
+**Il dato prima della presentazione.** `mars_report.build_report()` produce la
+struttura canonica; `render_text`, `render_json` e `render_html` ne sono tre
+viste. Prima la logica del referto viveva dentro le `print`, quindi esisteva un
+solo formato possibile e l'API doveva ripetere gli stessi calcoli per conto
+proprio. È il principio 8 applicato a ciò che il progetto produce, non solo a
+come è scritto.
+
+**`/audit/full` restituisce ora la stessa struttura**, con i risultati grezzi
+per modulo sotto `modules`. Il calcolo dell'RRF che l'endpoint faceva da sé è
+sparito: era la stessa logica scritta due volte. *Attenzione: la forma della
+risposta è cambiata* — `rrf_analysis` è diventato `rrf_simulation`, con la
+stessa informazione più la query.
+
+**Il referto HTML è autoconsistente**, verificato: **zero** riferimenti
+esterni, **zero** tag `<script>`, CSS incorporato, favicon `.ico` inclusa come
+data URI. Si usa il `.ico` da 2,8 KB e non il `.png` da 344 KB: il referto deve
+restare un file solo, ma non a costo di mezzo megabyte di icona. 8,8 KB in
+tutto, con tema chiaro e scuro.
+
+**Escape verificato con input ostile.** Il referto contiene testo preso dal
+sito analizzato — titoli, heading, motivi di scarto — quindi un sito potrebbe
+iniettare markup. Provato con `<script>alert(1)</script>` nell'URL e
+`<img src=x onerror=...>` fra gli URL saltati: tutto esce come entità, nessun
+tag viene aperto.
+
+**Chiude anche l'ultima voce di C3.** `--from-audit` di `mars_citations.py`
+era dormiente perché nessuno produceva `rrf_simulation`. Ora il referto JSON la
+espone — una voce per query, con `query`, consenso e passaggio migliore — e la
+catena funziona: `mars_audit --format json --output r.json` seguito da
+`mars_citations --from-audit r.json` legge la query e prosegue, fermandosi solo
+sulla credenziale mancante. La forma è già quella definitiva, così **C5** potrà
+aggiungere query senza toccare il contratto.
+
+**Nuovo codice di uscita 3** per `--output` non scrivibile: prima un percorso
+non valido sarebbe passato inosservato.
+
+Verificato: il referto testuale è **identico** a prima del rifacimento; JSON
+valido con quindici campi di primo livello; HTML autoconsistente; catena
+audit → citations funzionante; exit 0 / 2 / 3 corretti.
+
+- [x] `--format {text,json,html}` e `--output PATH`.
+- [x] `build_report()` puro più tre renderer; l'API riusa lo stesso dict.
+- [x] HTML self-contained, nessuna CDN.
+- [x] `favicon.ico` agganciata come data URI.
 
 ### C3 (residue) — ✅ CHIUSE (2026-08-20): verifiche e caricatore condiviso
 Delle tre voci rimaste dopo la stesura di `mars_citations.py`, due sono chiuse

@@ -27,6 +27,7 @@
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
 | R15 | Un solo URL malformato faceva cadere l'intero audit | 2026-08-20 |
 | R16 | Mojibake silenzioso sui siti UTF-8 senza charset | 2026-08-20 |
+| R17 | I redirect non venivano rivalidati | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -972,6 +973,117 @@ rilevamento sceglie `maccyrillic` e sbaglia il primo carattere.
 - [x] Una sola decodifica: DOM e HTML grezzo non possono divergere.
 - [x] robots.txt in UTF-8 per RFC 9309.
 - [x] Banco di prova reso fedele a `requests`.
+
+### R17 — ✅ RISOLTO (2026-08-20): i redirect non venivano rivalidati
+`crawl()` lasciava che `requests` seguisse i redirect da solo, poi non
+guardava mai dov'era finito: `host_matches()` e `can_fetch()` giravano
+esclusivamente sull'URL **richiesto**. Un redirect bastava quindi al sito per
+decidere cosa il crawler scaricasse.
+
+**Quattro effetti, tutti riprodotti** con l'adattatore finto:
+
+```
+(a) robots.txt aggirato via redirect  : True   /porta -> /privato/segreto (Disallow)
+(b) host esterno indicizzato          : True   /fuori -> esterno.test, title "CONTENUTO ESTERNO"
+(c) stessa pagina due volte nel corpus: True   /vecchia e /nuova, testo identico
+(d) richiesta VIETATA partita davvero : True
+skipped: (vuoto)
+```
+
+Il difetto è grave su due piani distinti. Il primo è una **promessa rotta**:
+`README.md` e `CLAUDE.md` dichiarano che il crawler rispetta robots.txt, e
+l'unico modo per ignorarlo dovrebbe essere la dichiarazione di proprietà
+introdotta da **R7**. Il secondo è la **contaminazione del corpus**: il
+contenuto di un altro host entrava in BM25, nel proxy char-TFIDF e nell'RRF
+come se fosse del sito analizzato, e `skipped` non ne diceva nulla.
+
+**Il punto (d) è quello che decide la forma della correzione.** Ricontrollare
+`resp.url` a cose fatte avrebbe evitato di *indicizzare* la pagina, ma la
+richiesta vietata sarebbe comunque partita: il crawler avrebbe disobbedito e
+poi nascosto la prova. Per questo `_scarica_pagina()` segue i redirect **uno a
+uno**, con `allow_redirects=False`, e controlla host e robots.txt **prima** di
+ogni salto — così la richiesta vietata non parte affatto. Verificato
+ispezionando gli URL realmente chiesti dall'adattatore.
+
+`_get()` continua invece a seguirli da sé per robots.txt e le sitemap, che non
+sono pagine da indicizzare — e per robots.txt **RFC 9309 chiede esplicitamente
+di seguirli**, oltre al fatto che `/robots.txt` che redirige (http→https, www)
+è comunissimo. C'è un test apposta perché quel comportamento non regredisca.
+
+**La pagina si registra sotto l'URL di ARRIVO**, non più sotto quello
+richiesto: è lì che il contenuto vive davvero, ed è quello che finisce nei
+chunk e che `mars_tech` confronta con il `canonical`. Questo da solo chiude
+(c), perché la chiave del dizionario diventa la stessa.
+
+**Un tetto di 5 salti** (quanti ne segue Googlebot), più il riconoscimento dei
+cicli.
+
+**Una correzione nata da una misura, non da una lettura.** Il controllo del
+duplicato stava all'inizio *a valle* di `_scarica_pagina`. Contando le
+richieste è emerso che nell'ordine "prima `/nuova`, poi `/vecchia`" la pagina
+veniva scaricata **due volte**: il controllo dichiarava il duplicato dopo aver
+già sprecato la richiesta. Spostato dentro `_scarica_pagina`, prima del salto —
+il che ha richiesto di promuovere `visti` da variabile locale di `crawl()` ad
+attributo del crawler. Misurato dopo: **una sola richiesta in entrambi gli
+ordini**.
+
+**Diagnosi precise sui casi degeneri**, applicando la lezione di **R6** (vuoto
+≠ malformato). Una `Location` vuota veniva risolta da `urljoin` nell'URL di
+partenza e riportata come *«più di 5 redirect»*: difetto sbagliato, e cinque
+richieste sprecate per scoprirlo. Ora:
+
+| caso | diagnosi | richieste |
+|---|---|---|
+| `Location` vuota | redirect senza destinazione | 1 |
+| redirect su se stesso | redirect circolare | 1 |
+| ciclo a due | redirect circolare | 2 |
+| `Location` malformata | redirect verso URL non analizzabile | 1 |
+| catena lunga | più di 5 redirect | 6 |
+
+**Verificato.** I quattro effetti ripetuti dopo la correzione danno tutti
+`False`, con `skipped` che dichiara i due scarti; la pagina compare una volta
+sola, sotto `/nuova`. In CLI il referto lo dice a chi legge:
+
+```
+URL saltati          : 2
+  · redirect verso URL vietato da robots.txt: .../porta -> .../privato/segreto
+  · redirect verso host esterno: .../fuori -> http://esterno.invalid/x
+```
+
+Sul sito pulito di regressione, senza redirect, il referto è **identico** a
+quello di `HEAD`.
+
+**La prova che conta: reintrodurre il difetto.** Sette mutazioni, tutte
+rilevate:
+
+```
+1. redirect di nuovo seguiti da requests    -> 11 falliti
+2. robots non ricontrollato sul salto       ->  1 fallito
+3. host non ricontrollato sul salto         ->  1 fallito
+4. duplicato dopo redirect non riconosciuto ->  2 falliti
+5. pagina registrata sotto URL richiesto    ->  2 falliti
+6. redirect circolare non riconosciuto      ->  2 falliti
+7. Location vuota non riconosciuta          ->  1 fallito
+```
+
+**La mutazione 4 alla prima esecuzione non veniva rilevata**, e la ragione è
+istruttiva: il test verificava solo le chiavi di `pages`, che ormai
+deduplicano da sole grazie alla registrazione sotto l'URL di arrivo. Il
+controllo esplicito compra altro — **non richiedere la pagina due volte** e
+dichiarare il duplicato — e finché il test non ha misurato *quelle* due cose
+era vacuo. È la terza volta in tre voci che la batteria di mutazioni trova un
+test che sembrava corretto.
+
+**L'adattatore di prova è stato reso più fedele una seconda volta.** Non
+impostava `resp.request`, e senza quello `requests` non sa risolvere i
+redirect: il difetto non si manifestava affatto nei test. Dopo `resp.encoding`
+di **R16**, è il secondo pezzo di `HTTPAdapter.build_response` che mancava.
+
+- [x] Redirect seguiti un salto per volta, con i controlli **prima**.
+- [x] robots.txt e sitemap continuano a seguirli (RFC 9309).
+- [x] Pagina registrata sotto l'URL di arrivo.
+- [x] Duplicati riconosciuti senza sprecare una richiesta.
+- [x] Cicli, tetto sui salti e `Location` degeneri diagnosticati.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

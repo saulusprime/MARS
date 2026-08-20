@@ -123,6 +123,12 @@ Costano ore se le si reincontra senza saperlo.
   prima. Gli URL vengono dal sito analizzato, quindi sono dato ostile:
   usare `safe_normalize_url()`, che restituisce `None`, e dichiarare lo
   scarto in `skipped`. Vedi R15.
+- **Un redirect è un URL nuovo, e va ricontrollato prima di seguirlo.**
+  `requests` li segue da solo e l'arrivo non viene più esaminato: basta
+  un `302` perché il sito faccia scaricare al crawler un percorso
+  `Disallow` o il contenuto di un altro host. Le pagine passano da
+  `_scarica_pagina()`, che controlla ogni salto **prima** di farlo;
+  robots.txt e sitemap li seguono ancora da sé (RFC 9309). Vedi R17.
 - **`resp.text` decodifica in ISO-8859-1 ogni `text/*` senza charset.**
   È il default legacy di RFC 2616 che `requests` applica ancora: su un
   sito UTF-8 restituisce mojibake, e il corpus si corrompe in silenzio.
@@ -132,9 +138,10 @@ Costano ore se le si reincontra senza saperlo.
   Il `Crawler` usa una `Session`: per esercitarlo nei test si monta un
   `requests.adapters.BaseAdapter` finto sulla sua `session`
   (`tests/test_core.py`), non si conta sulla fixture. Quell'adattatore
-  deve restare **fedele**: quando fissava `resp.encoding = "utf-8"`
-  invece di derivarlo dagli header, tre mutazioni di R16 su cinque
-  passavano inosservate.
+  deve restare **fedele** a `HTTPAdapter.build_response`: quando
+  fissava `resp.encoding = "utf-8"` tre mutazioni di R16 su cinque
+  passavano inosservate, e finché non impostava `resp.request` il
+  difetto R17 non si manifestava affatto nei test.
 - **`soup.title.string` è `None` su `<title></title>`**, non `""`. Usare
   `get_text(strip=True)`.
 - **`sentence-transformers` si importa pigramente.** L'import trascina

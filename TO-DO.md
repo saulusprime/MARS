@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R33, I13-I14). R15 e R16 sono
-> già chiuse; restano aperte R17-R33.
+> di codice e documentazione: nuove voci R15-R33, I13-I14). R15, R16 e R17
+> sono già chiuse; restano aperte R18-R33.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -92,29 +92,16 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 ## Correzioni
 
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
-l'audit) e **R16** (mojibake sui siti UTF-8 senza charset), entrambe il
-2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
+l'audit), **R16** (mojibake sui siti UTF-8 senza charset) e **R17** (redirect
+mai rivalidati), tutte il 2026-08-20: difetto, soluzione e verifiche in
+[AS-IS.md](AS-IS.md).
 
-Le voci **R17-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R18-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R17 — 🔴 GRAVE: i redirect non vengono rivalidati
-`crawl()` ([mars_core.py:381](mars_core.py#L381)) segue i redirect (default di
-`requests`), ma `resp.url` non è mai ricontrollato né inserito in `visti`:
-`host_matches()` e `can_fetch()` girano solo sull'URL **richiesto**. Tre effetti
-riprodotti con adapter finto: (a) un URL permesso che redirige verso un percorso
-`Disallow` viene scaricato — **robots.txt aggirato dal sito stesso**; (b) un
-redirect cross-dominio viene seguito e il **contenuto di un host esterno** è
-indicizzato come pagina interna; (c) `/vecchia` 301 → `/nuova`, entrambe in
-sitemap, entrano **due volte** nel corpus. `skipped` resta vuoto in tutti e tre.
-Viola la promessa robots.txt di [CLAUDE.md](CLAUDE.md) e contamina il corpus.
-
-- [ ] Rivalidare `host_matches`/`can_fetch` su `normalize_url(resp.url)` e
-      deduplicare sull'URL finale prima di registrare la pagina.
 
 ### R18 — 🔴 GRAVE: la tokenizzazione `split()` nudo esclude le parole a fine frase
 `mars_lexical` ([:32](mars_lexical.py#L32) corpus, [:36](mars_lexical.py#L36)

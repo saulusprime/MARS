@@ -16,10 +16,11 @@ import requests
 from bs4 import BeautifulSoup
 
 from conftest import HTML_BASE
-from mars_core import (Crawler, LexicalRetriever, VectorRetriever, chunk_page,
-                       decode_html, default_queries, describe_chunk,
-                       host_matches, load_external_module, load_queries,
-                       norm_host, normalize_url, reciprocal_rank_fusion,
+from mars_core import (MAX_REDIRECT, Crawler, LexicalRetriever,
+                       VectorRetriever, chunk_page, decode_html,
+                       default_queries, describe_chunk, host_matches,
+                       load_external_module, load_queries, norm_host,
+                       normalize_url, reciprocal_rank_fusion,
                        safe_normalize_url, split_windows)
 
 
@@ -199,29 +200,45 @@ class _AdattatoreFinto(requests.adapters.BaseAdapter):
     crawl() puo' essere esercitata per intero restando ermetica: la
     fixture niente_rete copre requests.get, non Session.get.
 
-    L'encoding si deriva dagli header con la STESSA funzione che usa
-    HTTPAdapter.build_response. Fissarlo a "utf-8" rendeva il banco di
-    prova piu' accomodante della realta': resp.text funzionava sempre,
-    e i test non potevano accorgersi del mojibake di R16.
+    Deve restare FEDELE a HTTPAdapter.build_response, altrimenti
+    conferma anche cio' che e' sbagliato (la lezione di C9):
+    - l'encoding si deriva dagli header con la stessa funzione, perche'
+      fissarlo a "utf-8" nascondeva il mojibake di R16;
+    - resp.request e' impostata, perche' senza requests non sa
+      risolvere i redirect e il difetto R17 non si manifesta.
+
+    `richieste` registra gli URL davvero chiesti: e' cosi' che si
+    verifica che una richiesta vietata NON sia partita.
     """
 
-    def __init__(self, risposte: dict) -> None:
+    def __init__(self, risposte: dict, redirect: dict | None = None) -> None:
         super().__init__()
         self.risposte = risposte
+        self.redirect = redirect or {}
+        self.richieste: list[str] = []
 
     def send(self, request, **kwargs):        # noqa: D102
-        corpo, tipo = self.risposte.get(request.url, (None, None))
+        self.richieste.append(request.url)
         resp = requests.Response()
         resp.url = request.url
-        if corpo is None:
-            resp.status_code = 404
+        resp.request = request
+        resp._content_consumed = True
+        if request.url in self.redirect:
+            resp.status_code = 302
             resp._content = b""
-            resp.headers["Content-Type"] = "text/plain"
+            resp.headers["Location"] = self.redirect[request.url]
+            resp.headers["Content-Type"] = "text/html"
         else:
-            resp.status_code = 200
-            resp._content = (corpo if isinstance(corpo, bytes)
-                             else corpo.encode("utf-8"))
-            resp.headers["Content-Type"] = tipo
+            corpo, tipo = self.risposte.get(request.url, (None, None))
+            if corpo is None:
+                resp.status_code = 404
+                resp._content = b""
+                resp.headers["Content-Type"] = "text/plain"
+            else:
+                resp.status_code = 200
+                resp._content = (corpo if isinstance(corpo, bytes)
+                                 else corpo.encode("utf-8"))
+                resp.headers["Content-Type"] = tipo
         resp.encoding = requests.utils.get_encoding_from_headers(resp.headers)
         return resp
 
@@ -229,9 +246,9 @@ class _AdattatoreFinto(requests.adapters.BaseAdapter):
         pass
 
 
-def _crawler_finto(risposte: dict) -> Crawler:
+def _crawler_finto(risposte: dict, redirect: dict | None = None) -> Crawler:
     crawler = Crawler("http://esempio.test/", max_pages=10, delay=0)
-    crawler.session.mount("http://", _AdattatoreFinto(risposte))
+    crawler.session.mount("http://", _AdattatoreFinto(risposte, redirect))
     return crawler
 
 
@@ -380,6 +397,163 @@ def test_robots_txt_letto_come_utf8():
     })
     crawler.robots()
     assert crawler.robots_info["sitemaps"] == ["http://esempio.test/però.xml"]
+
+
+# ----------------------------------------------------------------------
+# Redirect (R17)
+# ----------------------------------------------------------------------
+
+def _sitemap(*urls: str) -> str:
+    return ("<?xml version='1.0'?><urlset>%s</urlset>"
+            % "".join("<url><loc>%s</loc></url>" % u for u in urls))
+
+
+def _crawler_con_sitemap(urls, redirect=None, robots="User-agent: *\nAllow: /\n",
+                         **pagine):
+    risposte = {
+        "http://esempio.test/robots.txt": (robots, "text/plain"),
+        "http://esempio.test/sitemap.xml": (_sitemap(*urls), "application/xml"),
+    }
+    risposte.update({u: (c, "text/html") for u, c in pagine.items()})
+    return _crawler_finto(risposte, redirect)
+
+
+def _pagina(titolo: str) -> str:
+    return ("<html lang='it'><head><title>%s</title></head><body><h1>%s</h1>"
+            "<p>Testo lungo a sufficienza per diventare un chunk "
+            "autoconsistente nel corpus dei due recuperatori.</p></body></html>"
+            % (titolo, titolo))
+
+
+def test_redirect_verso_url_vietato_non_viene_nemmeno_chiesto():
+    """Regressione R17: bastava un redirect per aggirare robots.txt.
+
+    Il controllo sta PRIMA del salto: verificare resp.url a cose fatte
+    eviterebbe di indicizzare, ma la richiesta vietata sarebbe gia'
+    partita e il crawler avrebbe comunque disobbedito.
+    """
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/porta"],
+        redirect={"http://esempio.test/porta":
+                  "http://esempio.test/privato/segreto"},
+        robots="User-agent: *\nDisallow: /privato/\n",
+        **{"http://esempio.test/privato/segreto": _pagina("SEGRETO")})
+    pagine = crawler.crawl()
+    assert pagine == {}
+    assert any("vietato da robots.txt" in s for s in crawler.skipped)
+    chieste = crawler.session.get_adapter("http://esempio.test/").richieste
+    assert "http://esempio.test/privato/segreto" not in chieste
+
+
+def test_redirect_verso_host_esterno_non_entra_nel_corpus():
+    """Regressione R17: il contenuto di un altro host veniva
+    indicizzato come pagina del sito, e finiva in BM25 e nell'RRF."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/fuori"],
+        redirect={"http://esempio.test/fuori": "http://esterno.test/pagina"},
+        **{"http://esterno.test/pagina": _pagina("CONTENUTO ESTERNO")})
+    assert crawler.crawl() == {}
+    assert any("host esterno" in s for s in crawler.skipped)
+    chieste = crawler.session.get_adapter("http://esempio.test/").richieste
+    assert "http://esterno.test/pagina" not in chieste
+
+
+@pytest.mark.parametrize("ordine", [
+    ["http://esempio.test/vecchia", "http://esempio.test/nuova"],
+    ["http://esempio.test/nuova", "http://esempio.test/vecchia"],
+])
+def test_redirect_non_duplica_la_pagina(ordine):
+    """Regressione R17: /vecchia -> /nuova, entrambe in sitemap,
+    facevano entrare la stessa pagina due volte nel corpus.
+
+    Va provato in ENTRAMBI gli ordini: sono due rami diversi, e nel
+    secondo la pagina veniva scaricata due volte prima che il
+    duplicato fosse riconosciuto — misurato, non dedotto.
+    """
+    crawler = _crawler_con_sitemap(
+        ordine,
+        redirect={"http://esempio.test/vecchia": "http://esempio.test/nuova"},
+        **{"http://esempio.test/nuova": _pagina("Nuova")})
+    pagine = crawler.crawl()
+    assert list(pagine) == ["http://esempio.test/nuova"]
+    # Il sito non va interrogato due volte per la stessa pagina: e' la
+    # buona educazione di rete che R7 ha stabilito.
+    chieste = crawler.session.get_adapter("http://esempio.test/").richieste
+    assert chieste.count("http://esempio.test/nuova") == 1
+
+
+def test_duplicato_dopo_redirect_dichiarato_nel_referto():
+    """Una sitemap che elenca sia l'URL vecchio sia quello nuovo e' un
+    rilievo sul sito: il referto deve dirlo, non tacerlo."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/nuova", "http://esempio.test/vecchia"],
+        redirect={"http://esempio.test/vecchia": "http://esempio.test/nuova"},
+        **{"http://esempio.test/nuova": _pagina("Nuova")})
+    crawler.crawl()
+    assert any("duplicato dopo redirect" in s for s in crawler.skipped)
+
+
+def test_pagina_registrata_sotto_l_url_di_arrivo():
+    """Il contenuto vive all'URL di arrivo: e' quello che va nei chunk
+    e che mars_tech confronta con il canonical."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/vecchia"],
+        redirect={"http://esempio.test/vecchia": "http://esempio.test/nuova"},
+        **{"http://esempio.test/nuova": _pagina("Nuova")})
+    pagine = crawler.crawl()
+    assert list(pagine) == ["http://esempio.test/nuova"]
+    chunks = pagine["http://esempio.test/nuova"]["chunks"]
+    assert {c["url"] for c in chunks} == {"http://esempio.test/nuova"}
+
+
+@pytest.mark.parametrize("redirect, atteso, richieste_max", [
+    ({"http://esempio.test/a": ""}, "senza destinazione", 1),
+    ({"http://esempio.test/a": "http://esempio.test/a"}, "circolare", 1),
+    ({"http://esempio.test/a": "http://esempio.test/b",
+      "http://esempio.test/b": "http://esempio.test/a"}, "circolare", 2),
+    ({"http://esempio.test/a": "http://esempio.test:port/y"},
+     "non analizzabile", 1),
+])
+def test_redirect_degeneri_diagnosticati_con_precisione(
+        redirect, atteso, richieste_max):
+    """Ogni caso degenere dice cosa e' successo davvero.
+
+    Una Location vuota veniva risolta da urljoin nell'URL di partenza e
+    riportata come "troppi redirect": diagnosi sbagliata sul difetto
+    sbagliato, la lezione di R6. E un ciclo non deve costare cinque
+    richieste al sito prima di essere riconosciuto.
+    """
+    crawler = _crawler_con_sitemap(["http://esempio.test/a"],
+                                   redirect=redirect)
+    assert crawler.crawl() == {}
+    assert atteso in crawler.skipped[0]
+    chieste = [u for u in crawler.session.get_adapter("http://esempio.test/").richieste
+               if "robots" not in u and "sitemap" not in u]
+    assert len(chieste) <= richieste_max
+
+
+def test_catena_di_redirect_troppo_lunga():
+    catena = {"http://esempio.test/h%d" % i: "http://esempio.test/h%d" % (i + 1)
+              for i in range(MAX_REDIRECT + 4)}
+    crawler = _crawler_con_sitemap(["http://esempio.test/h0"],
+                                   redirect=catena)
+    assert crawler.crawl() == {}
+    assert "redirect" in crawler.skipped[0]
+
+
+def test_robots_txt_segue_ancora_i_redirect():
+    """I redirect delle PAGINE si controllano salto per salto, ma
+    robots.txt deve continuare a seguirli: RFC 9309 lo richiede, e
+    /robots.txt che redirige e' comunissimo (http -> https, www)."""
+    crawler = _crawler_finto(
+        {"http://esempio.test/robots-vero.txt":
+            ("User-agent: *\nDisallow: /privato/\n", "text/plain")},
+        {"http://esempio.test/robots.txt":
+            "http://esempio.test/robots-vero.txt"})
+    crawler.robots()
+    assert crawler.robots_info["found"] is True
+    assert crawler.can_fetch("http://esempio.test/privato/x") is False
+    assert crawler.can_fetch("http://esempio.test/pubblico") is True
 
 
 def test_url_illeggibile_dichiarato_una_volta_sola():

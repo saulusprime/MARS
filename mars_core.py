@@ -36,6 +36,7 @@ DEFAULT_DELAY = 0.5
 DEFAULT_TIMEOUT = 10
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 MAX_SITEMAP_DEPTH = 3
+MAX_REDIRECT = 5      # quanti ne segue Googlebot prima di rinunciare
 MAX_CODA = 2000       # tetto alla coda di scoperta, non alle pagine
 # Quanti URL candidati raccogliere per ogni pagina richiesta. Servono
 # di piu' delle pagine volute perche' molti candidati vengono scartati
@@ -289,6 +290,11 @@ class Crawler:
         self.pages: dict = {}
         self.skipped: List[str] = []
         self._url_illeggibili: set = set()
+        # URL gia' esaminati. Vive sul crawler e non dentro crawl()
+        # perche' _scarica_pagina deve poterlo consultare PRIMA di
+        # seguire un redirect: e' cosi' che la richiesta doppia non
+        # parte affatto.
+        self._visti: set = set()
         self.discovery = "sitemap"
         # Dati grezzi su robots.txt e sitemap: mars_tech li
         # legge invece di rifare le stesse richieste.
@@ -301,14 +307,87 @@ class Crawler:
 
     # -- rete -----------------------------------------------------
 
-    def _get(self, url: str) -> requests.Response:
+    def _get(self, url: str,
+             allow_redirects: bool = True) -> requests.Response:
         """GET con User-Agent, timeout e pausa rispetto alla richiesta
-        precedente."""
+        precedente.
+
+        I redirect si seguono da soli per robots.txt e le sitemap, che
+        non sono pagine da indicizzare (e per robots.txt RFC 9309
+        chiede esplicitamente di seguirli). Le pagine passano invece da
+        _scarica_pagina(), che controlla ogni salto.
+        """
         attesa = self.delay - (time.monotonic() - self._last_request)
         if attesa > 0:
             time.sleep(attesa)
         self._last_request = time.monotonic()
-        return self.session.get(url, timeout=self.timeout)
+        return self.session.get(url, timeout=self.timeout,
+                                allow_redirects=allow_redirects)
+
+    def _scarica_pagina(
+            self, url: str) -> Optional[Tuple[requests.Response, str]]:
+        """Scarica una pagina seguendo i redirect UNO A UNO.
+
+        requests li seguirebbe da solo, ma allora l'URL di arrivo non
+        verrebbe mai ricontrollato, e un redirect basterebbe al sito
+        per farci scaricare un percorso Disallow o per farci
+        indicizzare come nostro il contenuto di un altro host.
+
+        Il controllo sta PRIMA del salto, non dopo: verificare
+        resp.url a cose fatte eviterebbe di indicizzare la pagina, ma
+        la richiesta vietata sarebbe gia' partita — e il crawler
+        avrebbe comunque disobbedito a robots.txt.
+
+        Restituisce (risposta, URL finale), oppure None dopo aver
+        registrato il motivo in skipped.
+        """
+        corrente = url
+        percorso = {url}
+        for _ in range(MAX_REDIRECT + 1):
+            resp = self._get(corrente, allow_redirects=False)
+            if not resp.is_redirect:
+                return resp, corrente
+            posizione = (resp.headers.get("Location") or "").strip()
+            if not posizione:
+                # Location assente o vuota: urljoin la risolverebbe
+                # nell'URL di partenza, e il salto a vuoto verrebbe
+                # riportato come "troppi redirect" — diagnosi sbagliata
+                # sul difetto sbagliato.
+                self.skipped.append(
+                    "redirect senza destinazione: %s" % corrente)
+                return None
+            destinazione = safe_normalize_url(posizione, corrente)
+            if destinazione is None:
+                self.skipped.append(
+                    "redirect verso URL non analizzabile: %s -> %s"
+                    % (corrente, posizione))
+                return None
+            if destinazione in percorso:
+                # Il tetto sui salti lo fermerebbe comunque, ma dopo
+                # aver chiesto cinque volte la stessa cosa al sito.
+                self.skipped.append("redirect circolare: %s" % destinazione)
+                return None
+            if destinazione in self._visti:
+                # /vecchia e /nuova entrambe in sitemap, con la prima
+                # che redirige sulla seconda. Il controllo sta qui e
+                # non a valle perche' a valle la pagina sarebbe gia'
+                # stata scaricata due volte (misurato).
+                self.skipped.append("duplicato dopo redirect: %s -> %s"
+                                    % (url, destinazione))
+                return None
+            percorso.add(destinazione)
+            if not host_matches(destinazione, self.base_host):
+                self.skipped.append("redirect verso host esterno: %s -> %s"
+                                    % (corrente, destinazione))
+                return None
+            if not self.can_fetch(destinazione):
+                self.skipped.append(
+                    "redirect verso URL vietato da robots.txt: %s -> %s"
+                    % (corrente, destinazione))
+                return None
+            corrente = destinazione
+        self.skipped.append("piu' di %d redirect: %s" % (MAX_REDIRECT, url))
+        return None
 
     # -- robots.txt -----------------------------------------------
 
@@ -466,32 +545,40 @@ class Crawler:
         self.discovery = "sitemap" if da_sitemap else "link interni"
         segui_link = not da_sitemap
         coda = list(da_sitemap) or [self.base_url]
-        visti = set()
+        visti = self._visti = set()
 
         while coda and len(self.pages) < self.max_pages:
             grezzo = coda.pop(0)  # FIFO: ampiezza, non profondita'
-            url = safe_normalize_url(grezzo)
-            if url is None:
+            richiesto = safe_normalize_url(grezzo)
+            if richiesto is None:
                 # Un <loc> di sitemap malformato non e' un errore
                 # nostro: si scarta questo URL, non l'audit.
                 self._scarta_illeggibile(grezzo)
                 continue
-            if url in visti:
+            if richiesto in visti:
                 continue
-            visti.add(url)
+            visti.add(richiesto)
 
-            if not host_matches(url, self.base_host):
-                self.skipped.append("host esterno: %s" % url)
+            if not host_matches(richiesto, self.base_host):
+                self.skipped.append("host esterno: %s" % richiesto)
                 continue
-            if not self.can_fetch(url):
-                self.skipped.append("vietato da robots.txt: %s" % url)
+            if not self.can_fetch(richiesto):
+                self.skipped.append("vietato da robots.txt: %s" % richiesto)
                 continue
 
             try:
-                resp = self._get(url)
+                esito = self._scarica_pagina(richiesto)
             except requests.RequestException as exc:
-                print("Errore nel crawling di %s: %s" % (url, exc))
+                print("Errore nel crawling di %s: %s" % (richiesto, exc))
                 continue
+            if esito is None:
+                continue    # il motivo l'ha gia' registrato _scarica_pagina
+
+            # Da qui in avanti conta l'URL di ARRIVO: e' li' che il
+            # contenuto vive davvero, ed e' quello che va messo nei
+            # chunk e confrontato con i canonical.
+            resp, url = esito
+            visti.add(url)   # l'arrivo, cosi' non lo si richiede dopo
 
             if resp.status_code != 200:
                 # Senza questo controllo la pagina d'errore entrava nel
@@ -553,10 +640,10 @@ class Crawler:
             }
 
             if segui_link and len(coda) < MAX_CODA:
-                # urljoin sull'URL FINALE della risposta, non su quello
-                # richiesto: dopo un redirect i link relativi si
-                # risolvono rispetto a dove si e' arrivati.
-                for link in self.estrai_link(soup, str(resp.url)):
+                # urljoin sull'URL di ARRIVO, non su quello richiesto:
+                # dopo un redirect i link relativi si risolvono
+                # rispetto a dove si e' finiti.
+                for link in self.estrai_link(soup, url):
                     if link not in visti:
                         coda.append(link)
         return self.pages

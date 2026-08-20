@@ -81,6 +81,11 @@ cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
 
 ## Come si lavora
 
+- **`pytest` deve restare verde**, e la suite non deve toccare la rete:
+  la fixture `niente_rete` lo impedisce, ed e' `autouse` perche' nessuno
+  possa dimenticarla.
+- **Reintrodurre il difetto per fidarsi del test.** Un test verde non
+  dimostra nulla finche' non lo si e' visto fallire.
 - **`flake8` deve restare a zero.** `setup.cfg` è già configurato:
   basta `flake8 .`. È il controllo che ha rivelato il difetto più grave
   del progetto (login rotto da una funzione definita due volte).

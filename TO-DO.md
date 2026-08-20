@@ -75,24 +75,26 @@ non dipende dal codice.
       Il referto JSON ora conserva per intero motivazione, punti forti e
       deboli, quindi è il formato giusto per controllarne l'esito.
 
-### C12 — Test
-`pytest>=7` e `flake8>=6` sono in `requirements.txt`; **nel progetto non esiste
-un solo test**.
+### C12 — voci residue
+La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
-- [ ] `tests/test_core.py`: RRF su ranking noti (verifica contro la formula del
-      paper Cormack 2009), BM25 su un corpus giocattolo, char-TFIDF, e i casi
-      limite di **R6** (corpus vuoto, documenti vuoti).
-- [ ] `tests/test_modules.py`: ogni `audit()` su HTML fixture offline —
-      nessun test deve toccare la rete.
-- [ ] `tests/test_api.py`: `TestClient` FastAPI, login + un endpoint protetto
-      (fallirebbe **oggi**, vedi **R1**).
-- [ ] Configurare flake8 (`setup.cfg`, `max-line-length = 120`) — vedi **R11**.
+- [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
+      oggi si sa quali difetti sono protetti, non quanto codice è toccato.
+- [ ] `mars_citations.py` non ha test propri: è uno strumento a sé, e le sue
+      funzioni pure (`evaluate_answer`, `overall_rate`, lo storico JSONL) sono
+      facilmente verificabili.
+- [ ] Eseguire la suite in una pipeline, non solo a mano.
 
 ---
 
 ## Correzioni
 
 **Capitolo vuoto: le correzioni R1-R14 sono tutte risolte.**
+
+- [ ] `load_external_module()` **riesegue** il modulo a ogni chiamata: nove
+      riesecuzioni per audit, e le patch applicate all'oggetto importato non
+      sopravvivono. Non è un problema di correttezza — i moduli sono senza
+      stato — ma una cache renderebbe il caricamento prevedibile.
 Difetto, soluzione e verifiche di ciascuna sono in [AS-IS.md](AS-IS.md).
 
 Le nuove correzioni si aprono qui, con la numerazione che riprende da R15.

@@ -175,6 +175,10 @@ Installazione. Le dipendenze sono divise per ruolo:
     pip install -r requirements-optional.txt   # embedding reali, ZAP, Anthropic
     pip install -r requirements-dev.txt        # pytest, flake8
 
+I test si lanciano con `pytest` dalla radice del progetto: girano in
+meno di dieci secondi, non toccano la rete e non avviano Lighthouse,
+ZAP o un browser.
+
 requirements.txt copre sia l'audit da riga di comando sia l'API REST.
 Servizi utilizzati dall'API:
 - FastAPI: Il framework web.

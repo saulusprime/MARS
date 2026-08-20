@@ -33,6 +33,21 @@ lavorare sul codice — `--embeddings none` usa il proxy char-TFIDF.
 
 ## Regole di lavoro
 
+**`pytest` deve restare verde.** La suite gira in meno di dieci secondi e
+non tocca la rete: una fixture `autouse` sostituisce ogni richiesta con
+un'eccezione che eredita sia da `AssertionError` sia da
+`requests.RequestException`. Un modulo che gestisce correttamente gli errori
+di rete la cattura e ripiega — e il percorso di ripiego viene cosi' esercitato
+davvero; un modulo che non la gestisce la lascia passare e il test fallisce
+rumorosamente.
+
+**Un test verde non dimostra nulla finche' non lo si vede fallire.** Prima di
+considerare coperto un difetto, reintrodurlo e verificare che la suite se ne
+accorga. Scrivendo questi test, tre su sei erano vacui e sembravano corretti:
+uno misurava la seconda difesa invece della prima, uno guardava un campo che
+il modulo non legge piu' da R10, e uno verificava separatamente due meccanismi
+senza mai provarne l'innesto.
+
 **`flake8 .` deve restare a zero avvisi.** La configurazione è in
 `setup.cfg`, non servono flag. `flake8 --select=F` è il minimo prima di
 ogni commit: è il controllo che ha rivelato il difetto più grave del

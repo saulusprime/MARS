@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C12 | Suite di test: 146 test, verificati reintroducendo i difetti | 2026-08-20 |
 | C10 | `mars_tech` copre indicizzabilità, sitemap e 13 crawler IA | 2026-08-20 |
 | — | Verifica sistematica dei parametri API; `max_pages` corretto | 2026-08-20 |
 | — | Credenziali nella richiesta API; esempio completo | 2026-08-20 |
@@ -928,6 +929,79 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C12 — ✅ FATTO (2026-08-20): la suite di test
+`pytest` era fra le dipendenze dal primo giorno e **non esisteva un solo
+test**. Decine di verifiche fatte a mano lungo tutto il percorso vivevano solo
+nello scrollback della sessione.
+
+**146 test in meno di 8 secondi**, in quattro file: `test_core.py` (algoritmi,
+URL, chunker, query, caricatore di moduli), `test_modules.py` (le nove aree su
+fixture offline), `test_api.py` (autenticazione, endpoint, parametri,
+credenziali), `test_report.py` (dato canonico e tre viste).
+
+**La suite è ermetica per costruzione.** Una fixture `autouse` sostituisce ogni
+richiesta di rete con un'eccezione che eredita **sia** da `AssertionError`
+**sia** da `requests.RequestException`: un modulo che gestisce correttamente
+gli errori di rete la cattura e ripiega — e il percorso di ripiego viene così
+esercitato davvero — mentre un modulo che non la gestisce la lascia passare e
+il test fallisce rumorosamente. Un solo meccanismo verifica due cose opposte.
+
+Una seconda fixture neutralizza gli strumenti esterni. Senza, `mars_seo`
+**lanciava Lighthouse per davvero** durante i test: la suite passava da 8
+secondi a **85**.
+
+**Ogni test cita la regressione che protegge.** R1 (login rotto), R2 (hash
+esposto), R3 (nessuna shell), R4 (score 0 ≠ non misurato), R5 (una scansione
+sola), R6 (campi `None`), R7 (normalizzazione URL), R8 (df conservate,
+vettori sparsi), R9 (falsi positivi answer-shaped), R10 (segmentazione), R11
+(`sys.modules`, percorso da `__file__`), R14 (`disabled`), C1, C2, C3, C5, C8,
+C9, C10.
+
+**La prova che conta: reintrodurre i difetti.** Una suite verde non dimostra
+nulla finché non la si vede fallire. Sei difetti reali sono stati rimessi nel
+codice uno per uno:
+
+```
+R1  login rotto                  -> 2 falliti, 20 errori
+R2  /users/me con l'hash         -> 1 fallito
+R6  campi None senza difese      -> 1 fallito
+R10 chunk senza segmentazione    -> 1 fallito
+R14 disabled non applicato       -> 2 falliti
+C10 robots.txt per sottostringa  -> 1 fallito
+```
+
+**Alla prima esecuzione tre su sei NON venivano rilevati**, ed è il risultato
+più utile dell'intero esercizio. I tre test erano vacui e sembravano corretti:
+
+- quello su **R2** misurava la seconda difesa invece della prima —
+  `response_model=User` filtra comunque, quindi sarebbe passato anche con la
+  dipendenza che restituisce l'oggetto interno. Riscritto per verificare
+  `get_current_user` direttamente, cioè il livello che protegge i prossimi
+  endpoint, quelli che qualcuno scriverà dimenticando `response_model`;
+- quello su **R6** metteva il `None` nelle *pagine*, ma da **R10**
+  `mars_lexical` legge i **chunk**: toccava un campo che il modulo non guarda
+  più;
+- quello su **R10** verificava separatamente la segmentazione per heading e
+  `split_windows`, senza mai provarne **l'innesto** — ed è lì che stava il
+  difetto.
+
+Un settimo tentativo, su R6, non ha fatto fallire nulla: la mutazione toglieva
+una delle due difese indipendenti del codice, e l'altra reggeva. Non un test
+debole ma una ridondanza reale, ed è stato verificato togliendole entrambe.
+
+`setup.cfg` configura ora anche pytest, così `pytest` da solo funziona dalla
+radice.
+
+**Un difetto minore emerso:** `load_external_module()` **riesegue** il modulo a
+ogni chiamata, quindi nove riesecuzioni per audit, e le patch applicate
+all'oggetto importato non sopravvivono. Non è un problema di correttezza —
+annotato in TO-DO.
+
+- [x] `tests/test_core.py`: RRF, BM25, char-TFIDF, casi limite.
+- [x] `tests/test_modules.py`: ogni `audit()` offline.
+- [x] `tests/test_api.py`: autenticazione ed endpoint.
+- [x] `setup.cfg` con la configurazione di flake8 e pytest.
 
 ### C10 — ✅ FATTO (2026-08-20): `mars_tech` copre le quattro aree che promette
 Il README assegnava all'area 1 *"indicizzabilita', robots.txt, sitemap, crawler

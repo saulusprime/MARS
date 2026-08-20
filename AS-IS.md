@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C8 | WCAG reale via axe-core su Chromium | 2026-08-20 |
 | C6 | Crawling interno quando manca la sitemap | 2026-08-20 |
 | C5 | Query personalizzate e consenso RRF aggregato | 2026-08-20 |
 | C4 | Referto JSON e HTML; l'API riusa la struttura canonica | 2026-08-20 |
@@ -921,6 +922,57 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C8 — ✅ FATTO (2026-08-20): WCAG reale via axe-core su Chromium
+`mars_wcag.py` controllava **due criteri**: `lang` sulla sola prima pagina e i
+testi alternativi. Il README raccomandava axe-core, e `playwright` era già fra
+le dipendenze senza essere importato da nessun file.
+
+**Stavolta lo strumento c'era davvero**, a differenza di ZAP in R4: Playwright
+1.62, Chromium installato e `axe-core` 4.13 in `node_modules`. Il percorso è
+quindi stato **eseguito**, non solo scritto.
+
+**Si naviga alle pagine reali, non si inietta l'HTML salvato.** È la scelta di
+progetto che conta: senza CSS e JavaScript i criteri su contrasto, focus e
+contenuto generato darebbero risultati sbagliati, che è peggio che non darli.
+La prova lo conferma — su una pagina costruita apposta, axe rileva
+`color-contrast`, che dall'HTML grezzo sarebbe invisibile. Il browser è lento,
+quindi axe gira sulle prime pagine e il referto **dichiara quante ne ha viste**.
+
+**Il punteggio raggruppa per regola, non per occorrenza.** Un difetto trovato
+collaudando: axe restituisce le violazioni pagina per pagina, quindi un solo
+problema ricorrente su cinque pagine arrivava cinque volte e affondava il
+punteggio da solo. Ora si penalizza la **regola violata**, con un fattore di
+diffusione che va da 1× (una pagina) a 2× (tutte). Verificato: la stessa
+violazione su 1 pagina di 5 dà 86, su tutte e 5 dà 76 — un fattore due, non
+cinque.
+
+**L'euristica statica è stata comunque allargata** da due criteri a sette, e
+copre *tutte* le pagine mentre axe ne vede le prime: `lang` su ogni pagina,
+testi alternativi, salti nella gerarchia degli heading, campi di modulo senza
+etichetta, tabelle dati senza `<th>`, link con testo generico, `tabindex`
+positivi. Ogni rilievo **cita il criterio WCAG** a cui si riferisce, perché un
+rilievo senza riferimento non è verificabile da chi lo riceve. I rilievi statici
+restano nel referto anche quando axe è attivo.
+
+Verificati i casi che distinguono un controllo utile da uno rumoroso: una
+tabella `role="presentation"` non conta, un link generico con `aria-label` non
+conta, `tabindex="0"` non conta, un campo avvolto da `<label>` è etichettato.
+
+**Il livello è dichiarato**: `WCAG 2.1 A + AA`, sia come filtro passato ad axe
+(`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`) sia come etichetta nel referto —
+in tutti e tre i formati e nell'API. Il ripiego statico si dichiara come
+*"parziale: solo criteri statici"*, perché "accessibile" senza un livello non
+significa nulla.
+
+**Verificato end-to-end:** sito costruito rotto → **0/100** con quattro regole
+violate; sito pulito → **100/100**; ripiego statico simulato → 64/100 con lo
+strumento `markup` dichiarato; `tool`, `wcag_level` e `pages_tested` presenti
+in JSON e HTML.
+
+- [x] Percorso axe-core opzionale, attivo solo se browser e libreria ci sono.
+- [x] Euristica statica allargata da 2 a 7 criteri, su tutte le pagine.
+- [x] Livello WCAG dichiarato nel referto.
 
 ### C6 — ✅ FATTO (2026-08-20): crawling interno quando manca la sitemap
 Il README diceva *"via sitemap o crawling interno"*, ma il crawling interno non

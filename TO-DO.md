@@ -74,23 +74,6 @@ non dipende dal codice.
       Anthropic reale: la chiamata non è mai stata eseguita, solo simulata.
       Il referto JSON ora conserva per intero motivazione, punti forti e
       deboli, quindi è il formato giusto per controllarne l'esito.
-- [ ] `favicon.png` (344 KB) non è più usata da nulla: l'HTML incorpora il
-      `.ico`. Rimuoverla o dichiararne l'uso.
-
-### C8 — WCAG reale via axe-core / Playwright
-Il README lo indica come raccomandazione: *"Per un audit WCAG reale ti consiglio
-di integrare librerie come axe-core (tramite Selenium o Playwright)"*.
-`playwright>=1.40` è **già in `requirements.txt`** ma non è importato da nessun
-file. `mars_wcag.py` controlla oggi solo `lang` e `alt` — due criteri su decine.
-
-- [ ] Estendere `mars_wcag.py` con un percorso axe-core opzionale, attivo solo se
-      Playwright e un browser sono disponibili; altrimenti resta l'euristica
-      attuale (principio 2).
-- [ ] Nel frattempo, allargare comunque l'euristica statica a costo zero:
-      gerarchia degli heading, `<label>` per input, `<table>` senza `<th>`,
-      link con testo generico ("clicca qui"), `tabindex` positivi,
-      attributo `lang` su tutte le pagine e non solo sulla prima.
-- [ ] Dichiarare nel report **quale** livello WCAG (A / AA) si sta misurando.
 
 ### C9 — WAPT reale via ZAP *(orchestrazione scritta, mai eseguita)*
 `mars_wapt.py` ora legge gli alert reali e ne deriva il punteggio — vedi
@@ -109,6 +92,10 @@ oggi il ramo ZAP ripiega sempre sugli header.
       un timeout.
 - [ ] Valutare se `zapcli` 0.10.0 (2018) regga le versioni recenti di ZAP, o
       se convenga passare a `python-owasp-zap-v2.4`, già installato.
+- [ ] Applicare a ZAP la lezione di **C8**: raggruppare gli alert per regola e
+      non per occorrenza. Il codice attuale somma per alert, quindi lo stesso
+      difetto su più pagine pesa più volte — è il difetto che C8 ha corretto
+      per axe.
 - [ ] Tarare i pesi di `ZAP_PENALTIES` su scansioni vere: oggi sono una
       stima dichiarata, non calibrata.
 

@@ -65,11 +65,25 @@ Per attivarlo devi avere Node.js e Lighthouse installati globalmente
 (npm install -g lighthouse). In alternativa, restituirà uno score di
 fallback. Opzionale installa la libreria corepack (npm install -g corepack)
 
-WAPT e WCAG: Le funzioni attuali per l'accessibilità sono state impostate
-come stub euristici o possono essere espanse. Per un audit WCAG reale
-ti consiglio di integrare librerie come axe-core (tramite Selenium o
-Playwright, pip install playwright, playwright install chromium) 
-all'interno del loop di crawling. L'integrazione di ZAP (Zed Attack Proxy) 
+WCAG: se Playwright e axe-core sono disponibili, l'accessibilita' viene
+misurata con axe-core su Chromium, limitato alle regole WCAG 2.1 livelli
+A e AA. Serve un browser reale: criteri come il contrasto colore
+dipendono dal CSS applicato, e valutarli sull'HTML grezzo darebbe
+risultati sbagliati, che e' peggio che non darli. Per attivarlo:
+
+    pip install -r requirements-optional.txt
+    python -m playwright install chromium
+    npm install axe-core     (oppure e' gia' in node_modules)
+
+Il browser e' lento, quindi axe gira sulle prime pagine del campione e
+il referto dichiara quante ne ha viste. Senza Playwright o axe-core si
+usa l'euristica statica sul markup — lang, testi alternativi, gerarchia
+degli heading, etichette dei campi, intestazioni di tabella, testi di
+link generici, tabindex positivi — che copre tutte le pagine ma non i
+criteri che richiedono rendering. Il referto dichiara sempre quale dei
+due percorsi ha prodotto il punteggio.
+
+WAPT: L'integrazione di ZAP (Zed Attack Proxy) 
 (pip install zapcli) tramite zap-cli eleva notevolmente il valore dell'audit 
 di sicurezza (WAPT), passando da un semplice controllo degli header a uno 
 scan attivo (spidering, active scan delle vulnerabilità comuni come XSS, 

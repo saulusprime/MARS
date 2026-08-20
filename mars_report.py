@@ -47,6 +47,11 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             "score": res.get("score"),
             "status": res.get("status"),
             "issues": list(res.get("issues") or []),
+            # Con quale strumento e a quale livello: un punteggio di
+            # accessibilita' senza il livello WCAG non significa nulla.
+            "tool": res.get("tool"),
+            "wcag_level": res.get("wcag_level"),
+            "pages_tested": res.get("pages_tested"),
         })
 
     referto: Dict[str, object] = {
@@ -162,6 +167,12 @@ def render_text(referto: dict) -> str:
                             sem["n_chunks"] or 0))
             continue
         righe.append(_riga_area(area))
+        if area.get("wcag_level"):
+            provate = area.get("pages_tested")
+            campione = (" su %d pagine" % provate) if provate else ""
+            righe.append("  %s · %s%s"
+                         % (area.get("tool") or "?", area["wcag_level"],
+                            campione))
         for problema in area["issues"][:2]:
             righe.append(f"  ⚠ {problema}")
 
@@ -331,6 +342,12 @@ def render_html(referto: dict) -> str:
         rilievi = ("<ul>%s</ul>"
                    % "".join("<li>%s</li>" % _e(i) for i in area["issues"])
                    if area["issues"] else "<span class='muted'>—</span>")
+        if area.get("wcag_level"):
+            provate = area.get("pages_tested")
+            rilievi = ("<p class='meta'>%s · %s%s</p>%s"
+                       % (_e(area.get("tool")), _e(area["wcag_level"]),
+                          " su %d pagine" % provate if provate else "",
+                          rilievi))
         p.append("<tr><td>%s</td><td class='num'>%s</td><td>%s</td></tr>"
                  % (_e(area["label"]), voto, rilievi))
     p.append("</table>")

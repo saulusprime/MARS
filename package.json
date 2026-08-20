@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@axe-core/cli": "^4.13.0",
     "corepack": "^0.35.0",
     "lighthouse": "^13.4.1"
   }

@@ -5,6 +5,14 @@ Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche:
 
+La sitemap, quando c'e', e' autoritativa: e' la dichiarazione del sito
+su cosa vuole far indicizzare, e viene rispettata. Si cercano prima le
+direttive Sitemap: di robots.txt, poi /sitemap.xml, seguendo gli indici
+annidati e le sitemap compresse. Senza sitemap si scoprono le pagine
+seguendo i link interni in ampiezza, con le stesse regole: robots.txt
+rispettato, solo stesso host, URL normalizzati, e stop a --max-pages.
+Il referto dichiara con quale delle due il campione e' stato costruito.
+
 1. Tecnica          (mars_tech)     indicizzabilita', robots.txt, 
                                     sitemap, crawler IA
 2. SEO              (mars_seo)      utilizzando lighthouse

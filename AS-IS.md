@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C6 | Crawling interno quando manca la sitemap | 2026-08-20 |
 | C5 | Query personalizzate e consenso RRF aggregato | 2026-08-20 |
 | C4 | Referto JSON e HTML; l'API riusa la struttura canonica | 2026-08-20 |
 | C3 (residue) | Modello OpenAI, `include` delle fonti, caricatore query | 2026-08-20 |
@@ -920,6 +921,58 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C6 — ✅ FATTO (2026-08-20): crawling interno quando manca la sitemap
+Il README diceva *"via sitemap o crawling interno"*, ma il crawling interno non
+esisteva: senza sitemap il fallback era `urls = [self.base_url]`, cioè **una
+sola pagina**. `--max-pages 40` su un sito senza sitemap ne produceva **1**, e
+tutte le sette aree giudicavano quell'unica pagina come se fosse il sito.
+
+**Innestata, non affiancata.** Il ciclo di `crawl()` è diventato una coda FIFO
+— ampiezza, non profondità — e la scoperta per link condivide le *stesse*
+regole introdotte da **R7**: robots.txt rispettato, filtro same-host,
+normalizzazione degli URL, controllo di status e `Content-Type`, pausa fra le
+richieste, tetto a `--max-pages`. La scoperta per link non è una seconda strada
+che aggira i controlli: è la stessa strada con una sorgente diversa. `estrai_link()`
+riusa `normalize_url()` e `host_matches()`, gli stessi applicati alla sitemap.
+
+Due dettagli che sarebbe stato facile sbagliare:
+
+- `urljoin` si applica all'URL **finale** della risposta (`resp.url`), non a
+  quello richiesto: dopo un redirect i link relativi vanno risolti rispetto a
+  dove si è arrivati.
+- `mailto:`, `tel:`, `javascript:`, `data:` e i frammenti puri sono scartati in
+  fase di estrazione, e la coda ha un tetto (`MAX_CODA`) perché su un sito
+  grande la scoperta cresce anche quando le pagine scaricate non crescono più.
+
+**La sitemap resta autoritativa quando c'è.** È la dichiarazione del sito su
+cosa vuole far indicizzare: si rispetta e non si va a caccia d'altro. Il
+crawling per link è il ripiego, non un'aggiunta.
+
+**Il referto dichiara come ha trovato le pagine** — `sitemap` o `link
+interni` — in tutti e tre i formati e nell'API. Cambia il significato del
+campione: due pagine dichiarate dal sito non sono la stessa cosa di cinque
+raggiunte seguendo la navigazione.
+
+**Verificato** con un secondo server di prova, senza sitemap e con link
+interni, che include di proposito i casi ostili:
+
+```
+prima : 1 pagina  (urls = [self.base_url])
+dopo  : 5 pagine  ['/', '/a', '/b', '/c', '/d']
+scarti: vietato da robots.txt: /privato/p
+        HTTP 404: /rotta
+```
+
+`a#sezione` non produce un doppione di `/a`; `https://esterno.test/x` e
+`mailto:` non entrano mai in coda; `--max-pages 3` restituisce 3 pagine. Il
+sito **con** sitemap resta invariato: 2 pagine, modalità `sitemap`. API e
+referto HTML verificati, quest'ultimo ancora senza alcun riferimento esterno.
+
+- [x] BFS sui link interni con coda, visitati, `urljoin`, same-host,
+      normalizzazione e stop a `max_pages`.
+- [x] Nessuna dipendenza nuova: `urllib.parse` e BeautifulSoup.
+- [x] Innestata sulle regole di **R7**.
 
 ### C5 — ✅ FATTO (2026-08-20): query personalizzate e consenso aggregato
 Il README mostrava `--queries q.txt`, ma la query era **una sola e cablata** —

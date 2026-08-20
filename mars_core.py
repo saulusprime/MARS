@@ -35,6 +35,8 @@ DEFAULT_DELAY = 0.5
 DEFAULT_TIMEOUT = 10
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 MAX_SITEMAP_DEPTH = 3
+MAX_CODA = 2000       # tetto alla coda di scoperta, non alle pagine
+SCHEMI_NON_HTTP = ("#", "mailto:", "tel:", "javascript:", "data:")
 
 _ST_CACHE = None  # None = non ancora tentato; False = non disponibile
 
@@ -166,6 +168,7 @@ class Crawler:
         self.base_host = norm_host(base_url)
         self.pages: dict = {}
         self.skipped: List[str] = []
+        self.discovery = "sitemap"
         self.session = requests.Session()
         self.session.headers["User-Agent"] = user_agent
         self._robots: Optional[RobotFileParser] = None
@@ -258,18 +261,44 @@ class Crawler:
                     trovati.append(loc)
         return trovati
 
+    # -- scoperta dei link ----------------------------------------
+
+    def estrai_link(self, soup: BeautifulSoup, base: str) -> List[str]:
+        """Link interni della pagina, normalizzati e filtrati.
+
+        Il filtro same-host e la normalizzazione sono gli stessi usati
+        per gli URL della sitemap: la scoperta per link non e' una
+        seconda strada che aggira le regole, e' la stessa strada con
+        una sorgente diversa.
+        """
+        trovati = []
+        for ancora in soup.find_all("a", href=True):
+            href = (ancora.get("href") or "").strip()
+            if not href or href.lower().startswith(SCHEMI_NON_HTTP):
+                continue
+            url = normalize_url(urljoin(base, href))
+            if url.startswith(("http://", "https://")) \
+                    and host_matches(url, self.base_host):
+                trovati.append(url)
+        return trovati
+
     # -- scansione ------------------------------------------------
 
     def crawl(self) -> dict:
         if self.owner_declaration:
             print("  \u26a0 Dichiarazione di proprieta' attiva su %s: "
                   "robots.txt ignorato." % self.base_host)
-        urls = self.fetch_sitemap() or [self.base_url]
+        da_sitemap = self.fetch_sitemap()
+        # La sitemap, quando c'e', e' la dichiarazione del sito su cosa
+        # vuole far indicizzare: si rispetta e non si va a caccia di
+        # altro. Senza, si scopre seguendo i link interni.
+        self.discovery = "sitemap" if da_sitemap else "link interni"
+        segui_link = not da_sitemap
+        coda = list(da_sitemap) or [self.base_url]
         visti = set()
 
-        for grezzo in urls:
-            if len(self.pages) >= self.max_pages:
-                break
+        while coda and len(self.pages) < self.max_pages:
+            grezzo = coda.pop(0)  # FIFO: ampiezza, non profondita'
             url = normalize_url(grezzo)
             if url in visti:
                 continue
@@ -329,6 +358,14 @@ class Crawler:
                              for h in soup.find_all(["h1", "h2", "h3"])],
                 "html": resp.text,
             }
+
+            if segui_link and len(coda) < MAX_CODA:
+                # urljoin sull'URL FINALE della risposta, non su quello
+                # richiesto: dopo un redirect i link relativi si
+                # risolvono rispetto a dove si e' arrivati.
+                for link in self.estrai_link(soup, str(resp.url)):
+                    if link not in visti:
+                        coda.append(link)
         return self.pages
 
 
@@ -700,6 +737,9 @@ def build_context(url: str, max_pages: int = 10,
         # e' stato ignorato per dichiarazione di proprieta'.
         "robots_ignored": owner_declaration,
         "skipped": crawler.skipped,
+        # Come sono state trovate le pagine: cambia il significato del
+        # campione, e chi legge il referto deve saperlo.
+        "discovery": crawler.discovery,
         "llm": llm,
         # Le query su cui gira la simulazione RRF. Fondere due ranghi
         # prodotti da UNA query dice pochissimo: la formula del paper

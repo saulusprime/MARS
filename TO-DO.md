@@ -77,22 +77,6 @@ non dipende dal codice.
 - [ ] `favicon.png` (344 KB) non è più usata da nulla: l'HTML incorpora il
       `.ico`. Rimuoverla o dichiararne l'uso.
 
-### C6 — Crawling interno (fallback quando manca la sitemap) — *mancante*
-> R7 ha reso il crawler rispettoso (robots.txt, User-Agent, rate limit,
-> filtro same-host, normalizzazione URL): la BFS sui link interni va
-> innestata su quelle regole, non aggiunta a fianco.
-Il README: *"esegue una scansione di un sito (**via sitemap o crawling
-interno**)"*. In [mars_core.py:40-44](mars_core.py#L40-L44), se
-`fetch_sitemap()` non restituisce nulla il fallback è
-`urls = [self.base_url]`: **una sola pagina**. Non esiste alcun crawling
-interno; `--max-pages 40` su un sito senza sitemap produce 1 pagina.
-
-- [ ] Implementare la BFS sui link interni in `Crawler.crawl()`: coda,
-      `visited` set, estrazione `<a href>`, `urljoin`, filtro same-host,
-      normalizzazione (drop di fragment e query di tracking), stop a `max_pages`.
-- [ ] Rimanere no-dipendenze: `urllib.parse` + BeautifulSoup, già presenti.
-- [ ] Vedi anche **R7** (robots.txt, User-Agent, rate limit) — vanno insieme.
-
 ### C8 — WCAG reale via axe-core / Playwright
 Il README lo indica come raccomandazione: *"Per un audit WCAG reale ti consiglio
 di integrare librerie come axe-core (tramite Selenium o Playwright)"*.
@@ -165,9 +149,6 @@ Il grosso è chiuso — vedi [AS-IS.md](AS-IS.md). Restano due punti aperti.
       la titolarità è una decisione, non una formattazione.
 - [ ] **Recapito nel `CODE_OF_CONDUCT.md`**, lasciato in bianco di proposito:
       pubblicare un indirizzo nel repository spetta al responsabile.
-- [ ] La cartella `versions/` (`mars_audit_1/2/3.py`, `mars_api_1.py`) **non è
-      più presente** ed è assente dal repository. Se serve come riferimento
-      storico va recuperata ora; altrimenti la voce si chiude togliendola.
 
 ---
 

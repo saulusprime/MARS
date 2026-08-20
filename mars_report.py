@@ -56,6 +56,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "url": context.get("url"),
         "market": context.get("market"),
         "pages_crawled": len(context.get("pages") or {}),
+        "discovery": context.get("discovery"),
         "chunks": len(chunks),
         "robots_ignored": bool(context.get("robots_ignored")),
         "skipped": list(context.get("skipped") or []),
@@ -224,6 +225,10 @@ def render_text(referto: dict) -> str:
         if len(saltati) > 3:
             righe.append(f"  · ... e altri {len(saltati) - 3}")
 
+    righe.append("-" * 55)
+    righe.append("Pagine trovate via   : %s  (%d pagine, %d chunk)"
+                 % (referto.get("discovery"), referto["pages_crawled"],
+                    referto["chunks"]))
     righe.append("=" * 55)
     righe.append("")
     return "\n".join(righe)
@@ -310,6 +315,8 @@ def render_html(referto: dict) -> str:
              % (_e(referto["url"]), _e(referto["generated_at"]),
                 referto["pages_crawled"], referto["chunks"],
                 _e(referto["market"]), _e(referto["version"])))
+    p.append("<p class='meta'>Pagine trovate via <strong>%s</strong>.</p>"
+             % _e(referto.get("discovery")))
 
     p.append("<h2>Aree</h2><table><tr><th>Area</th><th>Punteggio</th>"
              "<th>Rilievi</th></tr>")

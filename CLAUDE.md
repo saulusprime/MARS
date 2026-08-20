@@ -123,6 +123,11 @@ Costano ore se le si reincontra senza saperlo.
 - **`RobotFileParser` senza `parse()` nega ogni URL.** Va chiamato
   `parse([])` anche quando robots.txt manca. E `crawl_delay()` per un
   agente specifico **non eredita** da `*`.
+- **Un IPv6 letterale non si taglia sui due punti.** `[2001:db8::1]`
+  ne è pieno: `split(":")[0]` dà `[2001`, e due indirizzi diversi
+  diventano lo stesso host — il filtro same-host salta senza un
+  errore. `parts.hostname` toglie invece le quadre, e l'URL ricomposto
+  non è più un indirizzo valido. Vedi R24.
 - **Normalizzare un URL può sollevare `ValueError`**, e non solo dentro
   `normalize_url`: su un IPv6 malformato solleva **`urljoin` stesso**,
   prima. Gli URL vengono dal sito analizzato, quindi sono dato ostile:

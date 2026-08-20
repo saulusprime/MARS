@@ -110,6 +110,21 @@ def test_tech_scala_pesata_non_lineare():
     assert lieve["score"] - grave["score"] > 20
 
 
+def test_tech_robots_vuoto_non_e_robots_assente():
+    """Regressione R24: un robots.txt servito a 200 ma vuoto veniva
+    riportato come assente, con un rilievo di gravita' media.
+
+    "Tutto permesso" e "nessuna indicazione" sono cose diverse, e la
+    prima e' una scelta esplicita del sito."""
+    vuoto = mars_tech.audit(_contesto_tech(""))
+    assente = _contesto_tech()
+    assente["robots"] = {"found": False, "text": "", "sitemaps": []}
+    assente = mars_tech.audit(assente)
+    assert not any("assente" in i for i in vuoto["issues"])
+    assert any("assente" in i for i in assente["issues"])
+    assert vuoto["score"] > assente["score"]
+
+
 def test_tech_sitemap_assente_e_grave():
     ctx = _contesto_tech()
     ctx["sitemap"] = {"found": False}

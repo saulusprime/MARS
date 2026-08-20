@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R23 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R24-R35.
+> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R24 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R25-R35.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -98,40 +98,16 @@ mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
 che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
 di superficie da una misura piena) e **R22** (esecutore di moduli non robusto
 ai plugin che rompono) e **R23** (query che non sopravvivevano a un retriever
-caduto, e ranghi a informazione zero), tutte il 2026-08-20: difetto, soluzione e
-verifiche in [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
+caduto, e ranghi a informazione zero) e **R24** (casi limite del crawler sugli
+URL), tutte il 2026-08-20: difetto, soluzione e verifiche in
+[AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R24-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R25-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R24 — 🟡 MEDIO: casi limite del crawler sugli URL
-Raggruppati perché toccano la stessa area (gestione URL in `mars_core`):
-- **Sitemap con `<loc>` relativi.** `fetch_sitemap`
-  ([mars_core.py:313](mars_core.py#L313)) non fa `urljoin` rispetto all'URL della
-  sitemap: `host_matches` boccia i `loc` relativi come *«host esterno»* (motivo
-  errato: è lo stesso host), il crawl produce 0 pagine **senza** ripiego ai link
-  interni (`discovery` resta `sitemap`) e `build_context` → `None`, cioè *«sito
-  irraggiungibile»* per un sito raggiungibile. Riprodotto.
-- **IPv6 letterali corrotti.** `norm_host` ([mars_core.py:75](mars_core.py#L75))
-  fa `split(":")[0]` → su `[::1]:8000` restituisce `[`; `normalize_url` toglie le
-  quadre. Un host IPv6 letterale fallisce ogni richiesta ed è diagnosticato
-  irraggiungibile. **R15 non lo copre**: ha reso innocuo l'IPv6 *malformato*
-  (che sollevava), ma quello **ben formato** viene tuttora corrotto in silenzio —
-  verificato: `normalize_url("http://[::1]:8080/x")` → `http://::1:8080/x`.
-- **robots.txt vuoto (200) riportato assente.** `robots_info["found"]` è
-  `bool(righe)` ([mars_core.py:251](mars_core.py#L251)): un robots.txt esistente
-  ma vuoto (legittimo, «tutto permesso») risulta assente e `mars_tech`
-  ([:55](mars_tech.py#L55)) emette *«robots.txt assente»*. Dovrebbe derivare da
-  `status_code == 200`.
-
-- [ ] `urljoin(url_sitemap, loc)`, o ripiego ai link se la sitemap non produce
-      pagine valide.
-- [ ] Preservare il netloc IPv6 (quadre attorno a `parts.hostname`).
-- [ ] `found` da status 200, non dal contenuto.
 
 ### R25 — 🟡 MEDIO: `mars_tech` non rileva la direttiva robots `none`
 `controlla_indicizzabilita` ([mars_tech.py:122](mars_tech.py#L122)) cerca la sola

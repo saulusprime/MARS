@@ -36,6 +36,7 @@
 | R22 | L'esecutore di moduli non reggeva i plugin che rompono | 2026-08-20 |
 | — | La sezione SEO riporta i controlli di Lighthouse, non il solo voto | 2026-08-20 |
 | R23 | Query perse con un retriever caduto; ranghi a informazione zero | 2026-08-20 |
+| R24 | Casi limite del crawler sugli URL (IPv6, loc relativi, robots vuoto) | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1818,6 +1819,86 @@ scritto prima di questa modifica continua a funzionare.
 - [x] Classifiche a vuoto fuori dalla fusione aggregata.
 - [x] Consenso non misurabile distinto da consenso zero.
 - [x] `queries` al primo livello del referto.
+
+### R24 — ✅ RISOLTO (2026-08-20): tre casi limite del crawler sugli URL
+Tre difetti indipendenti, tutti nella gestione degli URL, tutti silenziosi.
+
+**1. Gli host IPv6 letterali venivano corrotti — e il filtro same-host con
+loro.** `norm_host()` tagliava sul primo `:`, che in un IPv6 non è il
+separatore della porta ma parte dell'indirizzo; `normalize_url()` usava
+`parts.hostname`, che toglie le parentesi quadre:
+
+```
+normalize_url("http://[2001:db8::1]/x") = 'http://2001:db8::1/x'   <- non e' un URL
+norm_host    ("http://[2001:db8::1]/x") = '[2001'
+host_matches fra due IPv6 DIVERSI       = True                     <- !
+```
+
+L'ultima riga è la più seria: due indirizzi diversi si riducevano alla stessa
+stringa, quindi il filtro same-host costruito da **R7** e rafforzato da **R17**
+lasciava passare un altro server. E un sito servito su IPv6 falliva ogni
+richiesta, venendo diagnosticato *irraggiungibile* pur rispondendo.
+
+**2. Le sitemap con `<loc>` relativi producevano zero pagine, con il motivo
+sbagliato.** Lo standard li vuole assoluti, ma le sitemap reali ne hanno di
+relativi. Presi alla lettera, `host_matches` li bocciava:
+
+```
+skipped: ['host esterno: /pagina1.html', 'host esterno: pagina2.html']
+```
+
+*«Host esterno»* è falso — è esattamente lo stesso host — e l'audit restava
+senza una pagina.
+
+**3. Un robots.txt vuoto veniva riportato come assente.** `found` si deduceva
+dal **contenuto** (`bool(righe)`), non dallo status: un file servito a 200 ma
+vuoto significa *«tutto permesso»*, ed è una scelta esplicita del sito.
+`mars_tech` ne faceva un rilievo di gravità **media** (*«robots.txt assente»*),
+cioè un difetto che non c'era.
+
+**Risoluzione applicata.** `norm_host()` riconosce il letterale fra parentesi
+quadre **prima** di tagliare sui due punti; `normalize_url()` le rimette
+quando l'host ne contiene; i `<loc>` si risolvono con `urljoin` rispetto alla
+sitemap che li contiene; `found` deriva dallo **status 200**, non dal
+contenuto.
+
+**Verificato, e per l'IPv6 con una prova end-to-end** — un server HTTP
+in ascolto su `[::1]:8861`:
+
+```
+prima (HEAD) : NESSUNA PAGINA: il sito risulta irraggiungibile
+dopo         : pagine ['http://[::1]:8861/']   titolo "IPv6"
+```
+
+Gli altri due, ripetuti:
+
+```
+sitemap relativa -> pagine ['.../pagina1.html', '.../pagina2.html'], skipped []
+robots vuoto     -> found True; mars_tech passa da "assente" (medio)
+                    a "nessuna regola esplicita" (lieve)
+```
+
+Su un sito senza questi casi limite il referto è **invariato**, area per area.
+
+**La prova che conta: reintrodurre il difetto.** Cinque mutazioni, tutte
+rilevate al primo tentativo:
+
+```
+1. norm_host taglia di nuovo sui due punti      -> 3 falliti
+2. normalize_url perde le quadre IPv6           -> 4 falliti
+3. i <loc> non sono piu' risolti sulla sitemap  -> 1 fallito
+4. found torna a dedursi dal contenuto          -> 1 fallito
+5. trovato non viene mai impostato              -> 3 falliti
+```
+
+C'è anche un test che fissa il **caso normale**: `urljoin` su un `<loc>` già
+assoluto lo restituisce identico, così la correzione non tocca ciò che
+funzionava.
+
+- [x] IPv6 letterali preservati in `norm_host` e `normalize_url`.
+- [x] Filtro same-host che distingue due IPv6 diversi.
+- [x] `<loc>` relativi risolti sulla sitemap che li contiene.
+- [x] `found` dallo status, non dal contenuto.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

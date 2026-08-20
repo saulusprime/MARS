@@ -139,6 +139,55 @@ def test_norm_host_toglie_www_e_porta():
 
 
 # ----------------------------------------------------------------------
+# Host IPv6 letterali (R24)
+# ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("grezzo, atteso", [
+    ("http://[::1]:8000/pagina", "http://[::1]:8000/pagina"),
+    ("http://[2001:db8::1]/x", "http://[2001:db8::1]/x"),
+    ("http://[2001:DB8::1]:80/", "http://[2001:db8::1]/"),
+])
+def test_normalize_url_conserva_le_quadre_ipv6(grezzo, atteso):
+    """Regressione R24: parts.hostname toglie le parentesi quadre.
+
+    Senza, l'URL ricomposto e' "http://::1:8000/x", che non e' un
+    indirizzo: ogni richiesta falliva e il sito veniva diagnosticato
+    irraggiungibile pur rispondendo.
+    """
+    assert normalize_url(grezzo) == atteso
+
+
+@pytest.mark.parametrize("url, atteso", [
+    ("http://[::1]:8000/x", "[::1]"),
+    ("http://[2001:db8::1]/x", "[2001:db8::1]"),
+])
+def test_norm_host_non_taglia_un_ipv6_sui_due_punti(url, atteso):
+    assert norm_host(url) == atteso
+
+
+def test_host_matches_distingue_due_ipv6_diversi():
+    """Regressione R24, la parte piu' seria.
+
+    norm_host tagliava sul primo ":" e riduceva "[2001:db8::1]" a
+    "[2001": due indirizzi DIVERSI diventavano lo stesso host, e il
+    filtro same-host costruito da R7 e R17 lasciava passare un altro
+    server.
+    """
+    proprio = norm_host("http://[2001:db8::1]/")
+    assert host_matches("http://[2001:db8::1]/altra", proprio) is True
+    assert host_matches("http://[2001:db8::2]/x", proprio) is False
+
+
+def test_crawl_su_host_ipv6(monkeypatch):
+    """Un sito servito su un IPv6 letterale dev'essere scansionabile."""
+    crawler = Crawler("http://[::1]:8861/", max_pages=2, delay=0)
+    crawler.session.mount("http://", _AdattatoreFinto({
+        "http://[::1]:8861/": (PAGINA_UTILE, "text/html"),
+    }))
+    assert list(crawler.crawl()) == ["http://[::1]:8861/"]
+
+
+# ----------------------------------------------------------------------
 # Tokenizzazione (R18)
 # ----------------------------------------------------------------------
 
@@ -638,6 +687,57 @@ def test_catena_di_redirect_troppo_lunga():
                                    redirect=catena)
     assert crawler.crawl() == {}
     assert "redirect" in crawler.skipped[0]
+
+
+def test_sitemap_con_loc_relativi(monkeypatch):
+    """Regressione R24: i <loc> relativi venivano presi alla lettera.
+
+    Lo standard li vuole assoluti, ma le sitemap reali ne hanno di
+    relativi: host_matches li bocciava come "host esterno" — motivo
+    falso, e' lo stesso host — e l'audit restava senza una pagina,
+    senza nemmeno ripiegare sui link interni.
+    """
+    crawler = _crawler_con_sitemap(
+        [], **{"http://esempio.test/pagina1.html": _pagina("Una"),
+               "http://esempio.test/pagina2.html": _pagina("Due")})
+    adattatore = crawler.session.get_adapter("http://esempio.test/")
+    adattatore.risposte["http://esempio.test/sitemap.xml"] = (
+        "<?xml version='1.0'?><urlset>"
+        "<url><loc>/pagina1.html</loc></url>"
+        "<url><loc>pagina2.html</loc></url></urlset>", "application/xml")
+    pagine = crawler.crawl()
+    assert sorted(pagine) == ["http://esempio.test/pagina1.html",
+                              "http://esempio.test/pagina2.html"]
+    assert crawler.skipped == []
+
+
+def test_sitemap_con_loc_assoluti_invariata():
+    """La correzione non deve toccare il caso normale: urljoin su un
+    URL gia' assoluto lo restituisce identico."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/pagina1.html"],
+        **{"http://esempio.test/pagina1.html": _pagina("Una")})
+    assert list(crawler.crawl()) == ["http://esempio.test/pagina1.html"]
+
+
+@pytest.mark.parametrize("corpo, atteso", [
+    ("", True),                              # esiste, ma vuoto: 200
+    ("User-agent: *\nAllow: /\n", True),
+    (None, False),                           # 404
+])
+def test_robots_esistente_anche_se_vuoto(corpo, atteso):
+    """Regressione R24: `found` si deduceva dal CONTENUTO.
+
+    Un robots.txt servito a 200 ma vuoto significa "tutto permesso",
+    ed e' una scelta del sito: riportarlo come assente e' un'altra
+    cosa, e mars_tech ne faceva un rilievo di gravita' media.
+    """
+    risposte = {}
+    if corpo is not None:
+        risposte["http://esempio.test/robots.txt"] = (corpo, "text/plain")
+    crawler = _crawler_finto(risposte)
+    crawler.robots()
+    assert crawler.robots_info["found"] is atteso
 
 
 def test_robots_txt_segue_ancora_i_redirect():

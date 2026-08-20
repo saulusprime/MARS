@@ -70,11 +70,24 @@ def load_sentence_transformers() -> Optional[Tuple[object, object]]:
 
 
 def norm_host(url_or_host: str) -> str:
-    """Host normalizzato: minuscolo, senza www., senza schema."""
+    """Host normalizzato: minuscolo, senza www., senza schema.
+
+    L'IPv6 letterale va riconosciuto PRIMA di tagliare sui due punti:
+    e' pieno di due punti, e "[2001:db8::1]".split(":")[0] restituisce
+    "[2001". Due indirizzi diversi si riducevano cosi' alla stessa
+    stringa, e host_matches() li dava per lo stesso host — il filtro
+    same-host che R7 e R17 hanno costruito saltava proprio dove
+    serviva.
+    """
     value = url_or_host.strip().lower()
     if "://" in value:
         value = urlparse(value).netloc or value
-    value = value.split("/")[0].split(":")[0]
+    value = value.split("/")[0]
+    if value.startswith("["):
+        chiusura = value.find("]")
+        if chiusura != -1:
+            return value[:chiusura + 1]
+    value = value.split(":")[0]
     if value.startswith("www."):
         value = value[4:]
     return value
@@ -205,6 +218,12 @@ def normalize_url(url: str) -> str:
     """
     parts = urlsplit(url.strip())
     host = parts.hostname or ""
+    if ":" in host:
+        # parts.hostname toglie le parentesi quadre a un IPv6
+        # letterale, ma senza quelle l'URL ricomposto e' invalido e
+        # ogni richiesta fallisce: "http://::1:8080/x" non e' un
+        # indirizzo, e' una diagnosi sbagliata che segue.
+        host = "[%s]" % host
     default = {"http": 80, "https": 443}.get(parts.scheme.lower())
     if parts.port and parts.port != default:
         host = "%s:%d" % (host, parts.port)
@@ -431,9 +450,15 @@ class Crawler:
         if self._robots is None:
             self._robots = RobotFileParser()
             righe: List[str] = []
+            # Esistenza e contenuto sono cose diverse: un robots.txt
+            # servito a 200 ma vuoto significa "tutto permesso", ed e'
+            # una scelta del sito. Dedurre l'esistenza dal contenuto lo
+            # faceva riportare come assente, che e' un'altra cosa.
+            trovato = False
             try:
                 resp = self._get(urljoin(self.base_url, "/robots.txt"))
                 if resp.status_code == 200:
+                    trovato = True
                     # robots.txt e' UTF-8 per RFC 9309, ma viaggia come
                     # text/plain: resp.text lo decodificherebbe in
                     # ISO-8859-1 come le pagine (vedi decode_html), e
@@ -445,7 +470,7 @@ class Crawler:
                 pass
             self._robots.parse(righe)
             self.robots_info = {
-                "found": bool(righe),
+                "found": trovato,
                 "text": "\n".join(righe),
                 "sitemaps": list(self._robots.site_maps() or []),
             }
@@ -521,7 +546,12 @@ class Crawler:
                     con_lastmod += 1
                 if nome != "loc" or not elem.text:
                     continue
-                loc = elem.text.strip()
+                # Risolti rispetto alla sitemap che li contiene: lo
+                # standard vuole <loc> assoluti, ma le sitemap reali
+                # ne hanno di relativi, e presi alla lettera venivano
+                # scartati come "host esterno" — motivo falso, e'
+                # lo stesso host — lasciando l'audit senza pagine.
+                loc = urljoin(url, elem.text.strip())
                 if indice:
                     coda.append((loc, profondita + 1))
                 elif len(trovati) < tetto:

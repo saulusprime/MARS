@@ -106,10 +106,15 @@ Costano ore se le si reincontra senza saperlo.
 - **`bcrypt` è pinnato a 4.0.1.** passlib 1.7.4 non sa leggere la
   versione di bcrypt ≥ 4.1 e solleva `AttributeError`: ogni login si
   rompe. Non alzare il vincolo senza aver aggiornato passlib.
-- **`load_external_module` registra in `sys.modules` prima di
-  `exec_module`.** Senza, ogni modulo che usi `@dataclass` insieme a
+- **`load_external_module` registra in `sys.modules` prima di eseguire
+  il modulo.** Senza, ogni modulo che usi `@dataclass` insieme a
   `from __future__ import annotations` fallisce con un errore
   incomprensibile.
+- **Il caricatore compila la sorgente invece di usare `exec_module()`.**
+  Il bytecode cache di Python valida su *(mtime in secondi interi,
+  dimensione)*: un file modificato nello stesso secondo e della stessa
+  lunghezza — cambiare una cifra, invertire un booleano — verrebbe
+  eseguito nella versione vecchia, senza un solo errore.
 - **`RobotFileParser` senza `parse()` nega ogni URL.** Va chiamato
   `parse([])` anche quando robots.txt manca. E `crawl_delay()` per un
   agente specifico **non eredita** da `*`.

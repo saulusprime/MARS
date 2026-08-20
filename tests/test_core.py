@@ -275,3 +275,43 @@ def test_load_external_module_indipendente_dalla_cwd(tmp_path, monkeypatch):
 
 def test_load_external_module_inesistente():
     assert load_external_module("mars_non_esiste") is None
+
+
+def test_load_external_module_restituisce_lo_stesso_oggetto():
+    """Prima due chiamate davano oggetti DIVERSI: un isinstance contro
+    una classe del modulo falliva e lo stato di modulo si azzerava a
+    ogni richiesta."""
+    assert load_external_module("mars_tech") is load_external_module(
+        "mars_tech")
+
+
+def test_load_external_module_ricarica_se_il_file_cambia(tmp_path,
+                                                         monkeypatch):
+    """La cache non deve nascondere una modifica: modificare un plugin
+    deve avere effetto senza riavviare l'API."""
+    import time
+    import mars_core
+    finto = tmp_path / "mars_finto.py"
+    finto.write_text("VALORE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(mars_core.os.path, "abspath",
+                        lambda p: str(tmp_path / "mars_core.py"))
+    primo = load_external_module("mars_finto")
+    assert primo.VALORE == 1
+    assert load_external_module("mars_finto") is primo
+
+    time.sleep(0.01)
+    finto.write_text("VALORE = 2\n", encoding="utf-8")
+    secondo = load_external_module("mars_finto")
+    assert secondo is not primo
+    assert secondo.VALORE == 2
+
+
+def test_load_external_module_file_sparito(tmp_path, monkeypatch):
+    import mars_core
+    finto = tmp_path / "mars_effimero.py"
+    finto.write_text("VALORE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(mars_core.os.path, "abspath",
+                        lambda p: str(tmp_path / "mars_core.py"))
+    assert load_external_module("mars_effimero") is not None
+    finto.unlink()
+    assert load_external_module("mars_effimero") is None

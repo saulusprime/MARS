@@ -91,12 +91,7 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 **Capitolo vuoto: le correzioni R1-R14 sono tutte risolte.**
 
-- [ ] `load_external_module()` **riesegue** il modulo a ogni chiamata: nove
-      riesecuzioni per audit, e le patch applicate all'oggetto importato non
-      sopravvivono. Non è un problema di correttezza — i moduli sono senza
-      stato — ma una cache renderebbe il caricamento prevedibile.
 Difetto, soluzione e verifiche di ciascuna sono in [AS-IS.md](AS-IS.md).
-
 Le nuove correzioni si aprono qui, con la numerazione che riprende da R15.
 
 ---

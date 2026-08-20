@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| — | Caricatore di moduli: cache, e bytecode stantio corretto | 2026-08-20 |
 | — | Aiuto della CLI: valori, esempi, avvertenze | 2026-08-20 |
 | C12 | Suite di test: 146 test, verificati reintroducendo i difetti | 2026-08-20 |
 | C10 | `mars_tech` copre indicizzabilità, sitemap e 13 crawler IA | 2026-08-20 |
@@ -930,6 +931,40 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### Caricatore di moduli: cache e bytecode stantio (2026-08-20)
+`load_external_module()` rieseguiva il modulo a ogni chiamata: nove per
+richiesta API.
+
+**La ragione per intervenire non era la velocità, e va detto.** Misurato: 0,8 ms
+per audit, nulla accanto a una scansione che dura secondi. Il problema era che
+**due chiamate restituivano oggetti diversi**, quindi un `isinstance` contro
+una classe del modulo falliva e lo stato di modulo si azzerava a ogni
+richiesta. Con la cache: 0,024 ms, ma è un effetto collaterale, non lo scopo.
+
+La cache si invalida sulla firma del file *(mtime in nanosecondi, dimensione)*,
+così modificare un plugin continua ad avere effetto **senza riavviare l'API** —
+che è la ragione per cui il caricamento a runtime esiste.
+
+**Un difetto più insidioso, trovato dal test di ricaricamento.** Il test
+falliva pur avendo la cache corretta: l'oggetto era nuovo ma **il codice
+eseguito era vecchio**. Indagando: il bytecode cache di Python valida su
+*(mtime in **secondi interi**, dimensione del sorgente)*. Un file modificato
+nello stesso secondo e della stessa lunghezza — cambiare una cifra, invertire
+un booleano — veniva eseguito nella versione precedente, **senza un solo
+errore**.
+
+Verificato in isolamento: stessa dimensione → valore vecchio; dimensione
+diversa → valore nuovo. Il difetto **precedeva** questa modifica ed era una
+proprietà di `exec_module()`, non della cache; ma prometterne l'invalidazione
+senza sistemarlo sarebbe stata una promessa falsa.
+
+Il caricatore compila ora la sorgente e la esegue nel namespace del modulo,
+saltando del tutto il `.pyc`. Costa nulla e toglie un'intera classe di
+sorprese — il tipo che fa perdere un'ora a chiedersi perché una modifica non
+si veda.
+
+Quattro test nuovi, e la mutazione che toglie l'invalidazione li fa fallire.
 
 ### Aiuto della CLI (2026-08-20)
 `mars_audit.py --help` elencava i parametri senza dire cosa accettassero:

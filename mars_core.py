@@ -16,7 +16,7 @@ import sys
 import time
 from collections import defaultdict
 from types import ModuleType
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
@@ -99,6 +99,12 @@ MODULES_REGISTRY = [
 ]
 
 
+# Moduli gia' caricati: nome -> (firma del file, modulo).
+# La firma e' (mtime in nanosecondi, dimensione): se il file cambia si
+# ricarica, cosi' modificare un plugin ha effetto senza riavviare l'API.
+_MODULI: Dict[str, Tuple[Tuple[int, int], ModuleType]] = {}
+
+
 def load_external_module(module_name: str) -> Optional[ModuleType]:
     """Carica un modulo di audit dalla cartella di MARS.
 
@@ -107,26 +113,52 @@ def load_external_module(module_name: str) -> Optional[ModuleType]:
     modulo e stampava "ignorato" per tutte e sette le aree, producendo
     un referto vuoto senza un solo errore.
 
-    La registrazione in sys.modules prima di exec_module() non e'
+    La registrazione in sys.modules prima dell'esecuzione non e'
     facoltativa: senza, un modulo che usa @dataclass insieme a
     "from __future__ import annotations" fallisce con un errore
     incomprensibile, perche' dataclasses risolve le annotazioni
     passando da sys.modules[cls.__module__].
+
+    Il risultato e' in cache. Non per velocita': il costo misurato era
+    0,8 ms per audit, nulla accanto a una scansione. Il punto e' che
+    due chiamate restituivano oggetti DIVERSI, quindi un isinstance
+    contro una classe del modulo falliva e lo stato di modulo veniva
+    azzerato a ogni richiesta.
     """
     file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              f"{module_name}.py")
-    if os.path.exists(file_path):
-        try:
-            spec = importlib.util.spec_from_file_location(module_name,
-                                                          file_path)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = mod
-            spec.loader.exec_module(mod)
-            return mod
-        except Exception as e:
-            sys.modules.pop(module_name, None)
-            print(f"Errore caricamento {file_path}: {e}")
-    return None
+    try:
+        stato = os.stat(file_path)
+    except OSError:
+        _MODULI.pop(module_name, None)
+        return None
+
+    firma = (stato.st_mtime_ns, stato.st_size)
+    in_cache = _MODULI.get(module_name)
+    if in_cache is not None and in_cache[0] == firma:
+        return in_cache[1]
+
+    try:
+        with open(file_path, encoding="utf-8") as sorgente:
+            testo = sorgente.read()
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = mod
+        # Si compila la sorgente invece di usare exec_module(): il
+        # bytecode cache di Python valida su (mtime in SECONDI interi,
+        # dimensione), quindi un file modificato nello stesso secondo e
+        # della stessa lunghezza — cambiare una cifra, invertire un
+        # booleano — verrebbe eseguito nella versione vecchia, senza un
+        # solo errore. Compilare costa nulla e toglie la sorpresa.
+        exec(compile(testo, file_path, "exec"), mod.__dict__)
+    except Exception as e:
+        sys.modules.pop(module_name, None)
+        _MODULI.pop(module_name, None)
+        print(f"Errore caricamento {file_path}: {e}")
+        return None
+
+    _MODULI[module_name] = (firma, mod)
+    return mod
 
 
 def _local_name(tag: str) -> str:

@@ -1,6 +1,8 @@
 # MARS Beacon — TO-DO
 
-> Stato rilevato: 2026-08-19
+> Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
+> di codice e documentazione: nuove voci R15-R33, I13-I14 — solo annotazioni,
+> nessun codice modificato).
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -89,10 +91,344 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 ## Correzioni
 
-**Capitolo vuoto: le correzioni R1-R14 sono tutte risolte.**
+Le R1-R14 sono chiuse: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
+Le voci **R15-R33** qui sotto vengono da una **revisione sistematica del
+2026-08-20** (lettura integrale di codice e documentazione, con verifica
+avversariale dei rilievi). **Nessun codice è stato modificato: sono solo
+annotazioni.** Dove scritto *«riprodotto»* il difetto è stato
+osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
+verifica e vanno riprodotte prima di correggerle (regola *verificare, non
+dedurre*). Ordinate per gravità.
 
-Difetto, soluzione e verifiche di ciascuna sono in [AS-IS.md](AS-IS.md).
-Le nuove correzioni si aprono qui, con la numerazione che riprende da R15.
+### R15 — 🔴 GRAVE: un solo URL malformato fa cadere l'intero audit
+`normalize_url()` ([mars_core.py:169](mars_core.py#L169)) chiama `urlsplit()` e
+legge `parts.port`, che sollevano `ValueError` su porta non numerica o fuori
+range e su IPv6 malformato. I chiamanti — `estrai_link()`
+([mars_core.py:345](mars_core.py#L345)) e `crawl()`
+([mars_core.py:368](mars_core.py#L368)) — non la catturano, e in
+`run_audit()` `build_context()` è **fuori dal `try`**: un solo `href` o
+`<loc>` malformato uccide l'audit CLI/API con un traceback, buttando via le
+pagine già scaricate.
+
+Riprodotto: `normalize_url("http://host:port/x")` → `ValueError: Port could
+not be cast to integer`; `normalize_url("http://[::1/pagina")` → `Invalid
+IPv6 URL`; crawl con una pagina contenente `<a href="http://sito.test:port/rotto">`
+→ crash, pagine raccolte prima perse.
+
+- [ ] Catturare `ValueError` all'ingresso di `normalize_url` (o nei chiamanti)
+      e scartare l'URL registrandolo in `skipped` con motivo dichiarato.
+
+### R16 — 🔴 GRAVE: mojibake silenzioso sui siti UTF-8 senza charset nell'header
+Il crawler usa `resp.text` ([mars_core.py:397](mars_core.py#L397) e
+[:438](mars_core.py#L438)). Per un `Content-Type: text/html` **senza**
+parametro `charset`, `requests` decodifica in ISO-8859-1 e ignora il
+`<meta charset="utf-8">` della pagina. Ogni sito UTF-8 servito così entra nel
+corpus con `title`, `headings`, `text`, `chunks` e `html` corrotti — senza un
+solo errore. Colpisce BM25, char-TFIDF, RRF e referto.
+
+Riprodotto end-to-end: pagina UTF-8 con `text/html` → title `PerchÃ© Ã¨ cosÃ¬`,
+heading `QualitÃ\xa0 piÃ¹ alta`; con `text/html; charset=utf-8` → corretto.
+
+- [ ] Passare `resp.content` a BeautifulSoup (rileva il meta charset) e
+      derivare testo/html dal soup, oppure usare `resp.apparent_encoding`
+      quando l'header non dichiara il charset.
+
+### R17 — 🔴 GRAVE: i redirect non vengono rivalidati
+`crawl()` ([mars_core.py:381](mars_core.py#L381)) segue i redirect (default di
+`requests`), ma `resp.url` non è mai ricontrollato né inserito in `visti`:
+`host_matches()` e `can_fetch()` girano solo sull'URL **richiesto**. Tre effetti
+riprodotti con adapter finto: (a) un URL permesso che redirige verso un percorso
+`Disallow` viene scaricato — **robots.txt aggirato dal sito stesso**; (b) un
+redirect cross-dominio viene seguito e il **contenuto di un host esterno** è
+indicizzato come pagina interna; (c) `/vecchia` 301 → `/nuova`, entrambe in
+sitemap, entrano **due volte** nel corpus. `skipped` resta vuoto in tutti e tre.
+Viola la promessa robots.txt di [CLAUDE.md](CLAUDE.md) e contamina il corpus.
+
+- [ ] Rivalidare `host_matches`/`can_fetch` su `normalize_url(resp.url)` e
+      deduplicare sull'URL finale prima di registrare la pagina.
+
+### R18 — 🔴 GRAVE: la tokenizzazione `split()` nudo esclude le parole a fine frase
+`mars_lexical` ([:32](mars_lexical.py#L32) corpus, [:36](mars_lexical.py#L36)
+query) e `mars_semantic` tokenizzano con `.lower().split()` senza togliere la
+punteggiatura: `funziona?` resta un token distinto da `funziona` e non matcha la
+query pulita. Riprodotto: sul chunk `come funziona? il servizio…` la query di
+default `come funziona` (in `QUERY_GENERICHE`) fa match solo su `come`; un
+heading FAQ `Come funziona?` — pesato apposta nel corpus — perde contro un chunk
+che contiene una sola delle due parole. Danneggia proprio i passaggi
+answer-shaped che il progetto vuole premiare.
+
+- [ ] Tokenizzatore che separi/rimuova la punteggiatura di confine, uguale per
+      corpus e query (attenzione a non spezzare gli algoritmi core: è una
+      normalizzazione del token, non una libreria nuova).
+
+### R19 — 🔴 GRAVE: i segnali di pagina gonfiano `answer_shaped_ratio`
+In `mars_semantic.audit()` ([mars_semantic.py:129](mars_semantic.py#L129)) il
+ciclo passa l'intera `pagina` a `question_signals()` per **ogni** chunk. I
+segnali *«titolo interrogativo»* (calcolato su **tutti** gli headings della
+pagina, [:82-84](mars_semantic.py#L82)) e *«FAQPage JSON-LD»* (cercato
+nell'**intero** HTML, [:87-88](mars_semantic.py#L87)) sono proprietà della
+pagina, non del chunk: una sola FAQ marca answer-shaped ogni chunk >40 parole di
+quella pagina. Riprodotto: pagina con `Chi siamo`, `Servizi`, `Come funziona il
+servizio?` → `answer_shaped_ratio` **100%** (3/3). Il segnale entra poi in C1
+(*Contenuto in forma di risposta*) e ne falsa il profilo.
+
+- [ ] Distinguere i segnali del chunk (punto interrogativo, interrogativo a
+      inizio frase nel testo del chunk) da quelli di pagina, o attribuire il
+      segnale di pagina al solo chunk che contiene l'heading interrogativo.
+
+### R20 — 🔴 GRAVE: axe fabbrica 100/100 quando ogni pagina fallisce, e la suite lancia Chromium
+`run_axe()` ([mars_wcag.py:208-219](mars_wcag.py#L208)) inghiotte ogni
+fallimento per-URL con `except Exception: continue` senza contare le pagine
+davvero analizzate: se **tutte** falliscono restituisce `[]`, e `audit()`
+([:248](mars_wcag.py#L248), `if violazioni is not None`) lo tratta come misura
+riuscita, pubblicando `score 100`, `tool "axe-core"`, `pages_tested` pari agli
+URL **tentati**. Riprodotto: su pagine irraggiungibili `mars_wcag.audit` →
+`tool: axe-core, score: 100, pages_tested: 1`.
+
+Aggravante sul banco di prova: le fixture di [tests/conftest.py](tests/conftest.py)
+**non** neutralizzano il browser — `niente_rete` ([:119](tests/conftest.py#L119))
+patcha solo `requests`, e `axe_disponibile()` è vero su questa macchina (axe in
+`node_modules`, Playwright installato). La suite lancia quindi Chromium davvero e,
+poiché ogni navigazione fallisce, esercita proprio il 100/100 fabbricato: nessun
+test fissa quale ramo di `mars_wcag` viene eseguito, così il difetto passa verde.
+
+- [ ] Contare le pagine effettivamente valutate; con zero restituire `None`
+      (→ ripiego statico o `status: unavailable`), mai `[]`.
+- [ ] In `conftest.py` neutralizzare Playwright/`axe_disponibile`, e aggiungere
+      un test per **ciascun** ramo (axe e statico) reso deterministico.
+
+### R21 — 🔴 GRAVE: il referto non distingue un punteggio «di superficie» da una misura piena
+`render_text` ([mars_report.py:171](mars_report.py#L171)) e `render_html`
+([:346](mars_report.py#L346)) mostrano `tool` (e mai `status`) **solo** quando
+esiste `wcag_level`. Per la sicurezza, né lo `status: "surface"` né il `tool`
+(`HTTP-Headers`, `ZAP (attiva/passiva)`) compaiono nelle viste umane. Riprodotto:
+un sito con i tre header presenti e daemon ZAP assente stampa `7. Sicurezza :
+100/100`, in testo e HTML, **indistinguibile** da un WAPT completo pulito.
+Contraddice l'onestà metodologica (principio 5) e la distinzione `surface` /
+misura reale che [AS-IS.md](AS-IS.md) (R4, C9) ha costruito nei dati.
+
+- [ ] Rendere `status`/`tool` nelle viste anche per le aree con punteggio,
+      così un `surface 100/100` si legga per quello che è.
+
+### R22 — 🟡 MEDIO: l'esecutore di moduli non è robusto ai plugin che rompono
+Tre difetti della stessa famiglia:
+- **Un modulo che solleva sparisce dal referto CLI.**
+  `run_audit()` ([mars_audit.py:61-67](mars_audit.py#L61)) stampa solo
+  l'eccezione e non mette nulla in `results`; `build_report` lo esclude da
+  `areas` ([mars_report.py:42](mars_report.py#L42)). Con `--output` il file non
+  porta traccia dell'area saltata — né *«non misurato»* né errore. L'API la
+  soluzione ce l'ha già: registra `{"error": ...}` in `results`
+  ([mars_api.py:399](mars_api.py#L399)).
+- **Un plugin che restituisce non-dict fa crollare `build_report`.**
+  `res.get("score")` ([mars_report.py:48](mars_report.py#L48)) su un `None` (o
+  stringa) → `AttributeError` **dopo** che tutti i moduli sono girati. Riprodotto:
+  `build_report({"mars_tech": "x"}, …)` → `AttributeError`. In CLI traceback fuori
+  dai codici 0/2/3; via API un 500 su `/audit/full`.
+- **`mars_seo`: score SEO `null` → `TypeError` non catturato.**
+  [mars_seo.py:39](mars_seo.py#L39) fa `…["score"] * 100`, ma lo schema LHR ammette
+  `score: null` (run completato, exit 0, JSON valido). L'`except`
+  ([:44](mars_seo.py#L44)) copre solo `CalledProcessError/JSONDecodeError/KeyError`:
+  `None * 100` propaga. Riprodotto. Manca il fallback `score: None` +
+  `status: "unavailable"` che il modulo promette.
+
+- [ ] Registrare l'errore del modulo in `results` anche in CLI (come l'API).
+- [ ] Verificare che il risultato sia un `dict` prima di consumarlo.
+- [ ] Aggiungere `TypeError` all'`except` di `mars_seo` col ripiego dichiarato.
+
+### R23 — 🟡 MEDIO: le query non sopravvivono a un retriever caduto; ranghi a informazione zero
+- **`--from-audit` fragile.** `build_report`
+  ([mars_report.py:58-83](mars_report.py#L58)) non serializza mai
+  `context["queries"]` a livello alto: le query vivono solo dentro
+  `rrf_simulation`, vuota se anche **un solo** retriever non ha prodotto
+  `per_query` (es. eccezione catturata). In quel caso `mars_citations
+  --from-audit` esce 2 con *«Nessuna query nel referto»*, benché `load_queries`
+  ([mars_core.py:708](mars_core.py#L708)) sappia già leggere un `queries` di
+  primo livello.
+- **Rango a informazione zero presentato come classifica.** Quando una query non
+  matcha alcun token, tutti i punteggi sono 0 e `sorted()` restituisce l'ordine
+  naturale `[0,1,2,…]` ([mars_lexical.py:37](mars_lexical.py#L37),
+  [mars_semantic.py:101](mars_semantic.py#L101)): il modulo dichiara comunque un
+  `top_chunk`, indistinguibile da un vincitore reale, e quel rango entra nell'RRF
+  aggregato e nel consenso *recuperabilità ibrida* di C1, che lì misura una
+  coincidenza d'ordine di scansione.
+
+- [ ] Serializzare `queries` a livello alto del referto.
+- [ ] Marcare (o escludere dal consenso) una query senza alcun match, invece di
+      spacciare l'ordine naturale per classifica.
+
+### R24 — 🟡 MEDIO: casi limite del crawler sugli URL
+Raggruppati perché toccano la stessa area (gestione URL in `mars_core`):
+- **Sitemap con `<loc>` relativi.** `fetch_sitemap`
+  ([mars_core.py:313](mars_core.py#L313)) non fa `urljoin` rispetto all'URL della
+  sitemap: `host_matches` boccia i `loc` relativi come *«host esterno»* (motivo
+  errato: è lo stesso host), il crawl produce 0 pagine **senza** ripiego ai link
+  interni (`discovery` resta `sitemap`) e `build_context` → `None`, cioè *«sito
+  irraggiungibile»* per un sito raggiungibile. Riprodotto.
+- **IPv6 letterali corrotti.** `norm_host` ([mars_core.py:75](mars_core.py#L75))
+  fa `split(":")[0]` → su `[::1]:8000` restituisce `[`; `normalize_url` toglie le
+  quadre. Un host IPv6 letterale fallisce ogni richiesta ed è diagnosticato
+  irraggiungibile.
+- **robots.txt vuoto (200) riportato assente.** `robots_info["found"]` è
+  `bool(righe)` ([mars_core.py:251](mars_core.py#L251)): un robots.txt esistente
+  ma vuoto (legittimo, «tutto permesso») risulta assente e `mars_tech`
+  ([:55](mars_tech.py#L55)) emette *«robots.txt assente»*. Dovrebbe derivare da
+  `status_code == 200`.
+
+- [ ] `urljoin(url_sitemap, loc)`, o ripiego ai link se la sitemap non produce
+      pagine valide.
+- [ ] Preservare il netloc IPv6 (quadre attorno a `parts.hostname`).
+- [ ] `found` da status 200, non dal contenuto.
+
+### R25 — 🟡 MEDIO: `mars_tech` non rileva la direttiva robots `none`
+`controlla_indicizzabilita` ([mars_tech.py:122](mars_tech.py#L122)) cerca la sola
+sottostringa `noindex`. La direttiva standard `none` (equivalente a
+`noindex, nofollow` per Google e Bing) non la contiene: un sito con
+`<meta name="robots" content="none">` o `X-Robots-Tag: none` è completamente
+de-indicizzato ma l'area 1 non emette alcun rilievo e il punteggio resta intatto.
+Riprodotto.
+
+- [ ] Trattare `none` come `noindex` (e valutare `all`/`nofollow` per completezza).
+
+### R26 — 🟡 MEDIO: `mars_wcag`, tre difetti minori raggruppati
+- **`alt=""` contato come violazione 1.1.1.** Il filtro `not i.get("alt")`
+  ([mars_wcag.py:62](mars_wcag.py#L62)) conta anche l'immagine decorativa
+  correttamente marcata `alt=""` (tecnica H67), pur avendo il crawler conservato
+  la distinzione `None`/`""`. Riprodotto. Usare `i.get("alt") is None`.
+- **`context.get("delay")` sempre `None`.** `audit()`
+  ([mars_wcag.py:247](mars_wcag.py#L247)) legge una chiave che `build_context`
+  **non inserisce mai** (verificato): il `delay` di `run_axe` è codice morto e
+  Chromium rivisita le pagine senza pausa.
+- **Riparsing dell'HTML.** `controlli_statici`
+  ([mars_wcag.py:74](mars_wcag.py#L74)) riparsa l'HTML di ogni pagina, contro
+  [CLAUDE.md](CLAUDE.md) e la voce R11 di [AS-IS.md](AS-IS.md) («mars_wcag non
+  riparsa più l'HTML»), diventata falsa dopo C8. Estrarre i dati grezzi necessari
+  nel crawler, o correggere le due dichiarazioni.
+
+- [ ] `alt is None` per il criterio 1.1.1.
+- [ ] Inserire `delay` nel context (valore effettivo del crawler) o togliere il
+      parametro morto.
+- [ ] Riconciliare il riparsing con il principio dichiarato.
+
+### R27 — 🟡 MEDIO: il timeout ZAP non ferma la scansione
+Allo scadere di `ZAP_TIMEOUT_SCAN`, `_attendi()`
+([mars_wapt.py:160](mars_wapt.py#L160)) esce dal ciclo senza fermare nulla, e
+`run_zap` non chiama mai `spider/action/stop` né `ascan/action/stop` —
+`ZapClient` non li espone nemmeno. La scansione (anche l'**active scan**, che
+invia payload d'attacco) prosegue nel daemon, mentre il referto
+([:261](mars_wapt.py#L261)) dichiara *«scansione interrotta dal timeout»*:
+l'interruzione riguarda solo l'attesa di MARS, non ZAP.
+
+- [ ] Esporre e chiamare gli endpoint di stop nel ramo di timeout, così il
+      messaggio del referto corrisponda al fatto.
+
+### R28 — 🟡 MEDIO: `mars_citations`, scritture e monitoraggio non misurato
+- **`OSError` non gestita su `--output`/`--history`.** L'`open` di `--output`
+  ([mars_citations.py:564](mars_citations.py#L564)) e `append_history`
+  ([:404](mars_citations.py#L404), invocata a [:559](mars_citations.py#L559)) non
+  gestiscono `OSError`: un percorso non scrivibile termina con traceback ed
+  **exit 1** — lo stesso codice di `--fail-under`, quindi una pipeline scambia il
+  crash per «sotto soglia». Con `--history` il crash avviene **prima** di
+  stampare il referto: i risultati (pagati in chiamate API) vanno persi.
+- **Monitoraggio non misurato = `rate 0.0`.** Se tutte le query di un provider
+  falliscono, `run_monitor` scrive `"rate": 0.0`
+  ([mars_citations.py:348](mars_citations.py#L348)) — un *«0% di citazioni»* per
+  un dato mai misurato — indistinguibile da uno 0% reale nel referto e nello
+  storico JSONL.
+
+- [ ] Gestire `OSError` con un codice di uscita distinto da `--fail-under`, e
+      scrivere il referto prima dello storico.
+- [ ] Distinguere «0 su 0» (non misurato) da uno 0% reale, come già fa `overall_rate`.
+
+### R29 — 🟡 MEDIO: gli endpoint `async` bloccano l'event loop
+Tutti gli handler REST sono `async def` (12 in [mars_api.py](mars_api.py)) ma
+fanno lavoro **sincrono bloccante**: `crawler.crawl()` con `session.get()` e
+`time.sleep()` per il rate-limit ([mars_core.py:227](mars_core.py#L227)),
+`subprocess.run(timeout=120)` ([mars_seo.py:32](mars_seo.py#L32)), il polling ZAP
+fino a 900 s ([mars_wapt.py:168](mars_wapt.py#L168)). In FastAPI un handler
+`async` gira **sull'event loop**: un audit blocca l'intero server per tutti gli
+altri client fino a fine scansione.
+
+- [ ] Rendere `def` (non `async def`) gli handler bloccanti — FastAPI li sposta
+      su un threadpool — oppure delegare l'esecuzione a `run_in_threadpool`.
+
+### R30 — 🟡 MEDIO: dipendenze non dichiarate e un caso limite del retriever
+- **`httpx` non dichiarato.** [tests/test_api.py](tests/test_api.py) usa
+  `TestClient`, che richiede `httpx`/`httpx2`: nessun `requirements*.txt` lo
+  dichiara (verificato). Oggi la suite passa solo perché `httpx` arriva come
+  dipendenza transitiva di `anthropic`/`sentence-transformers`
+  (requirements-optional): chi installa solo core+dev non può far girare i test.
+- **`VectorRetriever` con corpus vuoto.** Nel ramo embeddings reali
+  ([mars_core.py:575](mars_core.py#L575)) `model.encode([])` + `cosine_similarity`
+  sollevano `ValueError`, mentre il proxy restituisce `[]`: la promessa che «il
+  chiamante non deve sapere quale dei due sia attivo» si rompe con chunk vuoti, e
+  `mars_semantic` muore invece di risultare non misurato.
+
+- [ ] Dichiarare `httpx` in `requirements-dev.txt`.
+- [ ] Guardia sul corpus vuoto anche nel ramo embeddings reali.
+
+### R31 — ⚪ LIEVE: casi limite e diagnosi imprecise
+- **`load_queries` con file vuoto = successo silenzioso.**
+  ([mars_core.py:698](mars_core.py#L698)) restituisce `([], "")`; l'audit ripiega
+  sulle query generiche ([:842](mars_core.py#L842)) **senza dirlo**, e l'utente
+  crede di aver misurato le proprie. Il ramo `report_path` invece un errore lo dà.
+- **Rifiuto dei classificatori mal riportato.** `interroga()`
+  ([mars_llm_judge.py:143](mars_llm_judge.py#L143)) solleva `RuntimeError` con un
+  messaggio chiaro, ma `audit()` lo cattura nel gruppo generico
+  ([:214](mars_llm_judge.py#L214)) e stampa solo *«Giudizio non interpretabile:
+  RuntimeError»*, perdendo la spiegazione.
+- **Nessun tetto alla dimensione della risposta** (vedi anche I14):
+  `_get` scarica l'intero corpo senza `stream` né limite; una pagina enorme a 200
+  viene letta tutta.
+
+- [ ] Errore anche per il file `--queries` senza righe utili.
+- [ ] Distinguere il `refusal` nel `mars_llm_judge`.
+
+### R32 — ⚪ LIEVE: deriva fra documentazione e codice
+Divergenze verificate (documento → codice):
+- [README.md:123-143](README.md#L123): il paragrafo `zap-cli`
+  (`pip install zapcli`, `pip uninstall urllib3/requests/six`) è **stantio** — il
+  codice parla direttamente l'API JSON di ZAP dal 2026-08-20 (AS-IS, C9). Contraddice
+  [README.md:96](README.md#L96) e `requirements-optional.txt`. Correggere anche la
+  docstring di `/audit/wapt` ([mars_api.py:383](mars_api.py#L383): «ZAP CLI»).
+- [README.md:252-268](README.md#L252): l'elenco di `AuditRequest` **omette
+  `queries`** (e `llm`), aggiunti da C5/C2 dopo la stesura della sezione.
+- [README.md:369](README.md#L369): i codici di uscita omettono che `2` copre anche
+  l'errore d'uso (l'help della CLI è già corretto).
+- [README.md:337](README.md#L337) e help `--queries`: non dichiarano il **tetto di
+  15 query** (`DEFAULT_MAX_QUERIES`), applicato in silenzio e non regolabile da CLI
+  audit; l'API non lo applica affatto.
+- [CLAUDE.md:34](CLAUDE.md#L34): `market` descritto «non ancora usato», ma
+  `mars_citability` lo legge da C1.
+- [TO-DO.md:143](TO-DO.md#L143) (I8): «tomli già in requirements.txt» è falso —
+  rimosso con R11; usare `tomllib` (stdlib ≥ 3.11).
+- [package.json](package.json): dichiara `lighthouse` e `corepack`, ma `mars_seo`
+  cerca `lighthouse` solo nel PATH (ignora `node_modules/.bin`); dopo `npm install`
+  il referto dice comunque «non trovato».
+- [requirements-optional.txt:20](requirements-optional.txt#L20): il commento su
+  `playwright` dice «non ancora integrato: vedi C8», ma C8 è chiuso e axe-core è
+  integrato — afferma il contrario del vero.
+- [mars_wapt.py:49-50](mars_wapt.py#L49): la docstring promette diffusione «1x per
+  un URL», ma la formula ([:74](mars_wapt.py#L74)) dà 1.1x (un `High` singolo →
+  score 72, non 75). Poiché la taratura di C9 è stata misurata sul codice attuale,
+  allineare la docstring.
+
+- [ ] Correggere ciascuna riga sopra (il testo, non il comportamento, tranne
+      dove indicato un'opzione di codice).
+
+### R33 — ⚪ LIEVE: rifiniture dei test
+- **Dipendenza dalla cwd.** [tests/test_cli.py](tests/test_cli.py) (righe 22, 100,
+  107) e [tests/test_api.py:278](tests/test_api.py#L278) usano percorsi relativi:
+  eseguendo `pytest` da un'altra directory si hanno 1 failure e 4 errori, e
+  `test_url_obbligatorio` **passa vacuamente** (attende rc 2 da argparse, ma da cwd
+  sbagliata rc 2 arriva dal file non trovato).
+- **`test_html_autoconsistente` troppo debole.**
+  [tests/test_report.py:137](tests/test_report.py#L137) cerca riferimenti esterni
+  solo negli attributi `src`/`href` quotati: un `url(https://…)` nel `<style>`,
+  `@import` o `srcset` sfuggirebbero, lasciando verde una regressione che rompe
+  l'autoconsistenza.
+
+- [ ] Fissare la cwd al repo (fixture/`chdir`) e rendere non-vacuo il test URL.
+- [ ] Estendere il controllo a `url(`, `@import`, `srcset` (escludendo `data:`).
 
 ---
 
@@ -168,3 +504,23 @@ ZAP, Playwright, torch. Il README dedica un intero paragrafo a risolvere
 conflitti di pacchetti a mano. Un'immagine con tutto preinstallato
 eliminerebbe la classe di problemi — a costo di un file, senza toccare il
 codice.
+
+### I13 — Test diretti del `Crawler`
+*(proposta dalla revisione del 2026-08-20)* Nessun test esercita `robots()`,
+`can_fetch()`, `fetch_sitemap()`, `estrai_link()` o `crawl()`: `conftest.py`
+azzera `Crawler` e `test_api` usa doppi. Le trappole documentate in
+[CLAUDE.md](CLAUDE.md) (`parse([])` sul ramo robots-mancante, `crawl_delay` che
+non eredita da `*`) e diverse voci R15-R24 qui sopra sono **senza regressione**.
+Sono testabili offline montando un adapter `requests` finto sulla `session` del
+crawler (pattern verificato funzionante durante la revisione) o con un server
+HTTP locale, senza toccare la rete. È il complemento naturale delle voci
+residue di **C12**.
+
+### I14 — Tetto alla dimensione della risposta HTTP
+*(proposta dalla revisione del 2026-08-20)* `_get` scarica l'intero corpo senza
+`stream` né limite, e `crawl()` conserva la pagina sia parsata sia grezza in
+`pages[url]["html"]`: un endpoint che serve a 200 un file enorme o uno stream
+senza fine viene letto per intero (il `timeout` di `requests` copre solo
+l'attesa fra i byte). Un tetto su `Content-Length` o la lettura a chunk con
+limite (5-10 MB), oltre il quale la pagina va in `skipped` con motivo
+dichiarato, chiude la classe. Legata a **R15-R17** (robustezza del crawler).

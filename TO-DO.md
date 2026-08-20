@@ -101,18 +101,6 @@ un solo test**.
       (fallirebbe **oggi**, vedi **R1**).
 - [ ] Configurare flake8 (`setup.cfg`, `max-line-length = 120`) — vedi **R11**.
 
-### C13 — File di progetto: voci residue
-Il grosso è chiuso — vedi [AS-IS.md](AS-IS.md). Restano due punti aperti.
-
-- [ ] **Titolarità del copyright.** `LICENSE` è l'Apache 2.0 autentico, ma
-      l'appendice conserva il segnaposto `Copyright [yyyy] [name of copyright
-      owner]` e nessun file sorgente porta una riga di copyright: dichiarano
-      solo *"Licenza: Apache 2.0"*. Senza un titolare indicato la licenza è
-      difficile da far valere. Non l'ho compilato di mia iniziativa: attribuire
-      la titolarità è una decisione, non una formattazione.
-- [ ] **Recapito nel `CODE_OF_CONDUCT.md`**, lasciato in bianco di proposito:
-      pubblicare un indirizzo nel repository spetta al responsabile.
-
 ---
 
 ## Correzioni

@@ -44,10 +44,7 @@ segnalati in privato ai responsabili del progetto. Tutte le segnalazioni
 saranno esaminate con tempestività ed equità, nel rispetto della
 riservatezza di chi segnala.
 
-> **Da completare:** inserire qui il recapito per le segnalazioni. È
-> deliberatamente lasciato in bianco: pubblicare un indirizzo in un file
-> del repository è una scelta del responsabile, non un dettaglio da dare
-> per scontato.
+Recapito per le segnalazioni: **p.pierno@lymphatech.it**
 
 ## Attribuzione
 

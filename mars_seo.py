@@ -2,6 +2,7 @@
 """
 MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
+Copyright 2026 Paolo Pierno
 Licenza: Apache 2.0
 """
 

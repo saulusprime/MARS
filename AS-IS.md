@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C13 (residue) | Titolarità del copyright e recapito del codice di condotta | 2026-08-20 |
 | C9 (residue) | Verificato contro ZAP 2.17 reale; active scan autorizzato | 2026-08-20 |
 | C9 | WAPT via ZAP: client ufficiale, orchestrazione eseguita | 2026-08-20 |
 | C8 | WCAG reale via axe-core su Chromium | 2026-08-20 |
@@ -924,6 +925,31 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C13 (residue) — ✅ CHIUSE (2026-08-20): titolarità e recapito
+Le due voci erano state lasciate aperte di proposito: pubblicare un nome e un
+indirizzo in un repository è una decisione del titolare, non una formattazione,
+e non l'ho presa io.
+
+**Titolarità del copyright.** `LICENSE` conservava il segnaposto
+`Copyright [yyyy] [name of copyright owner]` dell'appendice Apache, e nessun
+sorgente portava una riga di copyright: dichiaravano solo la licenza. Senza un
+titolare indicato una licenza è difficile da far valere. Compilata come
+`Copyright 2026 Paolo Pierno`, nel LICENSE e negli header di tutti e **14** i
+file sorgente.
+
+**Recapito nel codice di condotta.** Il segnaposto è stato sostituito con
+l'indirizzo indicato dall'autore, `p.pierno@lymphatech.it`. Un codice di
+condotta senza un canale di segnalazione non è applicabile.
+
+La terza voce — il recupero della cartella `versions/` — era già stata chiusa
+dall'autore, che ha deciso di non recuperarla: git ne ha preso il posto.
+
+Verificato: `flake8` a zero, tutti e 9 i moduli si caricano, CLI e API
+invariate.
+
+- [x] Titolarità del copyright nel LICENSE e nei sorgenti.
+- [x] Recapito nel `CODE_OF_CONDUCT.md`.
 
 ### C9 (residue) — ✅ CHIUSE (2026-08-20): verificato contro ZAP 2.17 reale
 L'autore ha installato ZAP. Le due voci che richiedevano il daemon sono chiuse,

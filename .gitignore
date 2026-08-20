@@ -16,6 +16,12 @@ report.json
 referto.json
 *.report.html
 
+# --- Richieste con credenziali vere ---
+# examples/audit_request.json contiene SEGNAPOSTO ed e' versionato.
+# Per una richiesta con chiavi vere usare un file .local.json, che git
+# ignora: cp examples/audit_request.json examples/mio.local.json
+*.local.json
+
 # --- Storico delle citazioni (dati, non codice) ---
 # mars_citations.py --history accoda qui: e' dato dell'utente.
 storico.jsonl

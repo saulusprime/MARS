@@ -2,10 +2,16 @@
   "_commento": [
     "Corpo di esempio per POST /audit/full e per i singoli /audit/<area>.",
     "Solo 'url' e' obbligatorio: ogni altro campo ha un valore predefinito.",
-    "ATTENZIONE: questo file e' versionato in git. I valori sotto",
-    "'credentials' sono SEGNAPOSTO: non sostituirli con chiavi vere qui.",
-    "Le chiavi vanno tenute fuori dal repository, in un file ignorato da",
-    "git o in variabili d'ambiente sul server."
+    "",
+    "ATTENZIONE: questo file e' VERSIONATO IN GIT. I valori sotto",
+    "'credentials' sono SEGNAPOSTO e devono restare tali.",
+    "",
+    "Per una richiesta con chiavi vere, copiare questo file con",
+    "l'estensione .local.json, che git ignora:",
+    "    cp examples/audit_request.json examples/mio.local.json",
+    "In alternativa, esportare le chiavi come variabili d'ambiente sul",
+    "server (ANTHROPIC_API_KEY, HF_TOKEN, ZAP_API_KEY) e omettere del",
+    "tutto il campo 'credentials'."
   ],
   "url": "https://www.example.com",
   "max_pages": 25,

@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import requests
 
 from mars_core import host_matches, norm_host
+from mars_core import load_queries as core_load_queries
 
 __version__ = "1.2.0"
 
@@ -79,6 +80,15 @@ class AnthropicProvider:
             kwargs["base_url"] = base_url
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(**kwargs)
+        # L'SDK non protesta alla costruzione: senza credenziali
+        # solleva TypeError alla prima richiesta, e il programma
+        # terminava con un traceback invece del codice 2 documentato.
+        # api_key e auth_token restano None quando nulla e' risolvibile
+        # (variabili d'ambiente o profilo 'ant auth login').
+        if not (self._client.api_key or self._client.auth_token):
+            raise RuntimeError(
+                "provider 'anthropic' richiede ANTHROPIC_API_KEY "
+                "oppure un profilo 'ant auth login'")
         self.model = model
 
     def ask(self, query: str) -> ProviderAnswer:
@@ -115,6 +125,11 @@ class AnthropicProvider:
         except self._anthropic.APIError as exc:
             answer.ok = False
             answer.error = "errore API Anthropic: %s" % exc
+        except TypeError as exc:
+            # Rete di sicurezza: una query fallita non deve far cadere
+            # l'intero monitoraggio.
+            answer.ok = False
+            answer.error = "credenziale non utilizzabile: %s" % exc
         return answer
 
     @staticmethod
@@ -188,9 +203,11 @@ class OpenAIProvider:
     POST /v1/responses con tool ``{"type": "web_search"}``: le
     citazioni stanno nelle annotation ``url_citation`` dei blocchi
     di testo del messaggio; le fonti consultate, quando esposte,
-    nel campo ``sources`` dell'item ``web_search_call``. Fonte:
-    developers.openai.com, guida "Web search" (verificata il
-    2026-08-04).
+    nel campo ``sources`` dell'item ``web_search_call``, ma solo se la
+    richiesta le chiede via ``include``. Fonte: developers.openai.com,
+    guida "Web search" (riverificata il 2026-08-20).
+
+    Il modello ``gpt-5.6`` e' un alias valido di ``gpt-5.6-sol``.
     """
 
     name = "openai"
@@ -218,6 +235,10 @@ class OpenAIProvider:
                                           % self.api_key},
                 json={"model": self.model,
                       "tools": [{"type": "web_search"}],
+                      # Senza "include" le fonti consultate non vengono
+                      # restituite: il campo sources resterebbe vuoto e
+                      # site_consulted sarebbe sempre falso.
+                      "include": ["web_search_call.action.sources"],
                       "input": query},
                 timeout=90)
         except requests.RequestException as exc:
@@ -443,29 +464,9 @@ def render_json(payload: Dict[str, object],
 # --------------------------------------------------------------------
 
 def load_queries(args: argparse.Namespace) -> Tuple[List[str], str]:
-    """Query da --queries o --from-audit; (lista, errore)."""
-    if args.queries:
-        try:
-            with open(args.queries, encoding="utf-8") as handle:
-                return ([ln.strip() for ln in handle
-                         if ln.strip()][:args.max_queries], "")
-        except OSError as exc:
-            return [], "Impossibile leggere %s: %s" % (args.queries, exc)
-    if args.from_audit:
-        try:
-            with open(args.from_audit, encoding="utf-8") as handle:
-                report = json.load(handle)
-        except (OSError, json.JSONDecodeError) as exc:
-            return [], "Referto non leggibile %s: %s" % (args.from_audit,
-                                                         exc)
-        queries = [row.get("query", "") for row
-                   in report.get("rrf_simulation", [])]
-        queries = [q for q in queries if q][:args.max_queries]
-        if not queries:
-            return [], "Nessuna query nel referto (rrf_simulation)."
-        return queries, ""
-    return [], "Servono le query: --queries FILE oppure --from-audit " \
-               "REFERTO.json"
+    """Adattatore da argparse al caricatore condiviso di mars_core."""
+    return core_load_queries(args.queries, args.from_audit,
+                             args.max_queries)
 
 
 def build_parser() -> argparse.ArgumentParser:

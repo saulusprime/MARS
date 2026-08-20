@@ -8,6 +8,7 @@ Licenza: Apache 2.0
 
 import gzip
 import importlib.util
+import json
 import math
 import os
 import sys
@@ -511,6 +512,55 @@ def split_windows(testo: str, size: int = CHUNK_CHARS,
             break
         inizio = max(fine - overlap, inizio + 1)
     return [f for f in finestre if f]
+
+
+DEFAULT_MAX_QUERIES = 15
+
+
+def load_queries(path: Optional[str] = None,
+                 report_path: Optional[str] = None,
+                 max_queries: int = DEFAULT_MAX_QUERIES
+                 ) -> Tuple[List[str], str]:
+    """Query da un file, oppure dal referto JSON di un audit.
+
+    Condivisa fra mars_audit.py e mars_citations.py: le stesse query
+    che guidano la simulazione RRF devono poter guidare il
+    monitoraggio delle citazioni, altrimenti i due strumenti misurano
+    cose diverse e i confronti non significano nulla.
+
+    Restituisce (query, errore): errore vuoto se e' andata bene.
+
+    Dal referto accetta sia `rrf_simulation` (voci con chiave "query",
+    o stringhe) sia un `queries` di primo livello: il formato lo fissa
+    C4, e leggere entrambe le forme evita di doverla riscrivere.
+    """
+    if path:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                righe = [r.strip() for r in handle if r.strip()]
+            return righe[:max_queries], ""
+        except OSError as exc:
+            return [], "Impossibile leggere %s: %s" % (path, exc)
+
+    if report_path:
+        try:
+            with open(report_path, encoding="utf-8") as handle:
+                referto = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            return [], "Referto non leggibile %s: %s" % (report_path, exc)
+        grezze = referto.get("rrf_simulation") or referto.get("queries") or []
+        query = []
+        for voce in grezze:
+            testo = voce.get("query") if isinstance(voce, dict) else voce
+            if isinstance(testo, str) and testo.strip():
+                query.append(testo.strip())
+        if not query:
+            return [], ("Nessuna query nel referto %s "
+                        "(attese in 'rrf_simulation' o 'queries')"
+                        % report_path)
+        return query[:max_queries], ""
+
+    return [], "Servono le query: da file oppure da un referto JSON"
 
 
 def describe_chunk(chunk: dict) -> str:

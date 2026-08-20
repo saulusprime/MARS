@@ -66,21 +66,15 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
 Funzionalità **promesse dal README ma assenti nel codice**, in ordine di
 distanza tra promessa e realtà.
 
-### C3 — Monitoraggio citazioni IA: voci residue
-Il modulo `mars_citations.py` è scritto, verificato e in uso —
-vedi [AS-IS.md](AS-IS.md). Restano aperti tre punti.
-
-- [ ] `--from-audit` è dormiente: legge `report["rrf_simulation"]`, chiave che
-      nessun modulo produce ancora. Non è un difetto ma un **contratto in
-      anticipo**: il referto JSON di **C4** dovrà esporre
-      `rrf_simulation: [{"query": ...}, ...]`, e le query vengono da **C5**.
-- [ ] Verificare `OPENAI_MODEL = "gpt-5.6"`: è un altro fornitore, non
-      verificabile con la documentazione Anthropic.
-- [ ] Riusare `load_queries()` anche in `mars_audit.py` quando si farà **C5**,
-      invece di riscriverne una seconda copia.
-
 ### C4 — Output HTML e JSON (`--format`, `--output`) — *mancante al 100%*
-> Ora serve anche a C2: il giudizio LLM produce motivazione, punti forti e
+> Ora serve anche a C2 e C3.
+>
+> **Contratto da rispettare** (`mars_core.load_queries` lo legge già): il
+> referto JSON deve esporre `rrf_simulation` come lista di voci con chiave
+> `query` — oppure un `queries` di primo livello. È ciò che sblocca
+> `--from-audit` di `mars_citations.py`, oggi dormiente.
+>
+> Serve anche a C2: il giudizio LLM produce motivazione, punti forti e
 > deboli che il referto testuale tronca. Il JSON li conserverebbe interi.
 
 - [ ] **Verificare sul campo il giudizio LLM (C2)** con una credenziale

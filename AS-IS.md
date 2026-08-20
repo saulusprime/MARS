@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C3 (residue) | Modello OpenAI, `include` delle fonti, caricatore query | 2026-08-20 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
@@ -917,6 +918,54 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C3 (residue) — ✅ CHIUSE (2026-08-20): verifiche e caricatore condiviso
+Delle tre voci rimaste dopo la stesura di `mars_citations.py`, due sono chiuse
+e una resta legata a **C4**.
+
+**Il modello OpenAI era corretto.** `gpt-5.6` è un alias valido di
+`gpt-5.6-sol`, il modello di punta della famiglia; verificato sulla
+documentazione OpenAI, non dedotto. La docstring porta ora la data di
+riverifica.
+
+**Ma la stessa verifica ha trovato un difetto.** Le fonti consultate sono
+esposte sull'item `web_search_call` **solo se la richiesta le chiede**, con
+`include: ["web_search_call.action.sources"]`. Il codice le leggeva senza
+chiederle: `searched_urls` sarebbe rimasto sempre vuoto e `site_consulted`
+sempre falso — una metà della metrica silenziosamente morta. Aggiunto
+l'`include`.
+
+**Il caricatore di query è ora condiviso.** `load_queries()` vive in
+`mars_core.py` e prende parametri semplici invece di un `argparse.Namespace`;
+`mars_citations.py` ne è un adattatore di due righe. Le stesse query che
+guidano la simulazione RRF devono poter guidare il monitoraggio delle
+citazioni, altrimenti i due strumenti misurano cose diverse e confrontarli non
+significa nulla. **C5** lo troverà già pronto invece di riscriverlo.
+
+Legge sia `rrf_simulation` (voci come dizionari con chiave `query`, o come
+stringhe) sia un `queries` di primo livello: accettare entrambe le forme evita
+di dover riscrivere il caricatore quando C4 fisserà il formato. Provato su
+nove casi, inclusi file mancante, referto non JSON e referto senza query.
+
+**Un difetto grave trovato collaudando.** Senza credenziali,
+`mars_citations.py` **terminava con un traceback** invece del codice di uscita
+`2` che il README documenta per "provider non configurato". La causa è la
+stessa di **C2**: l'SDK Anthropic costruisce il client senza protestare e
+solleva `TypeError` alla prima *richiesta*. Non era un caso isolato ma una
+classe di difetto, ed è stata corretta in entrambi i punti.
+
+`AnthropicProvider` verifica ora alla costruzione che `api_key` o `auth_token`
+siano risolti — restano `None` quando non c'è né variabile d'ambiente né
+profilo `ant auth login` — e solleva `RuntimeError`, che `main()` traduce nel
+codice 2. Più una rete di sicurezza in `ask()`, perché una query fallita non
+faccia cadere l'intero monitoraggio. Verificati tutti i codici documentati:
+2 per provider non configurato, query mancanti e troppi concorrenti; 0 per
+`--version`. Zero righe di traceback.
+
+- [x] Verificare `OPENAI_MODEL = "gpt-5.6"` — valido, ed è emerso il difetto
+      dell'`include`.
+- [x] Riusare `load_queries()` fra i due strumenti.
+- [ ] `--from-audit` resta dormiente finché **C4** non produce il referto JSON.
 
 ### C3 — ✅ IN GRAN PARTE FATTO (2026-08-19): monitoraggio delle citazioni IA
 Il requisito, prima non deducibile, è ora specificato nel README (provider,

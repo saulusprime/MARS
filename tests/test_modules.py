@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
+import types
 
 import pytest
 
@@ -189,6 +191,166 @@ def test_wcag_esclusioni_corrette():
 def test_wcag_dichiara_sempre_il_livello():
     esito = mars_wcag.audit({"pages": {"https://x/": pagina()}})
     assert "WCAG 2.1" in esito["wcag_level"]
+
+
+def _viol(rid="a", gravita="serious"):
+    return {"id": rid, "impact": gravita, "help": rid, "nodes": [0]}
+
+
+# --- finto Playwright: esercita il CORPO di run_axe senza un browser ---
+# Iniettare run_axe dall'esterno prova audit() ma lascia il conteggio
+# delle pagine — cioe' il difetto R20 — mai eseguito. E' lo stesso
+# schema del finto daemon ZAP in C9, con la stessa avvertenza: un banco
+# di prova troppo accomodante conferma anche cio' che e' sbagliato,
+# quindi qui la navigazione fallisce davvero sugli URL indicati.
+
+class _PaginaFinta:
+    def __init__(self, falliscono):
+        self.falliscono = set(falliscono)
+        self.visitate = []
+
+    def goto(self, url, **kwargs):
+        self.visitate.append(url)
+        if url in self.falliscono:
+            raise RuntimeError("navigazione fallita")
+
+    def add_script_tag(self, **kwargs):
+        pass
+
+    def evaluate(self, script, arg=None):
+        return [_viol()]
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+class _PlaywrightFinto:
+    def __init__(self, pagina_finta):
+        self._pagina = pagina_finta
+        self.chromium = types.SimpleNamespace(
+            launch=lambda **kwargs: types.SimpleNamespace(
+                new_page=lambda: self._pagina, close=lambda: None))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def _playwright_finto(monkeypatch, falliscono=()):
+    pagina_finta = _PaginaFinta(falliscono)
+    modulo = types.ModuleType("playwright.sync_api")
+    modulo.sync_playwright = lambda: _PlaywrightFinto(pagina_finta)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", modulo)
+    return pagina_finta
+
+
+def test_run_axe_senza_una_sola_pagina_analizzata(monkeypatch):
+    """Regressione R20, nel punto esatto in cui viveva il difetto.
+
+    Con tutte le navigazioni fallite run_axe restituiva [] — che
+    audit() leggeva come "nessuna violazione". Deve restituire None:
+    zero pagine analizzate non e' un sito perfetto, e' una misura che
+    non c'e' stata.
+    """
+    urls = ["https://x/1", "https://x/2"]
+    spia = _playwright_finto(monkeypatch, falliscono=urls)
+    assert mars_wcag.run_axe(urls) is None
+    assert spia.visitate == urls, "le pagine devono essere state tentate"
+
+
+def test_run_axe_conta_le_pagine_riuscite(monkeypatch):
+    """Il conteggio e' il dato che mancava: senza, un fallimento
+    parziale era indistinguibile da una scansione completa."""
+    urls = ["https://x/1", "https://x/2", "https://x/3"]
+    _playwright_finto(monkeypatch, falliscono=["https://x/2"])
+    violazioni, analizzate = mars_wcag.run_axe(urls)
+    assert analizzate == 2
+    assert len(violazioni) == 2      # una per pagina riuscita
+
+    _playwright_finto(monkeypatch)
+    assert mars_wcag.run_axe(urls)[1] == 3
+
+
+def test_wcag_senza_browser_usa_il_ripiego_statico(contesto):
+    """Il ramo statico va fissato, non lasciato all'ambiente.
+
+    Prima nessun test diceva QUALE ramo di audit() venisse eseguito:
+    su una macchina con Playwright girava axe, su una senza il
+    markup, e il difetto R20 passava verde in entrambi i casi.
+    La fixture rende playwright non importabile, quindi qui siamo
+    certi di stare sul ripiego.
+    """
+    assert mars_wcag.axe_disponibile() is False
+    esito = mars_wcag.audit(contesto)
+    assert esito["tool"] == "markup"
+    assert esito["status"] == "surface"
+    assert "parziale" in esito["wcag_level"]
+
+
+def test_wcag_ramo_axe_con_dati_iniettati(contesto, monkeypatch):
+    """Il ramo axe, senza avviare un browser.
+
+    Zero violazioni su pagine DAVVERO analizzate sono un 100/100
+    legittimo: e' il caso che va distinto da quello di R20.
+    """
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe", lambda urls, delay=0.0: ([], 1))
+    esito = mars_wcag.audit(contesto)
+    assert esito["tool"] == "axe-core"
+    assert esito["score"] == 100
+    assert esito["pages_tested"] == 1
+    assert esito["complete"] is True
+
+
+def test_wcag_axe_fallita_non_fabbrica_un_cento(contesto, monkeypatch):
+    """Regressione R20: zero pagine analizzate diventavano 100/100.
+
+    run_axe inghiottiva i fallimenti per-URL senza contarli, quindi con
+    tutte le pagine irraggiungibili restituiva una lista VUOTA — che
+    audit() leggeva come "nessuna violazione" e pubblicava come misura
+    axe-core riuscita. Un sito mai caricato non e' un sito perfetto.
+    """
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe", lambda urls, delay=0.0: None)
+    esito = mars_wcag.audit(contesto)
+    assert esito["tool"] == "markup", \
+        "senza pagine analizzate non si puo' dichiarare axe-core"
+    assert esito["status"] == "surface"
+
+
+def test_wcag_axe_parziale_e_dichiarata(contesto, monkeypatch):
+    """Una scansione parziale vale piu' di niente, ma spacciarla per
+    completa no: e' la regola gia' applicata a ZAP in C9."""
+    pagine = {"https://x/%d" % i: pagina() for i in range(5)}
+    contesto["pages"] = pagine
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: ([_viol()], 2))
+    esito = mars_wcag.audit(contesto)
+    assert esito["pages_tested"] == 2, "le pagine ESAMINATE, non le tentate"
+    assert esito["pages_attempted"] == 5
+    assert esito["complete"] is False
+    assert "parziali" in esito["issues"][0]
+
+
+def test_wcag_axe_parziale_pesa_sulle_pagine_viste(contesto, monkeypatch):
+    """La diffusione si misura su cio' che axe ha VISTO.
+
+    Una regola presente su tutte le pagine esaminate e' diffusa al
+    100%, anche se il campione tentato era piu' grande: calcolarla
+    sulle pagine tentate la farebbe sembrare piu' rara di quanto e',
+    e il punteggio ne uscirebbe piu' generoso del dovuto.
+    """
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(5)}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: ([_viol(), _viol()], 2))
+    parziale = mars_wcag.audit(contesto)
+    completa = mars_wcag.score_from_violations([_viol(), _viol()], 2)
+    assert parziale["score"] == completa["score"], \
+        "due pagine viste su cinque tentate pesano come due pagine viste"
 
 
 def test_wcag_axe_raggruppa_per_regola():

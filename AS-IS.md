@@ -31,6 +31,7 @@
 | R18 | La punteggiatura escludeva le parole da BM25 | 2026-08-20 |
 | — | Referto HTML nello stile di Lighthouse, esteso alle nostre aree | 2026-08-20 |
 | R19 | I segnali di pagina gonfiavano `answer_shaped_ratio` | 2026-08-20 |
+| R20 | axe fabbricava un 100/100; la suite lanciava Chromium | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1357,6 +1358,108 @@ confuso due cose e reso la batteria di mutazioni illeggibile.
 - [x] «titolo interrogativo» dal titolo del chunk, non della pagina.
 - [x] FAQPage contato in pagine, esposto nell'API e nel referto.
 - [x] Segnali di pagina calcolati una volta per pagina.
+
+### R20 — ✅ RISOLTO (2026-08-20): axe fabbricava un 100/100, e la suite lanciava Chromium
+Due difetti che si tenevano in piedi a vicenda: il prodotto produceva un
+punteggio inventato, e il banco di prova era costruito in modo da non poterlo
+vedere.
+
+**Il prodotto.** `run_axe()` inghiottiva ogni fallimento per-URL con
+`except Exception: continue` **senza contare le pagine davvero analizzate**. Con
+tutte le pagine irraggiungibili restituiva quindi una lista **vuota**, che
+`audit()` — guardando solo `if violazioni is not None` — leggeva come «nessuna
+violazione trovata». Riprodotto:
+
+```
+pagine irraggiungibili -> tool=axe-core  score=100  pages_tested=1
+run_axe(...)           -> []
+```
+
+Un sito mai caricato veniva pubblicato come **accessibile al 100%, misurato con
+axe-core**, con `pages_tested` pari agli URL **tentati**. È il difetto peggiore
+della famiglia che R4 aveva aperto: non un'assenza dichiarata, ma una misura
+inventata che si presenta come la migliore possibile.
+
+**Il banco di prova.** `conftest.py` dichiarava *«Nessun test avvia Lighthouse,
+ZAP o un browser»*, e il README ripeteva che i test *«non avviano Lighthouse,
+ZAP o un browser»*. **Erano affermazioni false.** Misurato con `strace` sulla
+sola porzione WCAG della suite:
+
+```
+browser lanciati: 15   (~/.cache/ms-playwright/.../chrome-headless-shell)
+```
+
+La fixture `niente_rete` copre `requests`, ma **Playwright non passa da
+requests**. E poiché nei test le navigazioni fallivano tutte, la suite
+esercitava proprio il 100/100 fabbricato — passando verde. Nessun test fissava
+quale dei due rami di `audit()` venisse eseguito, quindi il risultato dipendeva
+dalla macchina: con Playwright installato girava axe, senza girava il markup.
+
+**Risoluzione applicata.**
+
+- `run_axe()` conta le pagine riuscite e restituisce `(violazioni, analizzate)`,
+  oppure **`None`** se non ne ha analizzata nemmeno una — così `audit()` ripiega
+  sull'euristica statica e lo dichiara (`tool: markup`, `status: surface`),
+  invece di spacciare il vuoto per un sito perfetto.
+- `pages_tested` riporta ora le pagine **esaminate**, non quelle tentate, e
+  accanto compaiono `pages_attempted` e `complete`.
+- Una scansione **parziale è dichiarata** in testa ai rilievi, con la stessa
+  regola applicata alle scansioni ZAP interrotte in **C9**.
+- La **diffusione** di una regola si calcola sulle pagine viste: una regola
+  presente su tutte le pagine esaminate è diffusa al 100%, anche se il campione
+  tentato era più grande.
+- `conftest.py` rende `playwright.sync_api` non importabile. Si agisce sulla
+  libreria e non su `mars_wcag` perché così la neutralizzazione **non dipende da
+  quale oggetto-modulo sia vivo** — import diretto nei test o
+  `load_external_module` — e copre entrambe le porte d'ingresso:
+  `axe_disponibile()` e `run_axe()` degradano tutte e due.
+
+**Verificato.**
+
+```
+browser lanciati dalla suite intera : 0      (erano 15 nella sola parte WCAG)
+durata della suite                  : 6,4 s  (erano 8,1)
+pagine irraggiungibili              : tool=markup, status=surface
+```
+
+Le due dichiarazioni di `conftest.py` e del README sono tornate vere senza
+doverle riscrivere.
+
+**Il percorso axe reale non è stato rotto**, ed è la verifica che contava di
+più: audit su un sito locale costruito inaccessibile → `tool=axe-core`,
+`score=0`, `complete=True`, con `color-contrast` fra i rilievi — un criterio che
+solo un browser vero può vedere. Con una pagina irraggiungibile mescolata a una
+buona: **1 pagina analizzata su 2 tentate**, contata giusta.
+
+**La prova che conta: reintrodurre il difetto.** Sei mutazioni, tutte rilevate:
+
+```
+1. zero pagine analizzate torna a valere []      -> 1 fallito
+2. i successi non vengono contati                -> 1 fallito
+3. pages_tested torna a essere le pagine TENTATE -> 1 fallito
+4. scansione parziale non dichiarata             -> 1 fallito
+5. diffusione calcolata sulle pagine tentate     -> 1 fallito
+6. il browser torna a non essere neutralizzato   -> 1 fallito
+```
+
+**Alla prima esecuzione le prime due — cioè il cuore di R20 — non venivano
+rilevate**, e la ragione è la stessa di sempre in forma nuova: i test iniettavano
+`run_axe` dall'esterno, quindi provavano `audit()` ma lasciavano il **corpo** di
+`run_axe` mai eseguito. Il conteggio delle pagine, che *è* il difetto, non era
+sotto test.
+
+Colmato con un **finto Playwright** — pagina, browser e context manager — che
+fa fallire davvero la navigazione sugli URL indicati. È lo stesso schema del
+finto daemon ZAP di **C9**, con la stessa avvertenza incisa sopra: un banco di
+prova troppo accomodante conferma anche ciò che è sbagliato. La quinta mutazione
+è sfuggita per un motivo diverso ma affine: avevo scritto in un commento che la
+diffusione si misura sulle pagine viste, senza un test che lo difendesse.
+
+- [x] Contare le pagine analizzate; `None` se sono zero.
+- [x] `pages_tested` veritiero, parzialità dichiarata.
+- [x] Browser neutralizzato nella suite, sulla libreria e non sul modulo.
+- [x] Un test per **ciascun** ramo, reso deterministico.
+- [x] Corpo di `run_axe` sotto test con un finto Playwright.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

@@ -139,6 +139,13 @@ Costano ore se le si reincontra senza saperlo.
   sito UTF-8 restituisce mojibake, e il corpus si corrompe in silenzio.
   Usare `decode_html()` per le pagine e `resp.content` per il resto.
   Vedi R16.
+- **Vietare la rete non basta a fermare un browser.** Playwright non
+  passa da `requests`: prima che `conftest.py` rendesse
+  `playwright.sync_api` non importabile, la sola parte WCAG della suite
+  lanciava **15 volte** chrome-headless-shell, mentre fixture e README
+  dichiaravano il contrario. Si neutralizza la **libreria**, non
+  `mars_wcag`, così non dipende da quale oggetto-modulo sia vivo.
+  Vedi R20.
 - **La fixture `niente_rete` copre `requests.get`, non `Session.get`.**
   Il `Crawler` usa una `Session`: per esercitarlo nei test si monta un
   `requests.adapters.BaseAdapter` finto sulla sua `session`

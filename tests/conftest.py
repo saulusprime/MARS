@@ -131,10 +131,18 @@ def strumenti_esterni_assenti(monkeypatch):
     l'assenza degli strumenti sia gestita, che e' anche lo stato piu'
     comune in una pipeline.
     """
-    # shutil.which copre Lighthouse; il daemon ZAP e il browser di axe
-    # non rispondono perche' la rete e' vietata, ed e' esattamente il
-    # percorso di ripiego che vogliamo esercitare. Non si applicano
-    # patch ai moduli d'area: load_external_module li riesegue a ogni
-    # chiamata, quindi una patch sull'oggetto importato qui non
-    # sopravviverebbe.
+    # shutil.which copre Lighthouse e il daemon ZAP non risponde
+    # perche' la rete e' vietata.
     monkeypatch.setattr("shutil.which", lambda nome: None)
+
+    # Il browser NON era coperto, e la dichiarazione qui sopra era
+    # falsa: misurato con strace, la sola porzione WCAG della suite
+    # lanciava 15 volte chrome-headless-shell. La rete vietata non
+    # basta, perche' Playwright non passa da requests.
+    #
+    # Si rende non importabile playwright.sync_api invece di toccare
+    # mars_wcag: cosi' la neutralizzazione non dipende da QUALE
+    # oggetto-modulo sia vivo (import diretto nei test o
+    # load_external_module), e copre entrambe le porte d'ingresso —
+    # axe_disponibile() e run_axe() degradano tutte e due.
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", None)

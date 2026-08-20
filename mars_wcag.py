@@ -10,7 +10,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 
@@ -187,13 +187,22 @@ def score_from_violations(violations: List[dict],
             "issues": rilievi}
 
 
-def run_axe(urls: List[str], delay: float = 0.0) -> Optional[List[dict]]:
-    """Esegue axe-core sulle pagine indicate. None se fallisce.
+def run_axe(urls: List[str],
+            delay: float = 0.0) -> Optional[Tuple[List[dict], int]]:
+    """Esegue axe-core sulle pagine indicate.
 
     Si naviga alle pagine reali invece di iniettare l'HTML gia'
     scaricato: senza CSS e JavaScript i criteri su contrasto, focus e
     contenuto generato darebbero risultati sbagliati, che e' peggio che
     non darli.
+
+    Restituisce (violazioni, pagine ANALIZZATE) oppure None. Il
+    conteggio non e' un dettaglio: prima i fallimenti per-URL venivano
+    inghiottiti senza tenerne traccia, quindi con tutte le pagine
+    irraggiungibili la funzione restituiva una lista VUOTA — che
+    audit() leggeva come "nessuna violazione" e pubblicava come
+    100/100 misurato con axe-core. Zero pagine analizzate non e' un
+    sito perfetto: e' una misura che non c'e' stata.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -201,6 +210,7 @@ def run_axe(urls: List[str], delay: float = 0.0) -> Optional[List[dict]]:
         return None
 
     violazioni: List[dict] = []
+    analizzate = 0
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
@@ -215,6 +225,7 @@ def run_axe(urls: List[str], delay: float = 0.0) -> Optional[List[dict]]:
                         "{runOnly: {type: 'tag', values: tags}})).violations",
                         AXE_TAGS)
                     violazioni.extend(esito or [])
+                    analizzate += 1
                 except Exception:
                     continue
                 if delay:
@@ -222,7 +233,9 @@ def run_axe(urls: List[str], delay: float = 0.0) -> Optional[List[dict]]:
             browser.close()
     except Exception:
         return None
-    return violazioni
+    if not analizzate:
+        return None
+    return violazioni, analizzate
 
 
 # ======================================================================
@@ -244,20 +257,36 @@ def audit(context: dict) -> dict:
 
     if axe_disponibile():
         urls = list(pages)[:MAX_PAGINE_AXE]
-        violazioni = run_axe(urls, context.get("delay") or 0.0)
-        if violazioni is not None:
-            esito = score_from_violations(violazioni, len(urls))
+        esito_axe = run_axe(urls, context.get("delay") or 0.0)
+        if esito_axe is not None:
+            violazioni, analizzate = esito_axe
+            # La diffusione si misura sulle pagine ANALIZZATE, non su
+            # quelle tentate, altrimenti una regola presente su tutte
+            # sembrerebbe presente su meno.
+            esito = score_from_violations(violazioni, analizzate)
+            rilievi = list(esito["issues"])
+            if analizzate < len(urls):
+                # Una scansione parziale vale piu' di niente, ma
+                # spacciarla per completa no: e' la stessa regola
+                # applicata alle scansioni ZAP interrotte (C9).
+                rilievi.insert(0, "axe non ha potuto esaminare %d delle %d "
+                                  "pagine del campione: i rilievi sono "
+                                  "parziali" % (len(urls) - analizzate,
+                                                len(urls)))
             return {
                 "score": esito["score"],
                 "tool": "axe-core",
                 "wcag_level": WCAG_LIVELLO,
-                "pages_tested": len(urls),
+                # Le pagine davvero esaminate, non quelle tentate.
+                "pages_tested": analizzate,
+                "pages_attempted": len(urls),
                 "pages_total": len(pages),
+                "complete": analizzate == len(urls),
                 "violations_by_impact": esito["violations_by_impact"],
                 "rules_violated": esito["rules_violated"],
                 # I rilievi statici restano: coprono l'intero campione,
                 # mentre axe ne ha visto solo le prime pagine.
-                "issues": esito["issues"] + statici,
+                "issues": rilievi + statici,
                 "static_findings": statici,
             }
 

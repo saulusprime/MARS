@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R19 sono
-> già chiuse; restano aperte R20-R34.
+> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R20 sono
+> già chiuse; restano aperte R21-R34.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -94,36 +94,16 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
 l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
 mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
-**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), tutte il
-2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
+**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`) e **R20** (axe
+che fabbricava un 100/100), tutte il 2026-08-20: difetto, soluzione e verifiche
+in [AS-IS.md](AS-IS.md).
 
-Le voci **R20-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R21-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R20 — 🔴 GRAVE: axe fabbrica 100/100 quando ogni pagina fallisce, e la suite lancia Chromium
-`run_axe()` ([mars_wcag.py:208-219](mars_wcag.py#L208)) inghiotte ogni
-fallimento per-URL con `except Exception: continue` senza contare le pagine
-davvero analizzate: se **tutte** falliscono restituisce `[]`, e `audit()`
-([:248](mars_wcag.py#L248), `if violazioni is not None`) lo tratta come misura
-riuscita, pubblicando `score 100`, `tool "axe-core"`, `pages_tested` pari agli
-URL **tentati**. Riprodotto: su pagine irraggiungibili `mars_wcag.audit` →
-`tool: axe-core, score: 100, pages_tested: 1`.
-
-Aggravante sul banco di prova: le fixture di [tests/conftest.py](tests/conftest.py)
-**non** neutralizzano il browser — `niente_rete` ([:119](tests/conftest.py#L119))
-patcha solo `requests`, e `axe_disponibile()` è vero su questa macchina (axe in
-`node_modules`, Playwright installato). La suite lancia quindi Chromium davvero e,
-poiché ogni navigazione fallisce, esercita proprio il 100/100 fabbricato: nessun
-test fissa quale ramo di `mars_wcag` viene eseguito, così il difetto passa verde.
-
-- [ ] Contare le pagine effettivamente valutate; con zero restituire `None`
-      (→ ripiego statico o `status: unavailable`), mai `[]`.
-- [ ] In `conftest.py` neutralizzare Playwright/`axe_disponibile`, e aggiungere
-      un test per **ciascun** ramo (axe e statico) reso deterministico.
 
 ### R21 — 🔴 GRAVE: il referto non distingue un punteggio «di superficie» da una misura piena
 `render_text` ([mars_report.py:171](mars_report.py#L171)) e `render_html`

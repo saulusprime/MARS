@@ -705,7 +705,8 @@ def build_context(url: str, max_pages: int = 10,
                   timeout: int = DEFAULT_TIMEOUT,
                   owner_declaration: bool = False,
                   llm: str = "auto",
-                  queries: Optional[List[str]] = None) -> Optional[dict]:
+                  queries: Optional[List[str]] = None,
+                  credentials: Optional[dict] = None) -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -745,6 +746,10 @@ def build_context(url: str, max_pages: int = 10,
         # campione, e chi legge il referto deve saperlo.
         "discovery": crawler.discovery,
         "llm": llm,
+        # Credenziali del chiamante, alternative alle variabili
+        # d'ambiente. Non finiscono nel referto: build_report() legge
+        # chiavi nominate, non l'intero contesto.
+        "credentials": dict(credentials or {}),
         # Le query su cui gira la simulazione RRF. Fondere due ranghi
         # prodotti da UNA query dice pochissimo: la formula del paper
         # ha senso su un insieme di interrogazioni.

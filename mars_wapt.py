@@ -137,9 +137,16 @@ class ZapClient:
                               baseurl=baseurl).get("alerts") or [])
 
 
-def connect_zap() -> Optional[ZapClient]:
-    """Client ZAP se un daemon risponde, altrimenti None."""
-    client = ZapClient()
+def connect_zap(credentials: Optional[dict] = None) -> Optional[ZapClient]:
+    """Client ZAP se un daemon risponde, altrimenti None.
+
+    Indirizzo e chiave arrivano prima dalla richiesta, poi
+    dall'ambiente: cosi' un'unica istanza dell'API puo' servire
+    chiamanti con daemon ZAP diversi.
+    """
+    credentials = credentials or {}
+    client = ZapClient(base=credentials.get("zap_proxy") or ZAP_PROXY,
+                       api_key=credentials.get("zap_api_key") or ZAP_API_KEY)
     try:
         if client.version():
             return client
@@ -237,12 +244,14 @@ def audit_headers(url: str) -> dict:
 def audit(context: dict) -> dict:
     """Area 7: sicurezza, con ZAP quando un daemon e' raggiungibile."""
     url = context["url"]
-    client = context.get("_zap_client") or connect_zap()
+    credenziali = context.get("credentials") or {}
+    client = context.get("_zap_client") or connect_zap(credenziali)
     if client is not None:
         active = bool(context.get("owner_declaration"))
         print("  ZAP raggiunto su %s: scansione %s in corso "
               "(puo' richiedere diversi minuti)..."
-              % (ZAP_PROXY, "ATTIVA" if active else "passiva"))
+              % (credenziali.get("zap_proxy") or ZAP_PROXY,
+                 "ATTIVA" if active else "passiva"))
         esito_zap = run_zap(url, client, active=active)
         if esito_zap is not None:
             alerts, completa = esito_zap

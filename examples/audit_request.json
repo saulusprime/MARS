@@ -1,6 +1,34 @@
 {
-  "url": "https://lymphatechnologies.com",
+  "_commento": [
+    "Corpo di esempio per POST /audit/full e per i singoli /audit/<area>.",
+    "Solo 'url' e' obbligatorio: ogni altro campo ha un valore predefinito.",
+    "ATTENZIONE: questo file e' versionato in git. I valori sotto",
+    "'credentials' sono SEGNAPOSTO: non sostituirli con chiavi vere qui.",
+    "Le chiavi vanno tenute fuori dal repository, in un file ignorato da",
+    "git o in variabili d'ambiente sul server."
+  ],
+
+  "url": "https://www.example.com",
   "max_pages": 25,
+
+  "queries": [
+    "cos'e' questo sito",
+    "come funziona il servizio",
+    "quali sono i prezzi"
+  ],
+
   "embeddings": "paraphrase-multilingual-MiniLM-L12-v2",
-  "market": "eu"
+  "market": "eu",
+
+  "delay": 0.5,
+  "timeout": 10,
+
+  "llm": "auto",
+  "i_own_this_domain": false,
+
+  "credentials": {
+    "anthropic_api_key": "SEGNAPOSTO-sostituire-fuori-dal-repository",
+    "zap_api_key": "SEGNAPOSTO-oppure-omettere-se-api.disablekey=true",
+    "zap_proxy": "http://127.0.0.1:8080"
+  }
 }

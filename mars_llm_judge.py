@@ -65,12 +65,16 @@ strutturati): sono già misurati altrove. Sii severo: la maggior parte
 dei siti non è citabile, e un voto alto deve significare qualcosa."""
 
 
-def credenziali_presenti() -> bool:
-    """Vero se l'SDK trovera' una credenziale nell'ambiente.
+def credenziali_presenti(context: Optional[dict] = None) -> bool:
+    """Vero se una credenziale e' disponibile.
 
-    L'SDK sa risolvere anche un profilo 'ant auth login', che questa
-    funzione non vede: per quello serve --llm on, che tenta comunque.
+    Guarda prima quella fornita dal chiamante nella richiesta, poi
+    l'ambiente. L'SDK sa risolvere anche un profilo 'ant auth login',
+    che questa funzione non vede: per quello serve --llm on, che tenta
+    comunque.
     """
+    if (context or {}).get("credentials", {}).get("anthropic_api_key"):
+        return True
     return bool(os.environ.get("ANTHROPIC_API_KEY")
                 or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
@@ -158,7 +162,7 @@ def audit(context: dict) -> dict:
     if modalita == "off":
         return {"score": None, "status": "disabled",
                 "issues": ["Giudizio LLM disattivato (--llm off)"]}
-    if modalita == "auto" and not credenziali_presenti():
+    if modalita == "auto" and not credenziali_presenti(context):
         return {"score": None, "status": "unavailable",
                 "issues": ["ANTHROPIC_API_KEY non presente: giudizio LLM "
                            "non eseguito (--llm on per tentare comunque)"]}
@@ -177,8 +181,11 @@ def audit(context: dict) -> dict:
     # Il client si costruisce PRIMA di annunciare la spesa: senza
     # credenziali risolvibili l'SDK solleva TypeError, e annunciare un
     # invio che non avverra' sarebbe fuorviante.
+    chiave = (context.get("credentials") or {}).get("anthropic_api_key")
     try:
-        client = context.get("_anthropic_client") or anthropic.Anthropic()
+        client = (context.get("_anthropic_client")
+                  or (anthropic.Anthropic(api_key=chiave) if chiave
+                      else anthropic.Anthropic()))
     except (TypeError, ValueError, anthropic.AnthropicError) as exc:
         return {"score": None, "status": "unavailable",
                 "issues": ["Nessuna credenziale Anthropic utilizzabile "

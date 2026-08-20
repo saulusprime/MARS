@@ -25,9 +25,14 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `pages` | dict `url -> pagina` (vedi sotto) |
 | `urls` | elenco degli URL scansionati |
 | `chunks` | lista di `{"url", "heading", "text"}` — **le unità su cui lavorano i retriever** |
+| `queries` | query su cui gira la simulazione RRF; default generico nella lingua del sito |
+| `discovery` | come sono state trovate le pagine: `sitemap` o `link interni` |
+| `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
 | `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
 | `robots_ignored` | `True` se è stata dichiarata la proprietà del dominio |
+| `owner_declaration` | dichiarazione di proprietà: abilita anche l'active scan WAPT |
+| `credentials` | chiavi fornite dal chiamante API; i moduli le preferiscono all'ambiente |
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,

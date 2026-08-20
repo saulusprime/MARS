@@ -15,7 +15,7 @@ import secrets
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, SecretStr
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -106,6 +106,32 @@ class UserInDB(User):
     hashed_password: str
 
 
+class Credentials(BaseModel):
+    """Credenziali fornite dal chiamante, alternative alle variabili
+    d'ambiente del server.
+
+    Sono SecretStr: pydantic le maschera in log, repr e messaggi
+    d'errore, cosi' una chiave non finisce in un traceback per
+    distrazione. Non vengono mai restituite in risposta.
+
+    Usare solo su HTTPS: nel corpo di una richiesta viaggiano fino al
+    server, e su HTTP sarebbero in chiaro sulla rete.
+    """
+
+    anthropic_api_key: SecretStr | None = Field(
+        default=None,
+        description="Abilita il giudizio LLM (area 9) senza impostare "
+                    "ANTHROPIC_API_KEY sul server.")
+    zap_api_key: SecretStr | None = Field(
+        default=None,
+        description="Chiave API del daemon ZAP, se non è stato avviato "
+                    "con api.disablekey=true.")
+    zap_proxy: str | None = Field(
+        default=None,
+        description="Indirizzo del daemon ZAP, se diverso da "
+                    "http://127.0.0.1:8080.")
+
+
 class AuditRequest(BaseModel):
     url: HttpUrl
     max_pages: int = 10
@@ -124,6 +150,10 @@ class AuditRequest(BaseModel):
         description="Giudizio LLM sulla citabilità: 'auto' solo con "
                     "ANTHROPIC_API_KEY presente, 'on' tenta comunque, "
                     "'off' mai. È l'unico modulo che comporta una spesa.")
+    credentials: Credentials | None = Field(
+        default=None,
+        description="Credenziali per gli strumenti opzionali. Se assenti "
+                    "si usano le variabili d'ambiente del server.")
     i_own_this_domain: bool = Field(
         default=False,
         description="DICHIARAZIONE di proprietà del dominio e di assunzione "
@@ -207,13 +237,33 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 # ==============================================================================
 
 
+def _credenziali(req: AuditRequest) -> dict:
+    """Credenziali della richiesta come stringhe, per i moduli.
+
+    get_secret_value() si chiama QUI e una volta sola: i moduli
+    ricevono stringhe e non devono conoscere pydantic.
+    """
+    cred = req.credentials
+    if cred is None:
+        return {}
+    estratte = {}
+    for nome in ("anthropic_api_key", "zap_api_key"):
+        valore = getattr(cred, nome)
+        if valore is not None:
+            estratte[nome] = valore.get_secret_value()
+    if cred.zap_proxy:
+        estratte["zap_proxy"] = cred.zap_proxy
+    return estratte
+
+
 def build_context(req: AuditRequest) -> dict:
     """Contesto condiviso da tutti i moduli di una richiesta."""
     context = core_build_context(str(req.url), req.max_pages,
                                  req.embeddings, req.market,
                                  delay=req.delay, timeout=req.timeout,
                                  owner_declaration=req.i_own_this_domain,
-                                 llm=req.llm, queries=req.queries)
+                                 llm=req.llm, queries=req.queries,
+                                 credentials=_credenziali(req))
     if context is None:
         raise HTTPException(
             status_code=404,

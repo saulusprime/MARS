@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| — | Credenziali nella richiesta API; esempio completo | 2026-08-20 |
 | C13 (residue) | Titolarità del copyright e recapito del codice di condotta | 2026-08-20 |
 | C9 (residue) | Verificato contro ZAP 2.17 reale; active scan autorizzato | 2026-08-20 |
 | C9 | WAPT via ZAP: client ufficiale, orchestrazione eseguita | 2026-08-20 |
@@ -925,6 +926,44 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### Credenziali nella richiesta API (2026-08-20)
+`examples/audit_request.json` era fermo a quattro campi su nove ed era stato
+scritto prima di R7, C2, C5 e C6. Serviva inoltre poter passare le chiavi degli
+strumenti opzionali dalla richiesta, perché un'unica istanza dell'API possa
+servire chiamanti che portano le proprie.
+
+**Il campo `credentials`** accetta `anthropic_api_key`, `zap_api_key` e
+`zap_proxy`. Sono `SecretStr`: pydantic li maschera in log, `repr` e messaggi
+d'errore, così una chiave non finisce in un traceback per distrazione. Nello
+schema OpenAPI risultano `format: password` e **`writeOnly: true`**, quindi
+Swagger li maschera e li dichiara solo-input.
+
+`get_secret_value()` viene chiamato in un punto solo, all'ingresso: i moduli
+ricevono stringhe e non devono conoscere pydantic. `mars_llm_judge` e
+`mars_wapt` preferiscono la credenziale della richiesta all'ambiente; senza,
+tutto funziona come prima.
+
+**Verificato che le chiavi non tornano indietro.** Inviata una chiave
+riconoscibile a `/audit/full` e ai singoli endpoint: non compare in nessuna
+risposta, e la parola `credentials` nemmeno. `build_report()` legge chiavi
+nominate e non l'intero contesto, quindi il referto non può contenerle per
+costruzione.
+
+**Il file di esempio contiene segnaposto, e deve restare così**: è versionato
+in git. Il primo campo del file è un `_commento` che lo dice a chi lo apre, e
+il README ripete l'avvertenza insieme a quella sull'uso solo su HTTPS — nel
+corpo di una richiesta le chiavi viaggiano fino al server.
+
+Le chiavi di `mars_citations.py` restano solo su variabili d'ambiente: è uno
+strumento da riga di comando, non esposto via API.
+
+**Una deriva della documentazione, trovata verificando.** Il confronto fra il
+contratto scritto in `CLAUDE.md` e le chiavi reali del `context` ha rivelato
+che `discovery`, `llm` e `queries` — aggiunte da C6, C2 e C5 — non erano mai
+state documentate. Allineate. È il secondo controllo automatico dello stesso
+tipo, e il primo che trova qualcosa: vale la pena rifarlo ogni volta che il
+contesto cambia.
 
 ### C13 (residue) — ✅ CHIUSE (2026-08-20): titolarità e recapito
 Le due voci erano state lasciate aperte di proposito: pubblicare un nome e un

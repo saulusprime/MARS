@@ -237,6 +237,8 @@ Endpoint:
     POST /audit/wapt      area 7  sicurezza
     POST /audit/full      tutte e sette piu' la fusione RRF
 
+Un corpo di esempio completo sta in examples/audit_request.json.
+
 Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
 
     url                 URL del sito da scansionare
@@ -247,9 +249,37 @@ Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
     delay               pausa fra le richieste in secondi (default 0.5)
     timeout             timeout di rete in secondi (default 10)
     i_own_this_domain   DICHIARAZIONE di proprieta' del dominio e di
-                        assunzione di responsabilita'. E' l'unico modo
-                        per ignorare robots.txt, e viene registrata nel
-                        referto. Default false.
+                        assunzione di responsabilita'. Abilita due cose:
+                        ignorare robots.txt e l'active scan WAPT, che
+                        invia payload d'attacco. Registrata nel referto.
+                        Default false.
+    credentials         Credenziali per gli strumenti opzionali, se non
+                        si vogliono impostare come variabili d'ambiente
+                        sul server (vedi sotto).
+
+Credenziali nella richiesta. Il campo "credentials" accetta:
+
+    anthropic_api_key   abilita il giudizio LLM (area 9)
+    zap_api_key         chiave del daemon ZAP, se non e' stato avviato
+                        con api.disablekey=true
+    zap_proxy           indirizzo del daemon ZAP, se diverso da
+                        http://127.0.0.1:8080
+
+Servono quando una sola istanza dell'API serve chiamanti diversi, che
+portano le proprie chiavi. Se il campo manca si usano le variabili
+d'ambiente del server, che restano il modo consigliato per un'istanza a
+uso singolo.
+
+    ATTENZIONE. Nel corpo di una richiesta le chiavi viaggiano fino al
+    server: usare SOLO su HTTPS. Nello schema OpenAPI sono dichiarate
+    format: password e writeOnly, quindi Swagger le maschera e nessuna
+    risposta le restituisce mai. E non vanno scritte in
+    examples/audit_request.json, che e' versionato in git: quel file
+    contiene segnaposto, e cosi' deve restare.
+
+    Le chiavi di mars_citations.py (PERPLEXITY_API_KEY, OPENAI_API_KEY,
+    ANTHROPIC_API_KEY) restano solo su variabili d'ambiente: e' uno
+    strumento da riga di comando, non esposto via API.
 
 Un punteggio a null con "status": "unavailable" significa che l'area
 non e' stata misurata perche' lo strumento necessario manca — non che

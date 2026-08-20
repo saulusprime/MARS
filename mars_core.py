@@ -14,6 +14,7 @@ import math
 import os
 import sys
 import time
+import unicodedata
 from collections import defaultdict
 from types import ModuleType
 from typing import Dict, List, Optional, Tuple
@@ -647,6 +648,47 @@ class Crawler:
                     if link not in visti:
                         coda.append(link)
         return self.pages
+
+
+def _spoglia(token: str) -> str:
+    """Toglie la punteggiatura in TESTA e in CODA a un token.
+
+    Si guarda la categoria Unicode invece di elencare i caratteri:
+    l'elenco ASCII dimentica «», “”, ‘’, —, …, ¿, che nei testi reali
+    ci sono eccome. Le categorie "P*" li coprono tutte per costruzione.
+
+    I simboli (categoria "S") restano: "C++" e "C#" sono nomi, non
+    parole con un segno appiccicato, e "€" da solo non fa danno.
+    """
+    inizio, fine = 0, len(token)
+    while inizio < fine and unicodedata.category(token[inizio])[0] == "P":
+        inizio += 1
+    while fine > inizio and unicodedata.category(token[fine - 1])[0] == "P":
+        fine -= 1
+    return token[inizio:fine]
+
+
+def tokenize(testo: str) -> List[str]:
+    """Testo in token per il recuperatore lessicale.
+
+    Vive qui e non in mars_lexical perche' corpus e query DEVONO
+    passare per la stessa funzione: se divergono, la query smette di
+    trovare cio' che l'indice contiene, ed e' un difetto invisibile
+    perche' non produce errori, solo punteggi sbagliati.
+
+    Prima si faceva .lower().split(), quindi "funziona?" restava un
+    token diverso da "funziona": il chunk che conteneva davvero la
+    frase cercata non prendeva alcun credito per quella parola, e con
+    la normalizzazione BM25 sulla lunghezza poteva finire SOTTO un
+    chunk che la parola non ce l'aveva. Colpiva soprattutto i passaggi
+    in forma di domanda, cioe' proprio quelli che il progetto vuole
+    premiare.
+
+    Si toglie solo la punteggiatura di CONFINE: "e-mail", "COVID-19",
+    "3,14" e "info@esempio.it" restano interi, perche' spezzarli
+    sarebbe una scelta diversa e non misurata (vedi I15).
+    """
+    return [t for t in (_spoglia(p) for p in testo.lower().split()) if t]
 
 
 class LexicalRetriever:

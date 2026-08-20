@@ -28,6 +28,7 @@
 | R15 | Un solo URL malformato faceva cadere l'intero audit | 2026-08-20 |
 | R16 | Mojibake silenzioso sui siti UTF-8 senza charset | 2026-08-20 |
 | R17 | I redirect non venivano rivalidati | 2026-08-20 |
+| R18 | La punteggiatura escludeva le parole da BM25 | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1084,6 +1085,113 @@ di **R16**, è il secondo pezzo di `HTTPAdapter.build_response` che mancava.
 - [x] Pagina registrata sotto l'URL di arrivo.
 - [x] Duplicati riconosciuti senza sprecare una richiesta.
 - [x] Cicli, tetto sui salti e `Location` degeneri diagnosticati.
+
+### R18 — ✅ RISOLTO (2026-08-20): la punteggiatura escludeva le parole da BM25
+`mars_lexical` tokenizzava con `.lower().split()`, quindi `"funziona?"` restava
+un token **diverso** da `"funziona"`: un chunk che conteneva davvero la frase
+cercata non prendeva alcun credito per quella parola.
+
+**Un'affermazione del TO-DO era sbagliata, e va detta.** La voce diceva che
+anche `mars_semantic` tokenizza con `split()`. Non è vero: lì `split()` conta
+le parole per la soglia `MIN_PAROLE`, mentre il recupero passa da
+`VectorRetriever`, che lavora su **trigrammi di caratteri** — per i quali
+`"funziona?"` e `"funziona"` condividono quasi tutti i trigrammi. Il difetto
+era confinato a `mars_lexical`.
+
+**Ed è proprio questa asimmetria a fare il danno peggiore.** Il recuperatore
+vettoriale vedeva la corrispondenza, quello lessicale no: i due si trovavano in
+disaccordo per una ragione che **non ha nulla a che fare col sito**, e il
+consenso RRF — che il README presenta come il cuore del progetto — ne usciva
+falsato. Misurato su un corpus di tre chunk:
+
+```
+BM25       : [0.4700, 0.4869, 0.0]   -> primo il chunk 1
+vettoriale : [0.4221, 0.0966, 0.0161] -> primo il chunk 0
+```
+
+Il chunk 0 è quello che contiene la frase cercata. Per BM25 finiva **sotto** un
+chunk più corto che la parola `"funziona"` non la conteneva affatto: la
+normalizzazione sulla lunghezza premiava il più breve, e il più pertinente non
+aveva modo di recuperare. L'RRF andava dietro all'errore.
+
+**Risoluzione applicata.** `tokenize()` in `mars_core.py` toglie la
+punteggiatura di **confine** e lascia intatto l'interno. Vive lì e non in
+`mars_lexical` perché corpus e query **devono** passare per la stessa funzione:
+se divergono, la query smette di trovare ciò che l'indice contiene, ed è un
+difetto invisibile — nessun errore, solo punteggi sbagliati.
+
+**Si guarda la categoria Unicode, non un elenco di caratteri.** Un elenco ASCII
+dimentica `«» “” ‘’ — … ¿`, che nei testi reali ci sono eccome; le categorie
+`P*` li coprono tutte per costruzione. I **simboli** (categoria `S`) restano,
+così `C++` non diventa `c`.
+
+**Perché non spezzare su ogni non-parola.** L'alternativa era
+`re.findall(r"\w+", …)`. Misurata su testo reale, fa anche altro: manda in
+pezzi `info@esempio.it` (tre token), `3,14` (due) e `COVID-19`, e riempie
+l'indice di frammenti — `l`, `dell`, `un`, `s` — che **gonfiano la lunghezza
+dei documenti**, cioè proprio la grandezza su cui BM25 normalizza. Una
+correzione mirata al difetto dichiarato è meno rischiosa di una che ne cambia
+altri quattro senza averli analizzati. L'elisione italiana (`l'azienda` che non
+incontra `azienda`) resta aperta come **I15**, con la misura già fatta.
+
+**Un limite noto, trovato misurando e non ipotizzando.** Avevo scritto un test
+che dava `tokenize("C#") == ["c#"]`. Sbagliato: `#` è categoria `Po`, quindi
+diventa `["c"]`. Non è stata aggiunta un'eccezione a mano — la prima ne chiama
+altre — perché il danno è di **precisione, non di recall**: corpus e query
+passano per la stessa funzione, quindi `C#` continua a trovare `C#`. Il test
+registra il fatto invece di nasconderlo.
+
+**Verificato, e con una precisazione sull'entità dell'effetto.** Sui chunk di
+un sito di prova con titoli in forma di domanda, il punteggio del chunk che
+risponde alla domanda sale sempre:
+
+| query | chunk | prima | dopo |
+|---|---|---|---|
+| come funziona | *Come funziona?* | 1,2842 | 3,0805 (+140%) |
+| chi siamo | *Chi siamo?* | 2,8482 | 3,3932 (+19%) |
+| quali servizi offre | *Quali servizi offre?* | 3,9117 | 5,8676 (+50%) |
+
+Su quel sito l'11% dei token dell'indice portava punteggiatura attaccata.
+
+**Se il vincitore cambi dipende però dal corpus, e va detto invece di
+generalizzare.** L'inversione di classifica è stata riprodotta su un corpus
+plausibile (con un chunk *Dove siamo* breve che conteneva `"come"`), mentre sui
+chunk reali del sito di prova il primo posto non cambia: lì i chunk concorrenti
+sono più lunghi e la normalizzazione BM25 li penalizza già. Il referto finale
+di quel sito è quindi **identico**, anche perché il consenso Top-3 confronta
+*insiemi* e non ordini. La correzione è certa; la sua visibilità nel referto
+no, e prometterla sarebbe falsa precisione.
+
+**La prova che conta: reintrodurre il difetto.** Sette mutazioni, tutte
+rilevate:
+
+```
+1. corpus di nuovo con split() nudo      ->  1 fallito
+2. query di nuovo con split() nudo       ->  1 fallito
+3. tokenize non toglie piu' nulla        -> 13 falliti
+4. si spoglia solo la coda, non la testa ->  4 falliti
+5. si spoglia solo la testa, non la coda -> 11 falliti
+6. token vuoti non filtrati              ->  3 falliti
+7. si spogliano anche i simboli          ->  1 fallito
+```
+
+**Due mutazioni alla prima esecuzione non venivano rilevate.** La settima era
+una mutazione mal costruita da parte mia — toccava solo uno dei due cicli — ed
+è servita a ricordare che anche le mutazioni vanno verificate. La seconda è più
+istruttiva: il test sul lato query **passava vacuamente**. Con la query non
+tokenizzata nessun termine matcha, tutti i punteggi sono zero e `sorted()`
+restituisce l'ordine naturale — che per caso metteva primo proprio il chunk
+atteso. È esattamente il difetto annotato in **R23**, incontrato dal vivo. Il
+test mette ora il bersaglio in **seconda** posizione, così un rango a
+informazione zero non può passare per una classifica.
+
+È la quarta voce di fila in cui la batteria di mutazioni scopre un test che
+sembrava corretto.
+
+- [x] `tokenize()` in `mars_core`, condivisa fra corpus e query.
+- [x] Punteggiatura per categoria Unicode, simboli preservati.
+- [x] Scelta della granularità motivata da una misura, non da un'impressione.
+- [x] Limite su `#` registrato invece che nascosto.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

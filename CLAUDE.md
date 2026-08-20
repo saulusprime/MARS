@@ -123,6 +123,11 @@ Costano ore se le si reincontra senza saperlo.
   prima. Gli URL vengono dal sito analizzato, quindi sono dato ostile:
   usare `safe_normalize_url()`, che restituisce `None`, e dichiarare lo
   scarto in `skipped`. Vedi R15.
+- **Corpus e query si tokenizzano con la stessa funzione.**
+  `tokenize()` sta in `mars_core` proprio per questo: se i due lati
+  divergono, la query smette di trovare ciò che l'indice contiene, e
+  non c'è alcun errore — solo punteggi sbagliati. Con
+  `.lower().split()` bastava un `?` a escludere una parola. Vedi R18.
 - **Un redirect è un URL nuovo, e va ricontrollato prima di seguirlo.**
   `requests` li segue da solo e l'arrivo non viene più esaminato: basta
   un `302` perché il sito faccia scaricare al crawler un percorso

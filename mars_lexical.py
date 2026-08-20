@@ -10,7 +10,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 from mars_core import (LexicalRetriever, describe_chunk,
-                       reciprocal_rank_fusion)
+                       reciprocal_rank_fusion, tokenize)
 
 
 def audit(context: dict) -> dict:
@@ -29,11 +29,15 @@ def audit(context: dict) -> dict:
         parti = [chunk.get("heading") or "", chunk.get("text") or ""]
         corpus.append(" ".join(p for p in parti if p))
 
-    bm25 = LexicalRetriever([c.lower().split() for c in corpus])
+    # tokenize() e non .lower().split(): corpus e query devono passare
+    # per la stessa funzione, altrimenti "funziona?" nell'indice non
+    # incontra mai "funziona" nella query. Vive in mars_core proprio
+    # perche' i due punti non possano divergere.
+    bm25 = LexicalRetriever([tokenize(c) for c in corpus])
     queries = context.get("queries") or []
     per_query = []
     for query in queries:
-        scores = bm25.get_scores(query.lower().split())
+        scores = bm25.get_scores(tokenize(query))
         rank = sorted(range(len(scores)),
                       key=lambda i: scores[i], reverse=True)
         per_query.append({

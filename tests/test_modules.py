@@ -242,6 +242,54 @@ def test_lexical_una_voce_per_query(contesto):
     assert len(esito["rank"]) == len(contesto["chunks"])
 
 
+def test_lexical_trova_il_chunk_nonostante_la_punteggiatura(contesto):
+    """Regressione R18, sul percorso vero del modulo.
+
+    Il chunk in forma di domanda — quello che il progetto vuole
+    premiare — non prendeva credito per la parola cercata, perche'
+    nell'indice era "funziona?" e nella query "funziona". Con la
+    normalizzazione BM25 sulla lunghezza poteva finire SOTTO un chunk
+    piu' corto che quella parola non la conteneva affatto.
+    """
+    contesto["chunks"] = [
+        {"url": "https://x/", "heading": "Come funziona?",
+         "text": "Il servizio si attiva in pochi minuti dopo la "
+                 "registrazione online, senza configurazione manuale."},
+        {"url": "https://x/", "heading": "Dove siamo",
+         "text": "Come raggiungerci: la sede e' in centro."},
+    ]
+    contesto["queries"] = ["come funziona"]
+    esito = mars_lexical.audit(contesto)
+    assert esito["per_query"][0]["rank"][0] == 0, \
+        "il chunk che contiene la frase cercata deve vincere"
+    assert "Come funziona?" in esito["top_chunk"]
+
+
+def test_lexical_tokenizza_anche_la_query(contesto):
+    """Regressione R18, lato query.
+
+    Corpus e query devono passare per la STESSA funzione: se solo il
+    corpus viene ripulito, una query scritta con il punto interrogativo
+    — cioe' come la scriverebbe un utente — smette di trovare quello
+    che l'indice contiene. E' meta' del difetto, e da sola non
+    produrrebbe alcun errore visibile.
+
+    Il chunk atteso e' il SECONDO di proposito: quando nessun termine
+    matcha, i punteggi sono tutti zero e sorted() restituisce l'ordine
+    naturale. Con il bersaglio in prima posizione il test passerebbe
+    anche a difetto reintrodotto — verificato, ed e' successo.
+    """
+    contesto["chunks"] = [
+        {"url": "https://x/", "heading": "Sede",
+         "text": "La nostra sede si trova in centro citta'."},
+        {"url": "https://x/", "heading": "Preventivi",
+         "text": "Il preventivo si richiede online in pochi minuti."},
+    ]
+    contesto["queries"] = ["preventivo?"]      # punteggiatura NELLA QUERY
+    esito = mars_lexical.audit(contesto)
+    assert esito["per_query"][0]["rank"][0] == 1
+
+
 def test_semantic_falsi_positivi_answer_shaped():
     """Regressione R9: "chi" dentro chiave/archivio/macchina, e "come"
     e "dove" come congiunzioni."""

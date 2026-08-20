@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R33, I13-I14). R15, R16 e R17
-> sono già chiuse; restano aperte R18-R33.
+> di codice e documentazione: nuove voci R15-R33, I13-I15). R15-R18 sono
+> già chiuse; restano aperte R19-R33.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -92,30 +92,16 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 ## Correzioni
 
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
-l'audit), **R16** (mojibake sui siti UTF-8 senza charset) e **R17** (redirect
-mai rivalidati), tutte il 2026-08-20: difetto, soluzione e verifiche in
-[AS-IS.md](AS-IS.md).
+l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
+mai rivalidati) e **R18** (punteggiatura che escludeva le parole da BM25),
+tutte il 2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
 
-Le voci **R18-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R19-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R18 — 🔴 GRAVE: la tokenizzazione `split()` nudo esclude le parole a fine frase
-`mars_lexical` ([:32](mars_lexical.py#L32) corpus, [:36](mars_lexical.py#L36)
-query) e `mars_semantic` tokenizzano con `.lower().split()` senza togliere la
-punteggiatura: `funziona?` resta un token distinto da `funziona` e non matcha la
-query pulita. Riprodotto: sul chunk `come funziona? il servizio…` la query di
-default `come funziona` (in `QUERY_GENERICHE`) fa match solo su `come`; un
-heading FAQ `Come funziona?` — pesato apposta nel corpus — perde contro un chunk
-che contiene una sola delle due parole. Danneggia proprio i passaggi
-answer-shaped che il progetto vuole premiare.
-
-- [ ] Tokenizzatore che separi/rimuova la punteggiatura di confine, uguale per
-      corpus e query (attenzione a non spezzare gli algoritmi core: è una
-      normalizzazione del token, non una libreria nuova).
 
 ### R19 — 🔴 GRAVE: i segnali di pagina gonfiano `answer_shaped_ratio`
 In `mars_semantic.audit()` ([mars_semantic.py:129](mars_semantic.py#L129)) il
@@ -482,3 +468,19 @@ senza fine viene letto per intero (il `timeout` di `requests` copre solo
 l'attesa fra i byte). Un tetto su `Content-Length` o la lettura a chunk con
 limite (5-10 MB), oltre il quale la pagina va in `skipped` con motivo
 dichiarato, chiude la classe. Legata a **R15-R17** (robustezza del crawler).
+
+### I15 — Elisione italiana nella tokenizzazione
+*(proposta dalla revisione del 2026-08-20, misurata chiudendo R18)*
+`tokenize()` toglie la punteggiatura di **confine**, quindi `l'azienda` resta
+un token solo e una query per `azienda` non lo incontra. In italiano
+l'elisione è ovunque (`dell'anno`, `un'idea`, `all'inizio`), quindi la perdita
+non è marginale.
+
+La correzione ovvia — spezzare su ogni non-parola, `re.findall(r"\w+", …)` —
+è stata **misurata e scartata** chiudendo R18: manda in pezzi
+`info@esempio.it` (tre token), `3,14` (due) e `COVID-19`, e riempie l'indice
+di frammenti (`l`, `dell`, `un`, `s`) che gonfiano la lunghezza dei documenti,
+cioè la grandezza su cui BM25 normalizza. Serve qualcosa di più mirato:
+spezzare **solo** sull'apostrofo, e solo quando la parte a sinistra è un
+articolo o una preposizione elidibile — cioè un piccolo elenco dichiarato,
+non una regola generale. Da valutare con una misura, non a intuito.

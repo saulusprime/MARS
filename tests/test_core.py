@@ -21,7 +21,7 @@ from mars_core import (MAX_REDIRECT, Crawler, LexicalRetriever,
                        default_queries, describe_chunk, host_matches,
                        load_external_module, load_queries, norm_host,
                        normalize_url, reciprocal_rank_fusion,
-                       safe_normalize_url, split_windows)
+                       safe_normalize_url, split_windows, tokenize)
 
 
 # ----------------------------------------------------------------------
@@ -136,6 +136,105 @@ def test_host_matches(url, host, atteso):
 
 def test_norm_host_toglie_www_e_porta():
     assert norm_host("https://WWW.Esempio.IT:8080/x") == "esempio.it"
+
+
+# ----------------------------------------------------------------------
+# Tokenizzazione (R18)
+# ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("testo, atteso", [
+    ("Come funziona?", ["come", "funziona"]),
+    ("Il servizio.", ["il", "servizio"]),
+    ("«Qualità» — città, però…", ["qualità", "città", "però"]),
+    ("(IVA esclusa);", ["iva", "esclusa"]),
+    ("'virgolettato'", ["virgolettato"]),
+    ("¿Qué?", ["qué"]),
+])
+def test_tokenize_toglie_la_punteggiatura_di_confine(testo, atteso):
+    """Regressione R18: .lower().split() lasciava "funziona?" attaccato.
+
+    L'elenco copre anche la punteggiatura tipografica, che un elenco
+    ASCII dimenticherebbe: nei testi reali «», — e … ci sono eccome.
+    """
+    assert tokenize(testo) == atteso
+
+
+@pytest.mark.parametrize("testo, atteso", [
+    ("e-mail", ["e-mail"]),
+    ("COVID-19", ["covid-19"]),
+    ("3,14", ["3,14"]),
+    ("info@esempio.it", ["info@esempio.it"]),
+    ("l'azienda", ["l'azienda"]),
+    ("C++", ["c++"]),          # "+" e' un simbolo (Sm), non punteggiatura
+])
+def test_tokenize_conserva_la_punteggiatura_interna(testo, atteso):
+    """Si toglie solo il CONFINE, ed e' una scelta deliberata.
+
+    Spezzare su ogni non-parola manderebbe in pezzi indirizzi, prezzi
+    e sigle, e riempirebbe l'indice di frammenti ("l", "dell") che
+    gonfiano la lunghezza dei documenti — cioe' la normalizzazione
+    BM25. Vedi I15 per la questione dell'elisione italiana.
+    """
+    assert tokenize(testo) == atteso
+
+
+def test_tokenize_perde_il_cancelletto_finale_ma_resta_simmetrico():
+    """Limite noto, misurato e non ipotizzato: "#" e' categoria Po,
+    quindi "C#" diventa "c".
+
+    Non si aggiunge un'eccezione a mano perche' la prima ne chiama
+    altre, e soprattutto perche' il danno e' di PRECISIONE, non di
+    recall: corpus e query passano per la stessa funzione, quindi
+    "C#" continua a trovare "C#". Si perde solo la distinzione da una
+    "c" qualunque.
+    """
+    assert tokenize("C#") == ["c"]
+    corpus = [tokenize("guida a C# per principianti"),
+              tokenize("ricette di cucina tradizionale")]
+    punteggi = LexicalRetriever(corpus).get_scores(tokenize("C#"))
+    assert punteggi[0] > punteggi[1]
+
+
+def test_tokenize_simmetrico_fra_corpus_e_query():
+    """Il difetto era di CORRISPONDENZA, non di pulizia: va provato
+    che la punteggiatura non impedisca il match da nessuno dei due
+    lati, altrimenti si e' corretta meta' del problema."""
+    sporco = LexicalRetriever([tokenize("il preventivo, si richiede."),
+                               tokenize("tutt'altro argomento")])
+    pulito = LexicalRetriever([tokenize("il preventivo si richiede"),
+                               tokenize("tutt'altro argomento")])
+    assert sporco.get_scores(tokenize("preventivo"))[0] > 0
+    assert pulito.get_scores(tokenize("preventivo?"))[0] > 0
+    assert (sporco.get_scores(tokenize("preventivo"))[0]
+            == pytest.approx(pulito.get_scores(tokenize("preventivo?"))[0]))
+
+
+@pytest.mark.parametrize("testo", ["", "   ", "!!!", "— … «»"])
+def test_tokenize_su_testo_senza_parole(testo):
+    """Solo punteggiatura non deve produrre token vuoti: entrerebbero
+    nell'indice come termini fantasma e falserebbero le lunghezze."""
+    assert tokenize(testo) == []
+
+
+def test_tokenize_e_la_punteggiatura_ribaltano_la_classifica():
+    """Regressione R18: il difetto non era estetico.
+
+    Il chunk che contiene DAVVERO la frase cercata prendeva zero
+    credito per quella parola e, con la normalizzazione BM25 sulla
+    lunghezza, finiva SOTTO un chunk piu' corto che la parola non ce
+    l'aveva. Qui si prova che l'ordine e' quello giusto.
+    """
+    corpus = ["Come funziona? Il servizio si attiva in pochi minuti "
+              "dopo la registrazione online.",
+              "Come raggiungerci: la nostra sede si trova in centro."]
+    vecchio = LexicalRetriever([c.lower().split() for c in corpus])
+    nuovo = LexicalRetriever([tokenize(c) for c in corpus])
+    # il difetto, ancora dimostrabile: il chunk giusto non vince
+    assert vecchio.get_scores("come funziona".split())[0] <= \
+        vecchio.get_scores("come funziona".split())[1]
+    # la correzione: vince, e nettamente
+    punteggi = nuovo.get_scores(tokenize("come funziona"))
+    assert punteggi[0] > punteggi[1]
 
 
 @pytest.mark.parametrize("malformato", [

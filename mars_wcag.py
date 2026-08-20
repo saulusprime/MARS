@@ -12,8 +12,6 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Optional, Tuple
 
-from bs4 import BeautifulSoup
-
 # Livello dichiarato: axe-core viene limitato a queste etichette, e
 # l'euristica statica controlla criteri dello stesso livello. Dirlo e'
 # necessario: "accessibile" senza un livello non significa nulla.
@@ -46,6 +44,10 @@ def controlli_statici(pages: dict) -> List[str]:
     rendering, quindi niente contrasto colore, focus o ordine di
     lettura. Ognuno cita il criterio a cui si riferisce, perche' un
     rilievo senza riferimento non e' verificabile da chi lo riceve.
+
+    Lavora sui dati che il crawler ha gia' estratto — `images`,
+    `heading_levels`, `form_fields`, `tables`, `links`, `tabindex` —
+    e non riapre l'HTML: il DOM viene attraversato una volta sola.
     """
     rilievi = []
 
@@ -58,8 +60,14 @@ def controlli_statici(pages: dict) -> List[str]:
     for dati in pages.values():
         immagini = dati.get("images") or []
         totale_img += len(immagini)
+        # `alt is None` e non `not alt`: l'attributo ASSENTE e'
+        # l'unica violazione. `alt=""` e' la marcatura CORRETTA di
+        # un'immagine decorativa (tecnica H67), e contarla come
+        # difetto penalizzava proprio chi aveva fatto la cosa giusta.
+        # Il crawler la distinzione la conserva; era questo filtro a
+        # buttarla via.
         mancanti += sum(1 for i in immagini
-                        if not i.get("alt") and not i.get("aria-label"))
+                        if i.get("alt") is None and not i.get("aria-label"))
     if mancanti:
         rilievi.append("[1.1.1] %d/%d immagini prive di testo alternativo"
                        % (mancanti, totale_img))
@@ -71,41 +79,37 @@ def controlli_statici(pages: dict) -> List[str]:
     tabindex_positivi = 0
 
     for dati in pages.values():
-        soup = BeautifulSoup(dati.get("html") or "", "lxml")
-
-        livelli = [int(h.name[1]) for h in
-                   soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])]
+        # Nessun parse qui: la struttura arriva da estrai_struttura(),
+        # che l'ha letta mentre il crawler aveva il DOM aperto. Questo
+        # modulo decide cosa sia un difetto, non come si legge l'HTML.
+        livelli = dati.get("heading_levels") or []
         for precedente, corrente in zip(livelli, livelli[1:]):
             if corrente > precedente + 1:
                 salti += 1
 
-        for campo in soup.find_all(["input", "select", "textarea"]):
+        for campo in dati.get("form_fields") or []:
+            # I campi non interattivi non hanno un'etichetta da
+            # mostrare: un hidden non si vede, e submit/button/reset
+            # prendono il nome dal proprio valore.
             if campo.get("type") in ("hidden", "submit", "button", "reset"):
                 continue
-            etichettato = (campo.get("aria-label")
-                           or campo.get("aria-labelledby")
-                           or campo.get("title")
-                           or (campo.get("id")
-                               and soup.find("label",
-                                             attrs={"for": campo.get("id")}))
-                           or campo.find_parent("label"))
-            if not etichettato:
+            if not campo.get("labelled"):
                 input_senza_etichetta += 1
 
-        for tabella in soup.find_all("table"):
+        for tabella in dati.get("tables") or []:
             if tabella.get("role") == "presentation":
                 continue
-            if not tabella.find("th"):
+            if not tabella.get("has_th"):
                 tabelle_senza_th += 1
 
-        for ancora in soup.find_all("a", href=True):
-            testo = ancora.get_text(" ", strip=True).lower().strip(" .:>»→")
+        for ancora in dati.get("links") or []:
+            testo = (ancora.get("text") or "").lower().strip(" .:>»→")
             if testo in TESTI_GENERICI and not ancora.get("aria-label"):
                 link_generici += 1
 
-        for elemento in soup.find_all(attrs={"tabindex": True}):
+        for valore in dati.get("tabindex") or []:
             try:
-                if int(elemento["tabindex"]) > 0:
+                if int(valore) > 0:
                     tabindex_positivi += 1
             except (TypeError, ValueError):
                 pass

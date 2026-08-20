@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R25 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R26-R37.
+> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R26 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R27-R37.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -99,35 +99,17 @@ che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
 di superficie da una misura piena) e **R22** (esecutore di moduli non robusto
 ai plugin che rompono) e **R23** (query che non sopravvivevano a un retriever
 caduto, e ranghi a informazione zero) e **R24** (casi limite del crawler sugli
-URL), tutte il 2026-08-20: difetto, soluzione e verifiche in
+URL) e **R25** (la direttiva robots `none` mai vista) e **R26** (`alt=""`
+contato come violazione, `delay` mai passato ad axe, riparsing dell'HTML),
+tutte il 2026-08-20: difetto, soluzione e verifiche in
 [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R26-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R27-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R26 — 🟡 MEDIO: `mars_wcag`, tre difetti minori raggruppati
-- **`alt=""` contato come violazione 1.1.1.** Il filtro `not i.get("alt")`
-  ([mars_wcag.py:62](mars_wcag.py#L62)) conta anche l'immagine decorativa
-  correttamente marcata `alt=""` (tecnica H67), pur avendo il crawler conservato
-  la distinzione `None`/`""`. Riprodotto. Usare `i.get("alt") is None`.
-- **`context.get("delay")` sempre `None`.** `audit()`
-  ([mars_wcag.py:247](mars_wcag.py#L247)) legge una chiave che `build_context`
-  **non inserisce mai** (verificato): il `delay` di `run_axe` è codice morto e
-  Chromium rivisita le pagine senza pausa.
-- **Riparsing dell'HTML.** `controlli_statici`
-  ([mars_wcag.py:74](mars_wcag.py#L74)) riparsa l'HTML di ogni pagina, contro
-  [CLAUDE.md](CLAUDE.md) e la voce R11 di [AS-IS.md](AS-IS.md) («mars_wcag non
-  riparsa più l'HTML»), diventata falsa dopo C8. Estrarre i dati grezzi necessari
-  nel crawler, o correggere le due dichiarazioni.
-
-- [ ] `alt is None` per il criterio 1.1.1.
-- [ ] Inserire `delay` nel context (valore effettivo del crawler) o togliere il
-      parametro morto.
-- [ ] Riconciliare il riparsing con il principio dichiarato.
 
 ### R27 — 🟡 MEDIO: il timeout ZAP non ferma la scansione
 Allo scadere di `ZAP_TIMEOUT_SCAN`, `_attendi()`

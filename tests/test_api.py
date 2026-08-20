@@ -31,6 +31,10 @@ def crawler_finto(monkeypatch):
         def __init__(self, base_url, max_pages=20, delay=0.5, timeout=10,
                      user_agent=None, owner_declaration=False):
             self.max_pages = max_pages
+            # Il crawler vero lo conserva, e robots.txt puo' alzarlo:
+            # build_context lo pubblica nel contesto. Un finto che lo
+            # scartasse non potrebbe accorgersi di nulla.
+            self.delay = delay
             self.skipped = []
             self.discovery = "sitemap"
             self.robots_info = {"found": True, "text": "User-agent: *\n"

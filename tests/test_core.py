@@ -15,12 +15,13 @@ import pytest
 import requests
 from bs4 import BeautifulSoup
 
+import mars_core
 from conftest import HTML_BASE
 from mars_core import (MAX_REDIRECT, Crawler, LexicalRetriever,
                        VectorRetriever, chunk_page, decode_html,
-                       default_queries, describe_chunk, host_matches,
-                       load_external_module, load_queries, norm_host,
-                       normalize_url, reciprocal_rank_fusion,
+                       default_queries, describe_chunk, estrai_struttura,
+                       host_matches, load_external_module, load_queries,
+                       norm_host, normalize_url, reciprocal_rank_fusion,
                        safe_normalize_url, split_windows, tokenize)
 
 
@@ -950,3 +951,102 @@ def test_load_external_module_file_sparito(tmp_path, monkeypatch):
     assert load_external_module("mars_effimero") is not None
     finto.unlink()
     assert load_external_module("mars_effimero") is None
+
+
+# ----------------------------------------------------------------------
+# estrai_struttura e il delay effettivo (R26)
+# ----------------------------------------------------------------------
+
+HTML_STRUTTURA = """<html lang="it"><head><title>t</title></head><body>
+<h1>Uno</h1><h2>Due</h2><h4>Salto</h4>
+<form>
+  <label for="ok">Etichettato</label><input type="text" id="ok">
+  <label>Avvolto <input type="text" name="w"></label>
+  <input type="text" name="nudo">
+  <input type="hidden" name="h">
+  <textarea name="t" aria-label="area"></textarea>
+</form>
+<table><tr><th>Testa</th></tr></table>
+<table role="presentation"><tr><td>x</td></tr></table>
+<a href="/1">Clicca qui</a><a href="/2" aria-label="Guida">qui</a>
+<span tabindex="3">a</span><span tabindex="abc">b</span>
+</body></html>"""
+
+
+def test_estrai_struttura_legge_il_dom_una_volta_sola():
+    """R26: i dati strutturali per i criteri WCAG statici escono dal
+    crawler, non da un secondo parse dentro mars_wcag.
+
+    Il test sta sul PRODUTTORE: mars_wcag ha i propri test, ma quelli
+    passerebbero anche se questa funzione restituisse la struttura
+    sbagliata, purche' coerente. Qui si fissa cosa il DOM contiene.
+    """
+    s = estrai_struttura(BeautifulSoup(HTML_STRUTTURA, "lxml"))
+
+    # I livelli, in ordine: e' la successione a rivelare il salto h2->h4.
+    assert s["heading_levels"] == [1, 2, 4]
+
+    # Quattro campi, e l'etichettatura risolta dove serve il documento
+    # intero: <label for> che punta al campo, e <label> che lo avvolge.
+    assert [(c["type"], c["labelled"]) for c in s["form_fields"]] == [
+        ("text", True),      # <label for="ok">
+        ("text", True),      # avvolto da <label>
+        ("text", False),     # nudo
+        ("hidden", False),   # non interattivo: filtrarlo tocca al modulo
+        ("", True),          # <textarea aria-label>, senza attributo type
+    ]
+
+    # Dati, non giudizi: il role resta grezzo, decidere che
+    # "presentation" esenti dal criterio tocca a mars_wcag.
+    assert s["tables"] == [{"has_th": True, "role": ""},
+                           {"has_th": False, "role": "presentation"}]
+
+    assert s["links"] == [{"text": "Clicca qui", "aria-label": None},
+                          {"text": "qui", "aria-label": "Guida"}]
+
+    # Grezzi: un tabindex non numerico e' esso stesso un dato, e
+    # convertirlo qui lo cancellerebbe.
+    assert s["tabindex"] == ["3", "abc"]
+
+
+def test_pagina_del_crawler_porta_la_struttura():
+    """Il punto d'integrazione: estrai_struttura puo' essere giusta e
+    non essere chiamata. Qui la pagina passa dal crawler vero."""
+    crawler = _crawler_finto({
+        "http://esempio.test/": (HTML_STRUTTURA, "text/html")})
+    pagine = crawler.crawl()
+    dati = pagine["http://esempio.test/"]
+    for chiave in ("heading_levels", "form_fields", "tables",
+                   "links", "tabindex"):
+        assert chiave in dati, "il crawler non pubblica %r" % chiave
+    assert dati["heading_levels"] == [1, 2, 4]
+
+
+def test_build_context_pubblica_il_delay_effettivo(monkeypatch):
+    """R26: audit() leggeva context["delay"], che non esisteva.
+
+    E il valore giusto non e' quello chiesto dalla CLI: robots.txt puo'
+    alzarlo con Crawl-delay, e allora e' quello il ritardo che il sito
+    ha chiesto. Chi rivisita le pagine — il browser di mars_wcag — deve
+    rispettare lo stesso.
+    """
+    risposte = {
+        "http://esempio.test/robots.txt":
+            ("User-agent: *\nCrawl-delay: 7\nAllow: /", "text/plain"),
+        "http://esempio.test/": (PAGINA_UTILE, "text/html"),
+    }
+    pause: list[float] = []
+    monkeypatch.setattr(mars_core.time, "sleep", pause.append)
+
+    class CrawlerConAdattatore(Crawler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.session.mount("http://", _AdattatoreFinto(risposte))
+
+    monkeypatch.setattr(mars_core, "Crawler", CrawlerConAdattatore)
+    contesto = mars_core.build_context("http://esempio.test/", max_pages=2,
+                                       delay=0.5)
+
+    assert contesto is not None
+    assert contesto["delay"] == 7.0, "e' il delay EFFETTIVO, non quello chiesto"
+    assert pause and max(pause) > 6, "il crawler stesso deve averlo rispettato"

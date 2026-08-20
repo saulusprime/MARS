@@ -71,6 +71,10 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
                                 in ("robots", "googlebot")),
         "canonical": (canonical.get("href") or "").strip() if canonical else "",
         "x_robots_tag": "",
+        # Dalla stessa funzione del crawler, non riscritta: se le due
+        # divergessero i controlli statici di mars_wcag girerebbero nei
+        # test su una struttura che in produzione non esiste.
+        **mars_core.estrai_struttura(soup),
     }
     dati.update(extra)
     return dati

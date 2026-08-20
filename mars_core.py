@@ -697,6 +697,9 @@ class Crawler:
                 "headings": [h.get_text(strip=True)
                              for h in soup.find_all(["h1", "h2", "h3"])],
                 "html": testo_html,
+                # Struttura per i criteri WCAG statici, estratta qui
+                # perche' il DOM e' gia' aperto: vedi estrai_struttura.
+                **estrai_struttura(soup),
             }
 
             if segui_link and len(coda) < MAX_CODA:
@@ -707,6 +710,67 @@ class Crawler:
                     if link not in visti:
                         coda.append(link)
         return self.pages
+
+
+def estrai_struttura(soup: BeautifulSoup) -> dict:
+    """Dati strutturali della pagina, letti mentre il DOM e' in memoria.
+
+    Serve a `mars_wcag`, che li usa per i criteri verificabili senza
+    rendering. Sta qui e non li' perche' il DOM viene attraversato una
+    volta sola: prima `controlli_statici` riparsava l'HTML di ogni
+    pagina, in contraddizione con il principio dichiarato e — cosa
+    peggiore — legandosi a `pagina["html"]`, cosi' che smettere di
+    conservare l'HTML intero avrebbe svuotato i controlli statici
+    **senza un errore**.
+
+    Si estraggono DATI, non giudizi. `labelled` e' un fatto del DOM
+    (esiste una fonte di nome accessibile), non una diagnosi: decidere
+    che un campo senza etichetta violi 1.3.1/3.3.2 resta di mars_wcag,
+    e con esso la soglia, la gravita' e il testo del rilievo.
+
+    Due cose sono gia' risolte qui perche' richiedono il documento
+    intero, e a valle non sarebbero piu' ricostruibili: il `<label
+    for=...>` che punta al campo e il `<label>` che lo contiene.
+    """
+    # Gli 'for' delle <label> raccolti UNA volta. Cercare la label di
+    # ogni campo con soup.find() e' O(campi x documento): misurato, su
+    # una pagina con 80 campi costava 18,6 ms, piu' di un parse intero.
+    etichette_for = {lbl.get("for") for lbl in soup.find_all("label")
+                     if lbl.get("for")}
+
+    campi = []
+    for campo in soup.find_all(["input", "select", "textarea"]):
+        etichettato = bool(
+            campo.get("aria-label")
+            or campo.get("aria-labelledby")
+            or campo.get("title")
+            or (campo.get("id") and campo.get("id") in etichette_for)
+            or campo.find_parent("label"))
+        campi.append({"type": (campo.get("type") or "").strip().lower(),
+                      "labelled": etichettato})
+
+    return {
+        # I LIVELLI, in ordine di documento: i salti di gerarchia si
+        # vedono solo dalla successione. Diverso da "headings", che
+        # porta il testo dei soli h1-h3 e serve ad altro.
+        "heading_levels": [int(h.name[1]) for h in
+                           soup.find_all(["h1", "h2", "h3",
+                                          "h4", "h5", "h6"])],
+        "form_fields": campi,
+        "tables": [{"has_th": tabella.find("th") is not None,
+                    "role": (tabella.get("role") or "").strip().lower()}
+                   for tabella in soup.find_all("table")],
+        # Il testo dei link, non un giudizio su quali siano generici:
+        # l'elenco dei testi generici e' una scelta editoriale, e sta
+        # nel modulo che la fa.
+        "links": [{"text": a.get_text(" ", strip=True),
+                   "aria-label": a.get("aria-label")}
+                  for a in soup.find_all("a", href=True)],
+        # Valori grezzi: convertirli e' compito di chi li giudica,
+        # perche' un tabindex non numerico e' esso stesso un dato.
+        "tabindex": [str(e["tabindex"])
+                     for e in soup.find_all(attrs={"tabindex": True})],
+    }
 
 
 def _spoglia(token: str) -> str:
@@ -1133,6 +1197,14 @@ def build_context(url: str, max_pages: int = 10,
         "discovery": crawler.discovery,
         "robots": dict(crawler.robots_info),
         "sitemap": dict(crawler.sitemap_info),
+        # Il ritardo EFFETTIVO fra due richieste, letto dal crawler dopo
+        # la scansione e non dal parametro: robots.txt puo' averlo alzato
+        # con Crawl-delay, e in quel caso e' quello il valore che il sito
+        # ha chiesto. Serve a chi visita le pagine una seconda volta —
+        # oggi il browser di mars_wcag, che senza di esso ne apriva
+        # cinque di fila su un sito che ne aveva chiesta una ogni sette
+        # secondi.
+        "delay": crawler.delay,
         "llm": llm,
         # Credenziali del chiamante, alternative alle variabili
         # d'ambiente. Non finiscono nel referto: build_report() legge

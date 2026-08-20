@@ -254,7 +254,9 @@ HTML_ACCESSIBILE = """<html lang="it"><body><h1>A</h1><h2>B</h2>
 <a href="/g">Guida completa alla fusione</a></body></html>"""
 
 HTML_INACCESSIBILE = """<html><body><h1>A</h1><h4>Salto</h4>
-<form><input type="text" name="senza"></form>
+<form><input type="text" name="senza">
+<input type="submit" value="Invia"><input type="reset" value="Annulla">
+<button type="button">Chiudi</button><input type="hidden" name="csrf"></form>
 <table><tr><td>dati</td></tr></table>
 <table role="presentation"><tr><td>layout</td></tr></table>
 <a href="/x">clicca qui</a><a href="/y" aria-label="Vai">leggi tutto</a>
@@ -285,6 +287,11 @@ def test_wcag_esclusioni_corrette():
     assert "1 tabelle" in testo, "la tabella di layout non va contata"
     assert "1 link" in testo, "il link con aria-label non va contato"
     assert "1 elementi con tabindex" in testo, "tabindex=0 non va contato"
+    # submit, reset e hidden non hanno un'etichetta da mostrare: i primi
+    # due prendono il nome dal proprio valore, il terzo non si vede.
+    # Solo il campo di testo nudo e' un difetto.
+    assert "1 campi di modulo" in testo, \
+        "i campi non interattivi non vanno contati"
 
 
 def test_wcag_dichiara_sempre_il_livello():
@@ -307,6 +314,9 @@ class _PaginaFinta:
     def __init__(self, falliscono):
         self.falliscono = set(falliscono)
         self.visitate = []
+        # Le pause richieste, per verificare che il ritardo fra due
+        # visite non sia codice morto (R26).
+        self.pause = []
 
     def goto(self, url, **kwargs):
         self.visitate.append(url)
@@ -320,7 +330,7 @@ class _PaginaFinta:
         return [_viol()]
 
     def wait_for_timeout(self, ms):
-        pass
+        self.pause.append(ms)
 
 
 class _PlaywrightFinto:
@@ -370,6 +380,75 @@ def test_run_axe_conta_le_pagine_riuscite(monkeypatch):
 
     _playwright_finto(monkeypatch)
     assert mars_wcag.run_axe(urls)[1] == 3
+
+
+def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
+    """R26: `alt=""` e' la tecnica H67, non una violazione 1.1.1.
+
+    Il filtro `not i.get("alt")` contava anche l'immagine decorativa
+    marcata correttamente, penalizzando proprio chi aveva fatto la cosa
+    giusta. Il crawler la distinzione `None`/`""` la conserva: era il
+    modulo a buttarla via.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<img src="a.png" alt="">'            # H67: corretta
+                    '<img src="b.png" alt="Descritta">'   # corretta
+                    '<img src="c.png" aria-label="Con aria">'
+                    '<img src="d.png">'                   # unica violazione
+                    '</body></html>')
+    assert [i["alt"] for i in p["images"]] == ["", "Descritta", None, None], \
+        "il crawler deve distinguere alt assente da alt vuoto"
+
+    rilievi = mars_wcag.controlli_statici({"https://esempio.test/": p})
+    alternativi = [r for r in rilievi if "[1.1.1]" in r]
+    assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
+
+
+def test_wcag_non_riparsa_l_html(contesto):
+    """R26: i controlli statici leggono la struttura estratta dal
+    crawler, non l'HTML.
+
+    La prova e' costruita perche' non possa passare per caso: l'HTML
+    della pagina e' vuoto, quindi ogni rilievo che compare puo' venire
+    solo dai dati strutturali. Un ritorno al parse li azzererebbe
+    tutti — che e' anche il guasto silenzioso da cui questa correzione
+    protegge, se un giorno il crawler smettesse di conservare l'HTML.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head>'
+                    '<body><p>x</p></body></html>')
+    p["html"] = ""
+    p["heading_levels"] = [1, 2, 5]
+    p["form_fields"] = [{"type": "text", "labelled": False}]
+    p["tables"] = [{"has_th": False, "role": ""}]
+    p["links"] = [{"text": "clicca qui", "aria-label": None}]
+    p["tabindex"] = ["4"]
+
+    rilievi = " | ".join(mars_wcag.controlli_statici({"https://x/": p}))
+    assert "1 salti" in rilievi
+    assert "1 campi di modulo senza etichetta" in rilievi
+    assert "1 tabelle dati senza intestazioni" in rilievi
+    assert "1 link con testo generico" in rilievi
+    assert "1 elementi con tabindex positivo" in rilievi
+
+
+def test_wcag_rispetta_il_ritardo_chiesto_dal_sito(contesto, monkeypatch):
+    """R26: `context.get("delay")` era sempre None, quindi il ramo
+    `if delay:` di run_axe non veniva mai preso e Chromium apriva le
+    pagine di fila anche su un sito che aveva chiesto una pausa.
+
+    Il ritardo deve attraversare tutti e tre i passaggi: contesto ->
+    audit() -> run_axe -> browser.
+    """
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(3)}
+    contesto["delay"] = 7.0
+    spia = _playwright_finto(monkeypatch)
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+
+    mars_wcag.audit(contesto)
+
+    assert len(spia.visitate) == 3
+    assert spia.pause == [7000, 7000, 7000], \
+        "il ritardo deve arrivare fino al browser, in millisecondi"
 
 
 def test_wcag_senza_browser_usa_il_ripiego_statico(contesto):

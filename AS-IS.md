@@ -2009,6 +2009,129 @@ se valesse per tutti — comportamento ereditato, non introdotto qui.
 - [x] `all` riconosciuta come default: nessun rilievo, nessun annullamento.
 - [x] `nofollow` con rilievo proprio, graduato fra pagina singola e sito.
 
+### R26 — ✅ RISOLTO (2026-08-20): tre difetti di `mars_wcag`
+Indipendenti fra loro, tutti nell'area 6.
+
+**1. `alt=""` contato come violazione 1.1.1.** Il filtro era
+`not i.get("alt")`, che è falso tanto per l'attributo assente quanto per
+quello presente e vuoto. Ma `alt=""` su un'immagine decorativa è la tecnica
+**H67**: è la marcatura *corretta*, quella che dice allo screen reader di
+saltare l'immagine. Contarla come difetto penalizzava proprio chi aveva fatto
+la cosa giusta. Riprodotto su quattro immagini:
+
+```
+crawler:  alt=''  alt='Logo Acme'  alt=None  aria-label='Con aria'
+rilievo:  [1.1.1] 2/4 immagini prive di testo alternativo   <- l'onesto e' 1/4
+```
+
+Il crawler la distinzione `None`/`""` la conserva già: era questo filtro a
+buttarla via. Ora `i.get("alt") is None`.
+
+**2. `context.get("delay")` era sempre `None`.** `audit()` leggeva una chiave
+che `build_context` **non ha mai inserito** — verificato sul sorgente. Il ramo
+`if delay:` di `run_axe` non veniva quindi mai preso: il parametro era codice
+morto e Chromium apriva le pagine di fila.
+
+Non è solo una pausa mancata. Il valore giusto non è nemmeno quello chiesto
+dalla CLI, perché **robots.txt può alzarlo**:
+
+```
+crawler.delay richiesto dalla CLI                    : 1.0 s
+crawler.delay dopo un robots.txt con Crawl-delay: 7  : 7.0 s   <- l'effettivo
+```
+
+Il crawler rispettava i sette secondi e poi il browser visitava cinque pagine
+senza pausa alcuna, sullo stesso sito. `build_context` pubblica ora
+`crawler.delay` **dopo** la scansione, cioè il ritardo effettivo, ed è
+documentato in [CLAUDE.md](CLAUDE.md) come il valore che deve rispettare
+chiunque rivisiti le pagine.
+
+**3. Il riparsing dell'HTML.** `controlli_statici` riapriva l'HTML di ogni
+pagina con BeautifulSoup, contro il principio dichiarato in
+[CLAUDE.md](CLAUDE.md) e contro la voce **R11** qui sopra, che annunciava «un
+parse invece di tre» — vera quando fu scritta, resa falsa da **C8**, che
+aggiunse i cinque controlli strutturali. Era l'**unico** modulo a farlo:
+`mars_schema` no.
+
+La scelta era fra estrarre i dati nel crawler e correggere le due
+dichiarazioni. Estrarli, per una ragione che pesa più della velocità:
+`controlli_statici` dipendeva da `pagina["html"]`, quindi il giorno in cui il
+crawler smettesse di conservare l'HTML intero — un'ottimizzazione di memoria
+plausibile — i controlli statici tornerebbero **vuoti senza un errore**, che è
+la classe di guasto peggiore e la stessa contro cui R20 aveva lavorato.
+
+`estrai_struttura(soup)` in `mars_core` legge `heading_levels`,
+`form_fields`, `tables`, `links` e `tabindex` mentre il DOM è aperto. Estrae
+**dati, non giudizi**: il `role="presentation"` di una tabella arriva grezzo,
+decidere che esenti dal criterio resta di `mars_wcag`, con la soglia, la
+gravità e il testo del rilievo. Sono già risolte solo le due cose che
+richiedono il documento intero e a valle non sarebbero più ricostruibili: la
+`<label for>` che punta a un campo e la `<label>` che lo avvolge.
+
+**Verificato per confronto, non per asserzione.** La versione precedente è
+stata estratta da `git show HEAD:mars_wcag.py` ed eseguita accanto alla nuova
+sullo stesso markup, costruito per accendere tutti e sette i controlli:
+
+```
+differenze:
+   - [1.1.1] 2/4 immagini prive di testo alternativo
+   + [1.1.1] 1/4 immagini prive di testo alternativo
+```
+
+Una sola differenza, ed è quella voluta. Gli altri sei rilievi — lang,
+salti di heading, campi senza etichetta, tabelle senza `<th>`, link generici,
+tabindex positivi — identici parola per parola.
+
+**Una previsione smentita dalla misura.** Davo per scontato che spostare
+l'estrazione nel crawler facesse risparmiare il parse. Misurato su una pagina
+da 36 KB:
+
+```
+parse completo (cio' che mars_wcag faceva)   :  5,7 ms/pagina
+estrai_struttura sul DOM gia' aperto         : 18,6 ms/pagina   <- PEGGIO
+```
+
+Il costo non era il parse: era `soup.find("label", for=...)` **dentro il ciclo
+sui campi**, cioè O(campi × documento) — un difetto che il codice vecchio
+aveva già, e che avrei trasportato di peso. Raccogliendo gli `for` una volta
+sola:
+
+```
+estrai_struttura                             :  2,7 ms/pagina
+guadagno netto per pagina                    :  +3,0 ms
+```
+
+Il numero onesto è **~3 ms a pagina**, non gli «885x» che il solo
+`controlli_statici` mostra: quel confronto tace che il crawler ora fa il
+lavoro al posto suo. Il guadagno vero della voce non è la velocità — è che il
+modulo non dipende più dall'HTML grezzo.
+
+**La prova che conta: reintrodurre il difetto.** Sedici mutazioni sui due
+file, tutte rilevate: il filtro `alt` riportato a `not alt`, il `delay` tolto
+dal contesto, il `delay` chiesto al posto dell'effettivo, `audit()` che non lo
+passa, `run_axe` che lo ignora, il crawler che non chiama `estrai_struttura`,
+i livelli di heading ridotti a h1-h3, le due risoluzioni della `<label>`
+disattivate una per volta, gli `for` raccolti come `id`, `has_th` sempre vero,
+`role` e `aria-label` non estratti, il `tabindex` convertito nel crawler, e le
+due esclusioni di `mars_wcag`.
+
+Una sola non veniva rilevata alla prima esecuzione: **nessun test aveva un
+`<input type="submit">` senza etichetta**, quindi togliere `submit`, `reset` e
+`button` dalle esclusioni non faceva fallire nulla. È un punto cieco
+preesistente, non introdotto qui; `HTML_INACCESSIBILE` ora contiene tutti e
+quattro i tipi non interattivi e il conteggio è fissato.
+
+Sono stati resi fedeli anche due finti: il `Crawler` di `tests/test_api.py`
+accettava `delay` e lo scartava, e la pagina Playwright finta ignorava
+`wait_for_timeout`. Un finto che scarta ciò che il vero conserva non può
+accorgersi di nulla — è la stessa lezione dell'adattatore di R16 e R17.
+
+- [x] `alt is None` per il criterio 1.1.1.
+- [x] `delay` effettivo nel contesto, e rispettato fino al browser.
+- [x] Struttura estratta nel crawler: `mars_wcag` non riparsa più l'HTML, e la
+      dichiarazione di R11 torna vera.
+- [x] `soup.find` per etichetta tolto dal ciclo: O(campi × documento) eliminato.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

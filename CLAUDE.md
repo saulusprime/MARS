@@ -29,6 +29,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `discovery` | come sono state trovate le pagine: `sitemap` o `link interni` |
 | `robots` | robots.txt grezzo: `found`, `text`, `sitemaps` |
 | `sitemap` | statistiche della sitemap: `urls`, `with_lastmod`, `index_files`, `unreadable`… |
+| `delay` | ritardo **effettivo** fra due richieste, in secondi: robots.txt può averlo alzato con `Crawl-delay`. Chi rivisita le pagine (il browser di `mars_wcag`) deve rispettarlo |
 | `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
 | `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
@@ -39,9 +40,19 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
 `chunks`, `json_ld`, `images`, `meta_robots`, `canonical`,
-`x_robots_tag`. Sono già estratti dal crawler: **non
-riparsare l'HTML** in un modulo, il DOM è già stato attraversato una
-volta.
+`x_robots_tag`, più la struttura che `estrai_struttura()` legge sullo
+stesso DOM: `heading_levels`, `form_fields`, `tables`, `links`,
+`tabindex`. Sono già estratti dal crawler: **non riparsare l'HTML** in
+un modulo, il DOM è già stato attraversato una volta.
+
+Il crawler estrae **dati grezzi, non giudizi**: `role="presentation"` su
+una tabella arriva com'è, decidere che esenti dal criterio tocca al
+modulo. Le uniche cose già risolte sono quelle che richiedono il
+documento intero e a valle non sarebbero più ricostruibili — la
+`<label for>` che punta a un campo e la `<label>` che lo avvolge.
+Servono altri dati? Si aggiungono lì, non si riapre l'HTML: legarsi a
+`pagina["html"]` significa che smettere di conservarlo svuoterebbe i
+controlli **senza un errore**.
 
 ### Cosa restituire
 

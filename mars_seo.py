@@ -36,13 +36,22 @@ def audit(context: dict) -> dict:
             timeout=LIGHTHOUSE_TIMEOUT,
         )
         data = json.loads(result.stdout)
-        return {"score": data["categories"]["seo"]["score"] * 100}
+        punteggio = data["categories"]["seo"]["score"]
+        if punteggio is None:
+            # Lo schema LHR ammette score null: il run e' riuscito, il
+            # JSON e' valido, ma la categoria non e' calcolabile. E' un
+            # "non misurato", non un errore di Lighthouse — e dirlo
+            # giusto vale piu' che dirlo genericamente (lezione di R6).
+            return {"score": None, "status": "unavailable",
+                    "issues": ["Lighthouse non ha calcolato la categoria "
+                               "SEO per questa pagina"]}
+        return {"score": punteggio * 100}
     except subprocess.TimeoutExpired:
         return {"score": None, "status": "unavailable",
                 "issues": ["Lighthouse: timeout dopo %ds"
                            % LIGHTHOUSE_TIMEOUT]}
     except (subprocess.CalledProcessError, json.JSONDecodeError,
-            KeyError) as exc:
+            KeyError, TypeError) as exc:
         return {"score": None, "status": "unavailable",
                 "issues": ["Lighthouse non riuscito: %s"
                            % type(exc).__name__]}

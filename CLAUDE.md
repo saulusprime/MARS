@@ -48,6 +48,11 @@ volta.
 `score` (0-100) e `issues` (lista di stringhe) sono opzionali ma
 riconosciuti dal referto. Chiavi aggiuntive sono libere.
 
+Se `audit()` solleva o non restituisce un `dict`, l'area **non
+sparisce**: il referto la mostra con `status: "error"` e il motivo fra i
+rilievi (`normalizza_risultato()` / `errore_modulo()` in `mars_core`).
+Un'area persa in silenzio è peggio di una dichiarata fallita — vedi R22.
+
 **`score: None` più `status: "unavailable"` quando l'area non è stata
 misurata** — strumento assente, sito irraggiungibile. Non è la stessa
 cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa

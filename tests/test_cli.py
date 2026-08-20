@@ -37,6 +37,78 @@ def aiuto():
     return _aiuto()
 
 
+# ----------------------------------------------------------------------
+# L'esecutore dei moduli (R22)
+# ----------------------------------------------------------------------
+
+def _run_audit_con(modulo_finto, monkeypatch, capsys, contesto):
+    """Esegue run_audit con un solo modulo, quello dato."""
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica")])
+    monkeypatch.setattr(mars_audit, "load_external_module",
+                        lambda nome: modulo_finto)
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: contesto)
+    codice = mars_audit.run_audit("https://x/", 1, "none", "global")
+    return codice, capsys.readouterr().out
+
+
+class _ModuloCheSolleva:
+    @staticmethod
+    def audit(context):
+        raise ValueError("divisione per zero")
+
+
+class _ModuloSenzaAudit:
+    pass
+
+
+class _ModuloCheRestituisceNulla:
+    @staticmethod
+    def audit(context):
+        return None      # il `return` dimenticato
+
+
+@pytest.mark.parametrize("modulo, atteso", [
+    (_ModuloCheSolleva, "divisione per zero"),
+    (_ModuloSenzaAudit, "manca la funzione audit()"),
+    (_ModuloCheRestituisceNulla, "invece di un dict"),
+])
+def test_area_fallita_finisce_nel_referto(modulo, atteso, monkeypatch,
+                                          capsys, contesto):
+    """Regressione R22: un modulo che rompe spariva dal referto.
+
+    L'errore veniva soltanto stampato, quindi l'area non entrava in
+    results e build_report non la nominava affatto: con --output il
+    file consegnato non portava traccia dell'area persa. L'API
+    registrava gia' l'errore; la CLI no.
+    """
+    codice, uscita = _run_audit_con(modulo, monkeypatch, capsys, contesto)
+    assert codice == 0, "il referto viene comunque prodotto"
+    assert "1. Tecnica" in uscita
+    assert "errore del modulo" in uscita
+    assert atteso in uscita
+
+
+def test_un_modulo_rotto_non_ferma_gli_altri(monkeypatch, capsys, contesto):
+    """Il gestore per-modulo esiste proprio perche' un plugin guasto
+    non debba far perdere il resto dell'audit."""
+    class Buono:
+        @staticmethod
+        def audit(context):
+            return {"score": 80, "issues": []}
+
+    moduli = {"mars_tech": _ModuloCheSolleva, "mars_seo": Buono}
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica"), ("mars_seo", "2. SEO")])
+    monkeypatch.setattr(mars_audit, "load_external_module", moduli.get)
+    monkeypatch.setattr(mars_audit, "build_context", lambda *a, **k: contesto)
+    mars_audit.run_audit("https://x/", 1, "none", "global")
+    uscita = capsys.readouterr().out
+    assert "errore del modulo" in uscita
+    assert "80/100" in uscita
+
+
 def test_ogni_parametro_e_documentato(aiuto):
     for flag in ("--max-pages", "--queries", "--embeddings", "--market",
                  "--delay", "--timeout", "--format", "--output", "--llm",

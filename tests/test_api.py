@@ -167,6 +167,27 @@ def test_ogni_endpoint_risponde(client, auth, crawler_finto, area):
     assert r.status_code == 200
 
 
+def test_plugin_non_dict_non_da_500(client, auth, crawler_finto,
+                                    monkeypatch):
+    """Regressione R22, lato API.
+
+    Gli endpoint singoli non hanno il try/except di /audit/full: un
+    plugin che restituisce None — il `return` dimenticato — arrivava
+    intatto ad AuditResponse e faceva 500. Ora l'anomalia si dichiara
+    e la richiesta riesce, come per uno strumento mancante.
+    """
+    class Rotto:
+        @staticmethod
+        def audit(context):
+            return None
+
+    monkeypatch.setattr(mars_api, "load_external_module",
+                        lambda nome: Rotto())
+    r = client.post("/audit/tech", json=CORPO, headers=auth)
+    assert r.status_code == 200
+    assert "invece di un dict" in r.json()["details"]["error"]
+
+
 def test_audit_full_scansiona_una_volta_sola(client, auth, crawler_finto):
     """Regressione R5: build_context veniva chiamato per ogni modulo,
     quindi 7 scansioni piu' un'ottava per gli URL. I moduli potevano

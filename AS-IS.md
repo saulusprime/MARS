@@ -33,6 +33,7 @@
 | R19 | I segnali di pagina gonfiavano `answer_shaped_ratio` | 2026-08-20 |
 | R20 | axe fabbricava un 100/100; la suite lanciava Chromium | 2026-08-20 |
 | R21 | «Di superficie» era indistinguibile da una misura piena | 2026-08-20 |
+| R22 | L'esecutore di moduli non reggeva i plugin che rompono | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1542,6 +1543,98 @@ sette aperte quella mattina (R15-R21) non ne resta nessuna.
 - [x] `complete` nel dato canonico e nelle viste.
 - [x] Qualifica visiva nel quadrante, non solo testuale.
 - [x] Un solo `_qualificatori()` per testo e HTML.
+
+### R22 — ✅ RISOLTO (2026-08-20): l'esecutore di moduli non reggeva i plugin che rompono
+Tre difetti della stessa famiglia: il contratto `audit(context) -> dict` era
+scritto ma non difeso, e chi lo violava faceva danni sproporzionati.
+
+**1. Un modulo che solleva spariva dal referto CLI.** L'eccezione veniva solo
+stampata; l'area non entrava in `results`, e `build_report` — che salta ciò che
+non trova — non la nominava affatto. Riprodotto:
+
+```
+[✓] 1. Tecnica (mars_tech.py)
+  Errore esecuzione audit: il plugin e' rotto
+           MARS BEACON - REPORT FINALE
+  (nessuna riga "1. Tecnica" nel referto)   exit code: 0
+```
+
+Con `--output` il file consegnato non portava alcuna traccia dell'area persa, e
+chi lo legge non poteva sapere di averla persa. L'API faceva già la cosa giusta
+— registra `{"error": ...}` in `results` — quindi le due interfacce si
+comportavano in modo diverso davanti allo stesso guasto.
+
+**2. Un plugin che non restituisce un `dict` faceva crollare il referto.**
+`res.get("score")` su un `None` — il `return` dimenticato, l'errore più comune
+che si possa fare scrivendo un plugin — sollevava `AttributeError` **dopo che
+tutti i moduli erano girati**: l'audit intero perso, con un messaggio
+incomprensibile e un codice di uscita fuori dal contratto documentato. Via API
+gli endpoint singoli, che non hanno il `try/except` di `/audit/full`,
+rispondevano **500**.
+
+**3. `mars_seo` non reggeva uno score SEO `null`.** Lo schema LHR lo ammette: il
+run riesce, il JSON è valido, ma la categoria non è calcolabile. `None * 100`
+sollevava `TypeError`, che non era nella tupla dell'`except` e propagava fuori
+da `audit()`.
+
+**Risoluzione applicata.** `normalizza_risultato()` e `errore_modulo()` vivono
+in `mars_core` — CLI e API caricano gli stessi plugin, quindi la difesa del
+contratto appartiene lì (principio 4). Un risultato non conforme diventa
+`{"error": ...}`; `build_report()` lo traduce in un'area con
+`status: "error"` e **il motivo fra i rilievi**, perché «non misurato» senza il
+perché è un'informazione dimezzata.
+
+La CLI registra ora l'esito **sempre**, fallimento incluso, allineandosi
+all'API; `run_single_audit` normalizza a sua volta, così un plugin distratto non
+produce più un 500.
+
+Per `mars_seo` la diagnosi è **specifica**, applicando la lezione di **R6**
+(vuoto ≠ malformato): non *«Lighthouse non riuscito»* — che sarebbe falso,
+Lighthouse ha funzionato — ma *«Lighthouse non ha calcolato la categoria SEO per
+questa pagina»*, con `score: None` e `status: "unavailable"`. `TypeError` è
+comunque entrato nell'`except` come rete.
+
+**Verificato.** Le tre riproduzioni ripetute:
+
+```
+modulo che solleva   -> 1. Tecnica : errore del modulo
+                        ⚠ ValueError: il plugin e' rotto
+ritorno None         -> status=error, "mars_tech ha restituito NoneType invece di un dict"
+Lighthouse score null-> {'score': None, 'status': 'unavailable',
+                         'issues': ['Lighthouse non ha calcolato la categoria SEO...']}
+POST /audit/tech     -> 200 (era 500)
+```
+
+Un modulo rotto **non ferma gli altri**: c'è un test che lo prova con un plugin
+guasto accanto a uno sano. E l'audit reale su un sito di prova è invariato.
+
+**La prova che conta: reintrodurre il difetto.** Sette mutazioni, tutte
+rilevate:
+
+```
+1. non-dict non normalizzato nel referto      -> 4 falliti
+2. il normalizzatore accetta qualunque cosa   -> 6 falliti
+3. la CLI torna a non registrare l'errore     -> 2 falliti
+4. l'errore non diventa status/issue          -> 9 falliti
+5. mars_seo non guarda lo score null          -> 1 fallito
+6. API: run_single_audit non normalizza       -> 1 fallito
+7. la CLI non registra il modulo senza audit()-> 1 fallito
+```
+
+**Le mutazioni 3 e 6 alla prima esecuzione non venivano rilevate**, ed è sempre
+lo stesso punto cieco in forma nuova: avevo testato `build_report`, cioè il
+*consumatore*, ma nessun test esercitava i due **punti d'integrazione** —
+`run_audit()` della CLI e `run_single_audit()` dell'API. Colmato con test
+diretti su entrambi, che è anche il primo test di `run_audit` esistente.
+
+**Un fallimento di test utile.** L'asserzione sul referto HTML cercava `il
+plugin e' rotto` e falliva: in HTML l'apostrofo esce come `&#x27;`, cioè
+l'escape funziona. Era il test a essere ingenuo, non il codice.
+
+- [x] La CLI registra l'esito sempre, come l'API.
+- [x] Contratto difeso in `mars_core`, per entrambe le interfacce.
+- [x] L'area fallita compare nel referto, col motivo.
+- [x] `mars_seo` distingue «non calcolato» da «non riuscito».
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

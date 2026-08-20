@@ -163,6 +163,35 @@ def load_external_module(module_name: str) -> Optional[ModuleType]:
     return mod
 
 
+def normalizza_risultato(module_name: str, res: object) -> dict:
+    """Il risultato di un plugin, ricondotto al contratto.
+
+    Il contratto e' audit(context) -> dict. Un plugin che restituisce
+    altro — tipicamente None, per un `return` dimenticato — faceva
+    cadere la costruzione del referto DOPO che tutti i moduli erano
+    girati: l'audit intero perso per la distrazione di un plugin, con
+    un AttributeError incomprensibile e fuori dai codici di uscita
+    documentati.
+
+    Si dichiara l'anomalia e si prosegue, che e' la stessa scelta gia'
+    fatta per gli strumenti mancanti: il referto perde un'area, non
+    tutto. Vive qui perche' CLI e API caricano gli stessi plugin.
+    """
+    if isinstance(res, dict):
+        return res
+    return {"error": "%s ha restituito %s invece di un dict"
+                     % (module_name, type(res).__name__)}
+
+
+def errore_modulo(exc: BaseException) -> dict:
+    """Un'eccezione di plugin come risultato d'area.
+
+    Perche' il referto possa dire "questa area e' fallita, ed ecco
+    perche'" invece di non nominarla affatto.
+    """
+    return {"error": "%s: %s" % (type(exc).__name__, exc)}
+
+
 def _local_name(tag: str) -> str:
     """Nome del tag senza namespace: le sitemap reali ne usano di vari."""
     return tag.rsplit("}", 1)[-1]

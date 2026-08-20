@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R21 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R22-R34.
+> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R22 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R23-R34.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -96,40 +96,16 @@ l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
 mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
 **R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), **R20** (axe
 che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
-di superficie da una misura piena), tutte il 2026-08-20: difetto, soluzione e
-verifiche in [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
+di superficie da una misura piena) e **R22** (esecutore di moduli non robusto
+ai plugin che rompono), tutte il 2026-08-20: difetto, soluzione e verifiche in
+[AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R22-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R23-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R22 — 🟡 MEDIO: l'esecutore di moduli non è robusto ai plugin che rompono
-Tre difetti della stessa famiglia:
-- **Un modulo che solleva sparisce dal referto CLI.**
-  `run_audit()` ([mars_audit.py:61-67](mars_audit.py#L61)) stampa solo
-  l'eccezione e non mette nulla in `results`; `build_report` lo esclude da
-  `areas` ([mars_report.py:42](mars_report.py#L42)). Con `--output` il file non
-  porta traccia dell'area saltata — né *«non misurato»* né errore. L'API la
-  soluzione ce l'ha già: registra `{"error": ...}` in `results`
-  ([mars_api.py:399](mars_api.py#L399)).
-- **Un plugin che restituisce non-dict fa crollare `build_report`.**
-  `res.get("score")` ([mars_report.py:48](mars_report.py#L48)) su un `None` (o
-  stringa) → `AttributeError` **dopo** che tutti i moduli sono girati. Riprodotto:
-  `build_report({"mars_tech": "x"}, …)` → `AttributeError`. In CLI traceback fuori
-  dai codici 0/2/3; via API un 500 su `/audit/full`.
-- **`mars_seo`: score SEO `null` → `TypeError` non catturato.**
-  [mars_seo.py:39](mars_seo.py#L39) fa `…["score"] * 100`, ma lo schema LHR ammette
-  `score: null` (run completato, exit 0, JSON valido). L'`except`
-  ([:44](mars_seo.py#L44)) copre solo `CalledProcessError/JSONDecodeError/KeyError`:
-  `None * 100` propaga. Riprodotto. Manca il fallback `score: None` +
-  `status: "unavailable"` che il modulo promette.
-
-- [ ] Registrare l'errore del modulo in `results` anche in CLI (come l'API).
-- [ ] Verificare che il risultato sia un `dict` prima di consumarlo.
-- [ ] Aggiungere `TypeError` all'`except` di `mars_seo` col ripiego dichiarato.
 
 ### R23 — 🟡 MEDIO: le query non sopravvivono a un retriever caduto; ranghi a informazione zero
 - **`--from-audit` fragile.** `build_report`

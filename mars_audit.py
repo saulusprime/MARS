@@ -13,7 +13,8 @@ import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__, build_context,
-                       load_external_module)
+                       errore_modulo, load_external_module,
+                       normalizza_risultato)
 from mars_core import load_queries
 from mars_citability import MERCATI
 from mars_report import RENDERERS, build_report
@@ -58,12 +59,21 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
 
         if ext_mod:
             print(f"[✓] {mod_desc} ({mod_name}.py)")
+            # L'esito finisce SEMPRE in results, anche quando e' un
+            # fallimento: un'area che sparisce dal referto senza
+            # lasciare traccia e' peggio di una dichiarata fallita, e
+            # con --output il file consegnato non ne diceva nulla.
+            # E' cio' che l'API faceva gia'.
             try:
                 if hasattr(ext_mod, 'audit'):
-                    results[mod_name] = ext_mod.audit(context)
+                    results[mod_name] = normalizza_risultato(
+                        mod_name, ext_mod.audit(context))
                 else:
+                    results[mod_name] = {
+                        "error": "manca la funzione audit()"}
                     print(f"  ⚠ Modulo {mod_name}.py trovato ma manca funzione 'audit()'")
             except Exception as e:
+                results[mod_name] = errore_modulo(e)
                 print(f"  Errore esecuzione audit: {e}")
         else:
             print(f"[ ] {mod_desc} ignorato (file non trovato)")

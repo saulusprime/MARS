@@ -235,6 +235,55 @@ def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):
 
 
 # ----------------------------------------------------------------------
+# Plugin che rompono (R22)
+# ----------------------------------------------------------------------
+
+def _referto_con(risultato_tech):
+    return build_report({"mars_tech": risultato_tech},
+                        {"url": "https://x/", "market": "global",
+                         "pages": {"a": {}}, "chunks": [],
+                         "discovery": "sitemap", "skipped": []})
+
+
+@pytest.mark.parametrize("ritorno", [None, "oops", 42, []])
+def test_plugin_non_dict_non_fa_crollare_il_referto(ritorno):
+    """Regressione R22: res.get() su un non-dict sollevava
+    AttributeError DOPO che tutti i moduli erano girati.
+
+    L'audit intero andava perso per la distrazione di un plugin — un
+    `return` dimenticato — con un errore incomprensibile e fuori dai
+    codici di uscita documentati.
+    """
+    area = _referto_con(ritorno)["areas"][0]
+    assert area["status"] == "error"
+    assert "invece di un dict" in area["issues"][0]
+    assert type(ritorno).__name__ in area["issues"][0]
+
+
+def test_area_fallita_compare_nel_referto(referto):
+    """Regressione R22: un'area fallita spariva senza lasciare traccia.
+
+    Peggio di una dichiarata fallita: con --output il file consegnato
+    non ne diceva nulla, e chi legge non sapeva di aver perso un'area.
+    """
+    # Messaggio senza apostrofi: in HTML verrebbero resi come &#x27;,
+    # ed e' giusto cosi' — l'escape ha il suo test a parte.
+    r = _referto_con({"error": "ValueError: divisione per zero"})
+    assert [a["module"] for a in r["areas"]] == ["mars_tech"]
+    for vista in (render_text, render_html):
+        uscita = vista(r)
+        assert "1. Tecnica" in uscita
+        assert "errore del modulo" in uscita
+        assert "divisione per zero" in uscita
+
+
+def test_errore_di_modulo_non_e_uno_zero():
+    """Un modulo fallito non ha preso zero: non ha preso nulla."""
+    area = _referto_con({"error": "boom"})["areas"][0]
+    assert area["score"] is None
+
+
+# ----------------------------------------------------------------------
 # «di superficie» non è «misurato a fondo» (R21)
 # ----------------------------------------------------------------------
 

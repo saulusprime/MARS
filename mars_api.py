@@ -22,7 +22,7 @@ from passlib.context import CryptContext
 
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__,
-                       load_external_module)
+                       load_external_module, normalizza_risultato)
 from mars_core import build_context as core_build_context
 from mars_report import build_report
 
@@ -285,7 +285,10 @@ def run_single_audit(module_name: str, context: dict) -> dict:
     """
     mod = load_external_module(module_name)
     if mod and hasattr(mod, 'audit'):
-        return mod.audit(context)
+        # Stessa normalizzazione della CLI: un plugin che non
+        # restituisce un dict darebbe un 500 sugli endpoint singoli,
+        # dove non c'e' il try/except di /audit/full.
+        return normalizza_risultato(module_name, mod.audit(context))
     raise HTTPException(
         status_code=404,
         detail=f"Modulo di audit '{module_name}' non trovato nel filesystem.")

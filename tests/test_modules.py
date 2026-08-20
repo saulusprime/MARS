@@ -452,6 +452,39 @@ def test_lexical_tokenizza_anche_la_query(contesto):
     assert esito["per_query"][0]["rank"][0] == 1
 
 
+def test_seo_score_null_non_e_un_errore_di_lighthouse(monkeypatch):
+    """Regressione R22: lo schema LHR ammette score null.
+
+    Il run riesce, il JSON e' valido, ma la categoria non e'
+    calcolabile: None * 100 sollevava TypeError, che non era nella
+    tupla dell'except e propagava fuori da audit() — 500 su
+    /audit/seo. E la diagnosi giusta non e' "Lighthouse non riuscito"
+    ma "non ha calcolato la categoria" (lezione di R6).
+    """
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome: "/usr/bin/lighthouse")
+    monkeypatch.setattr(
+        mars_seo.subprocess, "run",
+        lambda *a, **k: types.SimpleNamespace(
+            stdout='{"categories":{"seo":{"score":null}}}'))
+    esito = mars_seo.audit({"url": "https://x/"})
+    assert esito["score"] is None
+    assert esito["status"] == "unavailable"
+    assert "non ha calcolato" in esito["issues"][0]
+
+
+def test_seo_score_valido_resta_valido(monkeypatch):
+    """La guardia non deve mangiarsi i punteggi buoni, zero incluso."""
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome: "/usr/bin/lighthouse")
+    for grezzo, atteso in ((0.92, 92.0), (0, 0.0), (1, 100.0)):
+        monkeypatch.setattr(
+            mars_seo.subprocess, "run",
+            lambda *a, _g=grezzo, **k: types.SimpleNamespace(
+                stdout=json.dumps({"categories": {"seo": {"score": _g}}})))
+        assert mars_seo.audit({"url": "https://x/"})["score"] == atteso
+
+
 def test_semantic_falsi_positivi_answer_shaped():
     """Regressione R9: "chi" dentro chiave/archivio/macchina, e "come"
     e "dove" come congiunzioni."""

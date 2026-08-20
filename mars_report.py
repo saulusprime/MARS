@@ -18,7 +18,7 @@ import time
 from typing import Dict, List, Optional
 
 from mars_core import (MODULES_REGISTRY, __version__, describe_chunk,
-                       reciprocal_rank_fusion)
+                       normalizza_risultato, reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -42,13 +42,20 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     for nome, descrizione in MODULES_REGISTRY:
         if nome not in results:
             continue
-        res = results[nome]
+        # Un plugin che non rispetta il contratto non deve far cadere
+        # il referto DOPO che tutti i moduli sono girati: diventa
+        # un'area fallita e dichiarata.
+        res = normalizza_risultato(nome, results[nome])
+        errore = res.get("error")
         aree.append({
             "module": nome,
             "label": descrizione,
             "score": res.get("score"),
-            "status": res.get("status"),
-            "issues": list(res.get("issues") or []),
+            "status": "error" if errore else res.get("status"),
+            # Il motivo del fallimento E' il rilievo dell'area: senza,
+            # il referto direbbe solo "non misurato" senza dire perche'.
+            "issues": ([str(errore)] if errore
+                       else list(res.get("issues") or [])),
             # Con quale strumento e a quale livello: un punteggio di
             # accessibilita' senza il livello WCAG non significa nulla.
             "tool": res.get("tool"),
@@ -152,6 +159,7 @@ STATO_LEGGIBILE = {
     "surface": "controllo di superficie",
     "unavailable": "non misurato",
     "disabled": "disattivato",
+    "error": "errore del modulo",
 }
 
 
@@ -184,8 +192,7 @@ def _qualificatori(area: dict) -> List[str]:
 
 def _riga_area(area: dict) -> str:
     if area["score"] is None:
-        stato = ("disattivato" if area["status"] == "disabled"
-                 else "non misurato")
+        stato = STATO_LEGGIBILE.get(area["status"], "non misurato")
         return f"{area['label']:<20} : {stato}"
     return f"{area['label']:<20} : {area['score']:>3.0f}/100"
 
@@ -473,8 +480,7 @@ def _etichetta_area(area: dict) -> str:
 
 
 def _stato_area(area: dict) -> str:
-    return ("disattivato" if area.get("status") == "disabled"
-            else "non misurato")
+    return STATO_LEGGIBILE.get(area.get("status"), "non misurato")
 
 
 def _fascia_quadranti(referto: dict) -> str:

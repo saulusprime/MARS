@@ -27,6 +27,8 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `chunks` | lista di `{"url", "heading", "text"}` — **le unità su cui lavorano i retriever** |
 | `queries` | query su cui gira la simulazione RRF; default generico nella lingua del sito |
 | `discovery` | come sono state trovate le pagine: `sitemap` o `link interni` |
+| `robots` | robots.txt grezzo: `found`, `text`, `sitemaps` |
+| `sitemap` | statistiche della sitemap: `urls`, `with_lastmod`, `index_files`, `unreadable`… |
 | `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
 | `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
@@ -36,7 +38,8 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
-`chunks`, `json_ld`, `images`. Sono già estratti dal crawler: **non
+`chunks`, `json_ld`, `images`, `meta_robots`, `canonical`,
+`x_robots_tag`. Sono già estratti dal crawler: **non
 riparsare l'HTML** in un modulo, il DOM è già stato attraversato una
 volta.
 

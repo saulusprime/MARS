@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C10 | `mars_tech` copre indicizzabilità, sitemap e 13 crawler IA | 2026-08-20 |
 | — | Verifica sistematica dei parametri API; `max_pages` corretto | 2026-08-20 |
 | — | Credenziali nella richiesta API; esempio completo | 2026-08-20 |
 | C13 (residue) | Titolarità del copyright e recapito del codice di condotta | 2026-08-20 |
@@ -927,6 +928,69 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C10 — ✅ FATTO (2026-08-20): `mars_tech` copre le quattro aree che promette
+Il README assegnava all'area 1 *"indicizzabilita', robots.txt, sitemap, crawler
+IA"*. Il file ne implementava **una**, in 24 righe: una GET su robots.txt e un
+controllo che il testo contenesse `gptbot`, `ccbot` o `claudebot` come
+sottostringa.
+
+**I dati vengono dal crawler, non da nuove richieste.** `robots.txt` e le
+sitemap erano già stati letti durante la scansione: ora `Crawler` conserva
+`robots_info` (esistenza, testo, direttive `Sitemap:`) e `sitemap_info` (file
+letti, indici annidati, URL, quanti con `<lastmod>`, quanti illeggibili), e
+ogni pagina porta `meta_robots`, `canonical` e `x_robots_tag`. È lo stesso
+principio applicato a `json_ld` e `images` in R11: si estraggono **dati
+grezzi**, e il giudizio resta al modulo.
+
+**robots.txt, tre casi invece di uno.** Il controllo precedente cercava una
+sottostringa e non distingueva *nessuna regola*, *permesso esplicito* e
+*blocco esplicito* — che sono cose opposte. Ora si usa `RobotFileParser` per
+agente su **13 crawler IA** (OpenAI ×3, Anthropic ×3, Perplexity, Common Crawl,
+Google-Extended, Applebot-Extended, ByteDance, Amazon, Meta). Un blocco è
+`critico`: nessun'altra area può compensarlo, perché un crawler escluso non
+legge nulla.
+
+**Indicizzabilità.** `noindex` da `meta robots` **e** da `X-Robots-Tag`:
+quest'ultimo agisce allo stesso modo ma viaggia negli header, quindi non
+compare nel DOM ed è il modo più facile per escludersi dagli indici senza
+accorgersene. Più `canonical` mancante, e `canonical` che punta a un altro
+host — il caso in cui il contenuto viene attribuito altrove.
+
+**Sitemap.** Esistenza, se è dichiarata in robots.txt o solo trovata su
+`/sitemap.xml`, file illeggibili, e `<lastmod>` assente.
+
+**Scala pesata.** `100 - len(issues)*15` dava lo stesso peso a un `noindex`
+sull'intero sito e a un `<lastmod>` mancante. Ora quattro gravità
+(`critico` 40, `grave` 20, `medio` 8, `lieve` 3), dichiarate come scelta
+editoriale, e i rilievi escono ordinati per gravità.
+
+**Verificato** con un terzo server di prova, ostile agli assistenti:
+robots.txt che blocca GPTBot, ClaudeBot e CCBot; una pagina con
+`meta robots noindex`; una con `X-Robots-Tag: noindex` **solo** negli header;
+una con canonical verso un altro host.
+
+```
+sito aperto  : tecnica 91/100  -> citabilità composita 70,2
+sito ostile  : tecnica 17/100  -> citabilità composita 50,0
+   [critico] robots.txt BLOCCA 3 crawler IA: CCBot, ClaudeBot, GPTBot
+   [grave]   2/3 pagine con 'noindex' (meta robots o X-Robots-Tag)
+   [grave]   1 pagine con canonical verso un altro host
+```
+
+Il `noindex` da header è stato rilevato su una pagina dove è l'unica fonte, il
+che prova che il controllo non si limita al DOM. E l'effetto si propaga:
+"Accesso e indicizzabilità" compare fra i segnali deboli del profilo di
+citabilità, che è esattamente il collegamento che C1 aveva predisposto.
+
+Nel rifattorizzare, una `replace` distratta aveva colpito due volte e rotto
+l'assegnazione di `discovery` dentro `crawl()`. Trovata subito perché i dati
+attesi nel contesto risultavano vuoti — e corretta prima di proseguire.
+
+- [x] Sitemap: esistenza, validità, indici annidati, URL, `lastmod`.
+- [x] Indicizzabilità: `meta robots`, `X-Robots-Tag`, `canonical`.
+- [x] 13 crawler IA per agente, distinguendo assente da bloccato.
+- [x] Scala pesata per gravità.
 
 ### Verifica sistematica dei parametri API (2026-08-20)
 Controllo completo che ogni parametro dell'API sia passabile da

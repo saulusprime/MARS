@@ -15,6 +15,12 @@ Il referto dichiara con quale delle due il campione e' stato costruito.
 
 1. Tecnica          (mars_tech)     indicizzabilita', robots.txt, 
                                     sitemap, crawler IA
+                                    (13 crawler IA controllati per
+                                    agente: OpenAI, Anthropic,
+                                    Perplexity, Common Crawl, Google,
+                                    Apple, ByteDance, Amazon, Meta;
+                                    meta robots, X-Robots-Tag e
+                                    canonical su ogni pagina)
 2. SEO              (mars_seo)      utilizzando lighthouse
 3. Lessicale        (mars_lexical)  segnali di tipo BM25 (title, 
                                     heading, termini)

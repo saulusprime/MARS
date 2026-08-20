@@ -176,6 +176,10 @@ class Crawler:
         self.pages: dict = {}
         self.skipped: List[str] = []
         self.discovery = "sitemap"
+        # Dati grezzi su robots.txt e sitemap: mars_tech li
+        # legge invece di rifare le stesse richieste.
+        self.robots_info: dict = {}
+        self.sitemap_info: dict = {}
         self.session = requests.Session()
         self.session.headers["User-Agent"] = user_agent
         self._robots: Optional[RobotFileParser] = None
@@ -211,6 +215,11 @@ class Crawler:
             except requests.RequestException:
                 pass
             self._robots.parse(righe)
+            self.robots_info = {
+                "found": bool(righe),
+                "text": "\n".join(righe),
+                "sitemaps": list(self._robots.site_maps() or []),
+            }
             ritardo = (self._robots.crawl_delay(self.user_agent)
                        or self._robots.crawl_delay("*"))
             if ritardo:
@@ -247,6 +256,7 @@ class Crawler:
     def fetch_sitemap(self) -> List[str]:
         """URL dalla sitemap, seguendo gli indici annidati."""
         trovati: List[str] = []
+        con_lastmod = indici = illeggibili = 0
         tetto = min(max(self.max_pages * CANDIDATI_PER_PAGINA, 50), MAX_CODA)
         coda = [(u, 0) for u in self.sitemap_urls()]
         visti = set()
@@ -257,16 +267,32 @@ class Crawler:
             visti.add(url)
             root = self._read_sitemap(url)
             if root is None:
+                illeggibili += 1
                 continue
             indice = _local_name(root.tag) == "sitemapindex"
+            if indice:
+                indici += 1
             for elem in root.iter():
-                if _local_name(elem.tag) != "loc" or not elem.text:
+                nome = _local_name(elem.tag)
+                if nome == "lastmod" and elem.text:
+                    con_lastmod += 1
+                if nome != "loc" or not elem.text:
                     continue
                 loc = elem.text.strip()
                 if indice:
                     coda.append((loc, profondita + 1))
                 elif len(trovati) < tetto:
                     trovati.append(loc)
+        self.sitemap_info = {
+            "found": bool(trovati),
+            "sources": self.sitemap_urls(),
+            "from_robots": bool(self.robots().site_maps()),
+            "files_read": len(visti),
+            "index_files": indici,
+            "urls": len(trovati),
+            "with_lastmod": con_lastmod,
+            "unreadable": illeggibili,
+        }
         return trovati
 
     # -- scoperta dei link ----------------------------------------
@@ -354,6 +380,19 @@ class Crawler:
                 "chunks": chunk_page(soup, url, title),
                 "json_ld": [t.get_text(strip=True) for t in soup.find_all(
                     "script", type="application/ld+json")],
+                # Indicizzabilita': meta robots, canonical e l'header
+                # X-Robots-Tag, che agisce come il meta ma non e' nel DOM.
+                "meta_robots": " ".join(
+                    (m.get("content") or "").strip().lower()
+                    for m in soup.find_all("meta")
+                    if (m.get("name") or "").strip().lower()
+                    in ("robots", "googlebot")),
+                "canonical": (lambda t: (t.get("href") or "").strip()
+                              if t else "")(
+                    soup.find("link", rel=lambda v: v and "canonical" in
+                              (v if isinstance(v, list) else [v]))),
+                "x_robots_tag": resp.headers.get(
+                    "X-Robots-Tag", "").strip().lower(),
                 "images": [{"alt": i.get("alt"),
                             "aria-label": i.get("aria-label")}
                            for i in soup.find_all("img")],
@@ -758,6 +797,8 @@ def build_context(url: str, max_pages: int = 10,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.
         "discovery": crawler.discovery,
+        "robots": dict(crawler.robots_info),
+        "sitemap": dict(crawler.sitemap_info),
         "llm": llm,
         # Credenziali del chiamante, alternative alle variabili
         # d'ambiente. Non finiscono nel referto: build_report() legge

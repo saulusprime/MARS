@@ -75,19 +75,6 @@ non dipende dal codice.
       Il referto JSON ora conserva per intero motivazione, punti forti e
       deboli, quindi è il formato giusto per controllarne l'esito.
 
-### C10 — `mars_tech`: coprire tutto ciò che il README dichiara
-Il README assegna a `mars_tech` *"indicizzabilita', robots.txt, sitemap,
-crawler IA"*. Il file implementa **solo robots.txt** (24 righe totali).
-
-- [ ] Verifica sitemap: esistenza, validità XML, `<sitemapindex>` annidati,
-      numero di URL, `lastmod` presente.
-- [ ] Verifica indicizzabilità: `<meta name="robots" content="noindex">`,
-      header `X-Robots-Tag`, `<link rel="canonical">` presente e coerente.
-- [ ] Elenco crawler IA più completo e per-agente (GPTBot, ClaudeBot,
-      Claude-Web, CCBot, PerplexityBot, Google-Extended, Bytespider, Amazonbot),
-      distinguendo *assente* da *esplicitamente bloccato*.
-- [ ] Sostituire `100 - len(issues)*15` con una scala pesata per gravità.
-
 ### C12 — Test
 `pytest>=7` e `flake8>=6` sono in `requirements.txt`; **nel progetto non esiste
 un solo test**.

@@ -26,6 +26,7 @@
 | R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
 | R15 | Un solo URL malformato faceva cadere l'intero audit | 2026-08-20 |
+| R16 | Mojibake silenzioso sui siti UTF-8 senza charset | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -877,6 +878,100 @@ disponibile per **I13**, che propone di coprire il resto della classe.
 - [x] Scartare il singolo URL e dichiararlo in `skipped`.
 - [x] Deduplicare gli scarti, perché un template rotto non allaghi il referto.
 - [x] Test su entrambi i punti d'ingresso, validati per mutazione.
+
+### R16 — ✅ RISOLTO (2026-08-20): mojibake silenzioso sui siti UTF-8 senza charset
+Il crawler leggeva `resp.text`. Ma `requests` applica a **ogni** `text/*` privo
+del parametro `charset` il default legacy di RFC 2616, cioè ISO-8859-1 — regola
+che HTML5 ha abbandonato proprio perché sbaglia su ogni sito UTF-8:
+
+```
+get_encoding_from_headers({"content-type": "text/html"})  ->  'ISO-8859-1'
+```
+
+Su un sito UTF-8 servito senza `charset` nell'header — configurazione
+comunissima — `title`, `headings`, `text`, `chunks`, `json_ld` e l'HTML grezzo
+entravano **corrotti** nel corpus, senza un solo errore. Non è un difetto
+estetico: sono gli ingressi di BM25, del proxy char-TFIDF e dell'RRF, quindi
+ogni punteggio a valle era calcolato su mojibake.
+
+**Visibile nel referto**, sullo stesso sito prima e dopo:
+
+```
+prima : Top Chunk Ibrido : .../ § PerchÃ© Ã¨ giÃ  cosÃ¬ caro?
+dopo  : Top Chunk Ibrido : .../ § Perché è già così caro?
+```
+
+**Risoluzione applicata.** `decode_html(content, content_type)` in
+`mars_core.py` — funzione pura, verificabile senza rete — applica l'ordine
+dello standard: **BOM**, poi il **charset dell'header**, poi `<meta charset>` o
+rilevamento statistico. Gli ultimi due li fa `UnicodeDammit`, che BeautifulSoup
+porta già con sé: nessuna dipendenza nuova (principio 1).
+
+Si decodifica **una volta sola** e si parsa quella stringa, invece di chiamare
+`resp.text` due volte: così il DOM e l'`html` grezzo conservato per gli altri
+moduli non possono divergere.
+
+**Il BOM va guardato a mano, e l'ho scoperto misurando.** `UnicodeDammit`
+accetta `known_definite_encodings` per l'header, ma **non gli fa cedere il
+passo al BOM**: con byte UTF-8 con BOM e un header che dichiara latin-1
+sceglieva latin-1. È il caso classico della pagina scritta su Windows e servita
+da un server mai riconfigurato, quindi tutt'altro che teorico.
+
+**Una scoperta contraria all'attesa, e va detta.** `user_encodings=["utf-8"]`
+era stato aggiunto **solo per velocità**: il rilevamento statistico su una
+pagina da 80 KB costa **175 ms** contro 0,06 quando non parte affatto. Il
+confronto sistematico dei due percorsi su dieci combinazioni ha però mostrato
+**una differenza di risultato**, in meglio: una pagina con `<meta charset>`
+*stantio* — dice latin-1, i byte sono UTF-8, il residuo tipico di una
+migrazione — smette di produrre mojibake. Cercavo la velocità e ho trovato
+anche una correzione.
+
+Il tentativo UTF-8 è **autoverificante**, ed è la ragione per cui anticiparlo è
+lecito: i byte accentati di una pagina davvero latin-1 non sono UTF-8 valido,
+quindi fallisce e gli altri candidati vengono provati comunque. Verificato: una
+pagina genuinamente latin-1 resta letta come latin-1.
+
+**Chiuso contestualmente anche robots.txt.** Viaggia come `text/plain`, quindi
+subiva lo stesso ISO-8859-1. RFC 9309 impone UTF-8, e una direttiva `Sitemap:`
+con un IDN ne usciva storpiata. Ora si decodifica in UTF-8 con sostituzione.
+Le sitemap invece erano già a posto: `_read_sitemap` usa `resp.content` e
+lascia decidere al parser XML, come deve.
+
+**Verificato.** Undici test nuovi coprono la matrice delle precedenze — meta
+sola, header solo, entrambi, nessuno dei due, `application/xhtml+xml`, pagina
+davvero latin-1, header contro meta stantio, BOM contro header sbagliato,
+charset inventato, byte indecodificabili — più i due punti d'ingresso del
+crawler. Sul sito pulito di regressione il referto è **identico** a quello di
+`HEAD`.
+
+**La prova che conta: reintrodurre il difetto.**
+
+```
+1. pagina di nuovo da resp.text (il difetto)  -> 1 fallito
+2. robots.txt di nuovo da resp.text           -> 1 fallito
+3. BOM non piu' guardato                      -> 1 fallito
+4. charset dell'header ignorato               -> 1 fallito
+5. html grezzo scollegato dal DOM             -> 1 fallito
+```
+
+**Alla prima esecuzione tre mutazioni su cinque NON venivano rilevate**, ed è
+il risultato più utile di tutta la voce. La colpa non era dei test ma del banco
+di prova: l'adattatore finto introdotto da **R15** impostava
+`resp.encoding = "utf-8"`, quindi `resp.text` funzionava sempre e il mojibake
+non poteva manifestarsi. È **esattamente la lezione di C9** — *un banco di
+prova troppo accomodante conferma anche ciò che è sbagliato* — ripresentatasi
+in un punto diverso. L'adattatore deriva ora l'encoding dagli header con la
+**stessa** funzione di `HTTPAdapter.build_response`, e le tre mutazioni
+falliscono.
+
+La quarta mutazione ha richiesto di cercare un caso in cui l'header è davvero
+decisivo: pagina cirillica in `windows-1251` senza `<meta>`, dove il solo
+rilevamento sceglie `maccyrillic` e sbaglia il primo carattere.
+
+- [x] `decode_html()` con l'ordine di precedenza dello standard.
+- [x] Una sola decodifica: DOM e HTML grezzo non possono divergere.
+- [x] robots.txt in UTF-8 per RFC 9309.
+- [x] Banco di prova reso fedele a `requests`.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

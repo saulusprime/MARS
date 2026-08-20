@@ -17,9 +17,9 @@ from bs4 import BeautifulSoup
 
 from conftest import HTML_BASE
 from mars_core import (Crawler, LexicalRetriever, VectorRetriever, chunk_page,
-                       default_queries, describe_chunk, host_matches,
-                       load_external_module, load_queries, norm_host,
-                       normalize_url, reciprocal_rank_fusion,
+                       decode_html, default_queries, describe_chunk,
+                       host_matches, load_external_module, load_queries,
+                       norm_host, normalize_url, reciprocal_rank_fusion,
                        safe_normalize_url, split_windows)
 
 
@@ -198,6 +198,11 @@ class _AdattatoreFinto(requests.adapters.BaseAdapter):
     Montato sulla session del Crawler intercetta OGNI richiesta, cosi'
     crawl() puo' essere esercitata per intero restando ermetica: la
     fixture niente_rete copre requests.get, non Session.get.
+
+    L'encoding si deriva dagli header con la STESSA funzione che usa
+    HTTPAdapter.build_response. Fissarlo a "utf-8" rendeva il banco di
+    prova piu' accomodante della realta': resp.text funzionava sempre,
+    e i test non potevano accorgersi del mojibake di R16.
     """
 
     def __init__(self, risposte: dict) -> None:
@@ -208,15 +213,16 @@ class _AdattatoreFinto(requests.adapters.BaseAdapter):
         corpo, tipo = self.risposte.get(request.url, (None, None))
         resp = requests.Response()
         resp.url = request.url
-        resp.encoding = "utf-8"
         if corpo is None:
             resp.status_code = 404
             resp._content = b""
             resp.headers["Content-Type"] = "text/plain"
         else:
             resp.status_code = 200
-            resp._content = corpo.encode("utf-8")
+            resp._content = (corpo if isinstance(corpo, bytes)
+                             else corpo.encode("utf-8"))
             resp.headers["Content-Type"] = tipo
+        resp.encoding = requests.utils.get_encoding_from_headers(resp.headers)
         return resp
 
     def close(self) -> None:
@@ -257,6 +263,123 @@ def test_crawl_sopravvive_a_un_loc_malformato():
     assert list(pagine) == ["http://esempio.test/buona"]
     assert crawler.skipped == [
         "URL non analizzabile: http://esempio.test:port/rotto"]
+
+
+# ----------------------------------------------------------------------
+# Codifica delle pagine (R16)
+# ----------------------------------------------------------------------
+
+ACCENTATA = "Perché è così: qualità più alta"
+
+
+def _pagina_accentata(meta: str = "") -> str:
+    return ("<html lang='it'><head>%s<title>%s</title></head>"
+            "<body><h1>%s</h1></body></html>" % (meta, ACCENTATA, ACCENTATA))
+
+
+@pytest.mark.parametrize("meta, header", [
+    ("<meta charset='utf-8'>", "text/html"),                  # meta, header muto
+    ("", "text/html"),                                        # nessuna dichiarazione
+    ("", "text/html; charset=utf-8"),                         # solo header
+    ("<meta charset='utf-8'>", "text/html; charset=utf-8"),   # entrambi
+    ("", "application/xhtml+xml"),                            # niente da requests
+])
+def test_decode_html_non_produce_mojibake(meta, header):
+    """Regressione R16: resp.text decodificava in ISO-8859-1.
+
+    requests applica a ogni text/* senza charset il default legacy di
+    RFC 2616: su un sito UTF-8 — la norma — l'intero corpus entrava
+    corrotto senza un solo errore.
+    """
+    byte = _pagina_accentata(meta).encode("utf-8")
+    assert ACCENTATA in decode_html(byte, header)
+    # il difetto, ancora dimostrabile: e' cio' che faceva resp.text
+    assert ACCENTATA not in byte.decode("iso-8859-1")
+
+
+def test_decode_html_rispetta_una_pagina_davvero_latin1():
+    """Non si assume UTF-8: una pagina latin-1 va letta come tale."""
+    byte = _pagina_accentata("<meta charset='iso-8859-1'>").encode("iso-8859-1")
+    assert ACCENTATA in decode_html(byte, "text/html")
+
+
+def test_decode_html_header_batte_il_meta_sbagliato():
+    """Precedenza dello standard: il charset dell'header vince sul meta.
+
+    Il caso reale e' il <meta> stantio lasciato indietro da una
+    migrazione, con il server gia' corretto.
+    """
+    byte = _pagina_accentata("<meta charset='iso-8859-1'>").encode("utf-8")
+    assert ACCENTATA in decode_html(byte, "text/html; charset=utf-8")
+
+
+def test_decode_html_usa_il_charset_dell_header():
+    """Il charset dichiarato nell'header va onorato, non solo sniffato.
+
+    Caso misurato in cui e' decisivo: pagina cirillica in windows-1251
+    senza <meta>. Il solo rilevamento statistico sceglie 'maccyrillic'
+    e sbaglia il primo carattere; l'header lo dice esattamente.
+    """
+    testo = "Здравствуйте, это наш сайт"
+    byte = ("<html><head><title>%s</title></head><body>x</body></html>"
+            % testo).encode("windows-1251")
+    assert testo in decode_html(byte, "text/html; charset=windows-1251")
+
+
+def test_decode_html_bom_batte_header_sbagliato():
+    """Il BOM vince su tutto, header incluso.
+
+    Pagina scritta su Windows e servita da un server che dichiara
+    ancora latin-1: senza questo caso si otterrebbe mojibake proprio
+    dove la codifica e' dichiarata in modo inequivocabile.
+    """
+    byte = b"\xef\xbb\xbf" + _pagina_accentata().encode("utf-8")
+    decodificata = decode_html(byte, "text/html; charset=iso-8859-1")
+    assert ACCENTATA in decodificata
+    assert "﻿" not in decodificata      # il BOM non resta nel testo
+
+
+def test_decode_html_non_solleva_mai():
+    """Byte indecodificabili o charset inventato: si sostituisce, non
+    si perde la pagina."""
+    assert decode_html(b"\xff\xfe\xfa dati rotti", "text/html") is not None
+    assert ACCENTATA in decode_html(
+        _pagina_accentata().encode("utf-8"), "text/html; charset=inesistente-9")
+
+
+def test_crawl_decodifica_le_pagine_senza_charset():
+    """Regressione R16 dal lato del crawler, con l'HTML grezzo coerente.
+
+    title, headings, chunks e html devono uscire tutti corretti dallo
+    stesso crawl: sono gli ingressi di BM25, del proxy char-TFIDF e
+    dell'RRF, e un mojibake qui falsa ogni punteggio a valle.
+    """
+    pagina_html = ("<html lang='it'><head><meta charset='utf-8'>"
+                   "<title>%s</title></head><body><h1>%s</h1><p>%s</p>"
+                   "</body></html>"
+                   % (ACCENTATA, ACCENTATA,
+                      "la città però è già lì da un pezzo, e così sia. " * 4))
+    crawler = _crawler_finto({
+        # Content-Type SENZA charset: e' la configurazione che rompeva
+        "http://esempio.test/": (pagina_html, "text/html"),
+    })
+    pagina = crawler.crawl()["http://esempio.test/"]
+    assert pagina["title"] == ACCENTATA
+    assert pagina["headings"] == [ACCENTATA]
+    assert "città" in pagina["chunks"][0]["text"]
+    assert "Ã" not in pagina["html"]
+    assert pagina["title"] in pagina["html"]     # DOM e grezzo concordi
+
+
+def test_robots_txt_letto_come_utf8():
+    """robots.txt e' UTF-8 per RFC 9309, ma viaggia come text/plain:
+    resp.text lo avrebbe decodificato in ISO-8859-1 come le pagine."""
+    robots = "User-agent: *\nAllow: /\nSitemap: http://esempio.test/però.xml\n"
+    crawler = _crawler_finto({
+        "http://esempio.test/robots.txt": (robots, "text/plain"),
+    })
+    crawler.robots()
+    assert crawler.robots_info["sitemaps"] == ["http://esempio.test/però.xml"]
 
 
 def test_url_illeggibile_dichiarato_una_volta_sola():

@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R33, I13-I14). R15 è già
-> chiusa; restano aperte R16-R33.
+> di codice e documentazione: nuove voci R15-R33, I13-I14). R15 e R16 sono
+> già chiuse; restano aperte R17-R33.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -92,30 +92,15 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 ## Correzioni
 
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
-l'audit, chiusa il 2026-08-20): difetto, soluzione e verifiche in
-[AS-IS.md](AS-IS.md).
+l'audit) e **R16** (mojibake sui siti UTF-8 senza charset), entrambe il
+2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
 
-Le voci **R16-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R17-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R16 — 🔴 GRAVE: mojibake silenzioso sui siti UTF-8 senza charset nell'header
-Il crawler usa `resp.text` ([mars_core.py:397](mars_core.py#L397) e
-[:438](mars_core.py#L438)). Per un `Content-Type: text/html` **senza**
-parametro `charset`, `requests` decodifica in ISO-8859-1 e ignora il
-`<meta charset="utf-8">` della pagina. Ogni sito UTF-8 servito così entra nel
-corpus con `title`, `headings`, `text`, `chunks` e `html` corrotti — senza un
-solo errore. Colpisce BM25, char-TFIDF, RRF e referto.
-
-Riprodotto end-to-end: pagina UTF-8 con `text/html` → title `PerchÃ© Ã¨ cosÃ¬`,
-heading `QualitÃ\xa0 piÃ¹ alta`; con `text/html; charset=utf-8` → corretto.
-
-- [ ] Passare `resp.content` a BeautifulSoup (rileva il meta charset) e
-      derivare testo/html dal soup, oppure usare `resp.apparent_encoding`
-      quando l'header non dichiara il charset.
 
 ### R17 — 🔴 GRAVE: i redirect non vengono rivalidati
 `crawl()` ([mars_core.py:381](mars_core.py#L381)) segue i redirect (default di

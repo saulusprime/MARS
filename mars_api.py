@@ -112,6 +112,11 @@ class AuditRequest(BaseModel):
     market: str = "global"
     delay: float = DEFAULT_DELAY
     timeout: int = DEFAULT_TIMEOUT
+    queries: list[str] | None = Field(
+        default=None,
+        description="Query su cui gira la simulazione RRF. Senza, si "
+                    "usano query generiche nella lingua prevalente "
+                    "del sito.")
     llm: str = Field(
         default="auto",
         pattern="^(auto|on|off)$",
@@ -207,7 +212,7 @@ def build_context(req: AuditRequest) -> dict:
                                  req.embeddings, req.market,
                                  delay=req.delay, timeout=req.timeout,
                                  owner_declaration=req.i_own_this_domain,
-                                 llm=req.llm)
+                                 llm=req.llm, queries=req.queries)
     if context is None:
         raise HTTPException(
             status_code=404,

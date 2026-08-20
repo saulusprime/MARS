@@ -13,6 +13,7 @@ import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__, build_context,
                        load_external_module)
+from mars_core import load_queries
 from mars_report import RENDERERS, build_report
 
 
@@ -21,6 +22,7 @@ from mars_report import RENDERERS, build_report
 EXIT_OK = 0
 EXIT_NESSUNA_PAGINA = 2
 EXIT_SCRITTURA = 3
+EXIT_USO = 2
 
 
 def run_audit(url: str, max_pages: int, embeddings_model: str,
@@ -28,12 +30,13 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               timeout: int = DEFAULT_TIMEOUT,
               owner_declaration: bool = False,
               llm: str = "auto", formato: str = "text",
-              output: str | None = None) -> int:
+              output: str | None = None,
+              queries: list[str] | None = None) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
-                            llm=llm)
+                            llm=llm, queries=queries)
 
     if context is None:
         print("Nessuna pagina indicizzata.")
@@ -89,6 +92,10 @@ if __name__ == "__main__":
                         help="Pausa fra le richieste in secondi (default %(default)s)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help="Timeout di rete in secondi (default %(default)s)")
+    parser.add_argument("--queries", metavar="FILE",
+                        help="File con una query per riga (UTF-8). Senza, "
+                             "si usano query generiche nella lingua "
+                             "prevalente del sito.")
     parser.add_argument("--format", choices=tuple(RENDERERS),
                         default="text", dest="formato",
                         help="Formato del referto (default: text)")
@@ -109,8 +116,14 @@ if __name__ == "__main__":
                              "questa dichiarazione robots.txt viene ignorato.")
 
     args = parser.parse_args()
+    elenco_query = None
+    if args.queries:
+        elenco_query, errore = load_queries(path=args.queries)
+        if errore:
+            print(errore)
+            sys.exit(EXIT_USO)
     sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
                        args.market, delay=args.delay, timeout=args.timeout,
                        owner_declaration=args.owner_declaration,
                        llm=args.llm, formato=args.formato,
-                       output=args.output))
+                       output=args.output, queries=elenco_query))

@@ -235,6 +235,25 @@ Uso:
     python3 mars_audit.py https://example.com --queries q.txt \\
         --embeddings sentence-transformers/all-MiniLM-L6-v2
 
+Query della simulazione RRF (--queries FILE, una per riga, UTF-8).
+Senza il flag si usano quattro query generiche nella lingua prevalente
+del sito, rilevata dall'attributo lang: interrogare un sito inglese in
+italiano produrrebbe un consenso basso che non dice nulla sul sito, ma
+solo che le domande erano nella lingua sbagliata.
+
+Le query generiche sono un punto di partenza dichiarato, non un
+riferimento: le query che contano sono quelle del dominio. Su un sito
+di documentazione tecnica, per esempio, "come funziona la fusione
+reciproca dei ranghi" produce un consenso 3/3 dove "chi siamo" si ferma
+a 2/3 — ed e' la differenza fra misurare il sito e misurare la
+genericita' della domanda.
+
+Il referto riporta il consenso di ogni query e un consenso aggregato,
+ottenuto fondendo con l'RRF le classifiche di tutte le query. Quello
+aggregato e' la misura piu' solida: un passaggio che sale in alto per
+entrambi i recuperatori su piu' domande e' recuperabile davvero, mentre
+un consenso su una sola domanda puo' essere un caso.
+
 Formati del referto (--format, predefinito text):
 
     text   il referto a video, come sopra

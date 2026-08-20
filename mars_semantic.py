@@ -12,7 +12,8 @@ import re
 from collections import defaultdict
 from typing import List, Optional
 
-from mars_core import VectorRetriever
+from mars_core import (VectorRetriever, describe_chunk,
+                       reciprocal_rank_fusion)
 
 MIN_PAROLE = 40
 
@@ -92,10 +93,22 @@ def audit(context: dict) -> dict:
     testi = [c.get("text") or "" for c in chunks]
     vec = VectorRetriever(testi, context["embeddings_model"],
                           context["force_proxy"])
-    query = "cos'è questo sito"
-    scores = vec.get_scores(query)
-    rank = [i for i, _ in sorted(enumerate(scores), key=lambda x: x[1],
-                                 reverse=True)]
+    queries = context.get("queries") or []
+    per_query = []
+    for query in queries:
+        punteggi = vec.get_scores(query)
+        classifica = [i for i, _ in sorted(enumerate(punteggi),
+                                           key=lambda x: x[1], reverse=True)]
+        per_query.append({
+            "query": query,
+            "rank": classifica,
+            "top_chunk": (describe_chunk(chunks[classifica[0]])
+                          if classifica else None),
+        })
+    # Stesso criterio di mars_lexical: le classifiche per query si
+    # fondono con l'RRF per ottenere il rango aggregato.
+    rank = [indice for indice, _
+            in reciprocal_rank_fusion([p["rank"] for p in per_query])]
 
     pagine = context.get("pages") or {}
     conteggio: dict = defaultdict(int)
@@ -120,8 +133,9 @@ def audit(context: dict) -> dict:
             answer_shaped += 1
 
     return {
-        "scores": scores,
         "rank": rank,
+        "per_query": per_query,
+        "queries": queries,
         "answer_shaped_ratio": answer_shaped / len(chunks) if chunks else 0,
         "n_chunks": len(chunks),
         "answer_shaped_signals": dict(conteggio),

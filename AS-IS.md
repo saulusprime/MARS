@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C5 | Query personalizzate e consenso RRF aggregato | 2026-08-20 |
 | C4 | Referto JSON e HTML; l'API riusa la struttura canonica | 2026-08-20 |
 | C3 (residue) | Modello OpenAI, `include` delle fonti, caricatore query | 2026-08-20 |
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
@@ -919,6 +920,61 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C5 — ✅ FATTO (2026-08-20): query personalizzate e consenso aggregato
+Il README mostrava `--queries q.txt`, ma la query era **una sola e cablata** —
+`"cos'è questo sito"` — per giunta duplicata in due file. Era il limite più
+serio della simulazione RRF: fondere due classifiche prodotte da **una** query
+dice pochissimo, mentre la formula del paper ha senso su un insieme di
+interrogazioni.
+
+**`--queries FILE`** (e il campo `queries` via API) alimenta
+`context["queries"]`. Il caricatore è quello già estratto da **C3**, quindi non
+è stata scritta una seconda copia.
+
+**Le query di default sono nella lingua del sito.** Quattro intenti generici,
+scelti in base all'attributo `lang` prevalente fra le pagine — il campo che
+**R9** aveva fatto conservare al crawler. Interrogare un sito inglese in
+italiano produrrebbe un consenso basso che non dice nulla sul sito, ma solo che
+le domande erano nella lingua sbagliata. Lingua ignota: italiano più inglese.
+Sono dichiarate come punto di partenza, non come riferimento.
+
+**Entrambi i retriever ciclano sulle query** e restituiscono `per_query` più un
+**rango aggregato**, ottenuto fondendo le classifiche per query **con l'RRF
+stesso**: un chunk in alto su più domande è più citabile di uno che vince una
+volta sola. I quattro moduli che leggono `rank` — citabilità, giudizio LLM,
+referto — continuano a funzionare senza modifiche, e ricevono ora un dato
+migliore: il rango aggregato invece di quello di una singola query.
+
+Il referto espone `rrf_simulation` (una voce per query, la chiave che
+`--from-audit` legge) e `rrf_aggregate`, dichiarato come la misura più solida.
+
+**La metrica ora discrimina davvero.** Sul sito di prova, che documenta l'RRF:
+
+```
+come funziona la fusione reciproca dei ranghi   3/3
+cos'è la costante k dell'RRF                    3/3
+quando conviene usare una ricerca ibrida        2/3
+--- contro le generiche ---
+come funziona                                   1/3
+chi siamo                                       2/3
+```
+
+È la differenza fra misurare il sito e misurare la genericità della domanda.
+
+**Catena completa verificata:** `--queries` → audit → `--format json` → le tre
+query personalizzate compaiono in `rrf_simulation` → `mars_citations
+--from-audit` le rilegge tutte e tre. Stima e misura della citabilità guardano
+ora le stesse domande.
+
+Verificato anche: file di query inesistente → uscita 2; API con e senza
+`queries`; tabella per query nel referto HTML, che resta autoconsistente
+(9,3 KB, zero riferimenti esterni); regressione su `example.com`.
+
+- [x] `--queries PATH`, una query per riga.
+- [x] `context["queries"]` con default generico multilingue.
+- [x] Entrambi i retriever ciclano, con `rank` per query.
+- [x] Consenso e RRF aggregati su tutte le query.
 
 ### C4 — ✅ FATTO (2026-08-20): referto JSON e HTML
 Il README mostrava nell'`Uso:` il comando

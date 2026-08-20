@@ -516,6 +516,41 @@ def split_windows(testo: str, size: int = CHUNK_CHARS,
 
 DEFAULT_MAX_QUERIES = 15
 
+# Query generiche usate quando --queries non e' passato. Quattro
+# intenti che quasi ogni sito dovrebbe saper soddisfare; sono un punto
+# di partenza dichiarato, non un benchmark: le query che contano sono
+# quelle del dominio, e si passano con --queries.
+QUERY_GENERICHE = {
+    "it": ("cos'è questo sito", "come funziona",
+           "chi siamo", "quali servizi offre"),
+    "en": ("what is this site about", "how does it work",
+           "who we are", "what services do you offer"),
+    "es": ("qué es este sitio", "cómo funciona",
+           "quiénes somos", "qué servicios ofrece"),
+    "fr": ("qu'est-ce que ce site", "comment ça marche",
+           "qui sommes-nous", "quels services proposez-vous"),
+    "de": ("was ist diese website", "wie funktioniert es",
+           "wer wir sind", "welche leistungen bieten sie"),
+}
+
+
+def default_queries(pages: dict) -> List[str]:
+    """Query generiche nella lingua prevalente del sito.
+
+    Interrogare un sito inglese in italiano produce un consenso RRF
+    basso che non dice nulla sul sito: dice solo che le domande erano
+    nella lingua sbagliata. Lingua ignota: si usano italiano e inglese.
+    """
+    conteggio: dict = defaultdict(int)
+    for pagina in (pages or {}).values():
+        codice = (pagina.get("lang") or "")[:2]
+        if codice in QUERY_GENERICHE:
+            conteggio[codice] += 1
+    if not conteggio:
+        return list(QUERY_GENERICHE["it"]) + list(QUERY_GENERICHE["en"])
+    prevalente = max(conteggio, key=lambda k: conteggio[k])
+    return list(QUERY_GENERICHE[prevalente])
+
 
 def load_queries(path: Optional[str] = None,
                  report_path: Optional[str] = None,
@@ -631,7 +666,8 @@ def build_context(url: str, max_pages: int = 10,
                   delay: float = DEFAULT_DELAY,
                   timeout: int = DEFAULT_TIMEOUT,
                   owner_declaration: bool = False,
-                  llm: str = "auto") -> Optional[dict]:
+                  llm: str = "auto",
+                  queries: Optional[List[str]] = None) -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -665,6 +701,10 @@ def build_context(url: str, max_pages: int = 10,
         "robots_ignored": owner_declaration,
         "skipped": crawler.skipped,
         "llm": llm,
+        # Le query su cui gira la simulazione RRF. Fondere due ranghi
+        # prodotti da UNA query dice pochissimo: la formula del paper
+        # ha senso su un insieme di interrogazioni.
+        "queries": list(queries) if queries else default_queries(pages),
     }
 
 

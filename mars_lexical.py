@@ -8,7 +8,8 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
-from mars_core import LexicalRetriever, describe_chunk
+from mars_core import (LexicalRetriever, describe_chunk,
+                       reciprocal_rank_fusion)
 
 
 def audit(context: dict) -> dict:
@@ -28,13 +29,28 @@ def audit(context: dict) -> dict:
         corpus.append(" ".join(p for p in parti if p))
 
     bm25 = LexicalRetriever([c.lower().split() for c in corpus])
-    query = "cos'è questo sito"
-    scores = bm25.get_scores(query.lower().split())
-    rank = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    queries = context.get("queries") or []
+    per_query = []
+    for query in queries:
+        scores = bm25.get_scores(query.lower().split())
+        rank = sorted(range(len(scores)),
+                      key=lambda i: scores[i], reverse=True)
+        per_query.append({
+            "query": query,
+            "rank": rank,
+            "top_chunk": describe_chunk(chunks[rank[0]]) if rank else None,
+        })
+
+    # Rango aggregato: le classifiche per query si fondono con lo
+    # stesso RRF che il progetto usa fra recuperatori. Un chunk in alto
+    # su piu' domande e' piu' citabile di uno che vince una sola volta.
+    fusi = reciprocal_rank_fusion([p["rank"] for p in per_query])
+    rank = [indice for indice, _ in fusi]
 
     return {
-        "scores": scores,
         "rank": rank,
+        "per_query": per_query,
+        "queries": queries,
         "top_chunk": describe_chunk(chunks[rank[0]]) if rank else "N/A",
         "top_url": chunks[rank[0]]["url"] if rank else "N/A",
     }

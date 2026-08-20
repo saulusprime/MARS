@@ -63,6 +63,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         # Chiave del contratto con mars_citations.py --from-audit:
         # lista di voci ciascuna con la propria "query".
         "rrf_simulation": rrf_simulation(results, chunks),
+        "rrf_aggregate": rrf_aggregate(results, chunks),
         "citability": results.get("mars_citability"),
         "llm_judgement": results.get("mars_llm_judge"),
         "lexical": {"top_chunk":
@@ -76,29 +77,51 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     return referto
 
 
+def _consenso(rank_a: List[int], rank_b: List[int],
+              chunks: List[dict], query: str) -> dict:
+    """Consenso fra due classifiche sui primi tre chunk."""
+    attesi = min(3, len(rank_a), len(rank_b))
+    fusi = reciprocal_rank_fusion([rank_a, rank_b])
+    top = fusi[0][0] if fusi and fusi[0][0] < len(chunks) else None
+    return {
+        "query": query,
+        "consensus_top3": len(set(rank_a[:3]) & set(rank_b[:3])),
+        "consensus_out_of": attesi,
+        "top_chunk": describe_chunk(chunks[top]) if top is not None else None,
+        "top_chunk_url": chunks[top]["url"] if top is not None else None,
+    }
+
+
 def rrf_simulation(results: dict, chunks: List[dict]) -> List[dict]:
     """Esito della fusione, una voce per query interrogata.
 
-    Oggi la query e' una sola e cablata: la lista ha percio' un solo
-    elemento. La forma e' pero' gia' quella definitiva, cosi' C5 potra'
-    aggiungere query senza cambiare il contratto — ed e' la chiave che
-    mars_citations.py --from-audit legge per riusare le stesse query.
+    E' la chiave che mars_citations.py --from-audit legge per riusare
+    le stesse query: cosi' la stima della citabilita' e la misura delle
+    citazioni reali guardano le stesse domande.
+    """
+    lex = results.get("mars_lexical") or {}
+    sem = results.get("mars_semantic") or {}
+    voci_lex = {v["query"]: v["rank"] for v in lex.get("per_query") or []}
+    voci_sem = {v["query"]: v["rank"] for v in sem.get("per_query") or []}
+    comuni = [q for q in voci_lex if q in voci_sem]
+    return [_consenso(voci_lex[q], voci_sem[q], chunks, q) for q in comuni]
+
+
+def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
+    """Consenso sui ranghi aggregati, cioe' su tutte le query insieme.
+
+    E' la misura piu' solida delle due: un chunk che sale in alto per
+    entrambi i recuperatori su piu' domande e' recuperabile davvero,
+    mentre un consenso su una sola query puo' essere un caso.
     """
     lex = results.get("mars_lexical") or {}
     sem = results.get("mars_semantic") or {}
     if "rank" not in lex or "rank" not in sem:
-        return []
-    attesi = min(3, len(lex["rank"]), len(sem["rank"]))
-    consenso = len(set(lex["rank"][:3]) & set(sem["rank"][:3]))
-    fusi = reciprocal_rank_fusion([lex["rank"], sem["rank"]])
-    top = fusi[0][0] if fusi and fusi[0][0] < len(chunks) else None
-    return [{
-        "query": lex.get("query") or "cos'è questo sito",
-        "consensus_top3": consenso,
-        "consensus_out_of": attesi,
-        "top_chunk": describe_chunk(chunks[top]) if top is not None else None,
-        "top_chunk_url": chunks[top]["url"] if top is not None else None,
-    }]
+        return None
+    aggregato = _consenso(lex["rank"], sem["rank"], chunks,
+                          "(aggregato su tutte le query)")
+    aggregato["queries"] = lex.get("queries") or []
+    return aggregato
 
 
 # ======================================================================
@@ -141,13 +164,21 @@ def render_text(referto: dict) -> str:
         for problema in area["issues"][:2]:
             righe.append(f"  ⚠ {problema}")
 
-    for voce in referto["rrf_simulation"]:
+    aggregato = referto.get("rrf_aggregate")
+    if aggregato:
         righe.append("-" * 55)
         righe.append("Simulazione RRF      : Consenso Top-3 = %d/%d su %d "
-                     "chunk" % (voce["consensus_top3"],
-                                voce["consensus_out_of"], referto["chunks"]))
-        if voce["top_chunk"]:
-            righe.append(f"Top Chunk Ibrido     : {voce['top_chunk']}")
+                     "chunk" % (aggregato["consensus_top3"],
+                                aggregato["consensus_out_of"],
+                                referto["chunks"]))
+        righe.append("  aggregato su %d query"
+                     % len(referto["rrf_simulation"]))
+        if aggregato["top_chunk"]:
+            righe.append(f"Top Chunk Ibrido     : {aggregato['top_chunk']}")
+        for voce in referto["rrf_simulation"]:
+            righe.append("  %-34s %d/%d"
+                         % (voce["query"][:34], voce["consensus_top3"],
+                            voce["consensus_out_of"]))
 
     cit = referto.get("citability")
     if cit and cit.get("profiles"):
@@ -297,17 +328,30 @@ def render_html(referto: dict) -> str:
                  % (_e(area["label"]), voto, rilievi))
     p.append("</table>")
 
-    if referto["rrf_simulation"]:
+    aggregato = referto.get("rrf_aggregate")
+    if aggregato:
         p.append("<h2>Simulazione RRF</h2>")
+        p.append("<div class='card'><p>Consenso aggregato su %d query: "
+                 "<strong class='%s'>%d/%d</strong></p>"
+                 % (len(referto["rrf_simulation"]),
+                    _classe(100 * aggregato["consensus_top3"]
+                            / max(aggregato["consensus_out_of"], 1)),
+                    aggregato["consensus_top3"],
+                    aggregato["consensus_out_of"]))
+        if aggregato["top_chunk"]:
+            p.append("<p>Passaggio più recuperabile:<br><code>%s</code></p>"
+                     % _e(aggregato["top_chunk"]))
+        p.append("</div>")
+    if referto["rrf_simulation"]:
+        p.append("<table><tr><th>Query</th><th>Consenso</th>"
+                 "<th>Passaggio migliore</th></tr>")
         for voce in referto["rrf_simulation"]:
-            p.append("<div class='card'><p>Query: <code>%s</code><br>"
-                     "Consenso Top-3: <strong>%d/%d</strong></p>"
+            p.append("<tr><td><code>%s</code></td><td class='num'>%d/%d</td>"
+                     "<td>%s</td></tr>"
                      % (_e(voce["query"]), voce["consensus_top3"],
-                        voce["consensus_out_of"]))
-            if voce["top_chunk"]:
-                p.append("<p>Passaggio più recuperabile:<br><code>%s</code>"
-                         "</p>" % _e(voce["top_chunk"]))
-            p.append("</div>")
+                        voce["consensus_out_of"],
+                        _e(voce["top_chunk"] or "—")))
+        p.append("</table>")
 
     cit = referto.get("citability")
     if cit and cit.get("profiles"):

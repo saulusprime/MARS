@@ -77,29 +77,6 @@ non dipende dal codice.
 - [ ] `favicon.png` (344 KB) non è più usata da nulla: l'HTML incorpora il
       `.ico`. Rimuoverla o dichiararne l'uso.
 
-### C5 — Query personalizzate (`--queries q.txt`) — *mancante al 100%*
-> Tutti i presupposti sono pronti: **R10** ha reso i due retriever
-> commensurabili, **C3** ha estratto `mars_core.load_queries()` che legge già
-> file e referti, e **C4** ha fissato `rrf_simulation` come lista di voci — una
-> per query. Resta da far ciclare i due retriever sulle query e aggiungere una
-> voce per ciascuna.
-Il README mostra `--queries q.txt`. Oggi la query è **una sola, hardcoded**, e
-per giunta duplicata in due file:
-`"cos'è questo sito"` in [mars_lexical.py:19](mars_lexical.py#L19) e
-[mars_semantic.py:13](mars_semantic.py#L13).
-
-Questo è il limite più serio della simulazione RRF: fondere due ranking prodotti
-da **una** query dice pochissimo sul consenso reale del sito. Il README stesso
-descrive l'RRF come `somma su ogni lista di 1/(k + rank_i(d))`, formula che ha
-senso su un set di query.
-
-- [ ] Aggiungere `--queries PATH` (una query per riga, UTF-8).
-- [ ] Mettere le query nel `context` (`context["queries"]`), con default a una
-      lista di query generiche multilingue se il flag non è passato.
-- [ ] Far ciclare `mars_lexical` e `mars_semantic` sulle query, restituendo
-      `rank` *per query*.
-- [ ] Calcolare consenso e RRF aggregati su tutte le query, non sulla prima.
-
 ### C6 — Crawling interno (fallback quando manca la sitemap) — *mancante*
 > R7 ha reso il crawler rispettoso (robots.txt, User-Agent, rate limit,
 > filtro same-host, normalizzazione URL): la BFS sui link interni va

@@ -15,6 +15,7 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__, build_context,
                        load_external_module)
 from mars_core import load_queries
+from mars_citability import MERCATI
 from mars_report import RENDERERS, build_report
 
 
@@ -82,41 +83,148 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
     return EXIT_OK
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="MARS Beacon - Meta-fusion Audit")
-    parser.add_argument("url", help="URL del sito da scansionare")
-    parser.add_argument("--max-pages", type=int, default=10, help="Numero massimo di pagine")
-    parser.add_argument("--embeddings", default=DEFAULT_EMBEDDINGS,
-                        help="Modello ST o 'none'")
-    parser.add_argument("--market", default="global", help="Target market per citabilità IA")
-    parser.add_argument("--delay", type=float, default=DEFAULT_DELAY,
-                        help="Pausa fra le richieste in secondi (default %(default)s)")
-    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
-                        help="Timeout di rete in secondi (default %(default)s)")
-    parser.add_argument("--queries", metavar="FILE",
-                        help="File con una query per riga (UTF-8). Senza, "
-                             "si usano query generiche nella lingua "
-                             "prevalente del sito.")
-    parser.add_argument("--format", choices=tuple(RENDERERS),
-                        default="text", dest="formato",
-                        help="Formato del referto (default: text)")
-    parser.add_argument("--output", metavar="FILE",
-                        help="Scrive il referto su file invece che a video")
-    parser.add_argument("--llm", choices=("auto", "on", "off"),
-                        default="auto",
-                        help="Giudizio LLM sulla citabilità: 'auto' solo se "
-                             "ANTHROPIC_API_KEY è presente (default), 'on' "
-                             "tenta comunque, 'off' non lo esegue mai. "
-                             "È l'unico modulo che comporta una spesa.")
-    parser.add_argument("--version", action="version",
-                        version="MARS Beacon %s" % __version__)
-    parser.add_argument("--i-own-this-domain", action="store_true",
-                        dest="owner_declaration",
-                        help="DICHIARAZIONE: sono il proprietario del dominio e "
-                             "mi assumo la responsabilità dell'audit. Solo con "
-                             "questa dichiarazione robots.txt viene ignorato.")
+DESCRIZIONE = """MARS Beacon — audit di citabilità per assistenti IA.
 
-    args = parser.parse_args()
+Scansiona un sito (via sitemap o seguendo i link interni), lo segmenta in
+passaggi e valuta nove aree: indicizzabilità, SEO, recupero lessicale BM25,
+semantica, dati strutturati, accessibilità, sicurezza, profili di citabilità
+e — se richiesto — un giudizio LLM. Simula infine la fusione RRF fra il
+recuperatore lessicale e quello vettoriale."""
+
+ESEMPI = """
+esempi:
+  # audit rapido, referto a video
+  mars_audit.py https://example.com
+
+  # più pagine e referto HTML da aprire nel browser
+  mars_audit.py https://example.com --max-pages 40 \\
+      --format html --output referto.html
+
+  # con le proprie query, e referto JSON riusabile da mars_citations.py
+  mars_audit.py https://example.com --queries domande.txt \\
+      --format json --output referto.json
+  mars_citations.py https://example.com --from-audit referto.json
+
+  # sito proprio: robots.txt ignorato e scansione WAPT attiva
+  mars_audit.py https://miosito.it --i-own-this-domain
+
+  # veloce e senza spese: proxy char-tfidf e niente giudizio LLM
+  mars_audit.py https://example.com --embeddings none --llm off
+
+codici di uscita:
+  0  referto prodotto
+  2  nessuna pagina indicizzata, o errore d'uso
+  3  impossibile scrivere il file di --output
+
+variabili d'ambiente (tutte opzionali):
+  ANTHROPIC_API_KEY   abilita il giudizio LLM con --llm auto
+  HF_TOKEN            solo per modelli di embedding privati su Hugging Face
+  ZAP_PROXY           daemon ZAP per la scansione WAPT
+                      (default http://127.0.0.1:8080)
+  ZAP_API_KEY         chiave del daemon ZAP, se richiesta
+
+strumenti opzionali: senza Lighthouse, ZAP, sentence-transformers, axe-core
+o una chiave Anthropic il programma non fallisce — ripiega e lo dichiara nel
+referto, distinguendo "non misurato" da un punteggio basso."""
+
+
+def costruisci_parser() -> argparse.ArgumentParser:
+    """Il parser degli argomenti.
+
+    Funzione e non blocco __main__ perche' i test possano
+    verificare che gli esempi dell'aiuto siano ancora validi.
+    """
+    parser = argparse.ArgumentParser(
+        prog="mars_audit.py",
+        description=DESCRIZIONE,
+        epilog=ESEMPI,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument(
+        "url", metavar="URL",
+        help="Sito da scansionare, con lo schema. "
+             "Esempio: https://www.example.com")
+
+    parser.add_argument(
+        "--max-pages", type=int, default=10, metavar="N",
+        help="Pagine da scansionare al massimo. Esempi: 10 (default), 40 "
+             "per un sito medio, 100 per una scansione ampia. Piu' pagine "
+             "significa piu' tempo e piu' richieste al sito.")
+
+    parser.add_argument(
+        "--queries", metavar="FILE",
+        help="File di testo con una query per riga (UTF-8). Esempio: "
+             "domande.txt. Senza, si usano quattro query generiche nella "
+             "lingua prevalente del sito. Le query del dominio danno una "
+             "misura molto piu' significativa di quelle generiche.")
+
+    parser.add_argument(
+        "--embeddings", default=DEFAULT_EMBEDDINGS, metavar="MODELLO",
+        help="Modello sentence-transformers per il recupero vettoriale. "
+             "Valori: 'none' forza il proxy char-tfidf (nessun download, "
+             "molto piu' rapido); un nome di modello dell'Hub, per esempio "
+             "sentence-transformers/all-MiniLM-L6-v2. "
+             "Default: %(default)s")
+
+    parser.add_argument(
+        "--market", default="global", metavar="MERCATO",
+        help="Mercato per i profili di citabilita' IA. Valori: "
+             + ", ".join(sorted(MERCATI))
+             + ". Un valore diverso ricade su 'global' e lo dichiara nel "
+               "referto. Default: %(default)s")
+
+    parser.add_argument(
+        "--delay", type=float, default=DEFAULT_DELAY, metavar="SECONDI",
+        help="Pausa fra due richieste al sito. Esempi: 0.5 (default), 0 "
+             "per un server locale di prova, 2 per un sito lento o "
+             "delicato. Un Crawl-delay piu' alto in robots.txt vince "
+             "comunque su questo valore.")
+
+    parser.add_argument(
+        "--timeout", type=int, default=DEFAULT_TIMEOUT, metavar="SECONDI",
+        help="Timeout di ogni richiesta di rete. Esempi: 10 (default), 30 "
+             "per siti lenti.")
+
+    parser.add_argument(
+        "--format", choices=tuple(RENDERERS), default="text",
+        dest="formato",
+        help="Resa del referto. Valori: text (a video, default), json "
+             "(struttura canonica, riusabile da mars_citations.py "
+             "--from-audit), html (pagina autoconsistente, apribile "
+             "senza rete).")
+
+    parser.add_argument(
+        "--output", metavar="FILE",
+        help="Scrive il referto su file invece che a video. Esempi: "
+             "referto.html, referto.json. Uscita 3 se il file non e' "
+             "scrivibile.")
+
+    parser.add_argument(
+        "--llm", choices=("auto", "on", "off"), default="auto",
+        help="Giudizio LLM sulla citabilita' dei passaggi migliori. "
+             "Valori: auto (default) esegue solo se ANTHROPIC_API_KEY e' "
+             "presente; on tenta comunque, utile con un profilo "
+             "'ant auth login'; off non esegue mai. E' L'UNICO MODULO CHE "
+             "COMPORTA UNA SPESA: prima di inviare dichiara quanti "
+             "passaggi e quanti token partiranno.")
+
+    parser.add_argument(
+        "--i-own-this-domain", action="store_true",
+        dest="owner_declaration",
+        help="DICHIARAZIONE: sono il proprietario del dominio e mi assumo "
+             "la responsabilita' dell'audit. Abilita due cose: ignorare "
+             "robots.txt, e la scansione WAPT ATTIVA, che invia payload "
+             "d'attacco (XSS, SQL injection). Contro un sito non proprio "
+             "e' un attacco. La dichiarazione viene registrata nel referto.")
+
+    parser.add_argument(
+        "--version", action="version",
+        version="MARS Beacon %s" % __version__)
+    return parser
+
+
+if __name__ == "__main__":
+    args = costruisci_parser().parse_args()
     elenco_query = None
     if args.queries:
         elenco_query, errore = load_queries(path=args.queries)

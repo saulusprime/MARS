@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| — | Aiuto della CLI: valori, esempi, avvertenze | 2026-08-20 |
 | C12 | Suite di test: 146 test, verificati reintroducendo i difetti | 2026-08-20 |
 | C10 | `mars_tech` copre indicizzabilità, sitemap e 13 crawler IA | 2026-08-20 |
 | — | Verifica sistematica dei parametri API; `max_pages` corretto | 2026-08-20 |
@@ -929,6 +930,38 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### Aiuto della CLI (2026-08-20)
+`mars_audit.py --help` elencava i parametri senza dire cosa accettassero:
+*"Numero massimo di pagine"*, *"Modello ST o 'none'"*, *"Target market per
+citabilità IA"*. Nessun default mostrato per metà dei flag, e **nessun
+esempio**.
+
+**Ogni parametro mostra ora valori ammessi o un esempio**, con il default e
+l'effetto pratico: `--max-pages` suggerisce 10/40/100 e avverte che più pagine
+significano più richieste al sito; `--delay` spiega quando usare 0 e quando 2,
+e che un `Crawl-delay` più alto in robots.txt vince comunque; `--embeddings`
+distingue `none` da un nome di modello dell'Hub. I valori di `--market` si
+leggono da `MERCATI`, non si riscrivono: non possono divergere.
+
+**Un epilogo con cinque esempi eseguibili**, i codici di uscita e le quattro
+variabili d'ambiente. Due avvertenze sono in maiuscolo perché non passino
+inosservate: `--llm` è l'unico modulo che comporta una spesa, e
+`--i-own-this-domain` abilita una scansione che **invia payload d'attacco**.
+
+**Gli esempi sono verificati da un test.** È la lezione di **R12**, dove il
+README documentava comandi che terminavano con un errore: ogni comando
+dell'epilogo viene dato in pasto al parser reale, quindi se un flag cambia
+nome il test se ne accorge prima di chi legge l'aiuto. Tutti e cinque sono
+stati anche **eseguiti**, inclusa la catena `--format json` →
+`mars_citations --from-audit`.
+
+Il parser è stato estratto in `costruisci_parser()` per renderlo verificabile
+fuori dal blocco `__main__`.
+
+**Un'incoerenza trovata dal test:** `--market` diceva *"Valori riconosciuti"*
+dove gli altri dicono *"Valori"*. Uniformato il linguaggio invece di allentare
+il controllo — 11 test nuovi, 157 in tutto.
 
 ### C12 — ✅ FATTO (2026-08-20): la suite di test
 `pytest` era fra le dipendenze dal primo giorno e **non esisteva un solo

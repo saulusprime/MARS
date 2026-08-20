@@ -79,7 +79,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "semantic": {
             k: (results.get("mars_semantic") or {}).get(k)
             for k in ("answer_shaped_ratio", "n_chunks",
-                      "answer_shaped_signals", "languages")
+                      "answer_shaped_signals", "page_signals", "languages")
         },
     }
     return referto
@@ -502,6 +502,11 @@ def _scheda_area(area: dict, referto: dict) -> str:
                      "voto. %.0f%% di %s chunk in forma di risposta.</p>"
                      % (100 * (sem.get("answer_shaped_ratio") or 0),
                         sem.get("n_chunks") or 0))
+        # Segnali di PAGINA, tenuti fuori dal rapporto ma non nascosti:
+        # dicono qualcosa di vero sul sito (vedi R19).
+        for nome, quante in (sem.get("page_signals") or {}).items():
+            corpo.append("<p class='strumento'>%s: %d pagine su %d.</p>"
+                         % (_e(nome), quante, referto["pages_crawled"]))
         voto = "<span class='muted'>classifica</span>"
 
     if area.get("wcag_level") or area.get("tool"):

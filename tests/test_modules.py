@@ -311,13 +311,95 @@ def test_semantic_riconosce_le_domande(testo, lingua):
 
 
 def test_semantic_segnali_strutturali():
+    """Il titolo del CHUNK conta; quelli delle altre sezioni no.
+
+    Il test verificava che l'heading di un'altra sezione della stessa
+    pagina accendesse il segnale: era il difetto R19, non la funzione
+    che si voleva. Ora la domanda deve stare nel titolo di questo
+    passaggio.
+    """
+    proprio = mars_semantic.question_signals(
+        "Il prodotto si installa in pochi passi.", "Come si installa?", "it")
+    assert "titolo interrogativo" in proprio
+
+    altrui = mars_semantic.question_signals(
+        "Il prodotto si installa in pochi passi.", "Requisiti tecnici", "it")
+    assert "titolo interrogativo" not in altrui
+
+
+def test_semantic_il_titolo_del_chunk_conta_come_testo():
+    """Scelta di R9 da non perdere: l'heading FA PARTE del passaggio.
+
+    "Come funziona?" come titolo vale quanto la stessa frase nel corpo,
+    quindi accende anche i segnali testuali — non solo quello sul
+    titolo. Senza, un chunk la cui unica domanda sta nel titolo
+    perderebbe due segnali su tre.
+    """
     segnali = mars_semantic.question_signals(
-        "Il prodotto si installa in pochi passi.",
-        {"headings": ["Come si installa?"],
-         "html": '<script type="application/ld+json">{"@type":"FAQPage"}'
-                 '</script>'}, "it")
-    assert "titolo interrogativo" in segnali
-    assert "FAQPage JSON-LD" in segnali
+        "Il servizio si attiva subito dopo la registrazione.",
+        "Come funziona?", "it")
+    assert "punto interrogativo" in segnali
+    assert "interrogativo a inizio frase" in segnali
+
+
+def test_semantic_faqpage_e_un_segnale_di_pagina():
+    """FAQPage descrive la PAGINA, non il singolo passaggio."""
+    pagina_faq = {"html": '<script type="application/ld+json">'
+                          '{"@type":"FAQPage"}</script>'}
+    assert mars_semantic.page_signals(pagina_faq) == ["FAQPage JSON-LD"]
+    assert mars_semantic.page_signals({"html": "<html></html>"}) == []
+    assert mars_semantic.page_signals(None) == []
+
+
+def _pagina_con_una_sola_domanda():
+    # Oltre MIN_PAROLE, altrimenti nessun chunk conta e il test
+    # misurerebbe la soglia invece del difetto.
+    lungo = ("Il gruppo di lavoro accompagna enti pubblici e imprese private "
+             "nei percorsi di innovazione da oltre venti anni, con progetti "
+             "che spaziano dalla formazione tecnica alla consulenza "
+             "organizzativa fino al supporto continuativo sul campo, sempre "
+             "con la stessa attenzione ai risultati verificabili e "
+             "documentati. ")
+    html = ("<html lang='it'><body>"
+            "<h2>I nostri servizi</h2><p>%s</p>"
+            "<h2>La nostra storia</h2><p>%s</p>"
+            "<h2>Come funziona il servizio?</h2><p>%s</p>"
+            "</body></html>" % (lungo, lungo, lungo))
+    return pagina(html=html, url="https://x/")
+
+
+def test_semantic_una_domanda_non_marca_tutta_la_pagina():
+    """Regressione R19: i segnali di pagina gonfiavano il rapporto.
+
+    Il "titolo interrogativo" si accendeva se una QUALUNQUE
+    intestazione della pagina era una domanda, quindi una sola FAQ
+    portava answer_shaped_ratio al 100% su un sito generico — e quel
+    numero alimenta il segnale "Contenuto in forma di risposta" di C1.
+    """
+    p = _pagina_con_una_sola_domanda()
+    esito = mars_semantic.audit({
+        "pages": {"https://x/": p}, "chunks": p["chunks"], "queries": [],
+        "embeddings_model": "none", "force_proxy": True, "credentials": {}})
+    assert esito["n_chunks"] == 3
+    assert esito["answer_shaped_ratio"] == pytest.approx(1 / 3), \
+        "solo la sezione che E' una domanda deve contare"
+    assert esito["answer_shaped_signals"].get("titolo interrogativo") == 1
+
+
+def test_semantic_faqpage_non_gonfia_il_rapporto():
+    """Regressione R19: bastava un FAQPage nell'HTML perche' OGNI
+    chunk della pagina risultasse in forma di risposta."""
+    p = _pagina_con_una_sola_domanda()
+    p["html"] += ('<script type="application/ld+json">{"@type":"FAQPage"}'
+                  '</script>')
+    esito = mars_semantic.audit({
+        "pages": {"https://x/": p}, "chunks": p["chunks"], "queries": [],
+        "embeddings_model": "none", "force_proxy": True, "credentials": {}})
+    assert esito["answer_shaped_ratio"] == pytest.approx(1 / 3)
+    # il fatto non si perde: viene riportato dove gli compete
+    assert esito["page_signals"] == {"FAQPage JSON-LD": 1}
+    assert esito["n_pages"] == 1
+    assert "FAQPage JSON-LD" not in esito["answer_shaped_signals"]
 
 
 # ----------------------------------------------------------------------

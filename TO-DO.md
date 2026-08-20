@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R33, I13-I15). R15-R18 sono
-> già chiuse; restano aperte R19-R33.
+> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R19 sono
+> già chiuse; restano aperte R20-R34.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -93,30 +93,16 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
 l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
-mai rivalidati) e **R18** (punteggiatura che escludeva le parole da BM25),
-tutte il 2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
+mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
+**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), tutte il
+2026-08-20: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
 
-Le voci **R19-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R20-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R19 — 🔴 GRAVE: i segnali di pagina gonfiano `answer_shaped_ratio`
-In `mars_semantic.audit()` ([mars_semantic.py:129](mars_semantic.py#L129)) il
-ciclo passa l'intera `pagina` a `question_signals()` per **ogni** chunk. I
-segnali *«titolo interrogativo»* (calcolato su **tutti** gli headings della
-pagina, [:82-84](mars_semantic.py#L82)) e *«FAQPage JSON-LD»* (cercato
-nell'**intero** HTML, [:87-88](mars_semantic.py#L87)) sono proprietà della
-pagina, non del chunk: una sola FAQ marca answer-shaped ogni chunk >40 parole di
-quella pagina. Riprodotto: pagina con `Chi siamo`, `Servizi`, `Come funziona il
-servizio?` → `answer_shaped_ratio` **100%** (3/3). Il segnale entra poi in C1
-(*Contenuto in forma di risposta*) e ne falsa il profilo.
-
-- [ ] Distinguere i segnali del chunk (punto interrogativo, interrogativo a
-      inizio frase nel testo del chunk) da quelli di pagina, o attribuire il
-      segnale di pagina al solo chunk che contiene l'heading interrogativo.
 
 ### R20 — 🔴 GRAVE: axe fabbrica 100/100 quando ogni pagina fallisce, e la suite lancia Chromium
 `run_axe()` ([mars_wcag.py:208-219](mars_wcag.py#L208)) inghiotte ogni
@@ -381,6 +367,38 @@ Divergenze verificate (documento → codice):
 
 - [ ] Fissare la cwd al repo (fixture/`chdir`) e rendere non-vacuo il test URL.
 - [ ] Estendere il controllo a `url(`, `@import`, `srcset` (escludendo `data:`).
+
+### R34 — 🟡 MEDIO: i titoli di sezione italiani scambiati per domande
+*(trovata misurando, chiudendo R19 il 2026-08-20)*
+
+`_interrogativo()` ([mars_semantic.py:58](mars_semantic.py#L58)) accende il
+segnale quando un termine interrogativo apre il testo. Su un **titolo di
+sezione** questo produce falsi positivi su tutta una classe di intestazioni
+standard, che sono nomi e non domande. Misurato:
+
+| titolo | segnale acceso | è una domanda? |
+|---|---|---|
+| `Chi siamo` | sì | no |
+| `Dove siamo` | sì | no |
+| `Come raggiungerci` | sì | no |
+| `Cosa facciamo` | sì | no |
+| `Quali servizi offriamo` | sì | no |
+| `How it works` | sì | no |
+| `What we do` | sì | no |
+| `Come funziona il servizio?` | sì | **sì** |
+
+Non è il difetto di R19 — quello era l'attribuzione dei segnali di pagina ai
+chunk, ed è chiuso — ma la stessa metrica ne resta gonfiata: su una pagina con
+`Chi siamo` e una vera FAQ, `answer_shaped_ratio` dà 0,50 dove l'onesto è 0,25.
+`Chi siamo` sta su quasi ogni sito italiano, quindi la classe non è marginale.
+
+L'ipotesi da verificare (non da applicare a intuito): **un titolo è una domanda
+quando è punteggiato come tale**. Le intestazioni che iniziano con un
+interrogativo senza `?` sono etichette di sezione; le FAQ vere il punto
+interrogativo ce l'hanno quasi sempre. Costo: qualche falso negativo sulle FAQ
+scritte senza `?`. Da misurare su contenuto reale prima di decidere, ed
+eventualmente da applicare **solo** al segnale «titolo interrogativo», non a
+quello sul corpo del testo.
 
 ---
 

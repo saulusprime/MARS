@@ -65,27 +65,50 @@ def _interrogativo(testo: str, lingua: str = "") -> bool:
     return any(_REGEX[cod].search(testo) for cod in lingue)
 
 
-def question_signals(testo: str, pagina: Optional[dict] = None,
+def question_signals(testo: str, heading: str = "",
                      lingua: str = "") -> List[str]:
-    """Segnali che il contenuto sia in forma di risposta a una domanda.
+    """Segnali che QUESTO passaggio sia in forma di risposta.
 
     Piu' segnali indipendenti invece di un solo elenco di parole: il
-    punto interrogativo e i titoli sono molto piu' affidabili della
+    punto interrogativo e il titolo sono molto piu' affidabili della
     presenza di un termine nel corpo del testo.
+
+    Tutti e tre riguardano il passaggio e nient'altro. Prima il
+    "titolo interrogativo" si accendeva se una QUALUNQUE intestazione
+    della pagina era una domanda, quindi una sola FAQ marcava
+    answer-shaped ogni chunk della pagina e il rapporto arrivava al
+    100% su un sito generico: una proprieta' della pagina non puo'
+    dire nulla su un suo singolo pezzo (R19).
     """
     segnali = []
-    if "?" in testo:
+    intero = " ".join(x for x in (heading, testo) if x)
+    if "?" in intero:
         segnali.append("punto interrogativo")
-    if _interrogativo(testo, lingua):
+    if _interrogativo(intero, lingua):
         segnali.append("interrogativo a inizio frase")
-    if pagina:
-        titoli = pagina.get("headings") or []
-        if any("?" in t or _interrogativo(t, lingua) for t in titoli):
-            segnali.append("titolo interrogativo")
-        # Controllo volutamente grezzo: mars_schema legge gia' il
-        # JSON-LD, ma i moduli non si scambiano ancora i risultati.
-        if "faqpage" in (pagina.get("html") or "").lower():
-            segnali.append("FAQPage JSON-LD")
+    if heading and ("?" in heading or _interrogativo(heading, lingua)):
+        # L'heading del chunk, non quelli della pagina: e' il titolo
+        # sotto cui questo passaggio vive.
+        segnali.append("titolo interrogativo")
+    return segnali
+
+
+def page_signals(pagina: Optional[dict], lingua: str = "") -> List[str]:
+    """Segnali che riguardano la PAGINA, non il singolo passaggio.
+
+    Restano nel referto perche' dicono qualcosa di vero — una pagina
+    che si dichiara FAQPage sta dichiarando la propria forma — ma non
+    entrano in answer_shaped_ratio, che e' una frazione di CHUNK.
+    Contarli li' significava moltiplicare un fatto di pagina per il
+    numero dei suoi pezzi.
+    """
+    if not pagina:
+        return []
+    segnali = []
+    # Controllo volutamente grezzo: mars_schema legge gia' il JSON-LD,
+    # ma i moduli non si scambiano ancora i risultati.
+    if "faqpage" in (pagina.get("html") or "").lower():
+        segnali.append("FAQPage JSON-LD")
     return segnali
 
 
@@ -117,6 +140,15 @@ def audit(context: dict) -> dict:
     lingue: dict = defaultdict(int)
     answer_shaped = 0
 
+    # I segnali di pagina si calcolano una volta per PAGINA, e sono
+    # contati in pagine. Farlo dentro il ciclo dei chunk non era solo
+    # sbagliato nel merito: rifaceva un .lower() sull'intero HTML per
+    # ogni chunk della stessa pagina.
+    segnali_pagina: dict = defaultdict(int)
+    for pag in pagine.values():
+        for s in page_signals(pag, lingua_pagina(pag)):
+            segnali_pagina[s] += 1
+
     for chunk, testo in zip(chunks, testi):
         # Ogni chunk porta con se' il proprio URL: niente piu'
         # corrispondenza posizionale con l'elenco delle pagine, che
@@ -124,11 +156,10 @@ def audit(context: dict) -> dict:
         pagina = pagine.get(chunk.get("url"))
         lingua = lingua_pagina(pagina)
         lingue[lingua or "n/d"] += 1
-        # L'heading fa parte del passaggio: "Come funziona?" come
-        # titolo e' un segnale forte quanto la stessa frase nel corpo.
-        segnali = question_signals(
-            " ".join(x for x in (chunk.get("heading"), testo) if x),
-            pagina, lingua)
+        # L'heading del chunk fa parte del passaggio: "Come funziona?"
+        # come titolo e' un segnale forte quanto la stessa frase nel
+        # corpo. Quelli delle ALTRE sezioni no: vedi R19.
+        segnali = question_signals(testo, chunk.get("heading") or "", lingua)
         for s in segnali:
             conteggio[s] += 1
         if segnali and len(testo.split()) > MIN_PAROLE:
@@ -141,5 +172,9 @@ def audit(context: dict) -> dict:
         "answer_shaped_ratio": answer_shaped / len(chunks) if chunks else 0,
         "n_chunks": len(chunks),
         "answer_shaped_signals": dict(conteggio),
+        # Contati in PAGINE, non in chunk, e tenuti separati proprio
+        # per non poter rientrare dalla finestra nel rapporto.
+        "page_signals": dict(segnali_pagina),
+        "n_pages": len(pagine),
         "languages": dict(lingue),
     }

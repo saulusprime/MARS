@@ -357,7 +357,8 @@ async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_cur
     # Si escludono scores/rank: sono array lunghi quanto il corpus e
     # non servono a chi consuma l'endpoint.
     dettagli = {k: res[k] for k in
-                ("answer_shaped_ratio", "answer_shaped_signals", "languages")
+                ("answer_shaped_ratio", "answer_shaped_signals",
+                 "page_signals", "languages")
                 if k in res}
     return AuditResponse(module="mars_semantic", details=dettagli)
 

@@ -30,6 +30,7 @@
 | R17 | I redirect non venivano rivalidati | 2026-08-20 |
 | R18 | La punteggiatura escludeva le parole da BM25 | 2026-08-20 |
 | — | Referto HTML nello stile di Lighthouse, esteso alle nostre aree | 2026-08-20 |
+| R19 | I segnali di pagina gonfiavano `answer_shaped_ratio` | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1262,6 +1263,100 @@ sull'aspetto, e hanno retto a un rifacimento completo della vista.
 più solo per la WCAG, quindi la sicurezza dichiara `HTTP-Headers` o
 `ZAP (attiva)`. Ma `status` continua a non comparire: un `surface` a 100/100 si
 legge ancora come un WAPT completo. R21 resta aperta, ridotta a metà, e lo dice.
+
+### R19 — ✅ RISOLTO (2026-08-20): i segnali di pagina gonfiavano `answer_shaped_ratio`
+`question_signals()` riceveva l'intera **pagina** e veniva chiamata per **ogni
+chunk**. Due dei quattro segnali erano però proprietà della pagina, non del
+passaggio: *«titolo interrogativo»* si accendeva se una **qualunque**
+intestazione della pagina era una domanda, e *«FAQPage JSON-LD»* se il marcatore
+compariva **ovunque** nell'HTML. Una sola FAQ marcava quindi answer-shaped ogni
+chunk della pagina.
+
+Non è un dettaglio interno: `answer_shaped_ratio` alimenta il segnale
+*Contenuto in forma di risposta* di **C1**, che pesa 3 su 3 per ogni assistente.
+Un numero gonfiato lì si propaga fino all'indice composito.
+
+**Riprodotto** su una pagina con quattro sezioni di cui **una sola** è una
+domanda:
+
+```
+answer_shaped_ratio : 1.00        (l'onesto e' 0.25)
+segnali             : {'titolo interrogativo': 4, ...}
+C1 "Contenuto in forma di risposta" : 100.0
+indice composito                    :  85.7
+```
+
+Quattro chunk su quattro con il segnale del titolo, quando i titoli
+interrogativi erano uno.
+
+**Risoluzione applicata: i segnali si dividono per ambito.**
+
+- `question_signals(testo, heading, lingua)` guarda **solo questo passaggio**, e
+  il titolo che considera è quello del **chunk** — non quelli delle altre
+  sezioni.
+- `page_signals(pagina, lingua)` raccoglie ciò che riguarda la pagina. Restano
+  nel referto perché dicono qualcosa di vero — una pagina che si dichiara
+  FAQPage sta dichiarando la propria forma — ma **non entrano nel rapporto**,
+  che è una frazione di chunk. Contarli lì significava moltiplicare un fatto di
+  pagina per il numero dei suoi pezzi.
+
+I segnali di pagina si contano ora **in pagine** (`page_signals`, `n_pages`) e
+si calcolano **una volta per pagina**. Effetto collaterale gradito: prima
+`"faqpage" in html.lower()` girava per ogni chunk, cioè una copia in minuscolo
+dell'intero HTML per ciascun pezzo della stessa pagina.
+
+Il fatto non si perde di vista: `/audit/semantic` espone `page_signals`, e la
+scheda Semantica del referto lo dichiara come *«FAQPage JSON-LD: 1 pagine su
+1»*, separato dal rapporto.
+
+**Una scelta di R9 conservata deliberatamente.** L'heading del chunk continua a
+far parte del testo su cui si calcolano gli altri due segnali: *«Come
+funziona?»* come titolo vale quanto la stessa frase nel corpo. Senza, un chunk
+la cui unica domanda sta nel titolo perderebbe due segnali su tre — e la
+mutazione che lo toglie oggi fa fallire un test apposta.
+
+**Verificato end-to-end** su un sito con quattro sezioni, una sola domanda e uno
+schema FAQPage:
+
+```
+prima : 4. Semantica : Analizzato (100% di 4 chunk answer-shaped)   composito 85,5
+dopo  : 4. Semantica : Analizzato ( 25% di 4 chunk answer-shaped)   composito 70,0
+```
+
+Quindici punti e mezzo di gonfiaggio tolti dall'indice composito.
+
+**La prova che conta: reintrodurre il difetto.** Quattro mutazioni, tutte
+rilevate:
+
+```
+1. il titolo di QUALUNQUE sezione riaccende il segnale -> 4 falliti
+2. FAQPage torna a contare come segnale di chunk       -> 1 fallito
+3. segnali di pagina contati per chunk                 -> 1 fallito
+4. l'heading del chunk non entra nei segnali testuali  -> 1 fallito
+```
+
+La quarta alla prima esecuzione **non veniva rilevata**: nessun test verificava
+che l'heading del chunk alimentasse anche i segnali testuali, quindi la scelta
+di R9 sarebbe potuta sparire senza rumore. Aggiunto il test che la fissa.
+
+**Un test di R9 codificava il difetto, ed è stato riscritto.**
+`test_semantic_segnali_strutturali` verificava che l'heading di *un'altra*
+sezione accendesse il segnale: era esattamente R19, scritto come se fosse la
+funzione voluta. I segnali strutturali di R9 restano giusti come **segnali**;
+era sbagliata la loro **attribuzione**.
+
+**Una seconda causa di gonfiaggio, trovata misurando e NON corretta qui.** Con
+R19 chiusa, la pagina di prova originale dava 0,50 invece dell'atteso 0,25: il
+titolo `Chi siamo` accende «titolo interrogativo» pur non essendo una domanda.
+Vale per un'intera classe di intestazioni standard — `Dove siamo`, `Come
+raggiungerci`, `Cosa facciamo`, `How it works`. È un difetto **diverso** da
+R19, aperto come **R34** con la misura già fatta: mescolarlo qui avrebbe
+confuso due cose e reso la batteria di mutazioni illeggibile.
+
+- [x] Segnali di chunk separati da quelli di pagina.
+- [x] «titolo interrogativo» dal titolo del chunk, non della pagina.
+- [x] FAQPage contato in pagine, esposto nell'API e nel referto.
+- [x] Segnali di pagina calcolati una volta per pagina.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import math
 import os
 import time
 from typing import Dict, List, Optional
@@ -262,55 +263,359 @@ def _favicon_data_uri() -> str:
         return ""
 
 
-CSS = """
-:root { --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; --bg:#fff;
-        --fg:#1f2328; --muted:#656d76; --line:#d0d7de; --card:#f6f8fa; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#30363d;
-          --card:#161b22; --ok:#3fb950; --warn:#d29922; --bad:#f85149; } }
-* { box-sizing:border-box; }
-body { margin:0; padding:2rem 1rem; background:var(--bg); color:var(--fg);
-       font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-main { max-width:60rem; margin:0 auto; }
-h1 { font-size:1.5rem; margin:0 0 .25rem; }
-h2 { font-size:1.1rem; margin:2rem 0 .75rem;
-     border-bottom:1px solid var(--line); padding-bottom:.35rem; }
-.meta { color:var(--muted); font-size:.9rem; margin-bottom:1.5rem; }
-table { width:100%; border-collapse:collapse; }
-th,td { text-align:left; padding:.5rem .6rem;
-        border-bottom:1px solid var(--line); vertical-align:top; }
-th { font-size:.8rem; text-transform:uppercase; color:var(--muted);
-     letter-spacing:.03em; }
-td.num { text-align:right; font-variant-numeric:tabular-nums;
-         white-space:nowrap; }
-.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-.muted{color:var(--muted)}
-.bar { display:inline-block; height:.55rem; border-radius:.28rem;
-       background:currentColor; vertical-align:middle; }
-ul { margin:.35rem 0 0; padding-left:1.1rem; }
-li { font-size:.9rem; }
-.card { background:var(--card); border:1px solid var(--line);
-        border-radius:.5rem; padding:1rem; margin:.5rem 0; }
-.disclaimer { font-size:.85rem; color:var(--muted); font-style:italic; }
-code { background:var(--card); padding:.1rem .3rem; border-radius:.2rem;
-       font-size:.85em; word-break:break-all; }
-@media (max-width:40rem){ body{padding:1rem .6rem} th,td{padding:.4rem} }
-"""
-
-
-def _classe(valore: Optional[float]) -> str:
-    if valore is None:
-        return "muted"
-    return "ok" if valore >= 80 else "warn" if valore >= 50 else "bad"
-
-
 def _e(valore: object) -> str:
     """Escape: il referto contiene testo preso dal sito analizzato."""
     return html.escape(str(valore if valore is not None else ""))
 
 
+# Soglie e colori di Lighthouse, adottati perche' il referto gli
+# somigli: chi legge entrambi non deve tradurre due scale diverse.
+# ATTENZIONE: la scala precedente di MARS era 80/50; questa e' 90/50,
+# quindi lo stesso punteggio puo' cambiare colore rispetto ai referti
+# generati prima. Il colore e' una convenzione, il numero no.
+SOGLIA_BUONO = 90
+SOGLIA_MEDIO = 50
+
+CSS = """
+:root { --ok:#0cce6b; --warn:#ffa400; --bad:#ff4e42; --bg:#fff;
+        --fg:#1f2328; --muted:#5f6771; --line:#dfe3e8; --card:#f7f9fa;
+        --track:#e8ebee; --ombra:0 1px 3px rgba(0,0,0,.08); }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#12161c; --fg:#e6edf3; --muted:#98a1ad; --line:#2a3038;
+          --card:#1a1f27; --track:#2a3038; --ombra:none; } }
+* { box-sizing:border-box; }
+body { margin:0; padding:0 0 3rem; background:var(--bg); color:var(--fg);
+       font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+main { max-width:64rem; margin:0 auto; padding:0 1rem; }
+header.testata { border-bottom:1px solid var(--line); margin-bottom:1.5rem;
+                 padding:1.75rem 0 1.25rem; }
+h1 { font-size:1.35rem; margin:0 0 .3rem; letter-spacing:-.01em; }
+h2 { font-size:1.05rem; margin:2.25rem 0 .85rem;
+     border-bottom:1px solid var(--line); padding-bottom:.4rem; }
+h3 { font-size:.95rem; margin:0; }
+.meta { color:var(--muted); font-size:.87rem; margin:.15rem 0; }
+.meta code { word-break:break-all; }
+
+/* --- fascia dei quadranti, la firma visiva di Lighthouse --- */
+.quadranti { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem;
+             justify-content:center; padding:1.25rem 0 .5rem; }
+.quadrante { width:8.5rem; text-align:center; }
+.quadrante svg { display:block; margin:0 auto; width:5.5rem; height:5.5rem; }
+.quadrante .nome { font-size:.82rem; margin-top:.35rem; line-height:1.3;
+                   color:var(--fg); }
+.quadrante .nota { font-size:.72rem; color:var(--muted); }
+.anello-fondo { stroke:var(--track); }
+.valore { font:600 30px/1 system-ui,sans-serif; }
+.valore.piccolo { font-size:22px; }
+
+/* --- legenda della scala --- */
+.legenda { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center;
+           font-size:.78rem; color:var(--muted); padding:.5rem 0 .25rem; }
+.legenda span { white-space:nowrap; }
+.pallino { display:inline-block; width:.62rem; height:.62rem;
+           border-radius:50%; vertical-align:-1px; margin-right:.3rem; }
+.pallino.vuoto { background:none; border:1.5px dashed var(--muted); }
+
+/* --- schede d'area --- */
+.area { background:var(--card); border:1px solid var(--line);
+        border-radius:.6rem; padding:.9rem 1rem; margin:.6rem 0;
+        box-shadow:var(--ombra); }
+.area .riga { display:flex; align-items:baseline; gap:.6rem;
+              justify-content:space-between; }
+.punteggio { font-variant-numeric:tabular-nums; font-weight:600;
+             white-space:nowrap; }
+.strumento { font-size:.78rem; color:var(--muted); margin:.3rem 0 0; }
+ul.rilievi { margin:.55rem 0 0; padding-left:1.15rem; }
+ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
+.nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
+
+table { width:100%; border-collapse:collapse; }
+th,td { text-align:left; padding:.5rem .6rem;
+        border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:.75rem; text-transform:uppercase; color:var(--muted);
+     letter-spacing:.04em; }
+td.num { text-align:right; font-variant-numeric:tabular-nums;
+         white-space:nowrap; }
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.muted{color:var(--muted)}
+.bar { display:inline-block; height:.5rem; border-radius:.25rem;
+       background:currentColor; vertical-align:middle; min-width:2px; }
+.card { background:var(--card); border:1px solid var(--line);
+        border-radius:.6rem; padding:1rem; margin:.6rem 0;
+        box-shadow:var(--ombra); }
+.disclaimer { font-size:.83rem; color:var(--muted); font-style:italic; }
+code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
+       font-size:.85em; }
+.grande { font-size:1.6rem; font-weight:600;
+          font-variant-numeric:tabular-nums; }
+@media (max-width:40rem){
+  .quadrante { width:6.5rem; }
+  .quadrante svg { width:4.5rem; height:4.5rem; }
+  th,td { padding:.4rem .35rem; font-size:.9rem; }
+}
+"""
+
+# Geometria del quadrante: raggio 56 in un viewBox 120x120.
+_RAGGIO = 56
+_CIRCONFERENZA = 2 * math.pi * _RAGGIO
+
+
+def _classe(valore: Optional[float]) -> str:
+    if valore is None:
+        return "muted"
+    return ("ok" if valore >= SOGLIA_BUONO
+            else "warn" if valore >= SOGLIA_MEDIO else "bad")
+
+
+def _quadrante(valore: Optional[float], nome: str, nota: str = "") -> str:
+    """Un quadrante circolare, come quelli in testa a un referto Lighthouse.
+
+    E' SVG inline calcolato qui: l'arco si ottiene con stroke-dasharray
+    sulla circonferenza, quindi non serve alcuno script — e il referto
+    resta un file solo, apribile senza rete (principio del referto
+    autoconsistente).
+
+    Un valore assente NON diventa uno zero: si disegna un anello
+    tratteggiato con un trattino al centro, perche' "non misurato" e
+    "misurato zero" sono cose diverse e il referto le distingue.
+    """
+    classe = _classe(valore)
+    if valore is None:
+        arco = ("<circle class='anello-fondo' cx='60' cy='60' r='%d' "
+                "fill='none' stroke-width='9' stroke-dasharray='4 6'/>"
+                % _RAGGIO)
+        testo = ("<text class='valore muted' x='60' y='60' "
+                 "text-anchor='middle' dominant-baseline='central' "
+                 "fill='currentColor'>—</text>")
+    else:
+        pieno = _CIRCONFERENZA * max(0.0, min(valore, 100.0)) / 100.0
+        arco = ("<circle class='anello-fondo' cx='60' cy='60' r='%d' "
+                "fill='none' stroke-width='9'/>" % _RAGGIO)
+        if pieno > 0.5:
+            # Sotto mezzo pixel l'arco non si disegna: con
+            # stroke-linecap arrotondato un valore di zero lascerebbe
+            # comunque un puntino colorato, che si legge come "poco"
+            # invece che come "niente".
+            arco += (
+                "<circle cx='60' cy='60' r='%d' fill='none' "
+                "stroke='currentColor' stroke-width='9' "
+                "stroke-linecap='round' stroke-dasharray='%.2f %.2f' "
+                "transform='rotate(-90 60 60)'/>"
+                % (_RAGGIO, pieno, _CIRCONFERENZA - pieno))
+        testo = ("<text class='valore' x='60' y='60' text-anchor='middle' "
+                 "dominant-baseline='central' fill='currentColor'>%.0f</text>"
+                 % valore)
+    return (
+        "<div class='quadrante %s'>"
+        "<svg viewBox='0 0 120 120' role='img' aria-label='%s: %s'>%s%s</svg>"
+        "<div class='nome'>%s</div>%s</div>"
+        % (classe, _e(nome),
+           "non misurato" if valore is None else "%.0f su 100" % valore,
+           arco, testo, _e(nome),
+           "<div class='nota'>%s</div>" % _e(nota) if nota else ""))
+
+
+def _etichetta_area(area: dict) -> str:
+    """Nome dell'area senza il numero d'ordine: nel quadrante lo spazio
+    e' poco e "1. Tecnica" non aggiunge nulla a "Tecnica"."""
+    etichetta = area.get("label") or area.get("module") or "?"
+    return etichetta.split(". ", 1)[-1]
+
+
+def _stato_area(area: dict) -> str:
+    return ("disattivato" if area.get("status") == "disabled"
+            else "non misurato")
+
+
+def _fascia_quadranti(referto: dict) -> str:
+    """La fascia in testa, come in Lighthouse: un quadrante per area.
+
+    Le aree lessicale e semantica non producono un voto ma una
+    classifica, e mettere loro uno zero sarebbe una bugia: al loro
+    posto la fascia mostra i due segnali DERIVATI che C1 gia' calcola —
+    consenso RRF e contenuto in forma di risposta — dichiarati come
+    tali nella riga sotto il quadrante.
+    """
+    pezzi = []
+    for area in referto["areas"]:
+        if area["module"] in ("mars_lexical", "mars_semantic"):
+            continue
+        nota = ""
+        if area["score"] is None:
+            nota = _stato_area(area)
+        elif area.get("tool"):
+            nota = area["tool"]
+        pezzi.append(_quadrante(area["score"], _etichetta_area(area), nota))
+
+    aggregato = referto.get("rrf_aggregate")
+    if aggregato and aggregato.get("consensus_out_of"):
+        consenso = (100.0 * aggregato["consensus_top3"]
+                    / aggregato["consensus_out_of"])
+        pezzi.append(_quadrante(consenso, "Recuperabilità",
+                                "consenso %d/%d"
+                                % (aggregato["consensus_top3"],
+                                   aggregato["consensus_out_of"])))
+    sem = referto.get("semantic") or {}
+    if sem.get("n_chunks"):
+        pezzi.append(_quadrante(100.0 * (sem.get("answer_shaped_ratio") or 0),
+                                "In forma di risposta",
+                                "su %d chunk" % sem["n_chunks"]))
+    if not pezzi:
+        return ""
+    return "<div class='quadranti'>%s</div>" % "".join(pezzi)
+
+
+def _legenda() -> str:
+    """La scala e' una convenzione: dichiararla evita che il colore
+    venga letto come una misura."""
+    return (
+        "<div class='legenda'>"
+        "<span><i class='pallino bad'></i>0-49</span>"
+        "<span><i class='pallino warn'></i>50-89</span>"
+        "<span><i class='pallino ok'></i>90-100</span>"
+        "<span><i class='pallino vuoto'></i>non misurato</span>"
+        "</div>"
+        "<style>.pallino.bad{background:var(--bad)}"
+        ".pallino.warn{background:var(--warn)}"
+        ".pallino.ok{background:var(--ok)}</style>")
+
+
+def _scheda_area(area: dict, referto: dict) -> str:
+    """Una scheda per area, con i rilievi sotto — come le categorie di
+    Lighthouse elencano i propri audit."""
+    if area["score"] is None:
+        voto = "<span class='muted'>%s</span>" % _stato_area(area)
+    else:
+        voto = ("<span class='%s'>%.0f<span class='muted'>/100</span></span>"
+                % (_classe(area["score"]), area["score"]))
+
+    corpo = []
+    if area["module"] == "mars_lexical":
+        corpo.append("<p class='strumento'>Classifica BM25, non un voto. "
+                     "Passaggio in testa: <code>%s</code></p>"
+                     % _e((referto.get("lexical") or {}).get("top_chunk")
+                          or "—"))
+        voto = "<span class='muted'>classifica</span>"
+    elif area["module"] == "mars_semantic":
+        sem = referto.get("semantic") or {}
+        corpo.append("<p class='strumento'>Classifica vettoriale, non un "
+                     "voto. %.0f%% di %s chunk in forma di risposta.</p>"
+                     % (100 * (sem.get("answer_shaped_ratio") or 0),
+                        sem.get("n_chunks") or 0))
+        voto = "<span class='muted'>classifica</span>"
+
+    if area.get("wcag_level") or area.get("tool"):
+        provate = area.get("pages_tested")
+        corpo.append("<p class='strumento'>%s%s%s</p>"
+                     % (_e(area.get("tool") or "?"),
+                        " · %s" % _e(area["wcag_level"])
+                        if area.get("wcag_level") else "",
+                        " · %d pagine esaminate" % provate if provate else ""))
+    if area["issues"]:
+        corpo.append("<ul class='rilievi'>%s</ul>"
+                     % "".join("<li>%s</li>" % _e(i) for i in area["issues"]))
+    elif area["score"] is not None:
+        corpo.append("<p class='nessun-rilievo'>Nessun rilievo.</p>")
+
+    return ("<div class='area'><div class='riga'><h3>%s</h3>"
+            "<span class='punteggio'>%s</span></div>%s</div>"
+            % (_e(area["label"]), voto, "".join(corpo)))
+
+
+def _sezione_rrf(referto: dict, p: List[str]) -> None:
+    aggregato = referto.get("rrf_aggregate")
+    simulazione = referto.get("rrf_simulation") or []
+    if not aggregato and not simulazione:
+        return
+    p.append("<h2>Simulazione RRF</h2>")
+    if aggregato:
+        quota = (100.0 * aggregato["consensus_top3"]
+                 / max(aggregato["consensus_out_of"], 1))
+        p.append("<div class='card'><p class='meta'>Consenso fra il "
+                 "recuperatore lessicale e quello vettoriale, aggregato su "
+                 "%d query — la misura più solida, perché un accordo su "
+                 "una sola domanda può essere un caso.</p>"
+                 "<p class='grande %s'>%d/%d</p>"
+                 % (len(simulazione), _classe(quota),
+                    aggregato["consensus_top3"],
+                    aggregato["consensus_out_of"]))
+        if aggregato.get("top_chunk"):
+            p.append("<p class='meta'>Passaggio più recuperabile:<br>"
+                     "<code>%s</code></p>" % _e(aggregato["top_chunk"]))
+        p.append("</div>")
+    if simulazione:
+        p.append("<table><tr><th>Query</th><th>Consenso</th>"
+                 "<th>Passaggio migliore</th></tr>")
+        for voce in simulazione:
+            quota = (100.0 * voce["consensus_top3"]
+                     / max(voce["consensus_out_of"], 1))
+            p.append("<tr><td><code>%s</code></td>"
+                     "<td class='num %s'>%d/%d</td><td>%s</td></tr>"
+                     % (_e(voce["query"]), _classe(quota),
+                        voce["consensus_top3"], voce["consensus_out_of"],
+                        _e(voce["top_chunk"] or "—")))
+        p.append("</table>")
+
+
+def _sezione_citabilita(referto: dict, p: List[str]) -> None:
+    cit = referto.get("citability")
+    if not cit or not cit.get("profiles"):
+        return
+    p.append("<h2>Profili di citabilità IA</h2>")
+    p.append("<p class='meta'>Mercato: %s</p><table>" % _e(cit.get("market")))
+    for assistente, valore in cit["profiles"].items():
+        barra = ("<span class='bar %s' style='width:%.0f%%'></span>"
+                 % (_classe(valore), (valore or 0)))
+        testo = ("%.1f" % valore) if valore is not None else "n/d"
+        p.append("<tr><td>%s</td><td class='num %s'>%s</td>"
+                 "<td style='width:55%%'>%s</td></tr>"
+                 % (_e(assistente), _classe(valore), testo, barra))
+    if cit.get("score") is not None:
+        p.append("<tr><td><strong>Indice composito</strong></td>"
+                 "<td class='num %s'><strong>%.1f</strong></td><td></td></tr>"
+                 % (_classe(cit["score"]), cit["score"]))
+    p.append("</table>")
+    # Il disclaimer sta subito sotto i numeri, non in fondo alla pagina:
+    # chi legge il punteggio deve leggere anche cosa non è.
+    p.append("<p class='disclaimer'>%s</p>" % _e(cit.get("disclaimer")))
+    if cit.get("issues"):
+        p.append("<ul class='rilievi'>%s</ul>"
+                 % "".join("<li>%s</li>" % _e(i) for i in cit["issues"]))
+
+
+def _sezione_llm(referto: dict, p: List[str]) -> None:
+    llm = referto.get("llm_judgement") or {}
+    if not llm.get("motivazione"):
+        return
+    p.append("<h2>Giudizio LLM</h2><div class='card'>")
+    p.append("<p class='meta'>%s · %s passaggi valutati</p>"
+             % (_e(llm.get("model")), _e(llm.get("chunk_valutati"))))
+    if llm.get("score") is not None:
+        p.append("<p class='grande %s'>%s<span class='muted'>/100</span></p>"
+                 % (_classe(llm["score"]), _e(llm["score"])))
+    p.append("<p>%s</p>" % _e(llm["motivazione"]))
+    if llm.get("passaggio_migliore"):
+        p.append("<p class='meta'>Passaggio migliore: <code>%s</code></p>"
+                 % _e(llm["passaggio_migliore"]))
+    for titolo, chiave in (("Punti di forza", "punti_forti"),
+                           ("Da migliorare", "punti_deboli")):
+        voci = llm.get(chiave) or []
+        if voci:
+            p.append("<p class='strumento'><strong>%s</strong></p>"
+                     "<ul class='rilievi'>%s</ul>"
+                     % (titolo,
+                        "".join("<li>%s</li>" % _e(v) for v in voci)))
+    p.append("</div>")
+
+
 def render_html(referto: dict) -> str:
-    """Referto HTML autoconsistente: nessuna CDN, nessuno script."""
+    """Referto HTML nello stile di Lighthouse, esteso alle nostre aree.
+
+    Autoconsistente per costruzione: CSS incorporato, favicon come data
+    URI, quadranti in SVG calcolato qui. Nessuna CDN e NESSUNO SCRIPT —
+    un referto deve potersi aprire fra due anni, da un archivio, senza
+    rete.
+    """
     p: List[str] = []
     icona = _favicon_data_uri()
     p.append("<!doctype html><html lang='it'><head><meta charset='utf-8'>")
@@ -321,106 +626,24 @@ def render_html(referto: dict) -> str:
         p.append("<link rel='icon' href='%s'>" % icona)
     p.append("<style>%s</style></head><body><main>" % CSS)
 
-    p.append("<h1>MARS Beacon</h1>")
-    p.append("<p class='meta'><code>%s</code><br>%s · %s pagine · "
-             "%s chunk · mercato %s · v%s</p>"
-             % (_e(referto["url"]), _e(referto["generated_at"]),
-                referto["pages_crawled"], referto["chunks"],
+    p.append("<header class='testata'><h1>MARS Beacon</h1>")
+    p.append("<p class='meta'><code>%s</code></p>" % _e(referto["url"]))
+    p.append("<p class='meta'>%s · %s pagine trovate via %s · %s chunk · "
+             "mercato %s · v%s</p></header>"
+             % (_e(referto["generated_at"]), referto["pages_crawled"],
+                _e(referto.get("discovery")), referto["chunks"],
                 _e(referto["market"]), _e(referto["version"])))
-    p.append("<p class='meta'>Pagine trovate via <strong>%s</strong>.</p>"
-             % _e(referto.get("discovery")))
 
-    p.append("<h2>Aree</h2><table><tr><th>Area</th><th>Punteggio</th>"
-             "<th>Rilievi</th></tr>")
+    p.append(_fascia_quadranti(referto))
+    p.append(_legenda())
+
+    p.append("<h2>Aree</h2>")
     for area in referto["areas"]:
-        if area["score"] is None:
-            stato = ("disattivato" if area["status"] == "disabled"
-                     else "non misurato")
-            voto = "<span class='muted'>%s</span>" % stato
-        else:
-            voto = ("<span class='%s'>%.0f/100</span>"
-                    % (_classe(area["score"]), area["score"]))
-        rilievi = ("<ul>%s</ul>"
-                   % "".join("<li>%s</li>" % _e(i) for i in area["issues"])
-                   if area["issues"] else "<span class='muted'>—</span>")
-        if area.get("wcag_level"):
-            provate = area.get("pages_tested")
-            rilievi = ("<p class='meta'>%s · %s%s</p>%s"
-                       % (_e(area.get("tool")), _e(area["wcag_level"]),
-                          " su %d pagine" % provate if provate else "",
-                          rilievi))
-        p.append("<tr><td>%s</td><td class='num'>%s</td><td>%s</td></tr>"
-                 % (_e(area["label"]), voto, rilievi))
-    p.append("</table>")
+        p.append(_scheda_area(area, referto))
 
-    aggregato = referto.get("rrf_aggregate")
-    if aggregato:
-        p.append("<h2>Simulazione RRF</h2>")
-        p.append("<div class='card'><p>Consenso aggregato su %d query: "
-                 "<strong class='%s'>%d/%d</strong></p>"
-                 % (len(referto["rrf_simulation"]),
-                    _classe(100 * aggregato["consensus_top3"]
-                            / max(aggregato["consensus_out_of"], 1)),
-                    aggregato["consensus_top3"],
-                    aggregato["consensus_out_of"]))
-        if aggregato["top_chunk"]:
-            p.append("<p>Passaggio più recuperabile:<br><code>%s</code></p>"
-                     % _e(aggregato["top_chunk"]))
-        p.append("</div>")
-    if referto["rrf_simulation"]:
-        p.append("<table><tr><th>Query</th><th>Consenso</th>"
-                 "<th>Passaggio migliore</th></tr>")
-        for voce in referto["rrf_simulation"]:
-            p.append("<tr><td><code>%s</code></td><td class='num'>%d/%d</td>"
-                     "<td>%s</td></tr>"
-                     % (_e(voce["query"]), voce["consensus_top3"],
-                        voce["consensus_out_of"],
-                        _e(voce["top_chunk"] or "—")))
-        p.append("</table>")
-
-    cit = referto.get("citability")
-    if cit and cit.get("profiles"):
-        p.append("<h2>Profili di citabilità IA</h2>")
-        p.append("<p class='meta'>Mercato: %s</p><table>"
-                 % _e(cit.get("market")))
-        for assistente, valore in cit["profiles"].items():
-            larghezza = (valore or 0) * 2
-            barra = ("<span class='bar %s' style='width:%.0fpx'></span>"
-                     % (_classe(valore), larghezza))
-            testo = ("%.1f" % valore) if valore is not None else "n/d"
-            p.append("<tr><td>%s</td><td class='num %s'>%s</td><td>%s</td>"
-                     "</tr>" % (_e(assistente), _classe(valore), testo,
-                                barra))
-        if cit.get("score") is not None:
-            p.append("<tr><td><strong>Indice composito</strong></td>"
-                     "<td class='num %s'><strong>%.1f</strong></td><td></td>"
-                     "</tr>" % (_classe(cit["score"]), cit["score"]))
-        p.append("</table>")
-        # Il disclaimer sta subito sotto i numeri, non in fondo alla
-        # pagina: chi legge il punteggio deve leggere anche cosa non è.
-        p.append("<p class='disclaimer'>%s</p>" % _e(cit.get("disclaimer")))
-        if cit.get("issues"):
-            p.append("<ul>%s</ul>"
-                     % "".join("<li>%s</li>" % _e(i) for i in cit["issues"]))
-
-    llm = referto.get("llm_judgement") or {}
-    if llm.get("motivazione"):
-        p.append("<h2>Giudizio LLM</h2><div class='card'>")
-        p.append("<p class='meta'>%s · %s passaggi valutati</p>"
-                 % (_e(llm.get("model")), _e(llm.get("chunk_valutati"))))
-        if llm.get("score") is not None:
-            p.append("<p class='%s'><strong>Citabilità stimata: %s/100"
-                     "</strong></p>" % (_classe(llm["score"]),
-                                        _e(llm["score"])))
-        p.append("<p>%s</p>" % _e(llm["motivazione"]))
-        for titolo, chiave in (("Punti di forza", "punti_forti"),
-                               ("Da migliorare", "punti_deboli")):
-            voci = llm.get(chiave) or []
-            if voci:
-                p.append("<p><strong>%s</strong></p><ul>%s</ul>"
-                         % (titolo,
-                            "".join("<li>%s</li>" % _e(v) for v in voci)))
-        p.append("</div>")
+    _sezione_rrf(referto, p)
+    _sezione_citabilita(referto, p)
+    _sezione_llm(referto, p)
 
     if referto["robots_ignored"] or referto["skipped"]:
         p.append("<h2>Cosa non è stato guardato</h2>")
@@ -428,7 +651,8 @@ def render_html(referto: dict) -> str:
             p.append("<p class='bad'>robots.txt ignorato per dichiarazione "
                      "di proprietà del dominio.</p>")
         if referto["skipped"]:
-            p.append("<p>%d URL saltati:</p><ul>%s</ul>"
+            p.append("<div class='card'><p class='meta'>%d URL saltati:</p>"
+                     "<ul class='rilievi'>%s</ul></div>"
                      % (len(referto["skipped"]),
                         "".join("<li>%s</li>" % _e(m)
                                 for m in referto["skipped"])))

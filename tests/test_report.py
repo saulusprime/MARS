@@ -13,8 +13,8 @@ import json
 import pytest
 
 from mars_core import load_queries
-from mars_report import (RENDERERS, build_report, render_html, render_json,
-                         render_text)
+from mars_report import (RENDERERS, _classe, _quadrante, build_report,
+                         render_html, render_json, render_text)
 
 
 @pytest.fixture
@@ -170,3 +170,72 @@ def test_html_neutralizza_il_markup_del_sito():
 def test_referto_vuoto_non_esplode(contesto):
     for renderer in RENDERERS.values():
         assert renderer(build_report({}, contesto))
+
+
+# ----------------------------------------------------------------------
+# La vista HTML in stile Lighthouse
+# ----------------------------------------------------------------------
+
+def test_html_ha_un_quadrante_per_area_con_punteggio(referto):
+    """La fascia di quadranti e' la firma visiva di Lighthouse: deve
+    esserci, e i quadranti si disegnano in SVG perche' il referto non
+    puo' contenere script."""
+    uscita = render_html(referto)
+    assert uscita.count("<svg viewBox='0 0 120 120'") >= 5
+    assert "<script" not in uscita
+
+
+@pytest.mark.parametrize("valore, arco, tratteggio, centro", [
+    (None, 0, True, "—"),     # non misurato: anello vuoto, nessun numero
+    (0, 0, False, "0"),       # misurato zero: anello pieno, numero
+    (55, 1, False, "55"),
+    (100, 1, False, "100"),
+])
+def test_quadrante_distingue_zero_da_non_misurato(valore, arco, tratteggio,
+                                                  centro):
+    """Il cuore dell'onestà del referto, in forma grafica.
+
+    Un'area non misurata non deve somigliare a un'area che ha preso
+    zero: la prima ha l'anello tratteggiato e un trattino, la seconda
+    un anello pieno e lo zero scritto. E lo zero non deve disegnare
+    alcun arco — con stroke-linecap arrotondato lascerebbe un puntino
+    colorato che si legge come "poco" invece che come "niente".
+    """
+    disegno = _quadrante(valore, "Area")
+    assert disegno.count("stroke='currentColor'") == arco
+    assert ("stroke-dasharray='4 6'" in disegno) is tratteggio
+    assert ">%s</text>" % centro in disegno
+
+
+@pytest.mark.parametrize("valore, classe", [
+    (100, "ok"), (90, "ok"), (89, "warn"), (50, "warn"),
+    (49, "bad"), (0, "bad"), (None, "muted"),
+])
+def test_scala_dei_colori_e_quella_di_lighthouse(valore, classe):
+    """0-49 rosso, 50-89 arancio, 90-100 verde: si adotta la scala di
+    Lighthouse perche' chi legge i due referti non debba tradurre."""
+    assert _classe(valore) == classe
+
+
+def test_html_non_finge_un_voto_per_lessicale_e_semantica(referto):
+    """Quelle due aree producono classifiche, non voti: mettere loro
+    uno zero — o un quadrante qualunque — sarebbe inventare una misura."""
+    uscita = render_html(referto)
+    assert uscita.count(">classifica<") == 2
+    for atteso in ("Classifica BM25, non un voto",
+                   "Classifica vettoriale, non un voto"):
+        assert atteso in uscita
+
+
+def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):
+    uscita = render_html(referto)
+    assert "non misurato" in uscita        # mars_seo, unavailable
+    assert "Cosa non è stato guardato" in uscita
+    assert "vietato da robots.txt" in uscita
+
+
+def test_html_mostra_la_legenda_della_scala(referto):
+    """La scala è una convenzione, non una misura: va dichiarata."""
+    uscita = render_html(referto)
+    for fascia in ("0-49", "50-89", "90-100", "non misurato"):
+        assert fascia in uscita

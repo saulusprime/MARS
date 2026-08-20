@@ -149,8 +149,16 @@ un sito con i tre header presenti e daemon ZAP assente stampa `7. Sicurezza :
 Contraddice l'onestà metodologica (principio 5) e la distinzione `surface` /
 misura reale che [AS-IS.md](AS-IS.md) (R4, C9) ha costruito nei dati.
 
-- [ ] Rendere `status`/`tool` nelle viste anche per le aree con punteggio,
-      così un `surface 100/100` si legga per quello che è.
+**Stato aggiornato dopo il rifacimento del referto HTML (2026-08-20):** la
+vista HTML mostra ora `tool` per **ogni** area, non più solo per la WCAG —
+quindi la sicurezza dichiara `HTTP-Headers` o `ZAP (attiva)` sotto il titolo.
+Resta però il punto centrale: **`status` non compare ancora**, quindi un
+`surface` a 100/100 continua a leggersi come un WAPT completo, e `render_text`
+è invariato. La voce vale ancora, ridotta a metà.
+
+- [ ] Rendere `status` nelle viste (HTML e testo) anche per le aree con
+      punteggio, così un `surface 100/100` si legga per quello che è.
+- [x] `tool` mostrato per ogni area nella vista HTML.
 
 ### R22 — 🟡 MEDIO: l'esecutore di moduli non è robusto ai plugin che rompono
 Tre difetti della stessa famiglia:
@@ -425,9 +433,16 @@ già in `requirements.txt`) li renderebbe ispezionabili e regolabili senza
 toccare il codice — rafforzando il principio 6.
 
 ### I9 — Report HTML con visualizzazione RRF
-Se si fa **C4**, il grafico più espressivo è il *rank shift*: due colonne
-(BM25, vettoriale) collegate da linee ai rispettivi ranghi post-fusione.
-Mostra a colpo d'occhio il consenso. Da fare in SVG inline, senza librerie.
+Il grafico più espressivo è il *rank shift*: due colonne (BM25, vettoriale)
+collegate da linee ai rispettivi ranghi post-fusione. Mostra a colpo d'occhio
+il consenso. Da fare in SVG inline, senza librerie.
+
+*Aggiornata il 2026-08-20:* il rifacimento in stile Lighthouse ha portato nel
+referto una sezione **Simulazione RRF** con il consenso aggregato, la tabella
+per query e il passaggio più recuperabile, più un quadrante *Recuperabilità* —
+e ha dimostrato che l'SVG inline calcolato in Python basta, senza script né
+librerie. Il *rank shift* vero e proprio resta però da fare: oggi si legge
+**quanto** i due recuperatori concordano, non **su cosa** divergono.
 
 ### I10 — Modulo performance (Core Web Vitals)
 Lighthouse viene già invocato per la categoria `seo`

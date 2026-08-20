@@ -29,6 +29,7 @@
 | R16 | Mojibake silenzioso sui siti UTF-8 senza charset | 2026-08-20 |
 | R17 | I redirect non venivano rivalidati | 2026-08-20 |
 | R18 | La punteggiatura escludeva le parole da BM25 | 2026-08-20 |
+| — | Referto HTML nello stile di Lighthouse, esteso alle nostre aree | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1192,6 +1193,75 @@ sembrava corretto.
 - [x] Punteggiatura per categoria Unicode, simboli preservati.
 - [x] Scelta della granularità motivata da una misura, non da un'impressione.
 - [x] Limite su `#` registrato invece che nascosto.
+
+### Referto HTML nello stile di Lighthouse (2026-08-20)
+Richiesta dell'autore: rendere il referto simile a quello di Lighthouse,
+estendendolo alle aree di MARS. La vista HTML è stata rifatta; **testo e JSON
+non sono stati toccati**, e la struttura canonica di `build_report()` nemmeno —
+è il principio di **C4**, il dato prima della presentazione, che qui si paga da
+solo: cambiare l'aspetto ha significato riscrivere un solo renderer.
+
+**Cosa c'è ora.** Una fascia di **quadranti circolari** in testa, la firma
+visiva di Lighthouse, uno per area; la sua **scala di colori** (0-49 rosso,
+50-89 arancio, 90-100 verde) con la legenda dichiarata; una scheda per area con
+i rilievi elencati sotto; poi le sezioni che Lighthouse non ha — **Simulazione
+RRF** con consenso aggregato e tabella per query, **Profili di citabilità IA**
+col disclaimer sotto i numeri, **Giudizio LLM**, e **Cosa non è stato
+guardato**.
+
+**I quadranti sono SVG calcolato in Python**, con l'arco ottenuto da
+`stroke-dasharray` sulla circonferenza. Nessuno script, nessuna libreria:
+il referto resta un file solo, apribile fra due anni da un archivio senza rete.
+È anche la prova che l'SVG inline basta, che **I9** dava per assunto.
+
+**Tre scelte di onestà, che sono la ragione per cui non basta copiare
+Lighthouse.**
+
+1. **Un'area non misurata non è un'area che ha preso zero.** Un valore assente
+   disegna un anello **tratteggiato** con un trattino al centro, non un
+   quadrante a zero. È la distinzione introdotta da **R4** portata in forma
+   grafica.
+2. **Zero non disegna alcun arco.** Con `stroke-linecap` arrotondato un valore
+   di zero lasciava comunque un **puntino colorato** — visibile nella prima
+   resa fotografata — che si legge come «poco» invece che come «niente».
+   Trovato guardando lo screenshot, non leggendo il codice.
+3. **Lessicale e Semantica non ricevono un voto finto.** Producono classifiche,
+   non punteggi: le loro schede dicono *«classifica BM25, non un voto»* e al
+   loro posto la fascia mostra i due segnali **derivati** che C1 già calcola —
+   consenso RRF e contenuto in forma di risposta — etichettati come tali.
+
+**La scala cambia significato, e va detto.** MARS usava 80/50, Lighthouse usa
+90/50: lo stesso punteggio può ora avere un colore diverso rispetto a un
+referto generato prima. Il numero non cambia, la convenzione sì, ed è
+dichiarata nella legenda proprio perché il colore non venga letto come una
+misura.
+
+**Verificato guardando, non deducendo.** Il referto è stato generato su un
+sito di prova reale — con Lighthouse davvero eseguito, axe-core davvero
+eseguito — e **fotografato con Playwright** in tema chiaro e scuro, poi
+ispezionato. È così che sono emersi il puntino dello zero e alcuni testi
+rimasti con gli apostrofi ASCII (`piu'`, `perche'`) dove il resto della pagina
+usa gli accenti veri. Fotografato anche il caso **degradato** — Lighthouse
+assente, nessuna pagina per axe, ZAP assente — perché è lì che si vede se la
+distinzione «non misurato» regge.
+
+**Le invarianti di onestà sono protette da test, verificati per mutazione:**
+
+```
+1. "non misurato" disegnato come uno zero          -> 8 falliti
+2. soglie riportate a quelle vecchie (80/50)       -> 1 fallito
+3. zero disegna comunque un arco (puntino spurio)  -> 1 fallito
+4. lessicale e semantica con un voto finto (0/100) -> 1 fallito
+```
+
+I test preesistenti su autoconsistenza, tema scuro ed escape del markup ostile
+sono rimasti verdi senza modifiche: erano scritti sul comportamento e non
+sull'aspetto, e hanno retto a un rifacimento completo della vista.
+
+**Chiude metà di R21.** La vista HTML mostra ora `tool` per **ogni** area, non
+più solo per la WCAG, quindi la sicurezza dichiara `HTTP-Headers` o
+`ZAP (attiva)`. Ma `status` continua a non comparire: un `surface` a 100/100 si
+legge ancora come un WAPT completo. R21 resta aperta, ridotta a metà, e lo dice.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

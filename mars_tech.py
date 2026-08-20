@@ -9,7 +9,8 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+import re
+from typing import Dict, List, Set, Tuple
 from urllib.robotparser import RobotFileParser
 
 from mars_core import USER_AGENT, norm_host
@@ -32,6 +33,20 @@ CRAWLER_IA = {
     "Amazonbot": "Amazon",
     "meta-externalagent": "Meta",
 }
+
+# Direttive che escludono la pagina dagli indici, e direttive che
+# impediscono di seguirne i link. `none` sta in entrambe: per Google e
+# Bing equivale a `noindex, nofollow`.
+#
+# `all` — il default esplicito — non compare di proposito: non e' un
+# rilievo, e non annulla nulla. Quando le direttive si contraddicono
+# (`all, noindex`) vince la piu' restrittiva, ed e' esattamente cio'
+# che fa l'intersezione con questi insiemi.
+DIRETTIVE_NOINDEX = frozenset({"noindex", "none"})
+DIRETTIVE_NOFOLLOW = frozenset({"nofollow", "none"})
+
+# Le direttive sono una lista separata da virgole, con spazi liberi.
+_SEPARATORI = re.compile(r"[,\s]+")
 
 # Penalita' per gravita'. Sostituiscono il vecchio 100 - len(issues)*15,
 # che dava lo stesso peso a un noindex sull'intero sito e a un lastmod
@@ -105,6 +120,25 @@ def controlla_sitemap(context: dict) -> List[Tuple[str, str]]:
     return rilievi
 
 
+def direttive_robots(pagina: dict) -> Set[str]:
+    """Direttive robots di una pagina — meta e header insieme, come token.
+
+    Il meta `robots` e l'header `X-Robots-Tag` condividono la stessa
+    grammatica, quindi si leggono insieme. Si tokenizza invece di
+    cercare sottostringhe perche' cosi' l'elenco delle direttive
+    riconosciute e' esplicito ed elencabile: `none` significa
+    `noindex, nofollow` senza contenere "noindex", e cercare quella
+    sottostringa bastava a mancare un sito interamente de-indicizzato.
+
+    L'eventuale prefisso per agente dell'X-Robots-Tag
+    (`googlebot: noindex`) resta fra i token e non nasconde la
+    direttiva, che viene contata come prima.
+    """
+    grezzo = "%s,%s" % (pagina.get("meta_robots") or "",
+                        pagina.get("x_robots_tag") or "")
+    return {t for t in _SEPARATORI.split(grezzo.lower()) if t}
+
+
 def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
     """meta robots, X-Robots-Tag e canonical, pagina per pagina.
 
@@ -115,12 +149,13 @@ def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
     pages = context.get("pages") or {}
     if not pages:
         return []
-    noindex, senza_canonical, canonical_altrove = [], [], []
+    noindex, nofollow, senza_canonical, canonical_altrove = [], [], [], []
     for url, dati in pages.items():
-        direttive = "%s %s" % (dati.get("meta_robots") or "",
-                               dati.get("x_robots_tag") or "")
-        if "noindex" in direttive:
+        direttive = direttive_robots(dati)
+        if direttive & DIRETTIVE_NOINDEX:
             noindex.append(url)
+        if direttive & DIRETTIVE_NOFOLLOW:
+            nofollow.append(url)
         canonical = (dati.get("canonical") or "").strip()
         if not canonical:
             senza_canonical.append(url)
@@ -131,13 +166,24 @@ def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
     if noindex:
         gravita = "critico" if len(noindex) == len(pages) else "grave"
         rilievi.append(_rilievo(
-            gravita, "%d/%d pagine con 'noindex' (meta robots o "
-                     "X-Robots-Tag)" % (len(noindex), len(pages))))
+            gravita, "%d/%d pagine escluse dagli indici (noindex o none, "
+                     "in meta robots o X-Robots-Tag)"
+                     % (len(noindex), len(pages))))
     if canonical_altrove:
         rilievi.append(_rilievo(
             "grave", "%d pagine con canonical verso un altro host: il "
                      "contenuto viene attribuito altrove"
                      % len(canonical_altrove)))
+    if nofollow:
+        # Un 'nofollow' non nasconde la pagina: impedisce di raggiungere
+        # le altre partendo da li'. Su una pagina sola e' una scelta
+        # legittima e frequente; quando e' la regola del sito, la
+        # scoperta dipende interamente dalla sitemap. Da qui le due
+        # gravita'.
+        gravita = "medio" if len(nofollow) == len(pages) else "lieve"
+        rilievi.append(_rilievo(
+            gravita, "%d/%d pagine non fanno seguire i propri link "
+                     "(nofollow o none)" % (len(nofollow), len(pages))))
     if senza_canonical:
         rilievi.append(_rilievo(
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"

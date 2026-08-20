@@ -1900,6 +1900,115 @@ funzionava.
 - [x] `<loc>` relativi risolti sulla sitemap che li contiene.
 - [x] `found` dallo status, non dal contenuto.
 
+### R25 — ✅ RISOLTO (2026-08-20): la direttiva robots `none` non veniva vista
+`controlla_indicizzabilita` cercava la sottostringa `noindex` dentro la
+concatenazione di `meta_robots` e `x_robots_tag`. La direttiva standard `none`
+— che per Google e Bing significa **esattamente** `noindex, nofollow` — non la
+contiene, quindi passava inosservata.
+
+**Riprodotto.** Un sito di una pagina, tutto uguale tranne la direttiva:
+
+```
+direttiva                       score  rilievi sull'indicizzabilita'
+------------------------------------------------------------------------
+meta robots: noindex               57  [critico] 1/1 pagine con 'noindex'
+meta robots: none                  97  NESSUNO
+meta robots: noindex,nofollow      57  [critico] 1/1 pagine con 'noindex'
+meta robots: (nessuno)             97  NESSUNO
+X-Robots-Tag: none                 97  NESSUNO
+```
+
+Non è che il rilievo fosse più mite: **non c'era**. `none` e "nessuna
+direttiva" ricevevano lo stesso identico giudizio, 97 su 100, mentre `none` e
+`noindex, nofollow` — la stessa direttiva in due scritture — ne ricevevano due
+distanti 40 punti. Un sito interamente escluso dagli indici usciva dall'area 1
+senza un rilievo.
+
+**Risoluzione applicata.** Il difetto non era l'assenza di `none` dalla
+stringa cercata: era cercare sottostringhe. Le direttive robots sono una lista
+separata da virgole, e ora vengono lette come tale.
+
+`direttive_robots(pagina)` unisce meta e header — hanno la stessa grammatica —
+e restituisce un **insieme di token**, separando su virgole *e* spazi (il
+crawler unisce con uno spazio i `content` di più `<meta>`, per esempio
+`robots` e `googlebot`). Il giudizio diventa un'intersezione con due insiemi
+dichiarati:
+
+```python
+DIRETTIVE_NOINDEX  = frozenset({"noindex", "none"})
+DIRETTIVE_NOFOLLOW = frozenset({"nofollow", "none"})
+```
+
+Il guadagno non è aver aggiunto una parola, è che l'elenco delle direttive
+riconosciute ora è **esplicito ed elencabile**: aggiungerne una è una domanda
+sull'insieme, non una scommessa su una sottostringa. Ed è la forma in cui R36
+si innesterà senza toccare il parser.
+
+**`all` non compare in nessuno dei due insiemi, di proposito**, ed è annotato
+nel codice perché nessuno lo "corregga": è il default esplicito, non un
+rilievo, e non deve annullare nulla. Quando le direttive si contraddicono
+(`all, noindex`) vince la più restrittiva — che è precisamente ciò che fa
+un'intersezione.
+
+**`nofollow` riceve un rilievo proprio, graduato.** Il TO-DO chiedeva di
+valutarlo. Non nasconde la pagina: impedisce di raggiungere le altre partendo
+da lì. Su una pagina sola è una scelta legittima e frequente, quindi `lieve`;
+quando è la regola del sito la scoperta dipende interamente dalla sitemap,
+quindi `medio`. Le due gravità sono una scelta editoriale, dichiarata nel
+codice accanto alla riga che le assegna.
+
+**Verificato.** Dopo la correzione, con lo stesso banco:
+
+```
+meta robots: noindex               57  [critico] escluse dagli indici
+meta robots: none                  49  [critico] escluse dagli indici
+                                       [medio]   non fanno seguire i link
+meta robots: noindex,nofollow      49  [critico] + [medio]      <- identico
+meta robots: nofollow              89  [medio]   non fanno seguire i link
+meta robots: all                   97  NESSUNO
+meta robots: (nessuno)             97  NESSUNO
+X-Robots-Tag: none                 49  [critico] + [medio]
+```
+
+Le due scritture della stessa direttiva ora coincidono riga per riga. `all` e
+"nessuna direttiva" restano a 97: nessun falso positivo introdotto.
+
+**La prova che conta: reintrodurre il difetto.** Dieci mutazioni, tutte
+rilevate — `none` tolto da ciascuno dei due insiemi, il separatore ridotto
+alle sole virgole e ai soli spazi, l'intersezione trasformata in
+sottoinsieme, la gravità del `nofollow` resa fissa, l'X-Robots-Tag ignorato,
+il `.lower()` rimosso, il blocco `nofollow` zittito, e il ritorno al vecchio
+confronto per sottostringa.
+
+Due cose che la batteria ha insegnato, e che valgono oltre questa voce:
+
+- **Il `.lower()` non era coperto da nulla.** Me ne sono accorto *progettando*
+  la mutazione, non eseguendola: tutti i dati di prova erano già minuscoli.
+  Il crawler abbassa già le direttive, ma `direttive_robots` riceve un dict
+  che attraversa il confine dei plugin e non può contarci — e le direttive
+  robots sono insensibili al maiuscolo per specifica. È ora fissato da
+  un'asserzione con `NONE` maiuscolo, l'unica che quella mutazione fa cadere.
+- **La batteria ha dichiarato dieci mutazioni su dieci "non rilevate", con la
+  suite rossa.** Cercava la parola `failed` nell'output di pytest, ma
+  `setup.cfg` ha già `addopts = -q`: il mio `-q` sulla riga di comando faceva
+  `-qq`, che **sopprime la riga di riepilogo finale**. Il verdetto viene ora
+  dal codice di uscita. Un banco di prova che non sa distinguere verde da
+  rosso avrebbe promosso qualunque cosa.
+
+**Due rilievi nuovi, dalla misura, aperti nel TO-DO come R36 e R37.**
+Guardando le direttive rimaste fuori: `nosnippet` e `max-snippet:0` non
+producono nulla, e sono le direttive che governano l'**estrazione del testo**
+— cioè il meccanismo stesso con cui un assistente cita una pagina. Una pagina
+con `nosnippet` è regolarmente indicizzata e non può essere citata: per
+questo progetto è più rilevante di `noindex`, e vale la voce a sé. Il prefisso
+per agente dell'X-Robots-Tag (`googlebot: noindex`) resta invece contato come
+se valesse per tutti — comportamento ereditato, non introdotto qui.
+
+- [x] `none` trattata come `noindex` **e** come `nofollow`.
+- [x] Direttive lette come token, non cercate come sottostringhe.
+- [x] `all` riconosciuta come default: nessun rilievo, nessun annullamento.
+- [x] `nofollow` con rilievo proprio, graduato fra pagina singola e sito.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R24 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R25-R35.
+> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R25 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R26-R37.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -102,22 +102,12 @@ caduto, e ranghi a informazione zero) e **R24** (casi limite del crawler sugli
 URL), tutte il 2026-08-20: difetto, soluzione e verifiche in
 [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R25-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R26-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R25 — 🟡 MEDIO: `mars_tech` non rileva la direttiva robots `none`
-`controlla_indicizzabilita` ([mars_tech.py:122](mars_tech.py#L122)) cerca la sola
-sottostringa `noindex`. La direttiva standard `none` (equivalente a
-`noindex, nofollow` per Google e Bing) non la contiene: un sito con
-`<meta name="robots" content="none">` o `X-Robots-Tag: none` è completamente
-de-indicizzato ma l'area 1 non emette alcun rilievo e il punteggio resta intatto.
-Riprodotto.
-
-- [ ] Trattare `none` come `noindex` (e valutare `all`/`nofollow` per completezza).
 
 ### R26 — 🟡 MEDIO: `mars_wcag`, tre difetti minori raggruppati
 - **`alt=""` contato come violazione 1.1.1.** Il filtro `not i.get("alt")`
@@ -319,6 +309,56 @@ che non riguarda il sito.
 La correzione probabile è una riga (indicizzare `heading + testo` anche nel
 vettoriale), ma **cambia tutti i punteggi vettoriali**: va misurata prima e
 dopo su un sito reale, non applicata a intuito.
+
+### R36 — 🟡 MEDIO: `nosnippet` è invisibile, ed è la direttiva che conta di più
+*(trovata misurando, chiudendo R25 il 2026-08-20)*
+
+`direttive_robots()` ([mars_tech.py:123](mars_tech.py#L123)) legge ora tutte le
+direttive, ma `controlla_indicizzabilita` ne giudica due: `noindex` e
+`nofollow`. Restano mute proprio quelle che governano **l'estrazione del
+testo**, cioè il meccanismo con cui un assistente cita una pagina. Misurato,
+contro un riferimento senza direttive che vale 94:
+
+| direttiva | punteggio | rilievo |
+|---|---|---|
+| `nosnippet` | 94 | nessuno |
+| `max-snippet:0` | 94 | nessuno |
+| `noarchive` | 94 | nessuno |
+| `unavailable_after: 2020-01-01` | 94 | nessuno |
+
+Una pagina con `nosnippet` è regolarmente indicizzata e **non può essere
+citata**: nessun frammento del suo testo può comparire in una risposta. Per uno
+strumento che misura la citabilità è la direttiva più rilevante delle tre, e
+oggi non produce nulla. `unavailable_after` scaduto equivale a `noindex`, ma
+richiede di confrontare una data.
+
+- [ ] Rilievo per `nosnippet` / `max-snippet:0` (gravità alta: colpisce
+      direttamente la citabilità, che è l'oggetto del progetto).
+- [ ] Valutare `noarchive` (lieve) e `unavailable_after` scaduto (come
+      `noindex`, previo confronto di date).
+
+### R37 — 🟢 LIEVE: il prefisso per agente dell'X-Robots-Tag viene ignorato
+*(trovata misurando, chiudendo R25 il 2026-08-20)*
+
+`X-Robots-Tag` ammette un prefisso che limita la direttiva a un solo crawler:
+`X-Robots-Tag: googlebot: noindex`. `direttive_robots()` lascia il prefisso fra
+i token e la direttiva viene contata come se valesse per tutti — comportamento
+ereditato dalla ricerca per sottostringa, non introdotto da R25. Misurato:
+
+```
+X-Robots-Tag: noindex             -> 54  [critico] 1/1 pagine escluse dagli indici
+X-Robots-Tag: googlebot: noindex  -> 54  [critico] 1/1 pagine escluse dagli indici
+X-Robots-Tag: gptbot: noindex     -> 54  [critico] 1/1 pagine escluse dagli indici
+```
+
+I tre casi sono diversi e ricevono lo stesso giudizio. Il secondo esclude
+Google ma **non** GPTBot, ClaudeBot o PerplexityBot: per la citabilità IA è
+molto meno grave del primo. Il terzo è invece mirato esattamente ai crawler
+che l'area 1 già enumera in `CRAWLER_IA`, e meriterebbe di essere segnalato
+per nome.
+
+- [ ] Separare il prefisso per agente e graduare la gravità: tutti i crawler,
+      solo i motori tradizionali, o proprio quelli IA.
 
 ---
 

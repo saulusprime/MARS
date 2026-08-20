@@ -96,6 +96,90 @@ def test_tech_noindex_dal_meta_e_dall_header():
         assert esito["findings_by_severity"].get("critico") == 1
 
 
+def test_tech_none_equivale_a_noindex_nofollow():
+    """Regressione R25: la ricerca della sottostringa 'noindex' mancava
+    `none`, che per Google e Bing significa esattamente
+    `noindex, nofollow`. Un sito interamente de-indicizzato prendeva 97
+    su 100, lo stesso di un sito perfettamente aperto.
+
+    L'asserzione forte e' l'uguaglianza fra i due sinonimi: due
+    scritture della stessa direttiva devono ricevere lo stesso
+    giudizio, non solo un giudizio qualsiasi."""
+    compatto = mars_tech.audit(_contesto_tech(meta_robots="none"))
+    esteso = mars_tech.audit(_contesto_tech(meta_robots="noindex, nofollow"))
+    aperto = mars_tech.audit(_contesto_tech())
+
+    assert compatto["issues"] == esteso["issues"]
+    assert compatto["score"] == esteso["score"]
+    assert compatto["findings_by_severity"].get("critico") == 1
+    assert aperto["score"] - compatto["score"] >= 40
+
+    # E dall'header, dove nessuno la vede guardando il DOM.
+    header = mars_tech.audit(_contesto_tech(x_robots_tag="none"))
+    assert header["issues"] == esteso["issues"]
+
+    # Per specifica le direttive sono insensibili al maiuscolo. Oggi il
+    # crawler le abbassa gia' lui, ma il `context` e' un dict che
+    # attraversa il confine dei plugin: la funzione non puo' contarci.
+    urlato = mars_tech.audit(_contesto_tech(meta_robots="NONE"))
+    assert urlato["issues"] == esteso["issues"]
+
+
+def test_tech_all_non_e_una_restrizione():
+    """`all` e' il default esplicito: non e' un rilievo, e non annulla
+    nulla. Fra direttive in conflitto vince la piu' restrittiva."""
+    esplicito = mars_tech.audit(_contesto_tech(meta_robots="all"))
+    muto = mars_tech.audit(_contesto_tech())
+    conflitto = mars_tech.audit(_contesto_tech(meta_robots="all, noindex"))
+
+    assert esplicito["score"] == muto["score"]
+    assert esplicito["issues"] == muto["issues"]
+    assert not any("indici" in i or "seguire" in i
+                   for i in esplicito["issues"])
+    assert conflitto["findings_by_severity"].get("critico") == 1
+
+
+def test_tech_nofollow_su_tutto_il_sito_pesa_piu_che_su_una_pagina():
+    """Un `nofollow` su una pagina e' una scelta legittima; su tutte,
+    la scoperta dipende interamente dalla sitemap.
+
+    Le due pagine sono ordinate con quella *senza* nofollow per prima,
+    cosi' il test non passerebbe per l'ordine naturale del dict."""
+    def sito(*direttive):
+        ctx = _contesto_tech()
+        ctx["pages"] = {
+            "https://esempio.test/p%d" % n: pagina(meta_robots=d)
+            for n, d in enumerate(direttive)}
+        return mars_tech.audit(ctx)
+
+    parziale = sito("", "nofollow")
+    totale = sito("nofollow", "nofollow")
+
+    assert parziale["findings_by_severity"].get("lieve")
+    assert totale["findings_by_severity"].get("medio")
+    assert parziale["score"] > totale["score"]
+    assert "1/2" in "".join(parziale["issues"])
+    assert "2/2" in "".join(totale["issues"])
+
+
+def test_tech_direttive_da_piu_meta_tag():
+    """Il crawler unisce con uno spazio i `content` di piu' meta
+    (`robots` e `googlebot`): le direttive vanno separate anche li',
+    non solo sulle virgole. Qui la pagina passa dal costruttore vero,
+    non da un dizionario scritto a mano."""
+    p = pagina(html='<html lang="it"><head>'
+                    '<meta name="robots" content="noindex">'
+                    '<meta name="googlebot" content="nofollow">'
+                    '</head><body><p>x</p></body></html>')
+    assert p["meta_robots"] == "noindex nofollow"
+
+    ctx = _contesto_tech()
+    ctx["pages"] = {"https://esempio.test/": p}
+    esito = mars_tech.audit(ctx)
+    assert esito["findings_by_severity"].get("critico") == 1
+    assert any("seguire i propri link" in i for i in esito["issues"])
+
+
 def test_tech_canonical_verso_un_altro_host():
     esito = mars_tech.audit(_contesto_tech(
         canonical="https://altro-sito.example/"))

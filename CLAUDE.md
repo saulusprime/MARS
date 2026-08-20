@@ -89,6 +89,10 @@ cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
 - **`pytest` deve restare verde**, e la suite non deve toccare la rete:
   la fixture `niente_rete` lo impedisce, ed e' `autouse` perche' nessuno
   possa dimenticarla.
+  Si invoca **senza `-q`**: `setup.cfg` ce l'ha già in `addopts`, e un
+  secondo `-q` fa `-qq`, che sopprime la riga di riepilogo finale — la
+  suite può essere rossa senza che si veda. In uno script, decidere dal
+  **codice di uscita**, mai da una parola nell'output.
 - **Reintrodurre il difetto per fidarsi del test.** Un test verde non
   dimostra nulla finche' non lo si e' visto fallire.
 - **`flake8` deve restare a zero.** `setup.cfg` è già configurato:

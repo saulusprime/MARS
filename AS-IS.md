@@ -28,6 +28,7 @@
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
+| C9 | WAPT via ZAP: client ufficiale, orchestrazione eseguita | 2026-08-20 |
 | C8 | WCAG reale via axe-core su Chromium | 2026-08-20 |
 | C6 | Crawling interno quando manca la sitemap | 2026-08-20 |
 | C5 | Query personalizzate e consenso RRF aggregato | 2026-08-20 |
@@ -922,6 +923,57 @@ il servizio accetti la richiesta così composta.
 - [x] Top-N passaggi selezionati dall'RRF, non tutto il sito.
 - [x] API consultate sulla documentazione corrente.
 - [x] Costo prevedibile: tetto sui token e dichiarazione prima dell'invio.
+
+### C9 — ✅ IN GRAN PARTE FATTO (2026-08-20): WAPT via ZAP, orchestrazione eseguita
+Dopo **R4** il modulo derivava il punteggio dagli alert reali, ma il percorso
+ZAP non era **mai stato eseguito**: il daemon Java non è installato, e non lo
+è tuttora. Quattro delle sei voci non lo richiedevano.
+
+**Migrato da `zapcli` al client ufficiale.** `zapcli` 0.10.0 è del 2018 e
+costringeva a orchestrare la CLI e a interpretarne l'output;
+`python-owasp-zap-v2.4`, già installato, parla direttamente l'API di ZAP e
+restituisce dati strutturati.
+
+**MARS non avvia più il daemon: si collega a uno già in esecuzione**
+(`ZAP_PROXY`, `ZAP_API_KEY`). Questo risolve per costruzione la voce sui
+*daemon orfani dopo un timeout*: non c'è più un processo Java da spegnere.
+Il README documenta il comando Docker che lo mette in piedi.
+
+**Un finto daemon ZAP per collaudare davvero.** Il client `ZAPv2` parla
+*attraverso* ZAP come proxy HTTP, quindi un server locale può rispondere alle
+sue chiamate API. È lo stesso schema del finto client Anthropic in C2, e ha
+trovato lo stesso tipo di difetto — invisibile leggendo il codice.
+
+**`core.version` è una `@property`, non un metodo.** Il codice scriveva
+`client.core.version()`, che con un daemon reale avrebbe sollevato
+`TypeError: 'str' object is not callable`. Senza daemon l'errore non appariva:
+l'eccezione di connessione arrivava prima e mascherava il difetto. Verificato
+che `scan`, `status` e `alerts` restano invece metodi.
+
+**Sequenza eseguita e chiavi confermate.** `core/view/version` →
+`spider/action/scan` → `spider/view/status` → `ascan/action/scan` →
+`ascan/view/status` → `core/view/alerts`. Gli alert contengono davvero
+`pluginId`, `alert`, `risk` e `url`, che è ciò che `score_from_alerts()`
+attende, incluso il caso `"Medium (High)"` con la confidenza fra parentesi.
+
+**Applicata la lezione di C8.** Gli alert si raggruppano per **regola**, non
+per occorrenza: ZAP ne emette uno per ogni URL interessato, quindi un solo
+difetto su venti pagine affondava il punteggio da solo. Verificato con il finto
+daemon: 6 alert grezzi → **4 regole distinte**, con il CSP che compare su 3 URL
+e conta una volta, pesato per diffusione.
+
+**Le scansioni parziali sono dichiarate.** Se spider o active scan vanno in
+timeout, gli alert raccolti valgono più di niente — ma spacciarli per completi
+no. Il risultato porta `complete: False` e un rilievo in testa che lo dice.
+Verificato forzando il timeout a zero.
+
+- [x] Percorso completo eseguito (contro un daemon simulato).
+- [x] Chiavi del JSON confermate.
+- [x] Nessun daemon orfano: non lo avviamo più.
+- [x] `zapcli` sostituito dal client ufficiale.
+- [x] Alert raggruppati per regola.
+- [ ] Verifica contro un daemon ZAP **reale**: Java non è installato qui.
+- [ ] Taratura di `ZAP_PENALTIES` su scansioni vere.
 
 ### C8 — ✅ FATTO (2026-08-20): WCAG reale via axe-core su Chromium
 `mars_wcag.py` controllava **due criteri**: `lang` sulla sola prima pagina e i

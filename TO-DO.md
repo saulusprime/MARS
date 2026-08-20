@@ -75,29 +75,17 @@ non dipende dal codice.
       Il referto JSON ora conserva per intero motivazione, punti forti e
       deboli, quindi è il formato giusto per controllarne l'esito.
 
-### C9 — WAPT reale via ZAP *(orchestrazione scritta, mai eseguita)*
-`mars_wapt.py` ora legge gli alert reali e ne deriva il punteggio — vedi
-**R4** in [AS-IS.md](AS-IS.md). Resta che **il daemon ZAP (Java) non è
-installato** su questa macchina: `zap-cli` c'è (solo dentro `.venv/bin/`,
-nemmeno nel PATH di sistema), ma senza daemon non scansiona nulla, quindi
-oggi il ramo ZAP ripiega sempre sugli header.
+### C9 — WAPT via ZAP: voci residue
+Client ufficiale, orchestrazione eseguita contro un daemon simulato,
+raggruppamento per regola — vedi [AS-IS.md](AS-IS.md). Restano i due punti che
+richiedono ZAP vero.
 
-- [ ] Installare ZAP e **verificare il percorso completo** `start` →
-      `quick-scan` → `alerts -f json` → `shutdown`: è scritto
-      sull'interfaccia documentata della CLI ma mai eseguito fino in fondo.
-- [ ] Controllare che il JSON di `alerts` abbia davvero le chiavi `risk` e
-      `alert` attese da `score_from_alerts()` (parsing già difensivo, ma da
-      confermare sul campo).
-- [ ] Verificare che lo `shutdown` in `finally` non lasci daemon orfani dopo
-      un timeout.
-- [ ] Valutare se `zapcli` 0.10.0 (2018) regga le versioni recenti di ZAP, o
-      se convenga passare a `python-owasp-zap-v2.4`, già installato.
-- [ ] Applicare a ZAP la lezione di **C8**: raggruppare gli alert per regola e
-      non per occorrenza. Il codice attuale somma per alert, quindi lo stesso
-      difetto su più pagine pesa più volte — è il difetto che C8 ha corretto
-      per axe.
-- [ ] Tarare i pesi di `ZAP_PENALTIES` su scansioni vere: oggi sono una
-      stima dichiarata, non calibrata.
+- [ ] **Verifica contro un daemon ZAP reale.** Qui Java non è installato e il
+      collaudo è avvenuto contro un finto daemon che risponde all'API. La
+      sequenza e le chiavi sono confermate; resta da vedere se ZAP reale si
+      comporta come il suo contratto documentato.
+- [ ] Tarare `ZAP_PENALTIES` su scansioni vere: oggi sono un ordinamento
+      dichiarato, non una misura calibrata.
 
 ### C10 — `mars_tech`: coprire tutto ciò che il README dichiara
 Il README assegna a `mars_tech` *"indicizzabilita', robots.txt, sitemap,

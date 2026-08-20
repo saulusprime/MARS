@@ -83,7 +83,23 @@ link generici, tabindex positivi — che copre tutte le pagine ma non i
 criteri che richiedono rendering. Il referto dichiara sempre quale dei
 due percorsi ha prodotto il punteggio.
 
-WAPT: L'integrazione di ZAP (Zed Attack Proxy) 
+WAPT: se un daemon ZAP e' raggiungibile, la sicurezza viene misurata
+con una scansione reale (spider piu' active scan) tramite il client
+ufficiale python-owasp-zap-v2.4. MARS si collega a un daemon GIA' in
+esecuzione e non lo avvia: orchestrare un processo Java dal codice
+significa rischiare di lasciarlo orfano dopo un timeout, e delegarlo a
+chi lancia l'audit e' piu' semplice e piu' onesto. Il modo piu' rapido:
+
+    docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon \
+        -host 0.0.0.0 -port 8080 -config api.disablekey=true
+
+Indirizzo e chiave si configurano con ZAP_PROXY (predefinito
+http://127.0.0.1:8080) e ZAP_API_KEY. Senza daemon si ripiega sul
+controllo degli header HTTP, che NON e' un WAPT e viene dichiarato come
+controllo di superficie. Se la scansione va in timeout, i rilievi
+parziali vengono riportati come tali.
+
+Nota: L'integrazione di ZAP (Zed Attack Proxy) 
 (pip install zapcli) tramite zap-cli eleva notevolmente il valore dell'audit 
 di sicurezza (WAPT), passando da un semplice controllo degli header a uno 
 scan attivo (spidering, active scan delle vulnerabilità comuni come XSS, 

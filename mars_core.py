@@ -181,6 +181,26 @@ def normalize_url(url: str) -> str:
                        parts.query, ""))
 
 
+def safe_normalize_url(url: str, base: Optional[str] = None) -> Optional[str]:
+    """URL normalizzato, oppure None se non e' analizzabile.
+
+    Gli URL da normalizzare arrivano dal sito analizzato — un href, un
+    <loc> di sitemap — quindi sono dato ostile, non un errore di
+    programmazione. Una porta non numerica ("http://x:port/") o un
+    IPv6 malformato ("http://[::1/") fanno sollevare ValueError, e
+    propagata quell'eccezione faceva cadere l'audit INTERO, buttando
+    via anche le pagine gia' scaricate: scartare il singolo URL e
+    dichiararlo costa incomparabilmente meno.
+
+    L'urljoin per gli URL relativi sta DENTRO la guardia perche'
+    solleva anche lui, prima ancora che normalize_url venga chiamata.
+    """
+    try:
+        return normalize_url(urljoin(base, url) if base else url)
+    except ValueError:
+        return None
+
+
 class Crawler:
     """Scansione di un sito via sitemap.
 
@@ -207,6 +227,7 @@ class Crawler:
         self.base_host = norm_host(base_url)
         self.pages: dict = {}
         self.skipped: List[str] = []
+        self._url_illeggibili: set = set()
         self.discovery = "sitemap"
         # Dati grezzi su robots.txt e sitemap: mars_tech li
         # legge invece di rifare le stesse richieste.
@@ -265,6 +286,20 @@ class Crawler:
         if self.owner_declaration:
             return True
         return self.robots().can_fetch(self.user_agent, url)
+
+    # -- scarti ---------------------------------------------------
+
+    def _scarta_illeggibile(self, url: str) -> None:
+        """Registra un URL non analizzabile, una volta sola.
+
+        Lo stesso href rotto in un template compare su OGNI pagina del
+        sito: senza deduplicazione riempirebbe il referto ripetendo la
+        stessa riga, e "cosa non e' stato guardato" diventerebbe
+        illeggibile proprio dove serve.
+        """
+        if url not in self._url_illeggibili:
+            self._url_illeggibili.add(url)
+            self.skipped.append("URL non analizzabile: %s" % url)
 
     # -- sitemap --------------------------------------------------
 
@@ -342,7 +377,10 @@ class Crawler:
             href = (ancora.get("href") or "").strip()
             if not href or href.lower().startswith(SCHEMI_NON_HTTP):
                 continue
-            url = normalize_url(urljoin(base, href))
+            url = safe_normalize_url(href, base)
+            if url is None:
+                self._scarta_illeggibile(href)
+                continue
             if url.startswith(("http://", "https://")) \
                     and host_matches(url, self.base_host):
                 trovati.append(url)
@@ -365,7 +403,12 @@ class Crawler:
 
         while coda and len(self.pages) < self.max_pages:
             grezzo = coda.pop(0)  # FIFO: ampiezza, non profondita'
-            url = normalize_url(grezzo)
+            url = safe_normalize_url(grezzo)
+            if url is None:
+                # Un <loc> di sitemap malformato non e' un errore
+                # nostro: si scarta questo URL, non l'audit.
+                self._scarta_illeggibile(grezzo)
+                continue
             if url in visti:
                 continue
             visti.add(url)

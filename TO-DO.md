@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R33, I13-I14 — solo annotazioni,
-> nessun codice modificato).
+> di codice e documentazione: nuove voci R15-R33, I13-I14). R15 è già
+> chiusa; restano aperte R16-R33.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -91,32 +91,16 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 ## Correzioni
 
-Le R1-R14 sono chiuse: difetto, soluzione e verifiche in [AS-IS.md](AS-IS.md).
-Le voci **R15-R33** qui sotto vengono da una **revisione sistematica del
+Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
+l'audit, chiusa il 2026-08-20): difetto, soluzione e verifiche in
+[AS-IS.md](AS-IS.md).
+
+Le voci **R16-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
-avversariale dei rilievi). **Nessun codice è stato modificato: sono solo
-annotazioni.** Dove scritto *«riprodotto»* il difetto è stato
+avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R15 — 🔴 GRAVE: un solo URL malformato fa cadere l'intero audit
-`normalize_url()` ([mars_core.py:169](mars_core.py#L169)) chiama `urlsplit()` e
-legge `parts.port`, che sollevano `ValueError` su porta non numerica o fuori
-range e su IPv6 malformato. I chiamanti — `estrai_link()`
-([mars_core.py:345](mars_core.py#L345)) e `crawl()`
-([mars_core.py:368](mars_core.py#L368)) — non la catturano, e in
-`run_audit()` `build_context()` è **fuori dal `try`**: un solo `href` o
-`<loc>` malformato uccide l'audit CLI/API con un traceback, buttando via le
-pagine già scaricate.
-
-Riprodotto: `normalize_url("http://host:port/x")` → `ValueError: Port could
-not be cast to integer`; `normalize_url("http://[::1/pagina")` → `Invalid
-IPv6 URL`; crawl con una pagina contenente `<a href="http://sito.test:port/rotto">`
-→ crash, pagine raccolte prima perse.
-
-- [ ] Catturare `ValueError` all'ingresso di `normalize_url` (o nei chiamanti)
-      e scartare l'URL registrandolo in `skipped` con motivo dichiarato.
 
 ### R16 — 🔴 GRAVE: mojibake silenzioso sui siti UTF-8 senza charset nell'header
 Il crawler usa `resp.text` ([mars_core.py:397](mars_core.py#L397) e
@@ -267,7 +251,9 @@ Raggruppati perché toccano la stessa area (gestione URL in `mars_core`):
 - **IPv6 letterali corrotti.** `norm_host` ([mars_core.py:75](mars_core.py#L75))
   fa `split(":")[0]` → su `[::1]:8000` restituisce `[`; `normalize_url` toglie le
   quadre. Un host IPv6 letterale fallisce ogni richiesta ed è diagnosticato
-  irraggiungibile.
+  irraggiungibile. **R15 non lo copre**: ha reso innocuo l'IPv6 *malformato*
+  (che sollevava), ma quello **ben formato** viene tuttora corrotto in silenzio —
+  verificato: `normalize_url("http://[::1]:8080/x")` → `http://::1:8080/x`.
 - **robots.txt vuoto (200) riportato assente.** `robots_info["found"]` è
   `bool(righe)` ([mars_core.py:251](mars_core.py#L251)): un robots.txt esistente
   ma vuoto (legittimo, «tutto permesso») risulta assente e `mars_tech`

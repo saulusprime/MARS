@@ -118,6 +118,15 @@ Costano ore se le si reincontra senza saperlo.
 - **`RobotFileParser` senza `parse()` nega ogni URL.** Va chiamato
   `parse([])` anche quando robots.txt manca. E `crawl_delay()` per un
   agente specifico **non eredita** da `*`.
+- **Normalizzare un URL può sollevare `ValueError`**, e non solo dentro
+  `normalize_url`: su un IPv6 malformato solleva **`urljoin` stesso**,
+  prima. Gli URL vengono dal sito analizzato, quindi sono dato ostile:
+  usare `safe_normalize_url()`, che restituisce `None`, e dichiarare lo
+  scarto in `skipped`. Vedi R15.
+- **La fixture `niente_rete` copre `requests.get`, non `Session.get`.**
+  Il `Crawler` usa una `Session`: per esercitarlo nei test si monta un
+  `requests.adapters.BaseAdapter` finto sulla sua `session`
+  (`tests/test_core.py`), non si conta sulla fixture.
 - **`soup.title.string` è `None` su `<title></title>`**, non `""`. Usare
   `get_text(strip=True)`.
 - **`sentence-transformers` si importa pigramente.** L'import trascina

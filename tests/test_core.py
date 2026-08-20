@@ -9,15 +9,18 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+from urllib.parse import urljoin
 
 import pytest
+import requests
 from bs4 import BeautifulSoup
 
 from conftest import HTML_BASE
-from mars_core import (LexicalRetriever, VectorRetriever, chunk_page,
+from mars_core import (Crawler, LexicalRetriever, VectorRetriever, chunk_page,
                        default_queries, describe_chunk, host_matches,
                        load_external_module, load_queries, norm_host,
-                       normalize_url, reciprocal_rank_fusion, split_windows)
+                       normalize_url, reciprocal_rank_fusion,
+                       safe_normalize_url, split_windows)
 
 
 # ----------------------------------------------------------------------
@@ -132,6 +135,142 @@ def test_host_matches(url, host, atteso):
 
 def test_norm_host_toglie_www_e_porta():
     assert norm_host("https://WWW.Esempio.IT:8080/x") == "esempio.it"
+
+
+@pytest.mark.parametrize("malformato", [
+    "http://esempio.test:port/x",    # porta non numerica
+    "http://esempio.test:99999/x",   # porta fuori range
+    "http://esempio.test:8x/x",      # porta quasi numerica
+    "http://[::1/pagina",            # IPv6 senza chiusura
+])
+def test_safe_normalize_url_non_solleva(malformato):
+    """Regressione R15: normalize_url propagava ValueError.
+
+    Questi quattro casi facevano cadere l'audit INTERO — non l'URL.
+    """
+    with pytest.raises(ValueError):
+        normalize_url(malformato)          # il difetto, ancora presente
+    assert safe_normalize_url(malformato) is None   # la difesa
+
+
+def test_safe_normalize_url_concorda_con_normalize_url():
+    """Sugli URL validi la versione tollerante non cambia nulla."""
+    for buono in ("https://ESEMPIO.test/a#top", "https://esempio.test:443/a",
+                  "https://esempio.test", "https://esempio.test/a?b=1"):
+        assert safe_normalize_url(buono) == normalize_url(buono)
+
+
+def test_safe_normalize_url_risolve_i_relativi():
+    """base= risolve i relativi, e l'urljoin sta dentro la guardia.
+
+    Regressione R15: su un IPv6 malformato solleva urljoin STESSO,
+    prima che normalize_url venga chiamata. Proteggere solo
+    normalize_url avrebbe lasciato aperta meta' del difetto.
+    """
+    assert safe_normalize_url("/a", "http://x.test/b/") == "http://x.test/a"
+    with pytest.raises(ValueError):
+        urljoin("http://x.test/b/", "http://[::1/")     # il difetto
+    assert safe_normalize_url("http://[::1/", "http://x.test/b/") is None
+
+
+def test_estrai_link_scarta_href_malformato_e_lo_dichiara():
+    """Regressione R15, dal lato del crawler.
+
+    Un solo href rotto in una pagina uccideva l'audit. Ora l'URL
+    viene scartato, i link buoni della stessa pagina sopravvivono, e
+    il referto dichiara cosa non ha guardato (principio 6).
+    """
+    html = ("<html><body>"
+            "<a href='/buona'>ok</a>"
+            "<a href='http://esempio.test:port/rotto'>rotto</a>"
+            "</body></html>")
+    crawler = Crawler("http://esempio.test/", delay=0)
+    trovati = crawler.estrai_link(BeautifulSoup(html, "lxml"),
+                                  "http://esempio.test/")
+    assert trovati == ["http://esempio.test/buona"]
+    assert crawler.skipped == [
+        "URL non analizzabile: http://esempio.test:port/rotto"]
+
+
+class _AdattatoreFinto(requests.adapters.BaseAdapter):
+    """Serve risposte da un dizionario invece che dalla rete.
+
+    Montato sulla session del Crawler intercetta OGNI richiesta, cosi'
+    crawl() puo' essere esercitata per intero restando ermetica: la
+    fixture niente_rete copre requests.get, non Session.get.
+    """
+
+    def __init__(self, risposte: dict) -> None:
+        super().__init__()
+        self.risposte = risposte
+
+    def send(self, request, **kwargs):        # noqa: D102
+        corpo, tipo = self.risposte.get(request.url, (None, None))
+        resp = requests.Response()
+        resp.url = request.url
+        resp.encoding = "utf-8"
+        if corpo is None:
+            resp.status_code = 404
+            resp._content = b""
+            resp.headers["Content-Type"] = "text/plain"
+        else:
+            resp.status_code = 200
+            resp._content = corpo.encode("utf-8")
+            resp.headers["Content-Type"] = tipo
+        return resp
+
+    def close(self) -> None:
+        pass
+
+
+def _crawler_finto(risposte: dict) -> Crawler:
+    crawler = Crawler("http://esempio.test/", max_pages=10, delay=0)
+    crawler.session.mount("http://", _AdattatoreFinto(risposte))
+    return crawler
+
+
+PAGINA_UTILE = ("<html lang='it'><head><title>Buona</title></head><body>"
+                "<h1>Pagina raggiungibile</h1><p>Testo abbastanza lungo da "
+                "superare la soglia minima del chunker e diventare un "
+                "passaggio autoconsistente per i due recuperatori.</p>"
+                "</body></html>")
+
+
+def test_crawl_sopravvive_a_un_loc_malformato():
+    """Regressione R15, dal percorso sitemap.
+
+    E' il punto d'ingresso che estrai_link NON copre: un <loc>
+    malformato entrava in coda e faceva sollevare normalize_url dentro
+    crawl(), uccidendo l'audit e portandosi via le pagine gia'
+    scaricate. Qui la pagina buona deve sopravvivere allo stesso
+    crawl in cui il <loc> rotto viene scartato.
+    """
+    sitemap = ("<?xml version='1.0'?><urlset>"
+               "<url><loc>http://esempio.test/buona</loc></url>"
+               "<url><loc>http://esempio.test:port/rotto</loc></url>"
+               "</urlset>")
+    crawler = _crawler_finto({
+        "http://esempio.test/sitemap.xml": (sitemap, "application/xml"),
+        "http://esempio.test/buona": (PAGINA_UTILE, "text/html"),
+    })
+    pagine = crawler.crawl()
+    assert list(pagine) == ["http://esempio.test/buona"]
+    assert crawler.skipped == [
+        "URL non analizzabile: http://esempio.test:port/rotto"]
+
+
+def test_url_illeggibile_dichiarato_una_volta_sola():
+    """Lo stesso href rotto in un template sta su OGNI pagina: senza
+    deduplicazione riempirebbe il referto con la stessa riga."""
+    html = ("<html><body>"
+            "<a href='http://esempio.test:port/rotto'>a</a>"
+            "<a href='http://esempio.test:port/rotto'>b</a>"
+            "</body></html>")
+    crawler = Crawler("http://esempio.test/", delay=0)
+    soup = BeautifulSoup(html, "lxml")
+    crawler.estrai_link(soup, "http://esempio.test/")
+    crawler.estrai_link(soup, "http://esempio.test/")   # seconda pagina
+    assert len(crawler.skipped) == 1
 
 
 # ----------------------------------------------------------------------

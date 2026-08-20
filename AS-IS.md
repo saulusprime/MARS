@@ -25,6 +25,7 @@
 | R12 | Incoerenze nel README; documentata l'API REST (con C11) | 2026-08-19 |
 | R13 | Allineamento allo stile di riferimento (2 commit) | 2026-08-19 |
 | R14 | Il campo `disabled` non era mai applicato | 2026-08-19 |
+| R15 | Un solo URL malformato faceva cadere l'intero audit | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -775,6 +776,107 @@ pubblicato.
 - [x] Rifiutare l'autenticazione degli utenti sospesi.
 - [x] Ricontrollare in `get_current_user()` perché i token già emessi decadano.
 - [ ] Test dedicato (**C12**): la verifica è stata manuale.
+
+### R15 — ✅ RISOLTO (2026-08-20): un solo URL malformato faceva cadere l'intero audit
+`normalize_url()` chiama `urlsplit()` e legge `parts.port`, che sollevano
+`ValueError` su porta non numerica, porta fuori range e IPv6 malformato.
+Nessuno dei due chiamanti la catturava, e in `run_audit()` `build_context()` sta
+**fuori dal `try`**: un solo `href` rotto in una pagina — o un solo `<loc>` rotto
+in una sitemap — uccideva l'audit intero.
+
+**Riprodotto ai tre livelli**, con server HTTP locali, prima di toccare il
+codice:
+
+```
+crawler : ValueError: Port could not be cast to integer value as 'port'
+          pagine raccolte e PERSE: ['http://127.0.0.1:8771/']   skipped: []
+CLI     : traceback, exit 1
+API     : POST /audit/tech -> 500,  POST /audit/full -> 500
+```
+
+Il dettaglio peggiore è l'**exit 1** della CLI: non solo è fuori dal contratto
+documentato (0 referto, 2 nessuna pagina, 3 scrittura), ma è proprio il valore
+che [TO-DO.md](TO-DO.md) tiene riservato alla futura soglia `--fail-under`
+(idea **I2**). Una pipeline che un domani usasse quella soglia leggerebbe il
+crash come "sito sotto soglia": un guasto travestito da giudizio.
+
+**Due punti d'ingresso, non uno.** `estrai_link()` normalizza gli `href` della
+pagina, `crawl()` normalizza ciò che esce dalla coda — dove arrivano i `<loc>`
+della sitemap. Entrambi sono stati riprodotti separatamente, ed è stato giusto
+farlo: il difetto vive in due posti indipendenti.
+
+**Una trappola trovata misurando, non leggendo.** In `estrai_link` la riga era
+`normalize_url(urljoin(base, href))`, e su un IPv6 malformato è **`urljoin`
+stesso** a sollevare, prima ancora che `normalize_url` venga chiamata:
+
+```
+urljoin('http://sito.test/base/', 'http://[::1/pagina') -> ValueError: Invalid IPv6 URL
+```
+
+Proteggere solo `normalize_url` avrebbe lasciato aperta metà del difetto.
+
+**Risoluzione applicata.** `safe_normalize_url(url, base=None)` in `mars_core.py`
+restituisce `None` invece di sollevare, con **l'urljoin dentro la guardia**.
+`normalize_url()` resta intatta e continua a sollevare: è una funzione pura con
+un contratto chiaro, e il posto giusto per la tolleranza è il confine dove entra
+il dato non fidato, non la funzione che lo elabora. Gli URL da normalizzare
+arrivano dal sito analizzato: sono **dato ostile, non un errore di
+programmazione**.
+
+I due chiamanti scartano l'URL e lo dichiarano in `skipped`, che il referto
+mostra già sotto "cosa non è stato guardato" (principio 6): un `href` rotto è
+anche un rilievo sul sito, non solo un fastidio per noi.
+
+**Gli scarti sono deduplicati**, e non è un dettaglio estetico: lo stesso `href`
+rotto in un template compare su *ogni* pagina del sito, e senza deduplicazione
+riempirebbe il referto HTML — che li stampa tutti — con la stessa riga ripetuta.
+Verificato con un `<loc>` malformato presente due volte nella sitemap: una sola
+riga nel referto.
+
+**Verificato.** Le tre riproduzioni ripetute dopo la correzione:
+
+```
+crawler : 2 pagine indicizzate (era: crash dopo la prima)
+          skipped: ['URL non analizzabile: http://sito.test:port/rotto']
+CLI     : referto prodotto, exit 0, "URL saltati: 1" nel referto
+API     : POST /audit/tech -> 200,  POST /audit/full -> 200
+```
+
+Il link **buono** presente sulla stessa pagina del link rotto viene comunque
+seguito: la correzione scarta l'URL, non la pagina.
+
+**Regressione sul percorso normale: nessuna differenza.** Audit completo su un
+sito locale pulito, referto confrontato fra `HEAD` e la versione corretta —
+**identico** a meno della data di generazione.
+
+**La prova che conta: reintrodurre il difetto.** Quattro mutazioni, una per
+ciascuna parte della correzione:
+
+```
+1. estrai_link senza guardia                 -> 2 falliti
+2. crawl senza guardia (percorso sitemap)    -> 1 fallito
+3. funzione tollerante senza try/except      -> 8 falliti
+4. deduplicazione degli scarti rimossa       -> 1 fallito
+```
+
+**Alla prima esecuzione la mutazione 2 NON veniva rilevata**, e va detto: i test
+coprivano `estrai_link` ma nessuno esercitava `crawl()`, cioè proprio il
+percorso del `<loc>` di sitemap di cui avevo riprodotto il crash. La suite
+sarebbe rimasta verde con metà del difetto rimessa dentro. È la stessa lezione
+di **C12** — tre test vacui su sei — ed è arrivata di nuovo dalla stessa
+verifica, il che è un buon argomento per non saltarla mai.
+
+Colmarla ha richiesto di far girare `crawl()` senza rete: un
+`requests.adapters.BaseAdapter` finto montato sulla `session` del crawler serve
+le risposte da un dizionario e intercetta ogni richiesta. Serviva un adattatore
+perché la fixture `niente_rete` copre `requests.get`, **non** `Session.get`.
+È anche il primo test che esercita `Crawler` direttamente, e il pattern resta
+disponibile per **I13**, che propone di coprire il resto della classe.
+
+- [x] Catturare `ValueError` (inclusa quella di `urljoin`) al confine.
+- [x] Scartare il singolo URL e dichiararlo in `skipped`.
+- [x] Deduplicare gli scarti, perché un template rotto non allaghi il referto.
+- [x] Test su entrambi i punti d'ingresso, validati per mutazione.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

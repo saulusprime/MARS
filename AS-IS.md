@@ -933,8 +933,13 @@ scritto prima di R7, C2, C5 e C6. Serviva inoltre poter passare le chiavi degli
 strumenti opzionali dalla richiesta, perché un'unica istanza dell'API possa
 servire chiamanti che portano le proprie.
 
-**Il campo `credentials`** accetta `anthropic_api_key`, `zap_api_key` e
-`zap_proxy`. Sono `SecretStr`: pydantic li maschera in log, `repr` e messaggi
+**Il campo `credentials`** accetta `anthropic_api_key`, `hf_token`,
+`zap_api_key` e `zap_proxy`. `hf_token` serve **solo** per i modelli di
+embedding Hugging Face ad accesso limitato o privati: per quelli pubblici,
+incluso il predefinito, è ininfluente, e da riga di comando basta la variabile
+`HF_TOKEN` che `huggingface_hub` legge da sé. Viene passato a
+`SentenceTransformer(token=...)` solo quando è presente, così il percorso
+pubblico resta identico a prima. Sono `SecretStr`: pydantic li maschera in log, `repr` e messaggi
 d'errore, così una chiave non finisce in un traceback per distrazione. Nello
 schema OpenAPI risultano `format: password` e **`writeOnly: true`**, quindi
 Swagger li maschera e li dichiara solo-input.

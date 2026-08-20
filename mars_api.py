@@ -122,6 +122,12 @@ class Credentials(BaseModel):
         default=None,
         description="Abilita il giudizio LLM (area 9) senza impostare "
                     "ANTHROPIC_API_KEY sul server.")
+    hf_token: SecretStr | None = Field(
+        default=None,
+        description="Token Hugging Face, necessario solo per modelli di "
+                    "embedding ad accesso limitato o privati. Per i "
+                    "modelli pubblici, incluso quello predefinito, non "
+                    "serve.")
     zap_api_key: SecretStr | None = Field(
         default=None,
         description="Chiave API del daemon ZAP, se non è stato avviato "
@@ -247,7 +253,7 @@ def _credenziali(req: AuditRequest) -> dict:
     if cred is None:
         return {}
     estratte = {}
-    for nome in ("anthropic_api_key", "zap_api_key"):
+    for nome in ("anthropic_api_key", "hf_token", "zap_api_key"):
         valore = getattr(cred, nome)
         if valore is not None:
             estratte[nome] = valore.get_secret_value()

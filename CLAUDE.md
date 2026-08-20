@@ -32,7 +32,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
 | `robots_ignored` | `True` se è stata dichiarata la proprietà del dominio |
 | `owner_declaration` | dichiarazione di proprietà: abilita anche l'active scan WAPT |
-| `credentials` | chiavi fornite dal chiamante API; i moduli le preferiscono all'ambiente |
+| `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); i moduli le preferiscono all'ambiente |
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,

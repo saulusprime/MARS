@@ -423,7 +423,8 @@ class LexicalRetriever:
 class VectorRetriever:
     def __init__(self, corpus: List[str],
                  model_name: str = DEFAULT_EMBEDDINGS,
-                 force_proxy: bool = False):
+                 force_proxy: bool = False,
+                 hf_token: Optional[str] = None):
         self.corpus = corpus
         st = None if force_proxy else load_sentence_transformers()
         self.use_real = st is not None
@@ -431,7 +432,12 @@ class VectorRetriever:
         if self.use_real:
             model_cls, self._cosine = st
             print(f"  Caricamento modello SentenceTransformer: {model_name}...")
-            self.model = model_cls(model_name)
+            # token= serve solo per i modelli ad accesso limitato o
+            # privati dell'Hub; per quelli pubblici e' ininfluente.
+            # Senza, huggingface_hub legge comunque HF_TOKEN
+            # dall'ambiente da solo.
+            self.model = (model_cls(model_name, token=hf_token) if hf_token
+                          else model_cls(model_name))
             self.embeddings = self.model.encode(self.corpus)
         else:
             print("  Utilizzo proxy Char-TFIDF.")

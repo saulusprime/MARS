@@ -7,27 +7,22 @@
     "Le chiavi vanno tenute fuori dal repository, in un file ignorato da",
     "git o in variabili d'ambiente sul server."
   ],
-
   "url": "https://www.example.com",
   "max_pages": 25,
-
   "queries": [
     "cos'e' questo sito",
     "come funziona il servizio",
     "quali sono i prezzi"
   ],
-
   "embeddings": "paraphrase-multilingual-MiniLM-L12-v2",
   "market": "eu",
-
   "delay": 0.5,
   "timeout": 10,
-
   "llm": "auto",
   "i_own_this_domain": false,
-
   "credentials": {
     "anthropic_api_key": "SEGNAPOSTO-sostituire-fuori-dal-repository",
+    "hf_token": "SEGNAPOSTO-solo-per-modelli-Hugging-Face-ad-accesso-limitato",
     "zap_api_key": "SEGNAPOSTO-oppure-omettere-se-api.disablekey=true",
     "zap_proxy": "http://127.0.0.1:8080"
   }

@@ -92,8 +92,9 @@ def question_signals(testo: str, pagina: Optional[dict] = None,
 def audit(context: dict) -> dict:
     chunks = context["chunks"]
     testi = [c.get("text") or "" for c in chunks]
-    vec = VectorRetriever(testi, context["embeddings_model"],
-                          context["force_proxy"])
+    vec = VectorRetriever(
+        testi, context["embeddings_model"], context["force_proxy"],
+        hf_token=(context.get("credentials") or {}).get("hf_token"))
     queries = context.get("queries") or []
     per_query = []
     for query in queries:

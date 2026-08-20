@@ -260,6 +260,12 @@ Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
 Credenziali nella richiesta. Il campo "credentials" accetta:
 
     anthropic_api_key   abilita il giudizio LLM (area 9)
+    hf_token            token Hugging Face, necessario SOLO per modelli
+                        di embedding ad accesso limitato o privati; per
+                        quelli pubblici, incluso il predefinito, non
+                        serve. Da riga di comando basta la variabile
+                        d'ambiente HF_TOKEN, che huggingface_hub legge
+                        da se'
     zap_api_key         chiave del daemon ZAP, se non e' stato avviato
                         con api.disablekey=true
     zap_proxy           indirizzo del daemon ZAP, se diverso da

@@ -16,7 +16,14 @@ report.json
 referto.json
 *.report.html
 
-# --- Richieste con credenziali vere ---
+# --- Credenziali vere ---
+# .env non e' letto da MARS (non c'e' python-dotenv): serve a tenere le
+# chiavi a portata di mano per esportarle a mano. Ignorarlo comunque,
+# perche' un "git add -A" distratto le pubblicherebbe per sempre.
+.env
+.env.*
+!.env.example
+
 # examples/audit_request.json contiene SEGNAPOSTO ed e' versionato.
 # Per una richiesta con chiavi vere usare un file .local.json, che git
 # ignora: cp examples/audit_request.json examples/mio.local.json

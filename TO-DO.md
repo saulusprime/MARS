@@ -438,6 +438,16 @@ l'attesa fra i byte). Un tetto su `Content-Length` o la lettura a chunk con
 limite (5-10 MB), oltre il quale la pagina va in `skipped` con motivo
 dichiarato, chiude la classe. Legata a **R15-R17** (robustezza del crawler).
 
+### I16 — Scegliere il dispositivo di Lighthouse (`--form-factor`)
+*(proposta il 2026-08-20, portando i controlli SEO nel referto)*
+Lighthouse misura per `mobile` come predefinito, e MARS lo dichiara nel
+referto. PageSpeed Insights espone invece entrambe le viste, e un referto
+`desktop` puo' dare punteggi diversi sugli stessi contenuti. Un flag
+`--form-factor {mobile,desktop}` — passato a Lighthouse come
+`--preset=desktop` — permetterebbe di confrontare like-for-like con il
+referto che il committente ha sotto gli occhi. Costo: un flag, un campo
+nel corpo API, e la propagazione fino a `mars_seo`.
+
 ### I15 — Elisione italiana nella tokenizzazione
 *(proposta dalla revisione del 2026-08-20, misurata chiudendo R18)*
 `tokenize()` toglie la punteggiatura di **confine**, quindi `l'azienda` resta

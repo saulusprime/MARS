@@ -235,6 +235,77 @@ def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):
 
 
 # ----------------------------------------------------------------------
+# L'elenco dei controlli, come lo mostra Lighthouse
+# ----------------------------------------------------------------------
+
+# Titoli senza apostrofi: in HTML escono come &#x27;, ed è giusto così
+# — l'escape ha il suo test a parte. Ci sono già cascato in R22.
+# Il superato sta per PRIMO di proposito: se il dato fosse gia'
+# ordinato, il test sull'ordinamento passerebbe anche senza ordinare.
+CONTROLLI = [
+    {"id": "http-status-code", "title": "Codice di stato HTTP valido",
+     "passed": True, "manual": False, "items": []},
+    {"id": "structured-data", "title": "Dati strutturati validi",
+     "passed": False, "manual": True, "items": []},
+    {"id": "is-crawlable", "title": "Pagina bloccata dallo indicizzatore",
+     "passed": False, "manual": False, "items": ["X-Robots-Tag: noindex"]},
+]
+
+
+def _referto_seo():
+    return build_report(
+        {"mars_seo": {"score": 42.0, "issues": ["[Lighthouse] bloccata"],
+                      "tool": "Lighthouse 13.4.1", "form_factor": "mobile",
+                      "audits": CONTROLLI}},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "chunks": [], "discovery": "sitemap", "skipped": []})
+
+
+def test_i_controlli_arrivano_nel_dato_canonico():
+    area = _referto_seo()["areas"][0]
+    assert [c["id"] for c in area["audits"]] == [c["id"] for c in CONTROLLI]
+    assert area["form_factor"] == "mobile"
+
+
+def test_html_elenca_anche_i_controlli_superati():
+    """Elencare i superati non e' ridondanza: senza, non si sa CHE COSA
+    sia stato guardato, e un punteggio pieno resta indistinguibile da
+    un controllo che non e' stato eseguito affatto."""
+    uscita = render_html(_referto_seo())
+    for controllo in CONTROLLI:
+        assert controllo["title"] in uscita
+    assert "class='superato'" in uscita
+    assert "class='fallito'" in uscita
+    assert "class='manuale'" in uscita
+
+
+def test_html_mette_i_falliti_per_primi():
+    """Sono quelli su cui si interviene, e nel dato stanno per ultimi."""
+    uscita = render_html(_referto_seo())
+    assert (uscita.index("Pagina bloccata dallo indicizzatore")
+            < uscita.index("Dati strutturati validi")
+            < uscita.index("Codice di stato HTTP valido"))
+
+
+def test_html_mostra_gli_elementi_incriminati():
+    assert "X-Robots-Tag: noindex" in render_html(_referto_seo())
+
+
+def test_il_conteggio_dei_controlli_compare_in_entrambe_le_viste():
+    for vista in (render_text, render_html):
+        uscita = vista(_referto_seo())
+        assert "1 controlli superati, 1 falliti" in uscita
+        assert "mobile" in uscita, "il dispositivo cambia i risultati"
+
+
+def test_superato_non_usa_la_classe_globale_ok():
+    """La classe .ok esiste gia' nel CSS e colora l'intera riga:
+    riusarla per i controlli superati li rendeva tutti verdi, invece
+    del solo segno di spunta."""
+    assert "<li class='ok'>" not in render_html(_referto_seo())
+
+
+# ----------------------------------------------------------------------
 # Plugin che rompono (R22)
 # ----------------------------------------------------------------------
 

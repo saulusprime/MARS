@@ -34,6 +34,7 @@
 | R20 | axe fabbricava un 100/100; la suite lanciava Chromium | 2026-08-20 |
 | R21 | «Di superficie» era indistinguibile da una misura piena | 2026-08-20 |
 | R22 | L'esecutore di moduli non reggeva i plugin che rompono | 2026-08-20 |
+| — | La sezione SEO riporta i controlli di Lighthouse, non il solo voto | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1635,6 +1636,92 @@ l'escape funziona. Era il test a essere ingenuo, non il codice.
 - [x] Contratto difeso in `mars_core`, per entrambe le interfacce.
 - [x] L'area fallita compare nel referto, col motivo.
 - [x] `mars_seo` distingue «non calcolato» da «non riuscito».
+
+### La sezione SEO riporta i controlli di Lighthouse (2026-08-20)
+Richiesta dell'autore, con un referto PageSpeed Insights reale come
+riferimento: *«facciamo in modo che la nostra sezione del referto contenga gli
+stessi dati»*.
+
+**La fonte è stata verificata, non ricostruita a memoria.** La pagina di
+PageSpeed è un'applicazione JavaScript e restituisce solo il guscio a chi la
+scarica, quindi non serviva. Al suo posto è stato eseguito **Lighthouse in
+locale sullo stesso URL** — che è la fonte migliore, perché è lo stesso
+strumento e la stessa versione (13.4.1) che `mars_seo` invoca. Da lì la
+struttura esatta: la categoria SEO ha **11 audit**, dieci binari e uno manuale
+(`structured-data`).
+
+Serviva anche la forma di un audit **fallito**, che quella pagina non offre
+perché li supera tutti: ottenuta eseguendo Lighthouse contro una pagina locale
+costruita carente. I dettagli arrivano in forme diverse a seconda dell'audit —
+`is-crawlable` porta una `source` testuale, `image-alt` un `node` del DOM,
+`meta-description` nessun dettaglio — e i test usano **quelle** forme, osservate,
+non forme immaginate.
+
+**Cosa c'è ora.** `mars_seo` non restituisce più il solo punteggio: riporta
+tutti gli audit della categoria con esito, titolo e **elementi incriminati**
+(selettore o sorgente). Il referto li mostra come li mostra Lighthouse —
+falliti per primi, poi i manuali, infine i superati — con la versione dello
+strumento e il tipo di dispositivo.
+
+**I superati si elencano, e non è ridondanza.** Senza, non si sa *che cosa* sia
+stato guardato, e un punteggio pieno resta indistinguibile da un controllo mai
+eseguito: è la stessa distinzione di **R21**, applicata al dettaglio invece che
+all'area.
+
+**I titoli li traduce Lighthouse.** `--locale=it` li restituisce già in
+italiano, quindi restano allineati allo strumento invece di essere una nostra
+traduzione destinata a invecchiare. Rispetta il principio 6 senza inventare
+nulla.
+
+**Il tipo di dispositivo è dichiarato.** Lighthouse misura `mobile` di
+predefinito, mentre il referto PageSpeed di riferimento era `desktop`: sono
+due misure non confrontabili, e il referto lo dice invece di tacerlo. Sceglierlo
+è l'idea **I16**.
+
+**Verificato sul sito indicato**, con un audit MARS reale:
+
+```
+2. SEO               : 100/100
+  Lighthouse 13.4.1 · mobile · 10 controlli superati, 0 falliti
+  ⚠ [Lighthouse] da verificare a mano: Dati strutturati validi
+```
+
+Nel referto HTML compaiono tutti e undici i controlli, in italiano, con lo
+stesso punteggio della sezione SEO di PageSpeed. Verificato anche guardando lo
+screenshot, dove è emerso un difetto invisibile nel codice: la classe CSS `ok`
+usata per i controlli superati **collide con la classe globale `.ok`**, che
+colora l'intera riga — tutte le voci superate risultavano verdi invece del solo
+segno di spunta. Rinominate in `superato` / `fallito`.
+
+**Una guardia dichiarata come tale.** `passed` esclude gli audit manuali
+(`bool(punteggio) and not manuale`). Misurato su tre referti reali: gli audit
+manuali e non applicabili hanno **sempre** `score: None`, quindi oggi la
+clausola non cambia nulla. Resta perché superato, fallito e manuale devono
+partizionare l'elenco, e c'è un test che lo fissa — con il commento che dice
+che è una difesa, non una differenza.
+
+**La prova che conta: reintrodurre il difetto.** Sette mutazioni, tutte
+rilevate:
+
+```
+1. si estraggono solo i falliti          -> 3 falliti
+2. gli elementi incriminati non riportati -> 4 falliti
+3. i manuali contati come superati       -> 3 falliti
+4. niente --locale=it                    -> 1 fallito
+5. il form factor non si dichiara        -> 1 fallito
+6. i controlli non arrivano al referto   -> 5 falliti
+7. i falliti non stanno per primi        -> 1 fallito
+```
+
+**Tre non venivano rilevate alla prima esecuzione, per due ragioni diverse.**
+Due mutazioni erano **mal costruite da me** — una era un no-op (`[] or [...]`
+vale `[...]`), l'altra non discriminava perché gli audit manuali hanno score
+`None`. La terza ha scoperto un test **vacuo**: i falliti stavano già per primi
+nel dato di prova, quindi l'ordinamento non veniva esercitato. Ora il dato di
+prova è deliberatamente in ordine sbagliato.
+
+E, per la seconda volta, un'asserzione è caduta su un apostrofo reso come
+`&#x27;`: l'escape funziona, era il test a essere ingenuo.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

@@ -452,6 +452,139 @@ def test_lexical_tokenizza_anche_la_query(contesto):
     assert esito["per_query"][0]["rank"][0] == 1
 
 
+# ----------------------------------------------------------------------
+# mars_seo: gli stessi controlli che mostra Lighthouse
+# ----------------------------------------------------------------------
+
+# Le forme di questi dati sono state OSSERVATE su referti Lighthouse
+# 13.4.1 reali, non dedotte: is-crawlable porta una "source" testuale,
+# image-alt un "node" del DOM, meta-description nessun dettaglio, e
+# structured-data e' sempre manuale.
+def _lhr(punteggio=0.42):
+    return {
+        "lighthouseVersion": "13.4.1",
+        "finalDisplayedUrl": "https://esempio.test/",
+        "configSettings": {"formFactor": "mobile"},
+        "categories": {"seo": {"score": punteggio, "auditRefs": [
+            {"id": "is-crawlable"}, {"id": "document-title"},
+            {"id": "meta-description"}, {"id": "image-alt"},
+            {"id": "http-status-code"}, {"id": "structured-data"},
+        ]}},
+        "audits": {
+            "is-crawlable": {
+                "title": "L'indicizzazione della pagina è bloccata",
+                "score": 0, "scoreDisplayMode": "binary",
+                "details": {"type": "table",
+                            "items": [{"source": "X-Robots-Tag: noindex"}]}},
+            "document-title": {
+                "title": "Il documento non ha un elemento `<title>`",
+                "score": 0, "scoreDisplayMode": "binary",
+                "details": {"type": "table", "items": [
+                    {"node": {"type": "node", "selector": "html",
+                              "boundingRect": {"top": 0}}}]}},
+            "meta-description": {
+                "title": "Il documento non ha una meta descrizione",
+                "score": 0, "scoreDisplayMode": "binary"},
+            "image-alt": {
+                "title": "Gli elementi immagine non hanno attributi `[alt]`",
+                "score": 0, "scoreDisplayMode": "binary",
+                "details": {"type": "table", "items": [
+                    {"node": {"selector": "body > img"}},
+                    {"node": {"selector": "body > img"}}]}},
+            "http-status-code": {
+                "title": "La pagina ha un codice di stato HTTP valido",
+                "score": 1, "scoreDisplayMode": "binary"},
+            "structured-data": {
+                "title": "Dati strutturati validi",
+                "score": None, "scoreDisplayMode": "manual"},
+        },
+    }
+
+
+def test_seo_estrae_tutti_i_controlli_non_solo_i_falliti():
+    """Il referto conteneva il solo punteggio complessivo.
+
+    42/100 non dice QUALE controllo sia fallito, ed elencare i soli
+    fallimenti non direbbe che cosa sia stato guardato: un punteggio
+    pieno resterebbe indistinguibile da un controllo mai eseguito.
+    """
+    controlli = mars_seo.estrai_audit(_lhr())
+    assert [c["id"] for c in controlli] == [
+        "is-crawlable", "document-title", "meta-description", "image-alt",
+        "http-status-code", "structured-data"]
+    per_id = {c["id"]: c for c in controlli}
+    assert per_id["http-status-code"]["passed"] is True
+    assert per_id["is-crawlable"]["passed"] is False
+    assert per_id["structured-data"]["manual"] is True
+    assert per_id["structured-data"]["passed"] is False
+
+
+@pytest.mark.parametrize("audit_id, atteso", [
+    ("is-crawlable", ["X-Robots-Tag: noindex"]),   # dettaglio testuale
+    ("document-title", ["html"]),                  # nodo del DOM
+    ("image-alt", ["body > img", "body > img"]),
+    ("meta-description", []),                      # nessun dettaglio
+])
+def test_seo_riporta_gli_elementi_incriminati(audit_id, atteso):
+    """Lighthouse dice anche DOVE: il selettore o la sorgente. Senza,
+    "immagini senza alt" non basta a trovarle."""
+    per_id = {c["id"]: c for c in mars_seo.estrai_audit(_lhr())}
+    assert per_id[audit_id]["items"] == atteso
+
+
+def test_seo_un_manuale_non_e_mai_un_superato():
+    """Superato, fallito e manuale devono partizionare l'elenco.
+
+    Sui referti reali un audit manuale ha sempre score None, quindi la
+    guardia non cambia nulla oggi: fissa l'intenzione se Lighthouse
+    cambiasse forma, e impedisce che i conteggi si sovrappongano.
+    """
+    lhr = _lhr()
+    lhr["audits"]["structured-data"]["score"] = 1     # forma non osservata
+    per_id = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}
+    assert per_id["structured-data"]["manual"] is True
+    assert per_id["structured-data"]["passed"] is False
+    esito = mars_seo.riassumi(lhr)
+    assert esito["passed"] + esito["failed"] + esito["manual"] == 6
+
+
+def test_seo_riassume_con_conteggi_e_strumento():
+    esito = mars_seo.riassumi(_lhr())
+    assert esito["score"] == 42.0
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (1, 4, 1)
+    assert esito["tool"] == "Lighthouse 13.4.1"
+    # Un referto mobile e uno desktop non sono confrontabili.
+    assert esito["form_factor"] == "mobile"
+    assert esito["audited_url"] == "https://esempio.test/"
+
+
+def test_seo_issues_contengono_i_falliti_con_il_dettaglio():
+    issues = mars_seo.riassumi(_lhr())["issues"]
+    assert any("X-Robots-Tag: noindex" in i for i in issues)
+    assert any("da verificare a mano" in i for i in issues)
+    assert not any("codice di stato HTTP valido" in i for i in issues), \
+        "un controllo superato non e' un rilievo"
+
+
+def test_seo_chiede_i_titoli_in_italiano(monkeypatch):
+    """I titoli li traduce Lighthouse, non noi: cosi' restano allineati
+    allo strumento invece di essere una traduzione che invecchia."""
+    visti = {}
+
+    def finto_run(argomenti, **kwargs):
+        visti["argv"] = argomenti
+        return types.SimpleNamespace(stdout=json.dumps(_lhr()))
+
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome: "/usr/bin/lighthouse")
+    monkeypatch.setattr(mars_seo.subprocess, "run", finto_run)
+    esito = mars_seo.audit({"url": "https://esempio.test/"})
+    assert "--locale=it" in visti["argv"]
+    assert esito["score"] == 42.0
+    # Regressione R3: l'URL resta un argomento, mai una stringa di shell
+    assert visti["argv"][1] == "https://esempio.test/"
+
+
 def test_seo_score_null_non_e_un_errore_di_lighthouse(monkeypatch):
     """Regressione R22: lo schema LHR ammette score null.
 

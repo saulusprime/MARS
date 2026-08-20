@@ -21,7 +21,10 @@ Il referto dichiara con quale delle due il campione e' stato costruito.
                                     Apple, ByteDance, Amazon, Meta;
                                     meta robots, X-Robots-Tag e
                                     canonical su ogni pagina)
-2. SEO              (mars_seo)      utilizzando lighthouse
+2. SEO              (mars_seo)      utilizzando lighthouse: gli
+                                    stessi undici controlli della
+                                    sezione SEO di Lighthouse, non
+                                    il solo punteggio
 3. Lessicale        (mars_lexical)  segnali di tipo BM25 (title, 
                                     heading, termini)
 4. Semantica        (mars_semantic) chunk autoconsistenti, contenuto 
@@ -68,8 +71,22 @@ sui caratteri e la fusione RRF)
 
 Lighthouse (SEO): Lo script cerca il comando lighthouse nel PATH.
 Per attivarlo devi avere Node.js e Lighthouse installati globalmente
-(npm install -g lighthouse). In alternativa, restituirà uno score di
-fallback. Opzionale installa la libreria corepack (npm install -g corepack)
+(npm install -g lighthouse). Senza, l'area risulta "non misurato" —
+non zero. Opzionale installa la libreria corepack
+(npm install -g corepack)
+
+Il referto riporta i singoli controlli della categoria SEO cosi' come
+li elenca Lighthouse — indicizzabilita', title, meta description, stato
+HTTP, testo dei link, link scansionabili, robots.txt, testi alternativi,
+hreflang, canonical e i dati strutturati da verificare a mano — con gli
+elementi incriminati di ciascuno, superati compresi: un punteggio pieno
+deve potersi distinguere da un controllo che non e' stato eseguito. I
+titoli arrivano in italiano da Lighthouse stesso (--locale=it), non da
+una nostra traduzione.
+
+Il referto dichiara sempre versione di Lighthouse e tipo di dispositivo
+(oggi mobile, il predefinito dello strumento): un referto mobile e uno
+desktop non sono confrontabili.
 
 WCAG: se Playwright e axe-core sono disponibili, l'accessibilita' viene
 misurata con axe-core su Chromium, limitato alle regole WCAG 2.1 livelli

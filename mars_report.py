@@ -61,6 +61,11 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             "tool": res.get("tool"),
             "wcag_level": res.get("wcag_level"),
             "pages_tested": res.get("pages_tested"),
+            # Elenco dei singoli controlli, quando lo strumento lo
+            # fornisce: e' cio' che Lighthouse mostra nella sua
+            # sezione, e senza non si sa QUALE controllo sia fallito.
+            "audits": list(res.get("audits") or []) or None,
+            "form_factor": res.get("form_factor"),
             # False quando lo strumento non e' arrivato in fondo (ZAP
             # interrotto dal timeout, axe che non ha caricato tutte le
             # pagine): un punteggio parziale non e' un punteggio pieno.
@@ -187,6 +192,16 @@ def _qualificatori(area: dict) -> List[str]:
         pezzi.append("scansione parziale")
     if area.get("pages_tested"):
         pezzi.append("%d pagine esaminate" % area["pages_tested"])
+    if area.get("form_factor"):
+        # Un referto mobile e uno desktop non sono confrontabili.
+        pezzi.append(str(area["form_factor"]))
+    controlli = area.get("audits") or []
+    if controlli:
+        superati = sum(1 for c in controlli if c.get("passed"))
+        falliti = sum(1 for c in controlli
+                      if not c.get("passed") and not c.get("manual"))
+        pezzi.append("%d controlli superati, %d falliti"
+                     % (superati, falliti))
     return pezzi
 
 
@@ -376,6 +391,15 @@ h3 { font-size:.95rem; margin:0; }
              white-space:nowrap; }
 .strumento { font-size:.78rem; color:var(--muted); margin:.3rem 0 0; }
 ul.rilievi { margin:.55rem 0 0; padding-left:1.15rem; }
+ul.controlli { list-style:none; margin:.6rem 0 0; padding:0; }
+ul.controlli li { font-size:.88rem; margin:.22rem 0; display:flex;
+                  gap:.5rem; align-items:baseline; }
+ul.controlli .segno { font-weight:700; flex:0 0 1rem; text-align:center; }
+ul.controlli li.fallito .segno { color:var(--bad); }
+ul.controlli li.superato .segno { color:var(--ok); }
+ul.controlli li.manuale .segno, ul.controlli li.manuale { color:var(--muted); }
+ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
+                          word-break:break-all; }
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
@@ -547,6 +571,40 @@ def _legenda() -> str:
         ".pallino.ok{background:var(--ok)}</style>")
 
 
+def _elenco_controlli(controlli: List[dict]) -> str:
+    """I singoli controlli, nell'ordine in cui Lighthouse li mostra.
+
+    Prima i falliti — sono quelli su cui si interviene — poi quelli da
+    verificare a mano, infine i superati. Elencare anche i superati non
+    e' ridondanza: senza, non si sa CHE COSA sia stato guardato, e un
+    punteggio pieno resta indistinguibile da un controllo che non e'
+    stato eseguito affatto.
+    """
+    def chiave(c: dict) -> int:
+        if c.get("manual"):
+            return 1
+        return 0 if not c.get("passed") else 2
+
+    righe = []
+    for c in sorted(controlli, key=chiave):
+        if c.get("manual"):
+            classe, segno = "manuale", "?"
+        elif c.get("passed"):
+            # NON "ok": e' gia' una classe globale del CSS e
+            # colorerebbe di verde l'intera riga invece del solo segno.
+            classe, segno = "superato", "\u2713"
+        else:
+            classe, segno = "fallito", "\u2717"
+        dettaglio = ", ".join(c.get("items") or [])
+        righe.append(
+            "<li class='%s'><span class='segno'>%s</span><span>%s%s</span>"
+            "</li>"
+            % (classe, segno, _e(c.get("title")),
+               "<br><span class='dettaglio'>%s</span>" % _e(dettaglio)
+               if dettaglio else ""))
+    return "<ul class='controlli'>%s</ul>" % "".join(righe)
+
+
 def _scheda_area(area: dict, referto: dict) -> str:
     """Una scheda per area, con i rilievi sotto — come le categorie di
     Lighthouse elencano i propri audit."""
@@ -585,7 +643,12 @@ def _scheda_area(area: dict, referto: dict) -> str:
         corpo.append("<p class='strumento%s'>%s</p>"
                      % (" parziale" if parziale else "",
                         _e(" · ".join(qualifiche))))
-    if area["issues"]:
+    if area.get("audits"):
+        # L'elenco dei controlli sostituisce quello dei rilievi: li
+        # contiene gia' tutti, e in piu' dice che cosa e' stato
+        # guardato e superato — che e' l'informazione che mancava.
+        corpo.append(_elenco_controlli(area["audits"]))
+    elif area["issues"]:
         corpo.append("<ul class='rilievi'>%s</ul>"
                      % "".join("<li>%s</li>" % _e(i) for i in area["issues"]))
     elif area["score"] is not None:

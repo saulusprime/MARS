@@ -32,6 +32,7 @@
 | — | Referto HTML nello stile di Lighthouse, esteso alle nostre aree | 2026-08-20 |
 | R19 | I segnali di pagina gonfiavano `answer_shaped_ratio` | 2026-08-20 |
 | R20 | axe fabbricava un 100/100; la suite lanciava Chromium | 2026-08-20 |
+| R21 | «Di superficie» era indistinguibile da una misura piena | 2026-08-20 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -1460,6 +1461,87 @@ diffusione si misura sulle pagine viste, senza un test che lo difendesse.
 - [x] Browser neutralizzato nella suite, sulla libreria e non sul modulo.
 - [x] Un test per **ciascun** ramo, reso deterministico.
 - [x] Corpo di `run_axe` sotto test con un finto Playwright.
+
+### R21 — ✅ RISOLTO (2026-08-20): «di superficie» era indistinguibile da una misura piena
+Le viste umane mostravano `tool` — e mai `status` — **solo** dove esisteva un
+`wcag_level`, cioè per la sola accessibilità. Il dato canonico lo conteneva già,
+quindi il JSON era onesto e le due viste che le persone leggono no.
+
+**Riprodotto.** Due sicurezze con lo stesso numero e due significati opposti:
+
+```
+vista TESTO
+  solo header HTTP      -> 7. Sicurezza         : 100/100
+  scansione ZAP attiva  -> 7. Sicurezza         : 100/100
+```
+
+Stringhe **identiche**. In HTML cambiava il solo nome dello strumento, e la
+parola «superficie» non compariva da nessuna parte: il quadrante era verde in
+entrambi i casi. Chi non sa che *HTTP-Headers* significa «abbiamo guardato tre
+intestazioni» leggeva un sito perfettamente sicuro.
+
+È il difetto più grave della famiglia aperta da **R4**, perché non riguarda un
+modulo ma il punto in cui tutto il lavoro di onestà metodologica arriva al
+lettore. `mars_wapt` distingueva già `surface` dal resto, `mars_wcag` pure, C9
+aveva introdotto `complete: False` per le scansioni interrotte — e le viste
+buttavano via tutto.
+
+**Risoluzione applicata.** `_qualificatori(area)` produce, per **ogni** area con
+un punteggio, con che cosa è stato ottenuto: strumento, livello, profondità
+(`controllo di superficie`), completezza (`scansione parziale`) e campione
+(`N pagine esaminate`). È **condivisa fra le due viste**, così testo e HTML non
+possono tornare a dire cose diverse — che è esattamente com'era nato il difetto.
+
+`build_report()` porta ora anche `complete` nel dato d'area: le viste possono
+dirlo perché il dato lo contiene, e se sparisce da lì sparisce da entrambe
+insieme (c'è una mutazione che lo verifica).
+
+**Nel referto HTML la qualifica è anche visiva.** La nota sotto il quadrante
+diventa `HTTP-Headers · superficie` **in arancio**, contro il grigio di
+`axe-core`: un 100 verde ottenuto guardando tre header non può più leggersi come
+un successo pieno. Verificato guardando lo screenshot della fascia.
+
+**Un'imprecisione trovata rileggendo l'output.** Avevo aggiunto la qualifica
+anche all'`aria-label` del quadrante, ma su una scansione soltanto *interrotta*
+diceva «controllo di superficie» — che è un'altra cosa. Tolta: la nota è un
+fratello nel DOM e viene letta subito dopo, quindi ripeterla la duplicava e
+sbagliarla era peggio che ometterla.
+
+**Verificato end-to-end**, su un sito reale senza daemon ZAP:
+
+```
+6. Accessibilità     :  50/100
+  axe-core · WCAG 2.1 A + AA · 2 pagine esaminate
+7. Sicurezza         :  60/100
+  HTTP-Headers · controllo di superficie
+```
+
+Due affermazioni del README sono tornate vere senza riscriverle: *«viene
+dichiarato come controllo di superficie»* e *«se la scansione va in timeout, i
+rilievi parziali vengono riportati come tali»* valevano finora solo nel JSON.
+
+**La prova che conta: reintrodurre il difetto.** Cinque mutazioni, tutte
+rilevate:
+
+```
+1. "surface" non piu' annotato                  -> 1 fallito
+2. scansione parziale non piu' annotata         -> 1 fallito
+3. la vista testo torna a tacere lo strumento   -> 3 falliti
+4. "complete" non entra nel dato canonico       -> 2 falliti
+5. il quadrante di superficie non piu' marcato  -> 1 fallito
+```
+
+I test girano **su entrambe le viste** con lo stesso `parametrize`: la prova
+centrale è che il referto di un controllo di superficie e quello di un WAPT
+completo non possano essere la stessa stringa.
+
+**Con R21 si chiude l'ultima voce GRAVE** della revisione del 2026-08-20: delle
+sette aperte quella mattina (R15-R21) non ne resta nessuna.
+
+- [x] `status` e `tool` dichiarati in entrambe le viste, per ogni area.
+- [x] `complete` nel dato canonico e nelle viste.
+- [x] Qualifica visiva nel quadrante, non solo testuale.
+- [x] Un solo `_qualificatori()` per testo e HTML.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

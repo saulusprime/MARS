@@ -54,6 +54,10 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             "tool": res.get("tool"),
             "wcag_level": res.get("wcag_level"),
             "pages_tested": res.get("pages_tested"),
+            # False quando lo strumento non e' arrivato in fondo (ZAP
+            # interrotto dal timeout, axe che non ha caricato tutte le
+            # pagine): un punteggio parziale non e' un punteggio pieno.
+            "complete": res.get("complete"),
         })
 
     referto: Dict[str, object] = {
@@ -140,6 +144,44 @@ def render_json(referto: dict) -> str:
     return json.dumps(referto, indent=2, ensure_ascii=False)
 
 
+# Come si legge lo "status" di un'area nelle viste umane. "surface" e'
+# l'unico che convive con un punteggio, ed e' quello che R21 ha trovato
+# invisibile: 100/100 dai soli header HTTP e 100/100 da una scansione
+# ZAP completa sono lo stesso numero e due fatti diversi.
+STATO_LEGGIBILE = {
+    "surface": "controllo di superficie",
+    "unavailable": "non misurato",
+    "disabled": "disattivato",
+}
+
+
+def _qualificatori(area: dict) -> List[str]:
+    """Con che cosa e' stato ottenuto il punteggio, e quanto vale.
+
+    Un numero senza strumento, profondita' e campione non e' una misura
+    ma un'impressione. La funzione e' condivisa fra le due viste umane
+    perche' testo e HTML non possano tornare a dire cose diverse:
+    prima queste informazioni comparivano solo dove esisteva un
+    wcag_level, cioe' per la sola accessibilita'.
+
+    Lo stato si annota solo se convive con un punteggio: quando il
+    punteggio manca, "non misurato" e "disattivato" prendono gia' il
+    posto del numero e ripeterli sarebbe rumore.
+    """
+    pezzi: List[str] = []
+    if area.get("tool"):
+        pezzi.append(str(area["tool"]))
+    if area.get("wcag_level"):
+        pezzi.append(str(area["wcag_level"]))
+    if area.get("score") is not None and area.get("status") in STATO_LEGGIBILE:
+        pezzi.append(STATO_LEGGIBILE[area["status"]])
+    if area.get("complete") is False:
+        pezzi.append("scansione parziale")
+    if area.get("pages_tested"):
+        pezzi.append("%d pagine esaminate" % area["pages_tested"])
+    return pezzi
+
+
 def _riga_area(area: dict) -> str:
     if area["score"] is None:
         stato = ("disattivato" if area["status"] == "disabled"
@@ -169,12 +211,12 @@ def render_text(referto: dict) -> str:
                             sem["n_chunks"] or 0))
             continue
         righe.append(_riga_area(area))
-        if area.get("wcag_level"):
-            provate = area.get("pages_tested")
-            campione = (" su %d pagine" % provate) if provate else ""
-            righe.append("  %s · %s%s"
-                         % (area.get("tool") or "?", area["wcag_level"],
-                            campione))
+        # Con che cosa e' stato misurato, per OGNI area e non piu' per
+        # la sola accessibilita': senza, 100/100 dai soli header HTTP
+        # e 100/100 da un WAPT completo erano due righe identiche.
+        qualifiche = _qualificatori(area)
+        if qualifiche:
+            righe.append("  " + " · ".join(qualifiche))
         for problema in area["issues"][:2]:
             righe.append(f"  ⚠ {problema}")
 
@@ -304,6 +346,7 @@ h3 { font-size:.95rem; margin:0; }
 .quadrante .nome { font-size:.82rem; margin-top:.35rem; line-height:1.3;
                    color:var(--fg); }
 .quadrante .nota { font-size:.72rem; color:var(--muted); }
+.quadrante .nota.parziale, .strumento.parziale { color:var(--warn); }
 .anello-fondo { stroke:var(--track); }
 .valore { font:600 30px/1 system-ui,sans-serif; }
 .valore.piccolo { font-size:22px; }
@@ -367,7 +410,8 @@ def _classe(valore: Optional[float]) -> str:
             else "warn" if valore >= SOGLIA_MEDIO else "bad")
 
 
-def _quadrante(valore: Optional[float], nome: str, nota: str = "") -> str:
+def _quadrante(valore: Optional[float], nome: str, nota: str = "",
+               parziale: bool = False) -> str:
     """Un quadrante circolare, come quelli in testa a un referto Lighthouse.
 
     E' SVG inline calcolato qui: l'arco si ottiene con stroke-dasharray
@@ -409,10 +453,16 @@ def _quadrante(valore: Optional[float], nome: str, nota: str = "") -> str:
         "<div class='quadrante %s'>"
         "<svg viewBox='0 0 120 120' role='img' aria-label='%s: %s'>%s%s</svg>"
         "<div class='nome'>%s</div>%s</div>"
+        # L'aria-label descrive il solo quadrante: la qualifica sta
+        # nella nota qui sotto, che e' un fratello nel DOM e viene letta
+        # subito dopo. Ripeterla qui la duplicherebbe, e sbagliarla —
+        # "superficie" su una scansione soltanto interrotta — sarebbe
+        # peggio che ometterla.
         % (classe, _e(nome),
            "non misurato" if valore is None else "%.0f su 100" % valore,
            arco, testo, _e(nome),
-           "<div class='nota'>%s</div>" % _e(nota) if nota else ""))
+           "<div class='nota%s'>%s</div>"
+           % (" parziale" if parziale else "", _e(nota)) if nota else ""))
 
 
 def _etichetta_area(area: dict) -> str:
@@ -440,12 +490,23 @@ def _fascia_quadranti(referto: dict) -> str:
     for area in referto["areas"]:
         if area["module"] in ("mars_lexical", "mars_semantic"):
             continue
-        nota = ""
         if area["score"] is None:
-            nota = _stato_area(area)
-        elif area.get("tool"):
-            nota = area["tool"]
-        pezzi.append(_quadrante(area["score"], _etichetta_area(area), nota))
+            nota, parziale = _stato_area(area), False
+        else:
+            # Sotto il quadrante lo spazio e' poco: strumento, e la
+            # parola che cambia il senso del numero. Un 100 verde
+            # ottenuto guardando tre header non deve poter passare
+            # per un WAPT completo.
+            breve = [area["tool"]] if area.get("tool") else []
+            parziale = (area.get("status") == "surface"
+                        or area.get("complete") is False)
+            if area.get("status") == "surface":
+                breve.append("superficie")
+            if area.get("complete") is False:
+                breve.append("parziale")
+            nota = " · ".join(breve)
+        pezzi.append(_quadrante(area["score"], _etichetta_area(area), nota,
+                                parziale))
 
     aggregato = referto.get("rrf_aggregate")
     if aggregato and aggregato.get("consensus_out_of"):
@@ -509,13 +570,15 @@ def _scheda_area(area: dict, referto: dict) -> str:
                          % (_e(nome), quante, referto["pages_crawled"]))
         voto = "<span class='muted'>classifica</span>"
 
-    if area.get("wcag_level") or area.get("tool"):
-        provate = area.get("pages_tested")
-        corpo.append("<p class='strumento'>%s%s%s</p>"
-                     % (_e(area.get("tool") or "?"),
-                        " · %s" % _e(area["wcag_level"])
-                        if area.get("wcag_level") else "",
-                        " · %d pagine esaminate" % provate if provate else ""))
+    qualifiche = _qualificatori(area)
+    if qualifiche:
+        # Marcato quando il punteggio non e' una misura piena: e' la
+        # differenza fra "sicuro" e "non abbiamo guardato a fondo".
+        parziale = (area.get("status") == "surface"
+                    or area.get("complete") is False)
+        corpo.append("<p class='strumento%s'>%s</p>"
+                     % (" parziale" if parziale else "",
+                        _e(" · ".join(qualifiche))))
     if area["issues"]:
         corpo.append("<ul class='rilievi'>%s</ul>"
                      % "".join("<li>%s</li>" % _e(i) for i in area["issues"]))

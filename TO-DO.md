@@ -1,8 +1,8 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R20 sono
-> già chiuse; restano aperte R21-R34.
+> di codice e documentazione: nuove voci R15-R34, I13-I15). R15-R21 sono
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R22-R34.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -94,37 +94,17 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
 l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
 mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
-**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`) e **R20** (axe
-che fabbricava un 100/100), tutte il 2026-08-20: difetto, soluzione e verifiche
-in [AS-IS.md](AS-IS.md).
+**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), **R20** (axe
+che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
+di superficie da una misura piena), tutte il 2026-08-20: difetto, soluzione e
+verifiche in [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R21-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R22-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R21 — 🔴 GRAVE: il referto non distingue un punteggio «di superficie» da una misura piena
-`render_text` ([mars_report.py:171](mars_report.py#L171)) e `render_html`
-([:346](mars_report.py#L346)) mostrano `tool` (e mai `status`) **solo** quando
-esiste `wcag_level`. Per la sicurezza, né lo `status: "surface"` né il `tool`
-(`HTTP-Headers`, `ZAP (attiva/passiva)`) compaiono nelle viste umane. Riprodotto:
-un sito con i tre header presenti e daemon ZAP assente stampa `7. Sicurezza :
-100/100`, in testo e HTML, **indistinguibile** da un WAPT completo pulito.
-Contraddice l'onestà metodologica (principio 5) e la distinzione `surface` /
-misura reale che [AS-IS.md](AS-IS.md) (R4, C9) ha costruito nei dati.
-
-**Stato aggiornato dopo il rifacimento del referto HTML (2026-08-20):** la
-vista HTML mostra ora `tool` per **ogni** area, non più solo per la WCAG —
-quindi la sicurezza dichiara `HTTP-Headers` o `ZAP (attiva)` sotto il titolo.
-Resta però il punto centrale: **`status` non compare ancora**, quindi un
-`surface` a 100/100 continua a leggersi come un WAPT completo, e `render_text`
-è invariato. La voce vale ancora, ridotta a metà.
-
-- [ ] Rendere `status` nelle viste (HTML e testo) anche per le aree con
-      punteggio, così un `surface 100/100` si legga per quello che è.
-- [x] `tool` mostrato per ogni area nella vista HTML.
 
 ### R22 — 🟡 MEDIO: l'esecutore di moduli non è robusto ai plugin che rompono
 Tre difetti della stessa famiglia:

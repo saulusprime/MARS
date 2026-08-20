@@ -234,6 +234,73 @@ def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):
     assert "vietato da robots.txt" in uscita
 
 
+# ----------------------------------------------------------------------
+# «di superficie» non è «misurato a fondo» (R21)
+# ----------------------------------------------------------------------
+
+def _referto_sicurezza(**extra):
+    res = {"mars_wapt": dict({"score": 100, "issues": []}, **extra)}
+    return build_report(res, {"url": "https://x/", "market": "global",
+                              "pages": {"a": {}}, "chunks": [],
+                              "discovery": "sitemap", "skipped": []})
+
+
+SUPERFICIE = {"status": "surface", "tool": "HTTP-Headers"}
+COMPLETA = {"tool": "ZAP (attiva)", "complete": True}
+INTERROTTA = {"tool": "ZAP (passiva)", "complete": False}
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html],
+                         ids=["testo", "html"])
+def test_superficie_distinguibile_da_una_misura_piena(vista):
+    """Regressione R21: due fatti diversi, lo stesso numero.
+
+    Un sito con i tre header presenti e nessun daemon ZAP prendeva
+    100/100 esattamente come un WAPT completo e pulito. In vista testo
+    le due righe erano stringhe IDENTICHE.
+    """
+    superficie = vista(_referto_sicurezza(**SUPERFICIE))
+    completa = vista(_referto_sicurezza(**COMPLETA))
+    assert superficie != completa, \
+        "un controllo di superficie non puo' rendersi identico a un WAPT"
+    assert "superficie" in superficie.lower()
+    assert "superficie" not in completa.lower().replace("class='nota", "")
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html],
+                         ids=["testo", "html"])
+def test_scansione_interrotta_dichiarata(vista):
+    """Un punteggio parziale non e' un punteggio pieno: vale per il
+    timeout di ZAP come per le pagine che axe non ha caricato."""
+    assert "parziale" in vista(_referto_sicurezza(**INTERROTTA)).lower()
+
+
+@pytest.mark.parametrize("chiave, extra", [
+    ("status", SUPERFICIE), ("complete", INTERROTTA),
+])
+def test_il_dato_canonico_porta_lo_stato(chiave, extra):
+    """Le viste possono dirlo perche' il dato lo contiene: se sparisce
+    da build_report, sparisce da entrambe insieme."""
+    area = _referto_sicurezza(**extra)["areas"][0]
+    assert area[chiave] == extra[chiave]
+
+
+def test_lo_strumento_e_dichiarato_per_ogni_area_non_solo_wcag(referto):
+    """Prima strumento e campione comparivano solo dove esisteva un
+    wcag_level, cioe' per la sola accessibilita'."""
+    testo = render_text(referto)
+    assert "axe-core" in testo and "WCAG 2.1" in testo
+
+
+def test_quadrante_di_superficie_e_marcato(referto):
+    """Il numero resta, ma il quadrante non deve leggersi come un
+    successo pieno: la nota sotto lo qualifica ed e' colorata."""
+    html_superficie = render_html(_referto_sicurezza(**SUPERFICIE))
+    assert "class='nota parziale'" in html_superficie
+    assert "class='nota parziale'" not in render_html(
+        _referto_sicurezza(**COMPLETA))
+
+
 def test_html_mostra_la_legenda_della_scala(referto):
     """La scala è una convenzione, non una misura: va dichiarata."""
     uscita = render_html(referto)

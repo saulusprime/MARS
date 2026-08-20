@@ -8,7 +8,6 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
-import re
 import shlex
 import subprocess
 import sys
@@ -45,20 +44,24 @@ def test_ogni_parametro_e_documentato(aiuto):
         assert flag in aiuto, "manca %s" % flag
 
 
-def test_ogni_parametro_mostra_valori_o_esempio(aiuto):
+def test_ogni_parametro_mostra_valori_o_esempio():
     """Un help che dice solo "numero massimo di pagine" non aiuta:
-    servono i valori ammessi o un esempio."""
-    sezione = aiuto[aiuto.index("options:"):aiuto.index("esempi:")]
-    blocchi = re.split(r"\n  (?=--)", sezione)
-    for blocco in blocchi:
-        if not blocco.strip().startswith("--"):
+    servono i valori ammessi o un esempio.
+
+    Si interroga il parser invece di elencare eccezioni a mano: un
+    interruttore senza argomento non ha valori da esemplificare, e la
+    distinzione la conosce argparse.
+    """
+    for azione in mars_audit.costruisci_parser()._actions:
+        if azione.nargs == 0 or not azione.option_strings:
+            continue  # interruttore, --help o --version
+        if azione.dest in ("help", "version"):
             continue
-        nome = blocco.split()[0]
-        if nome in ("--help", "--version"):
-            continue
-        assert ("Esempi:" in blocco or "Esempio:" in blocco
-                or "Valori:" in blocco or "{" in blocco), \
-            "%s non mostra ne' valori ammessi ne' un esempio" % nome
+        testo = azione.help or ""
+        assert ("Esempi:" in testo or "Esempio:" in testo
+                or "Valori:" in testo or azione.choices), \
+            "%s non mostra ne' valori ammessi ne' un esempio" % (
+                azione.option_strings[0])
 
 
 def test_gli_esempi_documentati_sono_validi():

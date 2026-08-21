@@ -2590,8 +2590,62 @@ un JSON rotto è un errore e un blocco vuoto una dimenticanza.
 - [x] `build_report`: `findings` su ogni area, errore sintetizzato.
 - [x] Contratto di test derivato dal registro, e l'invariante asserito.
 - [x] `mars_tech`: dodici chiavi, penalità nei params, comportamento identico.
+#### U1.5 — `mars_wcag`, due origini nello stesso modulo (2026-08-21)
+
+Il primo modulo con **due sorgenti di gravità**: axe, che una scala ce l'ha, e
+sette controlli statici che non ce l'hanno. Convivono nello stesso elenco.
+
+**Il criterio WCAG non è una gravità.** `[1.3.1/3.3.2]` è il *riferimento* che
+rende il rilievo verificabile da chi lo riceve. Va in `params["criterio"]` e
+resta nel testo della issue; la gravità è un'altra cosa, ed è nostra — quindi
+`source_severity` dei sette statici è vuoto. `critico` va a ciò che **blocca**
+uno screen reader (niente alternativa testuale, niente etichetta, niente lingua
+dichiarata); tabelle senza `<th>` e tabindex positivi rendono la navigazione
+peggiore, non impossibile.
+
+**La penalità di un controllo statico dipende dal ramo, e va detto.** Nel
+ripiego pagano 12 ciascuno — è il `100 - len(statici) * 12` di sempre. Nel ramo
+axe il punteggio viene dalle violazioni e i controlli statici **non lo toccano**:
+la loro penalità lì è **zero**. Attribuirgliene 12 prometterebbe alla Fase 4 un
+miglioramento che non arriverebbe.
+
+Nel ripiego ogni rilievo porta inoltre `params["surface"] = True`: senza, un
+elenco di soli findings mostrerebbe un `critical` come se venisse da una misura
+che non c'è stata. È R21 portato dentro il dato.
+
+**`impact` assente non diventa un giudizio di axe.** axe può ometterlo, e MARS
+lo appiattisce a `minor` per poter comunque pesare la violazione — ma è una
+**nostra** assunzione. `source_severity` resta vuoto: scrivere `axe:minor`
+attribuirebbe ad axe un giudizio che non ha espresso. Il punteggio si calcola
+lo stesso, che è a cosa serve l'assunzione.
+
+**Due cose raccolte perché il ciclo era già aperto.** `helpUrl` di axe — il
+link alla spiegazione della regola, cioè metà del lavoro della Fase 3 — veniva
+scartato; ora finisce in `Finding.url`. E gli id di axe passano da
+`chiave_esterna()`: `color.contrast` diventa `color_contrast`, perché quel
+punto romperebbe la profondità fissa a tre segmenti e con essa le ancore del
+referto.
+
+Verificato per confronto col codice precedente: punteggi e `issues` identici
+su sito difettoso, sito pulito, area senza pagine e ramo axe.
+
+Undici mutazioni, tutte rilevate. Tre non lo erano alla prima esecuzione: la
+**penalità axe che ignora la diffusione** (il peso scalato da 1x a 2x è
+calcolabile solo dentro il ciclo che lo applica, e nessun test lo ricostruiva),
+e i **due rilievi di stato** — scansione parziale e area senza pagine — che
+esistevano nei campi strutturati ma non fra i findings.
+
+Un errore mio, già registrato e ripetuto: la mutazione sul rilievo di scansione
+parziale era `[] or [Finding(...)]`, che **vale** `[Finding(...)]` — un no-op
+travestito da mutazione. Rifatta come si deve, il test la coglie.
+
+- [x] `mars_core`: costanti, `Finding`, conversione delle scale.
+- [x] `build_report`: `findings` su ogni area, errore sintetizzato.
+- [x] Contratto di test derivato dal registro, e l'invariante asserito.
+- [x] `mars_tech`: dodici chiavi, penalità nei params, comportamento identico.
 - [x] `mars_schema`: gravità editoriale dichiarata, aggregazione per controllo.
-- [ ] I quattro moduli restanti (U1.5-U1.8), più `mars_llm_judge` (U1.9).
+- [x] `mars_wcag`: due origini, penalità per ramo, `impact` assente onesto.
+- [ ] I tre moduli restanti (U1.6-U1.8), più `mars_llm_judge` (U1.9).
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

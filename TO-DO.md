@@ -139,7 +139,7 @@ AS-IS conserva nove misure invece di un riassunto.
       scala, e la rete di test più fitta del progetto.
 - [x] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di
       aggregazione per chiave.
-- [ ] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
+- [x] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
       editoriale), il marcatore `surface`, l'impact assente.
 - [ ] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
       **nessuna rete di test esistente**: il commit si porta i propri. Qui si

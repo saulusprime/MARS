@@ -87,13 +87,21 @@ def test_nessuno_score_none_senza_stato(modulo, contesto):
             % (modulo.__name__, esito["status"]))
 
 
-@pytest.mark.parametrize("modulo", [mars_schema, mars_wcag],
-                         ids=lambda m: m.__name__)
-def test_pagine_vuote_danno_non_misurato(modulo):
-    """Regressione R6: mars_wcag andava in IndexError."""
+@pytest.mark.parametrize("modulo, chiave", [
+    (mars_schema, "sd.status.no_pages"),
+    (mars_wcag, "wcag.status.no_pages"),
+], ids=lambda x: getattr(x, "__name__", x))
+def test_pagine_vuote_danno_non_misurato(modulo, chiave):
+    """Regressione R6: mars_wcag andava in IndexError.
+
+    E U1: anche un'area non misurata deve portare il proprio rilievo,
+    altrimenti e' l'unica a sparire dagli elenchi che le fasi
+    successive costruiranno sui findings."""
     esito = modulo.audit({"pages": {}, "url": "https://x/"})
     assert esito["score"] is None
     assert esito["status"] == "unavailable"
+    assert [f["key"] for f in esito["findings"]] == [chiave]
+    assert esito["findings"][0]["severity"] == SEV_INFO
 
 
 def test_citability_senza_un_solo_segnale_dichiara_lo_stato():
@@ -710,6 +718,175 @@ def test_wcag_dichiara_sempre_il_livello():
     assert "WCAG 2.1" in esito["wcag_level"]
 
 
+# --- U1.5: i rilievi di mars_wcag come dato --------------------------
+
+def test_wcag_il_criterio_non_e_una_gravita():
+    """`[1.3.1/3.3.2]` e' il RIFERIMENTO che rende il rilievo
+    verificabile da chi lo riceve, non un livello di severita'.
+
+    Va nei params e resta nel testo della issue; la gravita' e'
+    un'altra cosa, ed e' una scelta editoriale nostra — quindi
+    `source_severity` resta vuoto."""
+    esito = mars_wcag.audit({"pages": {"https://x/": pagina(
+        html=HTML_INACCESSIBILE)}})
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+
+    campi = per_chiave["wcag.form.label_missing"]
+    assert campi["params"]["criterio"] == "1.3.1/3.3.2"
+    assert campi["source_severity"] == "", \
+        "nessuno strumento ha espresso questa gravita'"
+    # E il criterio resta dov'era, nella riga che l'utente legge.
+    assert any(i.startswith("[1.3.1/3.3.2] ") for i in esito["issues"])
+
+
+def test_wcag_la_gravita_statica_distingue_cio_che_blocca():
+    """Scelta dichiarata: `critico` a cio' che blocca uno screen
+    reader — niente alternativa testuale, niente etichetta, niente
+    lingua — e non a cio' che rende la navigazione peggiore."""
+    esito = mars_wcag.audit({"pages": {"https://x/": pagina(
+        html=HTML_INACCESSIBILE)}})
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+    for chiave in ("wcag.img.alt_missing", "wcag.form.label_missing",
+                   "wcag.lang.missing"):
+        assert per_chiave[chiave]["severity"] == SEV_CRITICAL, chiave
+    for chiave in ("wcag.table.th_missing", "wcag.tabindex.positive",
+                   "wcag.heading.skip"):
+        assert per_chiave[chiave]["severity"] == SEV_WARNING, chiave
+    assert per_chiave["wcag.link.generic"]["severity"] == SEV_INFO
+
+
+def test_wcag_il_ripiego_marca_ogni_rilievo_come_di_superficie():
+    """Senza il marcatore, un elenco di soli findings mostrerebbe un
+    `critical` come se venisse da una misura che non c'e' stata.
+
+    E' lo stesso principio di R21, portato dentro il dato: qui il
+    punteggio nasce dal markup, non da un browser."""
+    esito = mars_wcag.audit({"pages": {"https://x/": pagina(
+        html=HTML_INACCESSIBILE)}})
+    assert esito["status"] == "surface"
+    assert esito["findings"]
+    for f in esito["findings"]:
+        assert f["params"]["surface"] is True, f["key"]
+        # E qui, e solo qui, i controlli statici pagano il punteggio.
+        assert f["params"]["penalty"] == 12.0
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == max(0, round(100 - somma))
+
+
+def test_wcag_nel_ramo_axe_gli_statici_non_pagano_il_punteggio(contesto,
+                                                               monkeypatch):
+    """Il punteggio viene dalle violazioni: i controlli statici
+    restano nei rilievi — coprono l'intero campione, mentre axe ne
+    vede solo le prime pagine — ma la loro penalita' e' zero.
+
+    Dirlo conta: la Fase 4 calcolera' i guadagni proprio da quel
+    numero, e attribuire 12 punti a un rilievo che non ne toglie
+    nessuno prometterebbe un miglioramento inesistente."""
+    contesto["pages"] = {"https://x/": pagina(html=HTML_INACCESSIBILE)}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: ([_viol()], 1))
+    esito = mars_wcag.audit(contesto)
+
+    statici = [f for f in esito["findings"] if f["key"] in mars_wcag.STATICI]
+    assert statici, "i controlli statici devono restare"
+    for f in statici:
+        assert f["params"]["penalty"] == 0.0, \
+            "%s: nel ramo axe non tocca il punteggio" % f["key"]
+        assert "surface" not in f["params"]
+
+
+def test_wcag_axe_impact_assente_non_diventa_un_giudizio_di_axe():
+    """axe puo' omettere `impact`, e MARS lo appiattisce a "minor" per
+    poter comunque pesare la violazione. E' una NOSTRA assunzione:
+    scrivere "axe:minor" attribuirebbe ad axe un giudizio che non ha
+    espresso."""
+    dichiarato = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical", "help": "H", "nodes": [0]}], 1)
+    taciuto = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "help": "H", "nodes": [0]}], 1)
+
+    assert dichiarato["findings"][0]["source_severity"] == "axe:critical"
+    assert taciuto["findings"][0]["source_severity"] == ""
+    # Il punteggio invece si calcola lo stesso: l'assunzione serve a quello.
+    assert taciuto["score"] < 100
+
+
+def test_wcag_la_penalita_axe_ricostruisce_il_punteggio():
+    """La penalita' di axe non e' il peso della regola: e' il peso
+    SCALATO PER DIFFUSIONE, da 1x se la regola tocca una pagina sola a
+    2x se le tocca tutte.
+
+    E' calcolabile solo dentro il ciclo che la applica, quindi va
+    registrata li'. Il caso e' costruito perche' le due diffusioni
+    divergano: una regola su entrambe le pagine, una su una sola."""
+    violazioni = [
+        {"id": "image-alt", "impact": "critical", "help": "H", "nodes": [0]},
+        {"id": "image-alt", "impact": "critical", "help": "H", "nodes": [0]},
+        {"id": "label", "impact": "serious", "help": "L", "nodes": [0]},
+    ]
+    esito = mars_wcag.score_from_violations(violazioni, pagine_testate=2)
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == max(0, round(100 - somma))
+
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+    # image-alt tocca 2 pagine su 2 -> 2x; label 1 su 2 -> 1.5x
+    assert per_chiave["wcag.axe.image_alt"]["params"]["penalty"] == 25 * 2.0
+    assert per_chiave["wcag.axe.label"]["params"]["penalty"] == 12 * 1.5
+
+
+def test_wcag_la_scansione_parziale_e_un_rilievo(contesto, monkeypatch):
+    """Una scansione parziale vale piu' di niente, ma spacciarla per
+    completa no (C9). Il fatto sta gia' in `complete`; qui deve
+    comparire anche fra i rilievi, altrimenti sparisce da ogni elenco
+    costruito su quelli."""
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(4)}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: ([_viol()], 2))
+    esito = mars_wcag.audit(contesto)
+
+    assert esito["complete"] is False
+    stato = [f for f in esito["findings"] if f["key"] == "wcag.status.partial"]
+    assert len(stato) == 1
+    assert stato[0]["params"] == {"mancate": 2, "tentate": 4, "analizzate": 2}
+    # E non pesa sul punteggio: e' uno stato, non un difetto del sito.
+    assert "penalty" not in stato[0]["params"]
+
+
+def test_wcag_gli_id_di_axe_vengono_sanificati():
+    """Gli id vengono da axe, quindi sono dato esterno: un punto
+    dentro l'id romperebbe la profondita' fissa a tre segmenti, e con
+    essa le ancore del referto e la ricerca a catalogo."""
+    esito = mars_wcag.score_from_violations(
+        [{"id": "color.contrast", "impact": "serious", "help": "H",
+          "nodes": [0]}], 1)
+    f = esito["findings"][0]
+    assert f["key"] == "wcag.axe.color_contrast"
+    assert len(f["key"].split(".")) == 3
+    # L'id grezzo non si perde: e' quello che axe conosce.
+    assert f["params"]["rule"] == "color.contrast"
+
+
+def test_wcag_il_dato_axe_non_tronca_a_cinque():
+    """La vista compatta ne elenca cinque; il dato li porta tutti."""
+    violazioni = [{"id": "regola-%d" % n, "impact": "minor",
+                   "help": "H%d" % n, "nodes": [0]} for n in range(8)]
+    esito = mars_wcag.score_from_violations(violazioni, 1)
+    assert len(esito["issues"]) == 5
+    assert len(esito["findings"]) == 8
+
+
+def test_wcag_axe_porta_l_helpurl_per_la_correzione():
+    """axe fornisce `helpUrl` e finora veniva scartato: e' il link
+    alla spiegazione della regola, cioe' meta' del lavoro della Fase 3."""
+    esito = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical", "help": "H",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
+          "nodes": [0]}], 1)
+    assert esito["findings"][0]["url"].endswith("/image-alt")
+
+
 def _viol(rid="a", gravita="serious"):
     return {"id": rid, "impact": gravita, "help": rid, "nodes": [0]}
 
@@ -810,7 +987,8 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
     assert [i["alt"] for i in p["images"]] == ["", "Descritta", None, None], \
         "il crawler deve distinguere alt assente da alt vuoto"
 
-    rilievi = mars_wcag.controlli_statici({"https://esempio.test/": p})
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
     alternativi = [r for r in rilievi if "[1.1.1]" in r]
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
 
@@ -834,7 +1012,8 @@ def test_wcag_non_riparsa_l_html(contesto):
     p["links"] = [{"text": "clicca qui", "aria-label": None}]
     p["tabindex"] = ["4"]
 
-    rilievi = " | ".join(mars_wcag.controlli_statici({"https://x/": p}))
+    rilievi = " | ".join(mars_wcag._issue_statica(f) for f in
+                         mars_wcag.controlli_statici({"https://x/": p}))
     assert "1 salti" in rilievi
     assert "1 campi di modulo senza etichetta" in rilievi
     assert "1 tabelle dati senza intestazioni" in rilievi

@@ -16,6 +16,7 @@ import sys
 import time
 import unicodedata
 from collections import defaultdict
+from dataclasses import asdict, dataclass, field
 from types import ModuleType
 from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
@@ -203,6 +204,207 @@ def errore_modulo(exc: BaseException) -> dict:
     perche'" invece di non nominarla affatto.
     """
     return {"error": "%s: %s" % (type(exc).__name__, exc)}
+
+
+# ======================================================================
+# Rilievi strutturati — Fase 1 del programma UPGRADE (vedi UPGRADE.md)
+# ======================================================================
+#
+# Fino a qui un rilievo e' una stringa con la gravita' codificata in un
+# prefisso, e i prefissi sono TRE, diversi per modulo: "[critico]" in
+# mars_tech, "[axe:serious]" in mars_wcag, "[ZAP:High]" in mars_wapt.
+# Tre scale mai messe in relazione, nessun peso, nessuna chiave stabile:
+# su stringhe cosi' non si costruiscono ne' un piano di interventi
+# ordinato, ne' un confronto fra due esecuzioni, ne' una traduzione.
+
+SEV_CRITICAL = "critical"
+SEV_WARNING = "warning"
+SEV_INFO = "info"
+SEV_OK = "ok"
+
+# In ordine di gravita' decrescente: e' l'ordine in cui si presenta un
+# elenco di rilievi, e serve come chiave di ordinamento.
+SEVERITA = (SEV_CRITICAL, SEV_WARNING, SEV_INFO, SEV_OK)
+
+# Il peso e' una scala CHIUSA, non un float libero. Serve a conservare
+# la granularita' che le quattro severita' perdono: mars_tech distingue
+# "grave" da "medio", axe "serious" da "moderate", e senza il peso i due
+# livelli collasserebbero indistinguibili. Dichiararla chiusa evita che
+# fra qualche fase compaia un 1.7 e l'ordinamento diventi illeggibile.
+WEIGHTS = (1.0, 1.5, 2.0, 3.0)
+
+# Prefisso di chiave per area. Descrive il SOGGETTO, non il file del
+# plugin: i moduli sono sostituibili per progetto (principio 3), le
+# chiavi no. Se domani mars_wapt fosse rimpiazzato da un altro scanner,
+# "sec.headers.csp_missing" resterebbe vera; "wapt.*" no.
+AREA_PREFIX = {
+    "mars_tech": "tech",
+    "mars_seo": "seo",
+    "mars_lexical": "lex",
+    "mars_semantic": "sem",
+    "mars_schema": "sd",
+    "mars_wcag": "wcag",
+    "mars_wapt": "sec",
+    "mars_citability": "cit",
+    "mars_llm_judge": "llm",
+}
+
+# Le tre scale di gravita' che entrano in MARS, ricondotte a una.
+#
+# "mars" e' la scala editoriale italiana: la usa mars_tech, che l'ha
+# definita, ma anche gli header di mars_wapt, i controlli statici di
+# mars_wcag, mars_schema e mars_citability. Si chiama "mars" e non
+# "mars_tech" proprio per questo: cinque moduli, non uno.
+_SCALE_SEVERITA = {
+    "mars": {
+        "critico": (SEV_CRITICAL, 2.0),
+        "grave": (SEV_WARNING, 2.0),
+        "medio": (SEV_WARNING, 1.0),
+        "lieve": (SEV_INFO, 1.0),
+    },
+    "axe": {
+        "critical": (SEV_CRITICAL, 2.0),
+        "serious": (SEV_WARNING, 2.0),
+        "moderate": (SEV_WARNING, 1.0),
+        "minor": (SEV_INFO, 1.0),
+    },
+    "zap": {
+        "high": (SEV_CRITICAL, 2.0),
+        "medium": (SEV_WARNING, 1.0),
+        "low": (SEV_INFO, 1.0),
+        "informational": (SEV_INFO, 1.0),
+    },
+}
+
+
+def normalizza_severita(scala: str, valore: object = "") -> Tuple[str, float]:
+    """Una gravita' di strumento, ricondotta alla scala canonica.
+
+    Restituisce (severita, peso). Distingue due casi che sembrano
+    uguali e non lo sono:
+
+    - **valore sconosciuto** — un impact di axe o un risk di ZAP che
+      non conoscevamo: e' DATO ESTERNO, quindi ostile per definizione,
+      e uno strumento che aggiorna la propria scala non deve far
+      cadere un audit. Si degrada a (info, 1.0);
+    - **scala sconosciuta** — `normalizza_severita("mars_schema", ...)`
+      invece di `"mars"`: e' un refuso di programmazione, deterministico.
+      Degradarlo appiattirebbe un intero modulo su un livello, con i
+      punteggi intatti e i test verdi: **invisibile**. Solleva.
+
+    Il valore viene ridotto al primo token minuscolo perche' ZAP scrive
+    la confidenza accanto al rischio — `"High (Medium)"` — e quella
+    parentesi non e' una gravita'.
+    """
+    try:
+        mappa = _SCALE_SEVERITA[scala]
+    except KeyError:
+        raise ValueError(
+            "scala di gravita' sconosciuta: %r (attese: %s)"
+            % (scala, ", ".join(sorted(_SCALE_SEVERITA)))) from None
+    token = str(valore).strip().lower().split(" ")[0]
+    return mappa.get(token, (SEV_INFO, 1.0))
+
+
+# Lighthouse non ha una scala di gravita': ha un punteggio, una
+# modalita' di visualizzazione e un PESO di categoria. La severita' si
+# calcola, e per questo sta in una funzione sua invece che dentro
+# _SCALE_SEVERITA con una firma allargata.
+#
+# La soglia non e' arbitraria. Nella categoria SEO Lighthouse assegna
+# peso 1 a ogni audit tranne due: `is-crawlable` pesa 93/23 (~4,04) — e
+# il commento nel suo default-config.js dice perche', e' calibrato
+# perche' quel solo fallimento faccia fallire l'intera categoria (>=31%
+# del punteggio) — mentre gli audit manuali pesano 0. Una soglia a 3
+# separa quindi esattamente cio' che Lighthouse stesso considera
+# rompi-categoria, e lo zero esattamente cio' che non e' misurato.
+LH_PESO_CRITICO = 3.0
+
+# Modalita' in cui Lighthouse dichiara di NON aver misurato: non sono
+# fallimenti, e trattarle come tali sarebbe inventare un difetto.
+LH_MODI_NON_MISURATI = ("manual", "notapplicable", "informative")
+
+
+def severita_lighthouse(score: object, mode: str = "",
+                        weight: float = 0.0) -> Tuple[str, float]:
+    """Severita' e peso di un singolo audit Lighthouse.
+
+    Un audit non misurato (manuale, non applicabile, informativo) e un
+    audit fallito sono cose diverse: il primo e' un promemoria, il
+    secondo un difetto. Confonderli e' il modo piu' facile per gonfiare
+    un elenco di rilievi con voci su cui non c'e' nulla da fare.
+    """
+    if str(mode).strip().lower() in LH_MODI_NON_MISURATI:
+        return (SEV_INFO, 1.0)
+    try:
+        peso = float(weight)
+    except (TypeError, ValueError):
+        peso = 0.0
+    if peso >= LH_PESO_CRITICO:
+        return (SEV_CRITICAL, 2.0)
+    if peso > 0:
+        return (SEV_WARNING, 1.0)
+    return (SEV_INFO, 1.0)
+
+
+def chiave_esterna(identificatore: object) -> str:
+    """Un id di strumento reso utilizzabile come segmento di chiave.
+
+    Gli id vengono da axe, da ZAP e da Lighthouse, quindi sono dato
+    esterno: un punto dentro `is-crawlable` romperebbe la profondita'
+    fissa a tre segmenti, e con essa le ancore del referto e la ricerca
+    a catalogo della traduzione. L'id grezzo va conservato nei params
+    di chi chiama, che e' l'unico posto dove resta fedele.
+    """
+    ripulito = "".join(
+        c if c.isascii() and (c.isalnum() or c == "_") else "_"
+        for c in str(identificatore).strip().lower())
+    return ripulito.strip("_") or "unknown"
+
+
+@dataclass
+class Finding:
+    """Un rilievo dell'audit, come DATO invece che come stringa.
+
+    Attraversa il confine dei plugin **serializzato** con `as_dict()`:
+    il contratto resta `audit(context) -> dict` (principio 3 di
+    CLAUDE.md), e un modulo esterno non e' costretto a importare nulla
+    da mars_core per rispettarlo.
+
+    Campi che meritano una spiegazione:
+
+    - `key` — id stabile del controllo, forma `area.famiglia.esito`,
+      tre segmenti. E' cio' su cui poggeranno il confronto fra due
+      esecuzioni e i cataloghi di traduzione, quindi non contiene mai
+      un valore variabile: i conteggi stanno in `params`.
+    - `weight` — importanza del controllo, NON la penalita' applicata.
+      Le due si confondono facilmente: la penalita' di axe e ZAP
+      dipende dalla diffusione ed e' un punteggio (25, 12, 5...),
+      mentre il peso e' un rapporto di importanza. La penalita' va in
+      `params["penalty"]`, ed e' da li' che si calcolera' quanto
+      risalirebbe un punteggio d'area se il rilievo fosse risolto.
+    - `source_severity` — la gravita' **come l'ha detta lo strumento**
+      (`"axe:serious"`, `"ZAP:High"`, `"critico"`), per chi quelle
+      scale le conosce. Resta **vuota** quando la gravita' e' una
+      scelta editoriale nostra o un valore assunto: dire `"axe:minor"`
+      dove axe non ha detto nulla significherebbe attribuirgli un
+      giudizio che non ha espresso.
+    """
+
+    area: str
+    severity: str
+    title: str
+    key: str = ""
+    detail: str = ""
+    fix: str = ""
+    example: str = ""
+    url: str = ""
+    weight: float = 1.0
+    source_severity: str = ""
+    params: Dict[str, object] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, object]:
+        return asdict(self)
 
 
 def _local_name(tag: str) -> str:

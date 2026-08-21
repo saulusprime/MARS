@@ -118,12 +118,43 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-- [ ] **U1 — Modello dati dei rilievi** (G01, [Fase 1](UPGRADE.md)) —
-      **prerequisito di U2, U3, U4, U5, U7**. Dataclass `Finding` e scala
-      severità unificata in `mars_core.py`, poi i moduli **uno per commit**.
-      La dataclass **non** attraversa il confine dei plugin: i moduli
-      restituiscono `findings` come lista di dict, accanto alle `issues`
-      attuali, che restano.
+### U1 — Modello dati dei rilievi (G01) — prerequisito di U2, U3, U4, U5, U7
+
+Dataclass `Finding` e scala di severità unificata. La dataclass **non**
+attraversa il confine dei plugin: i moduli restituiscono `findings` come lista
+di dict, accanto alle `issues` attuali, che restano (vista compatta legacy).
+
+Nove commit, non uno: così ogni passo chiude una voce con le sue verifiche e
+AS-IS conserva nove misure invece di un riassunto.
+
+- [x] **U1.1** — `mars_core`: `SEV_*`, `WEIGHTS`, `AREA_PREFIX`, `Finding`,
+      `normalizza_severita`, `severita_lighthouse`, `chiave_esterna`.
+- [ ] **U1.2** — `build_report`: `findings` nell'area, sintesi di
+      `<prefisso>.status.error`, test di contratto esteso a **tutti e nove** i
+      moduli. Il consumatore **prima** dei produttori: `build_report` copia una
+      lista chiusa di chiavi, quindi senza questo passo i commit successivi
+      consegnerebbero una chiave che nessuno legge e nessun test vede.
+- [ ] **U1.3** — `mars_tech`. È il banco di prova del modello: unica scala
+      propria, due gravità calcolate a runtime, punteggio accoppiato alla
+      scala, e la rete di test più fitta del progetto.
+- [ ] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di
+      aggregazione per chiave.
+- [ ] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
+      editoriale), il marcatore `surface`, l'impact assente.
+- [ ] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
+      **nessuna rete di test esistente**: il commit si porta i propri. Qui si
+      raccoglie anche `solution` di ZAP, che oggi viene scartata e serve a U3.
+- [ ] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
+      monte: `estrai_audit` deve conservare `score`, `scoreDisplayMode` e il
+      `weight` di `auditRefs`, che oggi **non viene mai letto**.
+- [ ] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
+      gli altri sei. Ogni suo rilievo porta `params["derived"] = True`.
+- [ ] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
+      UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
+      findings.
+- [ ] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
+### Altre fasi
+
 - [ ] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
       tutte le fasi successive: ogni cambiamento di resa passa da una
       rigenerazione intenzionale con revisione del diff.
@@ -148,6 +179,25 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
       accessibilità delle tabelle, brand nel footer.
 - [ ] **U12 — Ancore esterne alla simulazione** (G13, Fase 12) — *opzionale*:
       Brave Search e confronto competitivo.
+
+### U13 — `mars_lexical` e `mars_semantic` non hanno controlli
+
+*(trovata mappando i moduli per U1, il 2026-08-21)*
+
+Le due aree **non emettono un solo rilievo**: producono metriche
+(`answer_shaped_ratio`, ranghi, consenso) ma nessun controllo con un esito.
+Nel riferimento `lex.` e `sem.` sono **47 chiavi su 122** — titoli duplicati,
+contenuti sottili, freschezza, fonti citate.
+
+Il divario non è di formato ed **U1 non lo chiude**: adeguare il modello dati
+non fa comparire rilievi che non esistono. Conseguenza da conoscere prima di
+U5, non da scoprire dopo: hero, tile per gravità, CSV, piano di remediation e
+delta descriveranno **sette aree su nove**, e le due che alimentano i quadranti
+derivati non contribuiranno un solo `Finding`.
+
+- [ ] Decidere se colmarlo, e con quali controlli. Candidati dal riferimento:
+      `lex.title.dup`, `lex.words.thin`, `sem.fresh.very_stale`,
+      `sem.refs.missing`. È materia di una fase a sé, non di una riga.
 
 ---
 

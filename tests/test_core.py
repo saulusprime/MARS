@@ -17,12 +17,15 @@ from bs4 import BeautifulSoup
 
 import mars_core
 from conftest import HTML_BASE
-from mars_core import (MAX_REDIRECT, Crawler, LexicalRetriever,
-                       VectorRetriever, chunk_page, decode_html,
+from mars_core import (AREA_PREFIX, MAX_REDIRECT, MODULES_REGISTRY,
+                       SEV_CRITICAL, SEV_INFO, SEV_WARNING, WEIGHTS, Crawler,
+                       Finding, LexicalRetriever, VectorRetriever,
+                       chiave_esterna, chunk_page, decode_html,
                        default_queries, describe_chunk, estrai_struttura,
                        host_matches, load_external_module, load_queries,
-                       norm_host, normalize_url, reciprocal_rank_fusion,
-                       safe_normalize_url, split_windows, tokenize)
+                       norm_host, normalize_url, normalizza_severita,
+                       reciprocal_rank_fusion, safe_normalize_url,
+                       severita_lighthouse, split_windows, tokenize)
 
 
 # ----------------------------------------------------------------------
@@ -1050,3 +1053,169 @@ def test_build_context_pubblica_il_delay_effettivo(monkeypatch):
     assert contesto is not None
     assert contesto["delay"] == 7.0, "e' il delay EFFETTIVO, non quello chiesto"
     assert pause and max(pause) > 6, "il crawler stesso deve averlo rispettato"
+
+
+# ----------------------------------------------------------------------
+# Rilievi strutturati — Fase 1 del programma UPGRADE
+# ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("scala, valore, severita, peso", [
+    # La scala editoriale italiana: la definisce mars_tech, ma la usano
+    # anche gli header di mars_wapt, i controlli statici di mars_wcag,
+    # mars_schema e mars_citability. Per questo si chiama "mars".
+    ("mars", "critico", SEV_CRITICAL, 2.0),
+    ("mars", "grave", SEV_WARNING, 2.0),
+    ("mars", "medio", SEV_WARNING, 1.0),
+    ("mars", "lieve", SEV_INFO, 1.0),
+    ("axe", "critical", SEV_CRITICAL, 2.0),
+    ("axe", "serious", SEV_WARNING, 2.0),
+    ("axe", "moderate", SEV_WARNING, 1.0),
+    ("axe", "minor", SEV_INFO, 1.0),
+    ("zap", "High", SEV_CRITICAL, 2.0),
+    ("zap", "Medium", SEV_WARNING, 1.0),
+    ("zap", "Low", SEV_INFO, 1.0),
+    ("zap", "Informational", SEV_INFO, 1.0),
+])
+def test_mappa_di_conversione_delle_tre_scale(scala, valore, severita, peso):
+    """Tutti i valori delle tre scale, uno per uno.
+
+    E' la tabella su cui poggia l'intero adeguamento: se una riga
+    cambia, cambiano ordinamenti, piano di interventi e confronti fra
+    esecuzioni, in silenzio."""
+    assert normalizza_severita(scala, valore) == (severita, peso)
+
+
+def test_grave_e_medio_restano_distinti_nel_peso():
+    """Le quattro severita' collassano due livelli in 'warning': la
+    granularita' persa deve sopravvivere nel peso, altrimenti non
+    c'era ragione di conservarlo."""
+    grave = normalizza_severita("mars", "grave")
+    medio = normalizza_severita("mars", "medio")
+    assert grave[0] == medio[0] == SEV_WARNING
+    assert grave[1] > medio[1]
+
+
+def test_zap_la_confidenza_non_e_una_gravita():
+    """ZAP scrive il rischio con la confidenza accanto: 'High (Medium)'.
+    Quella parentesi non e' una gravita', e prenderla per tale
+    declassava a info l'alert piu' serio che ZAP sappia emettere."""
+    assert normalizza_severita("zap", "High (Medium)") == (SEV_CRITICAL, 2.0)
+    assert normalizza_severita("zap", "  hIgH  ") == (SEV_CRITICAL, 2.0)
+
+
+def test_valore_sconosciuto_degrada_non_solleva():
+    """Un impact di axe o un risk di ZAP che non conosciamo e' DATO
+    ESTERNO: uno strumento che aggiorna la propria scala non deve far
+    cadere un audit."""
+    for scala in ("mars", "axe", "zap"):
+        assert normalizza_severita(scala, "gravissimo") == (SEV_INFO, 1.0)
+        assert normalizza_severita(scala, "") == (SEV_INFO, 1.0)
+        assert normalizza_severita(scala, None) == (SEV_INFO, 1.0)
+
+
+def test_scala_sconosciuta_solleva():
+    """L'opposto del caso sopra, e la ragione per cui vanno distinti.
+
+    Una scala sbagliata e' un refuso di programmazione, non un dato:
+    degradarla a (info, 1.0) appiattirebbe un intero modulo su un
+    livello, con i punteggi intatti e i test verdi. Invisibile."""
+    with pytest.raises(ValueError) as errore:
+        normalizza_severita("mars_schema", "grave")
+    assert "mars_schema" in str(errore.value)
+    # Il messaggio deve dire quali sono quelle giuste, o non aiuta.
+    assert "axe" in str(errore.value)
+
+
+@pytest.mark.parametrize("score, mode, weight, atteso", [
+    # is-crawlable pesa 93/23 nella categoria SEO, e Lighthouse lo
+    # calibra apposta perche' il suo solo fallimento faccia fallire
+    # l'intera categoria. E' l'unico audit SEO sopra la soglia.
+    (0, "binary", 93 / 23, (SEV_CRITICAL, 2.0)),
+    (0, "binary", 1, (SEV_WARNING, 1.0)),
+    # Peso 0 = audit manuale: Lighthouse non lo conta nel punteggio.
+    (None, "manual", 0, (SEV_INFO, 1.0)),
+    (None, "notApplicable", 0, (SEV_INFO, 1.0)),
+    (None, "informative", 0, (SEV_INFO, 1.0)),
+])
+def test_severita_lighthouse(score, mode, weight, atteso):
+    assert severita_lighthouse(score, mode, weight) == atteso
+
+
+def test_lighthouse_non_misurato_non_e_un_fallimento():
+    """Un audit manuale resta info anche se pesasse molto: non e' un
+    difetto, e' un promemoria. Confonderli riempie l'elenco dei rilievi
+    di voci su cui non c'e' nulla da fare."""
+    assert severita_lighthouse(None, "manual", 93 / 23) == (SEV_INFO, 1.0)
+    # E un peso illeggibile non deve far cadere nulla.
+    assert severita_lighthouse(0, "binary", None) == (SEV_INFO, 1.0)
+    assert severita_lighthouse(0, "binary", "molto") == (SEV_INFO, 1.0)
+
+
+@pytest.mark.parametrize("grezzo, atteso", [
+    ("is-crawlable", "is_crawlable"),
+    ("document-title", "document_title"),
+    ("color.contrast", "color_contrast"),      # un punto romperebbe la chiave
+    ("10038", "10038"),                        # pluginId ZAP
+    ("Aria-Allowed-Attr", "aria_allowed_attr"),
+    ("  spazi  ", "spazi"),
+    ("--bordi--", "bordi"),
+    ("", "unknown"),
+    ("///", "unknown"),
+])
+def test_chiave_esterna_sanifica_gli_id_di_strumento(grezzo, atteso):
+    """Gli id vengono da axe, ZAP e Lighthouse: sono dato esterno.
+
+    Un punto dentro l'id romperebbe la profondita' fissa a tre segmenti
+    della chiave, e con essa le ancore del referto e la ricerca a
+    catalogo della traduzione."""
+    assert chiave_esterna(grezzo) == atteso
+
+
+def test_finding_attraversa_il_confine_serializzato():
+    """Il contratto plugin resta dict, e la vista JSON fa json.dumps
+    SENZA default=: una dataclass che sfuggisse solleverebbe TypeError
+    a valle, dopo che tutti i moduli sono girati."""
+    f = Finding(area="mars_tech", severity=SEV_CRITICAL,
+                title="robots.txt blocca i crawler IA",
+                key="tech.robots.ai_blocked", weight=2.0,
+                source_severity="critico",
+                params={"bloccati": ["GPTBot", "ClaudeBot"], "n": 2})
+    d = f.as_dict()
+    assert isinstance(d, dict)
+    assert d["key"] == "tech.robots.ai_blocked"
+    assert d["source_severity"] == "critico"
+    assert json.loads(json.dumps(d))["params"]["n"] == 2
+
+    # I default non devono essere condivisi fra istanze.
+    altro = Finding(area="mars_seo", severity=SEV_INFO, title="x")
+    altro.params["solo_mio"] = 1
+    assert Finding(area="a", severity=SEV_INFO, title="y").params == {}
+
+
+def test_ogni_area_del_registro_ha_un_prefisso():
+    """La chiave e' stabile, il nome del plugin no: i moduli sono
+    sostituibili per progetto. Se un giorno si aggiunge la decima area
+    e ci si dimentica del prefisso, le sue chiavi non avrebbero un
+    primo segmento — e nessun altro test se ne accorgerebbe."""
+    registro = {nome for nome, _ in MODULES_REGISTRY}
+    assert registro == set(AREA_PREFIX)
+    assert len(set(AREA_PREFIX.values())) == len(AREA_PREFIX), \
+        "due aree non possono condividere lo stesso prefisso"
+    for prefisso in AREA_PREFIX.values():
+        assert prefisso and prefisso.isascii() and prefisso.islower()
+        assert "." not in prefisso
+
+
+def test_i_pesi_restano_una_scala_chiusa():
+    """WEIGHTS e' dichiarata chiusa perche' l'ordinamento del piano di
+    interventi resti leggibile: senza, fra qualche fase comparirebbe un
+    1.7 scritto da qualcuno e nessuno saprebbe dire cosa significa."""
+    prodotti = {normalizza_severita(scala, valore)[1]
+                for scala in ("mars", "axe", "zap")
+                for valore in ("critico", "grave", "medio", "lieve",
+                               "critical", "serious", "moderate", "minor",
+                               "high", "medium", "low", "informational",
+                               "ignoto")}
+    prodotti |= {severita_lighthouse(0, "binary", p)[1]
+                 for p in (0, 1, 93 / 23)}
+    assert prodotti <= set(WEIGHTS)

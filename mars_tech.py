@@ -10,10 +10,11 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 from urllib.robotparser import RobotFileParser
 
-from mars_core import USER_AGENT, norm_host
+from mars_core import (USER_AGENT, Finding, norm_host,
+                       normalizza_severita)
 
 # Crawler degli assistenti IA e di chi li alimenta. Un sito che li
 # esclude non verra' citato: e' il primo fattore di citabilita', prima
@@ -52,13 +53,39 @@ _SEPARATORI = re.compile(r"[,\s]+")
 # che dava lo stesso peso a un noindex sull'intero sito e a un lastmod
 # mancante. Scelta editoriale dichiarata.
 PESI = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
+# Penalita' di una gravita' che non conosciamo. Non e' teorica: se
+# un giorno si aggiungesse un livello e si dimenticasse questa
+# tabella, il rilievo peserebbe 5 invece di sparire.
+PENALITA_IGNOTA = 5
 
 
-def _rilievo(gravita: str, testo: str) -> Tuple[str, str]:
-    return (gravita, testo)
+def _rilievo(gravita: str, testo: str, chiave: str,
+             **params: object) -> Finding:
+    """Un rilievo dell'area, come dato strutturato.
+
+    Imbuto unico del modulo: ogni rilievo passa di qui, quindi e' qui
+    che nasce il Finding e non in tredici punti.
+
+    `source_severity` conserva la parola italiana grezza — "critico",
+    "grave" — che e' quella che l'utente vede da sempre nelle issues e
+    in `findings_by_severity`. La severita' canonica ci sta accanto,
+    non al suo posto: le quattro severita' collassano `grave` e
+    `medio` entrambe in `warning`, e chi conosce la scala di MARS
+    perderebbe l'informazione.
+
+    `params["penalty"]` porta la penalita' EFFETTIVAMENTE applicata al
+    punteggio. Non e' `weight`, che vale 2.0/1.0 ed e' importanza
+    relativa: senza il numero vero, la Fase 4 non potrebbe calcolare
+    quanto risalirebbe il punteggio d'area se il rilievo fosse risolto.
+    """
+    severita, peso = normalizza_severita("mars", gravita)
+    return Finding(
+        area="mars_tech", severity=severita, weight=peso,
+        source_severity=gravita, title=testo, key=chiave,
+        params=dict(params, penalty=float(PESI.get(gravita, PENALITA_IGNOTA))))
 
 
-def controlla_robots(context: dict) -> List[Tuple[str, str]]:
+def controlla_robots(context: dict) -> List[Finding]:
     """robots.txt: esistenza e regole per i crawler IA.
 
     Distingue tre casi che il codice precedente confondeva: nessuna
@@ -69,7 +96,8 @@ def controlla_robots(context: dict) -> List[Tuple[str, str]]:
     robots = context.get("robots") or {}
     if not robots.get("found"):
         return [_rilievo("medio", "robots.txt assente: i crawler non "
-                                  "hanno indicazioni")]
+                                  "hanno indicazioni",
+                         "tech.robots.missing")]
 
     parser = RobotFileParser()
     parser.parse((robots.get("text") or "").splitlines())
@@ -85,38 +113,52 @@ def controlla_robots(context: dict) -> List[Tuple[str, str]]:
     if bloccati:
         rilievi.append(_rilievo(
             "critico", "robots.txt BLOCCA %d crawler IA: %s"
-                       % (len(bloccati), ", ".join(sorted(bloccati)[:5]))))
+                       % (len(bloccati), ", ".join(sorted(bloccati)[:5])),
+            "tech.robots.ai_blocked",
+            # L'elenco COMPLETO: la stringa ne mostra cinque ma il
+            # conteggio non e' troncato, quindi con sei crawler bloccati
+            # il testo dice un numero ed elenca meno. Il dato canonico
+            # non tronca — a troncare e' la vista compatta.
+            bloccati=sorted(bloccati), n=len(bloccati)))
     if not citati:
         rilievi.append(_rilievo(
             "lieve", "Nessuna regola esplicita per i crawler IA: passano "
-                     "per silenzio, non per scelta"))
+                     "per silenzio, non per scelta",
+            "tech.robots.ai_unmentioned", controllati=len(CRAWLER_IA)))
     if not parser.can_fetch(USER_AGENT, url):
         rilievi.append(_rilievo("grave", "robots.txt esclude anche questo "
-                                         "audit dalla home"))
+                                         "audit dalla home",
+                                "tech.robots.self_blocked",
+                                agente=USER_AGENT))
     return rilievi
 
 
-def controlla_sitemap(context: dict) -> List[Tuple[str, str]]:
+def controlla_sitemap(context: dict) -> List[Finding]:
     """Sitemap: esistenza, leggibilita', ampiezza, lastmod."""
     info = context.get("sitemap") or {}
     rilievi = []
     if not info.get("found"):
         rilievi.append(_rilievo("grave", "Nessuna sitemap utilizzabile: le "
                                          "pagine sono state trovate seguendo "
-                                         "i link"))
+                                         "i link",
+                                "tech.sitemap.missing"))
         return rilievi
     if not info.get("from_robots"):
         rilievi.append(_rilievo("lieve", "La sitemap non e' dichiarata in "
                                          "robots.txt (trovata su "
-                                         "/sitemap.xml)"))
+                                         "/sitemap.xml)",
+                                "tech.sitemap.not_in_robots"))
     if info.get("unreadable"):
         rilievi.append(_rilievo("medio", "%d file di sitemap illeggibili o "
-                                         "non validi" % info["unreadable"]))
+                                         "non validi" % info["unreadable"],
+                                "tech.sitemap.unreadable",
+                                n=info["unreadable"]))
     urls = info.get("urls") or 0
     if urls and not info.get("with_lastmod"):
         rilievi.append(_rilievo("lieve", "Nessun <lastmod> nella sitemap: i "
                                          "crawler non sanno cosa e' "
-                                         "cambiato"))
+                                         "cambiato",
+                                "tech.sitemap.no_lastmod", urls=urls))
     return rilievi
 
 
@@ -139,7 +181,7 @@ def direttive_robots(pagina: dict) -> Set[str]:
     return {t for t in _SEPARATORI.split(grezzo.lower()) if t}
 
 
-def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
+def controlla_indicizzabilita(context: dict) -> List[Finding]:
     """meta robots, X-Robots-Tag e canonical, pagina per pagina.
 
     X-Robots-Tag va guardato accanto al meta: agisce allo stesso modo
@@ -168,12 +210,17 @@ def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
         rilievi.append(_rilievo(
             gravita, "%d/%d pagine escluse dagli indici (noindex o none, "
                      "in meta robots o X-Robots-Tag)"
-                     % (len(noindex), len(pages))))
+                     % (len(noindex), len(pages)),
+            "tech.index.noindex",
+            pagine=len(noindex), totale=len(pages), urls=sorted(noindex)))
     if canonical_altrove:
         rilievi.append(_rilievo(
             "grave", "%d pagine con canonical verso un altro host: il "
                      "contenuto viene attribuito altrove"
-                     % len(canonical_altrove)))
+                     % len(canonical_altrove),
+            "tech.canonical.cross_host",
+            pagine=len(canonical_altrove), totale=len(pages),
+            urls=sorted(canonical_altrove)))
     if nofollow:
         # Un 'nofollow' non nasconde la pagina: impedisce di raggiungere
         # le altre partendo da li'. Su una pagina sola e' una scelta
@@ -183,11 +230,15 @@ def controlla_indicizzabilita(context: dict) -> List[Tuple[str, str]]:
         gravita = "medio" if len(nofollow) == len(pages) else "lieve"
         rilievi.append(_rilievo(
             gravita, "%d/%d pagine non fanno seguire i propri link "
-                     "(nofollow o none)" % (len(nofollow), len(pages))))
+                     "(nofollow o none)" % (len(nofollow), len(pages)),
+            "tech.index.nofollow",
+            pagine=len(nofollow), totale=len(pages), urls=sorted(nofollow)))
     if senza_canonical:
         rilievi.append(_rilievo(
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"
-                     % (len(senza_canonical), len(pages))))
+                     % (len(senza_canonical), len(pages)),
+            "tech.canonical.missing",
+            pagine=len(senza_canonical), totale=len(pages)))
     return rilievi
 
 
@@ -199,20 +250,39 @@ def audit(context: dict) -> dict:
     <lastmod> mancante non possono valere uguale, come invece
     accadeva con la penalita' fissa di prima.
     """
-    rilievi: List[Tuple[str, str]] = []
+    rilievi: List[Finding] = []
     rilievi += controlla_robots(context)
     rilievi += controlla_sitemap(context)
     rilievi += controlla_indicizzabilita(context)
 
-    penalita = sum(PESI.get(g, 5) for g, _ in rilievi)
+    # Punteggio, ordinamento e conteggio restano sulla scala GREZZA,
+    # non su quella canonica. Non e' pigrizia: le quattro severita'
+    # collassano "grave" e "medio" entrambe in warning, distinte solo
+    # da 2.0 contro 1.0 — un rapporto di 2:1 — mentre PESI le tiene a
+    # 20:8, cioe' 2.5:1. Ricalcolare da li' cambierebbe i punteggi in
+    # silenzio, e con essi mars_citability e l'indice composito.
+    penalita = sum(f.params["penalty"] for f in rilievi)
     conteggio: Dict[str, int] = {}
-    for gravita, _ in rilievi:
-        conteggio[gravita] = conteggio.get(gravita, 0) + 1
+    for f in rilievi:
+        conteggio[f.source_severity] = conteggio.get(f.source_severity, 0) + 1
 
-    ordinati = sorted(rilievi, key=lambda r: -PESI.get(r[0], 5))
+    ordinati = sorted(rilievi, key=lambda f: -f.params["penalty"])
     return {
-        "score": max(0, 100 - penalita),
-        "issues": ["[%s] %s" % (g, t) for g, t in ordinati],
+        # round() e non il solo max(): le penalita' sono float perche'
+        # altre aree le scalano per diffusione, e senza arrotondare il
+        # punteggio uscirebbe 9.0 dove prima usciva 9. La vista non
+        # cambierebbe (stampa %.0f), ma il JSON si', e sarebbe un
+        # cambio di contratto silenzioso — per giunta invisibile ai
+        # test, perche' 9 == 9.0.
+        "score": max(0, round(100 - penalita)),
+        # La vista compatta di sempre, parola per parola: e' sotto test
+        # come sottostringa in una decina di punti, ed e' cio' che
+        # l'utente legge da C10 in poi.
+        "issues": ["[%s] %s" % (f.source_severity, f.title)
+                   for f in ordinati],
+        # Il dato canonico. La dataclass NON attraversa il confine dei
+        # plugin: as_dict() la serializza (principio 3 di CLAUDE.md).
+        "findings": [f.as_dict() for f in ordinati],
         "findings_by_severity": conteggio,
         "ai_crawlers_checked": len(CRAWLER_IA),
     }

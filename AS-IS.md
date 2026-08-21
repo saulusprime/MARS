@@ -2496,10 +2496,58 @@ Sette mutazioni, tutte rilevate. Una non lo era alla prima esecuzione:
 casi ha girato, quindi l'invariante «il contratto copre ogni area del
 registro» va **asserito**, non dedotto dalla derivazione. Ora c'è.
 
+#### U1.3 — `mars_tech`, il banco di prova del modello (2026-08-21)
+
+Primo modulo adeguato, e scelto apposta: unica scala propria, due gravità
+calcolate a runtime, punteggio **accoppiato** alla scala e la rete di test più
+fitta del progetto. Se il modello fosse sbagliato, si vedrebbe qui.
+
+`_rilievo()` è l'imbuto unico — tredici chiamate — quindi il `Finding` nasce
+lì e non in tredici punti. Dodici chiavi stabili, da `tech.robots.ai_blocked`
+a `tech.canonical.missing`, tre segmenti ciascuna.
+
+**Il punteggio continua a derivare dalla scala grezza, di proposito.** Le
+quattro severità canoniche collassano `grave` e `medio` entrambe in `warning`,
+distinte solo da 2.0 contro 1.0 — un rapporto di 2:1 — mentre `PESI` le tiene
+a 20:8, cioè 2.5:1. Ricalcolare da lì avrebbe cambiato i punteggi **in
+silenzio**, e con essi `mars_citability` e l'indice composito.
+
+Per la stessa ragione `source_severity` conserva la parola italiana: `[critico]`
+è ciò che l'utente legge da C10, e `findings_by_severity` la usa come chiave in
+otto asserzioni.
+
+**Verificato per confronto con il codice precedente**, preso da `git show`:
+punteggi, `issues` e `findings_by_severity` **identici** su un sito pulito e su
+uno pieno di difetti. La conversione non doveva cambiare nulla di visibile, e
+non l'ha fatto.
+
+**Il dato canonico non tronca.** La issue dice «robots.txt BLOCCA 6 crawler
+IA» ed elenca i primi cinque — il conteggio non era troncato, l'elenco sì. Ora
+`params["bloccati"]` li porta tutti e sei: a troncare è la vista compatta, non
+il dato.
+
+**Una differenza involontaria, colta e tolta.** Con le penalità in `float` lo
+score usciva `94.0` dove usciva `94`. La vista non sarebbe cambiata (stampa
+`%.0f`) ma il JSON sì — un cambio di contratto silenzioso, e **invisibile ai
+test**, perché `94 == 94.0`. Ora c'è `round()`, e un test sul **tipo**.
+
+Dodici mutazioni, tutte rilevate. Tre non lo erano alla prima esecuzione, e
+sono tutte cose che si davano per ovvie:
+
+- **il prefisso `[critico]` nelle issues non era sotto test.** Le uguaglianze
+  fra due esecuzioni introdotte da R25 non discriminano: cambierebbero
+  insieme;
+- **il tipo dello score** — proprio la differenza appena descritta;
+- **l'ordinamento per penalità invece che per peso.** Sembrano equivalenti e
+  non lo sono: `critico` e `grave` pesano entrambi 2.0, quindi pareggerebbero,
+  e un ordinamento stabile lascerebbe l'ordine d'inserimento. Il test è
+  costruito perché i due ordini divergano.
+
 - [x] `mars_core`: costanti, `Finding`, conversione delle scale.
 - [x] `build_report`: `findings` su ogni area, errore sintetizzato.
 - [x] Contratto di test derivato dal registro, e l'invariante asserito.
-- [ ] I sei moduli, uno per commit (U1.3-U1.8), più `mars_llm_judge` (U1.9).
+- [x] `mars_tech`: dodici chiavi, penalità nei params, comportamento identico.
+- [ ] I cinque moduli restanti (U1.4-U1.8), più `mars_llm_judge` (U1.9).
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
@@ -2844,6 +2892,12 @@ sito ostile  : tecnica 17/100  -> citabilità composita 50,0
    [grave]   2/3 pagine con 'noindex' (meta robots o X-Robots-Tag)
    [grave]   1 pagine con canonical verso un altro host
 ```
+
+> *Verbale del 2026-08-19, conservato com'è.* La seconda riga oggi direbbe
+> «2/3 pagine escluse dagli indici (noindex o none, in meta robots o
+> X-Robots-Tag)»: la formulazione è cambiata con **R25**. Chi confronta il
+> comportamento attuale con questo blocco non stia cercando una regressione
+> che non c'è.
 
 Il `noindex` da header è stato rilevato su una pagina dove è l'unica fonte, il
 che prova che il controllo non si limita al DOM. E l'effetto si propaga:

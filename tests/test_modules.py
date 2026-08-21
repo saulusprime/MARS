@@ -27,7 +27,8 @@ import mars_tech
 import mars_wapt
 import mars_wcag
 from conftest import pagina
-from mars_core import MODULES_REGISTRY, load_external_module
+from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL,
+                       SEV_INFO, SEV_WARNING, load_external_module)
 from mars_report import STATO_LEGGIBILE
 
 
@@ -289,6 +290,181 @@ def test_tech_direttive_da_piu_meta_tag():
     esito = mars_tech.audit(ctx)
     assert esito["findings_by_severity"].get("critico") == 1
     assert any("seguire i propri link" in i for i in esito["issues"])
+
+
+# --- U1.3: i rilievi di mars_tech come dato --------------------------
+
+TECH_CHIAVI = {
+    "tech.robots.missing", "tech.robots.ai_blocked",
+    "tech.robots.ai_unmentioned", "tech.robots.self_blocked",
+    "tech.sitemap.missing", "tech.sitemap.not_in_robots",
+    "tech.sitemap.unreadable", "tech.sitemap.no_lastmod",
+    "tech.index.noindex", "tech.index.nofollow",
+    "tech.canonical.cross_host", "tech.canonical.missing",
+}
+
+
+def test_tech_ogni_rilievo_ha_una_chiave_stabile():
+    """La chiave e' cio' su cui poggeranno il piano di interventi, il
+    confronto fra due esecuzioni e la traduzione: non contiene mai un
+    valore variabile, e il primo segmento e' il prefisso dell'area."""
+    ctx = _contesto_tech("User-agent: GPTBot\nDisallow: /\n\n"
+                         "User-agent: *\nAllow: /",
+                         meta_robots="none",
+                         canonical="https://altro.example/")
+    ctx["sitemap"] = {"found": False}
+    esito = mars_tech.audit(ctx)
+    chiavi = [f["key"] for f in esito["findings"]]
+
+    assert chiavi, "nessun rilievo strutturato"
+    assert len(chiavi) == len(set(chiavi)), "chiavi duplicate nello stesso audit"
+    for chiave in chiavi:
+        assert chiave in TECH_CHIAVI, "chiave non prevista: %s" % chiave
+        parti = chiave.split(".")
+        assert len(parti) == 3, "profondita' fissa a tre segmenti: %s" % chiave
+        assert parti[0] == AREA_PREFIX["mars_tech"]
+
+    # Tanti findings quante issues: sono lo stesso insieme, due viste.
+    assert len(esito["findings"]) == len(esito["issues"])
+
+
+def test_tech_la_gravita_grezza_non_si_perde():
+    """Le quattro severita' canoniche collassano `grave` e `medio`
+    entrambe in warning. Chi conosce la scala di MARS perderebbe
+    l'informazione, quindi la parola italiana resta accanto — non al
+    posto — di quella canonica."""
+    ctx = _contesto_tech()
+    ctx["sitemap"] = {"found": True, "from_robots": False, "urls": 3,
+                      "with_lastmod": 0, "unreadable": 2}
+    per_chiave = {f["key"]: f for f in mars_tech.audit(ctx)["findings"]}
+
+    unreadable = per_chiave["tech.sitemap.unreadable"]
+    assert (unreadable["severity"], unreadable["source_severity"]) == \
+        (SEV_WARNING, "medio")
+    assert unreadable["weight"] == 1.0
+
+    lastmod = per_chiave["tech.sitemap.no_lastmod"]
+    assert (lastmod["severity"], lastmod["source_severity"]) == \
+        (SEV_INFO, "lieve")
+
+
+def test_tech_la_gravita_calcolata_a_runtime_e_quella_vera():
+    """Due rilievi cambiano gravita' secondo la diffusione: non basta
+    dedurla dalla chiave, va portata quella CALCOLATA."""
+    def sito(*direttive):
+        ctx = _contesto_tech()
+        ctx["pages"] = {"https://esempio.test/p%d" % n: pagina(meta_robots=d)
+                        for n, d in enumerate(direttive)}
+        return {f["key"]: f for f in mars_tech.audit(ctx)["findings"]}
+
+    tutte = sito("noindex", "noindex")["tech.index.noindex"]
+    assert (tutte["severity"], tutte["source_severity"]) == \
+        (SEV_CRITICAL, "critico")
+
+    alcune = sito("", "noindex")["tech.index.noindex"]
+    assert (alcune["severity"], alcune["source_severity"]) == \
+        (SEV_WARNING, "grave")
+    assert alcune["params"]["pagine"] == 1
+    assert alcune["params"]["totale"] == 2
+
+
+def test_tech_ogni_rilievo_porta_la_penalita_applicata():
+    """La Fase 4 calcolera' quanto risalirebbe il punteggio se un
+    rilievo fosse risolto: senza la penalita' vera non e' calcolabile,
+    e `weight` non serve — vale 2.0/1.0 ed e' importanza relativa,
+    non punti.
+
+    L'asserzione forte e' l'identita' con il punteggio: la somma delle
+    penalita' dichiarate deve ricostruire lo score, altrimenti il
+    referto direbbe un numero e i rilievi un altro."""
+    ctx = _contesto_tech("User-agent: GPTBot\nDisallow: /\n\n"
+                         "User-agent: *\nAllow: /", meta_robots="noindex")
+    esito = mars_tech.audit(ctx)
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == max(0, round(100 - somma))
+    assert somma > 0
+
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+    assert per_chiave["tech.robots.ai_blocked"]["params"]["penalty"] == 40.0
+    # E il peso NON e' la penalita': due numeri diversi, due scale.
+    assert per_chiave["tech.robots.ai_blocked"]["weight"] == 2.0
+
+
+def test_tech_il_dato_canonico_non_tronca():
+    """La issue elenca cinque crawler ma il conteggio non e' troncato:
+    con sei bloccati il testo dice un numero ed elenca meno. La vista
+    compatta puo' permetterselo, il dato no."""
+    ctx = _contesto_tech("\n\n".join(
+        "User-agent: %s\nDisallow: /" % a
+        for a in ("GPTBot", "ClaudeBot", "CCBot", "Bytespider",
+                  "Amazonbot", "PerplexityBot")) + "\n\nUser-agent: *\nAllow: /")
+    esito = mars_tech.audit(ctx)
+    f = [x for x in esito["findings"]
+         if x["key"] == "tech.robots.ai_blocked"][0]
+    issue = [i for i in esito["issues"] if "BLOCCA" in i][0]
+
+    assert f["params"]["n"] == 6
+    assert len(f["params"]["bloccati"]) == 6, "il dato deve portarli tutti"
+    assert issue.count(",") == 4, "la vista compatta ne elenca cinque"
+    assert "PerplexityBot" not in issue and "PerplexityBot" in f["params"]["bloccati"]
+
+
+def test_tech_la_vista_compatta_usa_la_parola_italiana():
+    """`[critico]`, non `[critical]`.
+
+    E' cio' che l'utente legge dal C10 in poi, ed e' la scala che il
+    referto documenta. Nessun test lo asseriva: le uguaglianze fra due
+    esecuzioni (R25) cambierebbero insieme, quindi non discriminano."""
+    ctx = _contesto_tech("User-agent: GPTBot\nDisallow: /\n\n"
+                         "User-agent: *\nAllow: /")
+    issues = mars_tech.audit(ctx)["issues"]
+    assert issues[0].startswith("[critico] ")
+    for issue in issues:
+        prefisso = issue.split("]")[0].lstrip("[")
+        assert prefisso in mars_tech.PESI, \
+            "prefisso %r fuori dalla scala di MARS" % prefisso
+
+
+def test_tech_lo_score_resta_un_intero():
+    """Le penalita' sono float perche' altre aree le scalano per
+    diffusione. Senza arrotondare, lo score uscirebbe 94.0 dove usciva
+    94: la vista non cambierebbe (stampa %.0f) ma il JSON si', e i
+    test non se ne accorgerebbero perche' 94 == 94.0."""
+    esito = mars_tech.audit(_contesto_tech())
+    assert isinstance(esito["score"], int), \
+        "score %r: cambio di contratto silenzioso nel JSON" % esito["score"]
+
+
+def test_tech_l_ordine_dei_rilievi_segue_la_penalita_non_il_peso():
+    """Ordinare per `weight` sembra equivalente e non lo e': `critico`
+    e `grave` pesano entrambi 2.0, quindi pareggerebbero, e un
+    ordinamento stabile lascerebbe l'ordine d'inserimento.
+
+    Il caso e' costruito perche' i due ordini divergano: la sitemap
+    mancante (grave) viene prodotta PRIMA del noindex (critico)."""
+    ctx = _contesto_tech(meta_robots="noindex")
+    ctx["sitemap"] = {"found": False}
+    esito = mars_tech.audit(ctx)
+
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert chiavi.index("tech.index.noindex") < \
+        chiavi.index("tech.sitemap.missing"), \
+        "il critico deve precedere il grave, non pareggiarci"
+    # E le issues seguono lo stesso ordine: sono la stessa lista.
+    assert esito["issues"][0].startswith("[critico]")
+
+
+def test_tech_i_findings_arrivano_al_referto(contesto):
+    """Il punto d'integrazione: il modulo puo' produrli benissimo e
+    build_report buttarli via, perche' copia una lista chiusa di
+    chiavi. E' il difetto che U1.2 ha prevenuto — qui si verifica che
+    resti prevenuto."""
+    from mars_report import build_report
+    contesto["results"] = {"mars_tech": mars_tech.audit(_contesto_tech())}
+    referto = build_report(contesto["results"], contesto)
+    area = [a for a in referto["areas"] if a["module"] == "mars_tech"][0]
+    assert area["findings"], "i findings non arrivano al referto"
+    assert all(f["key"].startswith("tech.") for f in area["findings"])
 
 
 def test_tech_canonical_verso_un_altro_host():

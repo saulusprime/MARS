@@ -134,7 +134,7 @@ AS-IS conserva nove misure invece di un riassunto.
       moduli. Il consumatore **prima** dei produttori: `build_report` copia una
       lista chiusa di chiavi, quindi senza questo passo i commit successivi
       consegnerebbero una chiave che nessuno legge e nessun test vede.
-- [ ] **U1.3** — `mars_tech`. È il banco di prova del modello: unica scala
+- [x] **U1.3** — `mars_tech`. È il banco di prova del modello: unica scala
       propria, due gravità calcolate a runtime, punteggio accoppiato alla
       scala, e la rete di test più fitta del progetto.
 - [ ] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di

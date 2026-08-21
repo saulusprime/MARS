@@ -2421,6 +2421,86 @@ stato dichiarato e che non compaia alcun `/100`.
       ogni modulo, non una correzione puntuale.
 - [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
 
+### U1 — Fase 1 del programma UPGRADE: il modello dati dei rilievi
+*(in corso: 2 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
+voci aperte in [TO-DO.md](TO-DO.md).)*
+
+Fino a qui un rilievo è una stringa con la gravità in un prefisso, e i
+prefissi sono **tre**, diversi per modulo: `[critico]`, `[axe:serious]`,
+`[ZAP:High]`. Tre scale mai messe in relazione, nessun peso, nessuna chiave
+stabile. Su stringhe così non si costruiscono un piano di interventi ordinato,
+un confronto fra due esecuzioni o una traduzione — cioè le fasi da U4 a U9.
+
+#### U1.1 — il modello (2026-08-21)
+
+`SEV_*`, `WEIGHTS`, `AREA_PREFIX`, `Finding` + `as_dict()`,
+`normalizza_severita`, `severita_lighthouse`, `chiave_esterna` in
+`mars_core.py`. Tre decisioni che UPGRADE.md lasciava aperte:
+
+**La scala editoriale si chiama `"mars"`, non `"mars_tech"`.** La usano cinque
+moduli — tech, gli header di wapt, gli statici di wcag, schema, citability —
+non uno solo.
+
+**Scala ignota e valore ignoto non sono la stessa cosa**, e il piano li
+trattava insieme. Un *valore* ignoto è dato esterno: uno strumento che
+aggiorna la propria scala non deve far cadere un audit, quindi degrada a
+`(info, 1.0)`. Una *scala* ignota è un refuso di programmazione: degradarla
+appiattirebbe un intero modulo su un livello, con i punteggi intatti e i test
+verdi — **invisibile**. Solleva `ValueError`.
+
+**La soglia di Lighthouse non è arbitraria, ed è misurata.** Nel
+`default-config.js` di Lighthouse 13.4.1 la categoria SEO dà peso 1 a ogni
+audit tranne `is-crawlable`, che pesa 93/23 (~4,04); il commento nel loro
+codice dice perché — è calibrato affinché quel solo fallimento faccia fallire
+l'intera categoria (≥31% del punteggio). Gli audit manuali pesano 0. Una
+soglia a 3 separa esattamente ciò che Lighthouse considera rompi-categoria.
+
+**`weight` non è la penalità**, e UPGRADE.md (Fase 4) proponeva di calcolare
+il recupero «dal campo `weight` **o** da `params["penalty"]`». Sono cose
+diverse — 2.0/1.0 è importanza relativa, 40/20/8/3 è punteggio — e per axe e
+ZAP la penalità dipende dalla diffusione, quindi è calcolabile **solo dentro
+il ciclo che la applica**. Se non la si registra adesso, alla Fase 4 non sarà
+più ricostruibile.
+
+Sedici mutazioni, quindici rilevate. La sedicesima **non è riproducibile**: il
+default mutabile condiviso su `params` lo rifiuta la dataclass stessa con
+`ValueError` all'import. Quell'asserzione resta come documento del contratto,
+non come rete di regressione — ed è detto così invece di contarla fra i
+successi.
+
+#### U1.2 — il consumatore, prima dei produttori (2026-08-21)
+
+**L'ordine dei passi di UPGRADE.md è stato invertito di proposito.**
+`build_report` copia una **lista chiusa** di chiavi: finché non conosce
+`findings`, un modulo può produrli perfetti e il referto li butta via — con i
+test di modulo tutti verdi. Adeguare i sei moduli prima del referto avrebbe
+consegnato cinque commit di lavoro invisibile.
+
+Ogni area porta ora `findings`, e un'area **fallita** riceve un rilievo
+sintetizzato dal referto (`<prefisso>.status.error`): il modulo non può
+produrlo, perché è fallito, ma è proprio quella che ha più bisogno di comparire
+negli elenchi che le fasi successive costruiranno sui rilievi. La gravità è
+`info` e non `critical`: il difetto è del nostro strumento, non del sito, e
+gonfiarla sarebbe una misura falsa a danno di chi viene analizzato.
+
+**Due moduli su nove erano fuori dal contratto.** `MODULI`, in
+`tests/test_modules.py`, era scritta a mano e non conteneva `mars_seo` né
+`mars_wapt`: mai verificati contro `audit(context) -> dict`. Ora la lista si
+**deriva da `MODULES_REGISTRY`**, così un'area entra nel contratto il giorno
+in cui entra nel registro. Non è un dettaglio di igiene: il `ValueError` su
+scala ignota deciso in U1.1 serve a poco se un modulo non viene mai eseguito
+nei test.
+
+Sette mutazioni, tutte rilevate. Una non lo era alla prima esecuzione:
+**troncare la lista `MODULI`**. Una suite non può accorgersi da sé di *quanti*
+casi ha girato, quindi l'invariante «il contratto copre ogni area del
+registro» va **asserito**, non dedotto dalla derivazione. Ora c'è.
+
+- [x] `mars_core`: costanti, `Finding`, conversione delle scale.
+- [x] `build_report`: `findings` su ogni area, errore sintetizzato.
+- [x] Contratto di test derivato dal registro, e l'invariante asserito.
+- [ ] I sei moduli, uno per commit (U1.3-U1.8), più `mars_llm_judge` (U1.9).
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

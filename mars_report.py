@@ -17,8 +17,9 @@ import os
 import time
 from typing import Dict, List, Optional
 
-from mars_core import (MODULES_REGISTRY, __version__, describe_chunk,
-                       normalizza_risultato, reciprocal_rank_fusion)
+from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_INFO, Finding,
+                       __version__, describe_chunk, normalizza_risultato,
+                       reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -26,6 +27,28 @@ FAVICON = "favicon.ico"
 # ======================================================================
 # Il dato: struttura canonica del referto
 # ======================================================================
+
+def _finding_errore(module_name: str, errore: object) -> dict:
+    """Il fallimento di un'area, come rilievo strutturato.
+
+    Un'area in errore non puo' restare senza `findings`: e' proprio
+    quella che ha piu' bisogno di comparire negli elenchi che da qui in
+    avanti si costruiranno sui rilievi — piano di interventi, conteggi
+    per gravita', confronto fra due esecuzioni. Il modulo non puo'
+    produrlo da se', perche' e' fallito: lo sintetizza il referto.
+
+    La gravita' e' `info` e non `critical`: il difetto non e' del sito
+    ma dello strumento, e gonfiare la gravita' del sito per un guasto
+    nostro sarebbe una misura falsa a suo danno.
+    """
+    return Finding(
+        area=module_name,
+        severity=SEV_INFO,
+        key="%s.status.error" % AREA_PREFIX.get(module_name, "area"),
+        title="Area non calcolata: il modulo e' fallito",
+        detail=str(errore),
+    ).as_dict()
+
 
 def build_report(results: dict, context: Optional[dict] = None) -> dict:
     """Referto come DATO, indipendente da come verra' mostrato.
@@ -56,6 +79,16 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             # il referto direbbe solo "non misurato" senza dire perche'.
             "issues": ([str(errore)] if errore
                        else list(res.get("issues") or [])),
+            # I rilievi come DATO (U1: dataclass Finding serializzata).
+            # Convivono con "issues", che resta la vista compatta: su
+            # di esse poggiano test, ordinamenti e l'API, e romperle
+            # per un adeguamento di forma non varrebbe il prezzo.
+            #
+            # `or []` non e' difensivo per abitudine: normalizza_risultato
+            # garantisce un dict, non le sue chiavi, e diversi test
+            # scrivono risultati a mano senza questa chiave.
+            "findings": ([_finding_errore(nome, errore)] if errore
+                         else list(res.get("findings") or [])),
             # Con quale strumento e a quale livello: un punteggio di
             # accessibilita' senza il livello WCAG non significa nulla.
             "tool": res.get("tool"),

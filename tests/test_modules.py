@@ -27,6 +27,7 @@ import mars_tech
 import mars_wapt
 import mars_wcag
 from conftest import pagina
+from mars_core import MODULES_REGISTRY, load_external_module
 from mars_report import STATO_LEGGIBILE
 
 
@@ -34,8 +35,27 @@ from mars_report import STATO_LEGGIBILE
 # Contratto comune a tutte le aree
 # ----------------------------------------------------------------------
 
-MODULI = [mars_tech, mars_lexical, mars_semantic, mars_schema,
-          mars_wcag, mars_citability, mars_llm_judge]
+# Derivata dal REGISTRO, non scritta a mano: mars_seo e mars_wapt ne
+# erano fuori — due moduli su nove mai verificati contro il contratto —
+# e nessuno se n'era accorto perche' l'elenco andava tenuto allineato a
+# mano. Cosi' un'area nuova entra nel contratto il giorno in cui entra
+# nel registro, e la fixture strumenti_esterni_assenti garantisce che
+# nessuno di loro avvii davvero Lighthouse, ZAP o un browser.
+MODULI = [load_external_module(nome) for nome, _ in MODULES_REGISTRY]
+assert all(MODULI), "un modulo del registro non si carica: %s" % [
+    n for (n, _), m in zip(MODULES_REGISTRY, MODULI) if m is None]
+
+
+def test_il_contratto_copre_ogni_area_del_registro():
+    """Nessuna area fuori dal contratto, mai piu'.
+
+    mars_seo e mars_wapt ne erano fuori — due su nove — perche'
+    l'elenco andava tenuto allineato a mano e nessuno se n'era accorto:
+    una suite non puo' accorgersi da se' di QUANTI casi ha girato, e
+    troncare la lista non fa fallire nulla. L'invariante va quindi
+    asserito, non dedotto dalla derivazione.
+    """
+    assert [m.__name__ for m in MODULI] == [n for n, _ in MODULES_REGISTRY]
 
 
 @pytest.mark.parametrize("modulo", MODULI, ids=lambda m: m.__name__)

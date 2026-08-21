@@ -129,7 +129,7 @@ AS-IS conserva nove misure invece di un riassunto.
 
 - [x] **U1.1** — `mars_core`: `SEV_*`, `WEIGHTS`, `AREA_PREFIX`, `Finding`,
       `normalizza_severita`, `severita_lighthouse`, `chiave_esterna`.
-- [ ] **U1.2** — `build_report`: `findings` nell'area, sintesi di
+- [x] **U1.2** — `build_report`: `findings` nell'area, sintesi di
       `<prefisso>.status.error`, test di contratto esteso a **tutti e nove** i
       moduli. Il consumatore **prima** dei produttori: `build_report` copia una
       lista chiusa di chiavi, quindi senza questo passo i commit successivi

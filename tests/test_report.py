@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from mars_core import load_queries
+from mars_core import SEV_CRITICAL, SEV_INFO, Finding, load_queries
 from mars_report import (RENDERERS, _classe, _etichetta_area,
                          _quadrante, build_report,
                          render_html, render_json, render_text)
@@ -281,6 +281,62 @@ def test_un_errore_nelle_aree_di_classifica_non_sparisce(contesto, modulo,
     assert "RuntimeError: plugin rotto" in scheda[0]
     # Nessun paragrafo che descriva una classifica inesistente.
     assert "Passaggio in testa" not in scheda[0]
+
+
+def test_ogni_area_porta_la_chiave_findings(referto):
+    """U1.2: il consumatore prima dei produttori.
+
+    build_report copia una LISTA CHIUSA di chiavi: finche' non la
+    conosce, un modulo puo' produrre `findings` perfetti e il referto
+    li butta via — con i test di modulo tutti verdi. Per questo il
+    referto viene adeguato prima dei sei moduli, non dopo.
+
+    La chiave dev'esserci su OGNI area, anche su quelle che non li
+    producono ancora: una lista vuota si consuma, una chiave assente
+    fa cadere chi la legge.
+    """
+    for area in referto["areas"]:
+        assert isinstance(area["findings"], list), \
+            "%s: findings assente o non lista" % area["module"]
+
+
+def test_un_area_fallita_riceve_un_rilievo_strutturato(contesto):
+    """Il modulo non puo' produrlo: e' fallito. Lo sintetizza il referto.
+
+    Un'area in errore e' proprio quella che ha piu' bisogno di comparire
+    negli elenchi che si costruiranno sui rilievi — piano di interventi,
+    conteggi per gravita', confronto fra due esecuzioni. Senza, sarebbe
+    l'unica a sparire da tutti."""
+    contesto["results"] = {"mars_tech": {"error": "RuntimeError: rotto"}}
+    referto = build_report(contesto["results"], contesto)
+    area = referto["areas"][0]
+
+    assert len(area["findings"]) == 1
+    f = area["findings"][0]
+    assert f["key"] == "tech.status.error", "prefisso d'area, non nome file"
+    assert f["area"] == "mars_tech"
+    assert "RuntimeError: rotto" in f["detail"], \
+        "il motivo del fallimento non va perso"
+    # La gravita' e' del nostro strumento, non del sito: gonfiarla
+    # sarebbe una misura falsa a danno di chi viene analizzato.
+    assert f["severity"] == SEV_INFO
+    assert f["weight"] == 1.0
+
+
+def test_i_findings_sopravvivono_alla_vista_json(referto):
+    """render_json fa json.dumps SENZA default=: una dataclass che
+    sfuggisse solleverebbe TypeError dopo che tutti i moduli sono
+    girati, cioe' nel punto piu' caro possibile."""
+    referto["areas"][0]["findings"] = [Finding(
+        area="mars_tech", severity=SEV_CRITICAL, key="tech.robots.ai_blocked",
+        title="robots.txt blocca i crawler IA", weight=2.0,
+        source_severity="critico",
+        params={"penalty": 40.0, "bloccati": ["GPTBot"]}).as_dict()]
+    riletto = json.loads(render_json(referto))
+    f = riletto["areas"][0]["findings"][0]
+    assert f["key"] == "tech.robots.ai_blocked"
+    assert f["params"]["penalty"] == 40.0
+    assert f["source_severity"] == "critico"
 
 
 def test_i_quadranti_coprono_tutte_le_aree(referto):

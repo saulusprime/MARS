@@ -922,6 +922,103 @@ def test_semantic_il_titolo_del_chunk_conta_come_testo():
     assert "interrogativo a inizio frase" in segnali
 
 
+CORPO_LUNGO = (
+    "Siamo un'azienda che progetta e gestisce infrastrutture informatiche "
+    "per imprese e pubbliche amministrazioni, con un data center di "
+    "proprieta' in Italia e un gruppo di tecnici che segue i clienti dalla "
+    "progettazione all'esercizio quotidiano dei sistemi affidati.")
+
+
+@pytest.mark.parametrize("titolo", [
+    "Chi siamo", "Dove siamo", "Come raggiungerci", "Cosa facciamo",
+    "Quali servizi offriamo", "Come funziona", "Perche' sceglierci",
+    "Quando siamo aperti", "Quanto costa il servizio",
+    "How it works", "What we do", "Who we are", "Why choose us",
+    # I due punti sono un inizio frase per _INIZIO_FRASE, quindi questa
+    # classe si accendeva a META' titolo.
+    "AI Act: cosa scatta davvero il 2 agosto",
+    "Il backup non basta: perche' c'e' chi riparte in ore",
+    "Come funziona: le tecnologie integrate",
+])
+def test_semantic_un_titolo_di_sezione_non_e_una_domanda(titolo):
+    """Regressione R34: bastava che il titolo aprisse con un
+    interrogativo, e cadeva una classe intera di intestazioni standard.
+    "Chi siamo" sta su quasi ogni sito italiano.
+
+    L'asserzione e' su TUTTI i segnali, non sul solo "titolo
+    interrogativo", e non e' un dettaglio: il rapporto conta un chunk
+    se un qualunque segnale e' acceso, quindi restringere il solo
+    segnale sul titolo avrebbe lasciato "Chi siamo" acceso lo stesso
+    attraverso "interrogativo a inizio frase", che leggeva titolo e
+    testo uniti. Misurato prima di correggere: answer_shaped_ratio
+    sarebbe rimasto identico. Un test sul solo titolo sarebbe passato
+    su una correzione che non correggeva nulla.
+    """
+    assert mars_semantic.question_signals(
+        CORPO_LUNGO, heading=titolo, lingua="it") == []
+    assert mars_semantic.question_signals(
+        CORPO_LUNGO, heading=titolo, lingua="en") == []
+
+
+@pytest.mark.parametrize("titolo", [
+    "Come funziona il servizio?", "Quanto costa?",
+    "Posso disdire in qualsiasi momento?", "What is included?",
+])
+def test_semantic_un_titolo_punteggiato_e_una_domanda(titolo):
+    """L'altra meta': la regola non deve spegnere le domande vere."""
+    segnali = mars_semantic.question_signals(
+        CORPO_LUNGO, heading=titolo, lingua="it")
+    assert "titolo interrogativo" in segnali
+
+
+def test_semantic_la_domanda_nel_corpo_resta_riconosciuta():
+    """La regola vale per il TITOLO, non per il corpo: una FAQ scritta
+    senza '?' nel titolo resta riconoscibile da cio' che dice."""
+    segnali = mars_semantic.question_signals(
+        "Come si attiva il servizio? Basta una richiesta. " + CORPO_LUNGO,
+        heading="Attivazione", lingua="it")
+    assert "punto interrogativo" in segnali
+    assert "interrogativo a inizio frase" in segnali
+    assert "titolo interrogativo" not in segnali
+
+
+def test_semantic_i_due_punti_aprono_una_frase_nel_CORPO():
+    """I due punti restano un inizio di frase, ma solo dove servono.
+
+    Erano la meta' non ovvia di R34: _INIZIO_FRASE li tratta come
+    confine, quindi "AI Act: cosa scatta davvero" si accendeva a META'
+    titolo. Ora il titolo entra nel passaggio solo se punteggiato come
+    domanda, e il confine sui due punti resta a fare il suo lavoro nel
+    corpo, dove una frase dopo i due punti e' una frase davvero."""
+    assert mars_semantic.question_signals(
+        "Un dubbio ricorrente: come si attiva il servizio senza un "
+        "tecnico in sede. " + CORPO_LUNGO, lingua="it")
+    # ...e non deve accendersi da un titolo che ha solo la forma.
+    assert mars_semantic.question_signals(
+        CORPO_LUNGO, heading="AI Act: cosa scatta davvero", lingua="it") == []
+
+
+def test_semantic_le_etichette_di_sezione_non_gonfiano_il_rapporto():
+    """R34 end-to-end, sul dato che il referto pubblica.
+
+    Tre sezioni: due etichette standard e una domanda vera. Il rapporto
+    onesto e' 1/3; prima erano 3/3, perche' "Chi siamo" e "Come
+    funziona" aprono con un interrogativo."""
+    lungo = (CORPO_LUNGO + " ") * 3
+    html = ("<html lang='it'><body>"
+            "<h2>Chi siamo</h2><p>%s</p>"
+            "<h2>Come funziona</h2><p>%s</p>"
+            "<h2>Quanto costa il servizio?</h2><p>%s</p>"
+            "</body></html>" % (lungo, lungo, lungo))
+    p = pagina(html=html, url="https://x/")
+    esito = mars_semantic.audit({
+        "pages": {"https://x/": p}, "chunks": p["chunks"], "queries": [],
+        "embeddings_model": "none", "force_proxy": True, "credentials": {}})
+    assert esito["n_chunks"] == 3
+    assert esito["answer_shaped_ratio"] == pytest.approx(1 / 3)
+    assert esito["answer_shaped_signals"].get("titolo interrogativo") == 1
+
+
 def test_semantic_faqpage_e_un_segnale_di_pagina():
     """FAQPage descrive la PAGINA, non il singolo passaggio."""
     pagina_faq = {"html": '<script type="application/ld+json">'

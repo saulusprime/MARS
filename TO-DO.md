@@ -2,7 +2,7 @@
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
 > di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R26 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R27-R37.
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R27-R33 e R35-R37.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -343,38 +343,6 @@ Divergenze verificate (documento → codice):
 
 - [ ] Fissare la cwd al repo (fixture/`chdir`) e rendere non-vacuo il test URL.
 - [ ] Estendere il controllo a `url(`, `@import`, `srcset` (escludendo `data:`).
-
-### R34 — 🟡 MEDIO: i titoli di sezione italiani scambiati per domande
-*(trovata misurando, chiudendo R19 il 2026-08-20)*
-
-`_interrogativo()` ([mars_semantic.py:58](mars_semantic.py#L58)) accende il
-segnale quando un termine interrogativo apre il testo. Su un **titolo di
-sezione** questo produce falsi positivi su tutta una classe di intestazioni
-standard, che sono nomi e non domande. Misurato:
-
-| titolo | segnale acceso | è una domanda? |
-|---|---|---|
-| `Chi siamo` | sì | no |
-| `Dove siamo` | sì | no |
-| `Come raggiungerci` | sì | no |
-| `Cosa facciamo` | sì | no |
-| `Quali servizi offriamo` | sì | no |
-| `How it works` | sì | no |
-| `What we do` | sì | no |
-| `Come funziona il servizio?` | sì | **sì** |
-
-Non è il difetto di R19 — quello era l'attribuzione dei segnali di pagina ai
-chunk, ed è chiuso — ma la stessa metrica ne resta gonfiata: su una pagina con
-`Chi siamo` e una vera FAQ, `answer_shaped_ratio` dà 0,50 dove l'onesto è 0,25.
-`Chi siamo` sta su quasi ogni sito italiano, quindi la classe non è marginale.
-
-L'ipotesi da verificare (non da applicare a intuito): **un titolo è una domanda
-quando è punteggiato come tale**. Le intestazioni che iniziano con un
-interrogativo senza `?` sono etichette di sezione; le FAQ vere il punto
-interrogativo ce l'hanno quasi sempre. Costo: qualche falso negativo sulle FAQ
-scritte senza `?`. Da misurare su contenuto reale prima di decidere, ed
-eventualmente da applicare **solo** al segnale «titolo interrogativo», non a
-quello sul corpo del testo.
 
 ### R35 — 🟡 MEDIO: i due recuperatori indicizzano contenuti diversi
 *(trovata misurando, chiudendo R23 il 2026-08-20)*

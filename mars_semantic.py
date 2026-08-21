@@ -80,13 +80,45 @@ def question_signals(testo: str, heading: str = "",
     100% su un sito generico: una proprieta' della pagina non puo'
     dire nulla su un suo singolo pezzo (R19).
     """
+    # Un titolo e' una domanda quando e' PUNTEGGIATO come tale.
+    #
+    # Bastava che aprisse con un interrogativo, e su questo cadeva una
+    # classe intera di intestazioni standard: "Chi siamo", "Dove
+    # siamo", "Come funziona", "Cosa facciamo", "How it works" — nomi
+    # di sezione, non domande. Misurato su 209 heading di un sito
+    # reale: la vecchia regola ne accendeva 31, la nuova 5, e nessuno
+    # dei 26 in piu' era una domanda. Fra questi anche i titoli con i
+    # due punti, perche' _INIZIO_FRASE li tratta come inizio di frase:
+    # "AI Act: cosa scatta davvero" si accendeva a meta' titolo.
+    #
+    # Costo dichiarato: le FAQ scritte senza "?" non vengono piu'
+    # riconosciute dal titolo. Restano riconoscibili dal corpo, se la
+    # domanda vi compare.
+    titolo_domanda = bool(heading) and "?" in heading
+
+    # Il titolo entra nel passaggio SOLO se e' una domanda. E' la
+    # stessa regola di sopra, applicata una volta sola, e concilia due
+    # voci che sembravano in conflitto: per R9 "Come funziona?" come
+    # titolo vale quanto la stessa frase nel corpo — quindi accende
+    # anche i segnali testuali — mentre per R34 "Chi siamo" non deve
+    # accendere nulla.
+    #
+    # Senza questa riga la correzione non servirebbe a niente, ed e'
+    # la meta' che R34 non aveva visto: il rapporto conta un chunk se
+    # UN QUALUNQUE segnale e' acceso, quindi restringere il solo
+    # "titolo interrogativo" lasciava "Chi siamo" acceso lo stesso
+    # attraverso "interrogativo a inizio frase", che leggeva heading e
+    # testo uniti. Verificato prima di correggere: answer_shaped_ratio
+    # sarebbe rimasto identico.
+    intero = " ".join(x for x in (heading if titolo_domanda else "", testo)
+                      if x)
+
     segnali = []
-    intero = " ".join(x for x in (heading, testo) if x)
     if "?" in intero:
         segnali.append("punto interrogativo")
     if _interrogativo(intero, lingua):
         segnali.append("interrogativo a inizio frase")
-    if heading and ("?" in heading or _interrogativo(heading, lingua)):
+    if titolo_domanda:
         # L'heading del chunk, non quelli della pagina: e' il titolo
         # sotto cui questo passaggio vive.
         segnali.append("titolo interrogativo")

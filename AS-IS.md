@@ -2132,6 +2132,109 @@ accorgersi di nulla — è la stessa lezione dell'adattatore di R16 e R17.
       dichiarazione di R11 torna vera.
 - [x] `soup.find` per etichetta tolto dal ciclo: O(campi × documento) eliminato.
 
+### R34 — ✅ RISOLTO (2026-08-21): i titoli di sezione non sono domande
+`question_signals` accendeva il segnale «titolo interrogativo» quando
+l'intestazione **apriva** con un termine interrogativo. Su un titolo di
+sezione questo colpisce una classe intera di intestazioni standard: `Chi
+siamo`, `Dove siamo`, `Come funziona`, `Cosa facciamo`, `How it works`. Sono
+nomi, non domande, e `Chi siamo` sta su quasi ogni sito italiano.
+
+**Misurato su contenuto reale**, non su un corpus costruito: 40 pagine e 209
+intestazioni distinte di un sito vero, scaricate con il crawler di MARS.
+
+```
+regola ATTUALE  accende 31 heading su 209  (15%)
+regola PROPOSTA accende  5 heading su 209  ( 2%)
+```
+
+I 26 di differenza — verificati uno per uno — **non contengono una sola
+domanda**. Sono titoli di articolo: `Come mettere in sicurezza un VPS con
+Rocky Linux`, `Cosa propone EuroStack`, `Quanto consuma il mondo`, `Perché la
+ricerca sbaglia`.
+
+**Una classe che il TO-DO non aveva previsto: i due punti.** `_INIZIO_FRASE`
+tratta `:` come confine di frase, quindi il segnale si accendeva **a metà
+titolo** su una forma editoriale comunissima:
+
+```
+AI Act: cosa scatta davvero il 2 agosto 2026
+Il backup non basta: perché c'è chi riparte in ore e chi resta fermo giorni
+Un data center in Europa non basta: cosa significa davvero sovranità digitale
+Come funziona: le tecnologie integrate
+```
+
+**La correzione proposta dal TO-DO non avrebbe corretto nulla.** R34
+suggeriva di applicare la regola del `?` «**solo** al segnale "titolo
+interrogativo", non a quello sul corpo del testo». Provata prima di
+adottarla:
+
+```
+heading                        atteso   con la correzione letterale
+Chi siamo                      no       SI  <- INVARIATO
+Come funziona                  no       SI  <- INVARIATO
+AI Act: cosa scatta davvero    no       SI  <- INVARIATO
+```
+
+Il motivo sta in due righe distanti fra loro: `answer_shaped` conta un chunk
+se **un qualunque** segnale è acceso, e `intero` univa heading e testo prima
+di cercarvi l'interrogativo. Quindi l'heading aveva **due possibilità** di
+accendere, e restringerne una lasciava l'altra intatta. È la metà del difetto
+che R34 non aveva visto, e senza la misura preventiva sarebbe stata scritta
+una correzione verde e inefficace.
+
+**Risoluzione: una regola sola, applicata una volta.** *Un titolo è una
+domanda quando è punteggiato come tale*, e **entra nel passaggio solo se lo
+è**:
+
+```python
+titolo_domanda = bool(heading) and "?" in heading
+intero = " ".join(x for x in (heading if titolo_domanda else "", testo) if x)
+```
+
+Questo concilia due voci che sembravano in conflitto. **R9** aveva deciso che
+l'heading fa parte del passaggio — «Come funziona?» come titolo vale quanto la
+stessa frase nel corpo — e ha un test che lo difende. **R34** vuole che «Chi
+siamo» non accenda nulla. Il discrimine fra i due casi è esattamente il `?`,
+quindi una regola sola li serve entrambi, e il test di R9 è rimasto verde
+senza modifiche.
+
+**Verificato sul dato che il referto pubblica**, sugli stessi 453 chunk reali:
+
+| | prima | dopo |
+|---|---|---|
+| `answer_shaped_ratio` | 0,243 | **0,201** |
+| segnale `titolo interrogativo` | **49** | **6** |
+| `interrogativo a inizio frase` | 98 | 69 |
+| `punto interrogativo` | 38 | 38 |
+
+Il segnale sul titolo era falso **43 volte su 49**. Il rapporto scende di 4,2
+punti percentuali, il 17% del suo valore — meno del segnale perché molti chunk
+ne avevano anche altri. `punto interrogativo` non si muove di uno: era già
+corretto, e la correzione non lo ha toccato.
+
+**Il costo, dichiarato.** Le FAQ scritte senza `?` nel titolo non vengono più
+riconosciute *dal titolo*; restano riconoscibili dal corpo, se la domanda vi
+compare. **Questo costo non è stato misurato su contenuto reale**: il sito
+usato per la verifica non ha una pagina FAQ (267 URL in sitemap, nessuno). Su
+un corpus costruito a mano il passaggio era da 1 a 2 falsi negativi su 10
+domande — e uno dei due sfuggiva anche alla regola vecchia.
+
+**La prova che conta: reintrodurre il difetto.** Otto mutazioni, tutte
+rilevate. La seconda è **la correzione letterale di R34**, messa in batteria
+apposta: un test scritto sul solo segnale «titolo interrogativo» l'avrebbe
+promossa. Le asserzioni sono infatti sull'**elenco intero** dei segnali e sul
+rapporto finale, non sul singolo segnale.
+
+Una mutazione non era rilevata alla prima esecuzione: togliere `:` da
+`_INIZIO_FRASE`. Dopo la correzione i due punti contano solo per il **corpo**,
+dove una frase dopo i due punti è una frase davvero, e lì nessun test li
+copriva. Ora c'è.
+
+- [x] Il `?` come discrimine, applicato al solo titolo.
+- [x] Il titolo entra nel passaggio solo se è una domanda — la metà mancante.
+- [x] R9 preservata senza toccarne il test.
+- [x] Misurato su 209 intestazioni e 453 chunk di un sito reale.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

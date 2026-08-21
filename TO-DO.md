@@ -2,7 +2,7 @@
 
 > Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
 > di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R26 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R27-R33 e R35-R37.
+> già chiuse — con esse tutte le voci GRAVI; restano aperte R28-R33 e R35-R37.
 > Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
@@ -216,24 +216,12 @@ contato come violazione, `delay` mai passato ad axe, riparsing dell'HTML),
 tutte il 2026-08-20: difetto, soluzione e verifiche in
 [AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
 
-Le voci **R27-R33** qui sotto vengono da una **revisione sistematica del
+Le voci **R28-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica
 avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R27 — 🟡 MEDIO: il timeout ZAP non ferma la scansione
-Allo scadere di `ZAP_TIMEOUT_SCAN`, `_attendi()`
-([mars_wapt.py:160](mars_wapt.py#L160)) esce dal ciclo senza fermare nulla, e
-`run_zap` non chiama mai `spider/action/stop` né `ascan/action/stop` —
-`ZapClient` non li espone nemmeno. La scansione (anche l'**active scan**, che
-invia payload d'attacco) prosegue nel daemon, mentre il referto
-([:261](mars_wapt.py#L261)) dichiara *«scansione interrotta dal timeout»*:
-l'interruzione riguarda solo l'attesa di MARS, non ZAP.
-
-- [ ] Esporre e chiamare gli endpoint di stop nel ramo di timeout, così il
-      messaggio del referto corrisponda al fatto.
 
 ### R28 — 🟡 MEDIO: `mars_citations`, scritture e monitoraggio non misurato
 - **`OSError` non gestita su `--output`/`--history`.** L'`open` di `--output`

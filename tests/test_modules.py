@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 import types
 
 import pytest
+import requests
 
 import mars_citability
 import mars_lexical
@@ -1134,6 +1136,175 @@ def test_wapt_active_scan_richiede_la_dichiarazione():
     chiamate.clear()
     mars_wapt.run_zap("https://x/", ClientFinto(), active=True)
     assert chiamate.get("ascan")
+
+
+class _ZapFinto:
+    """Daemon ZAP finto che REGISTRA gli ordini ricevuti.
+
+    Registrare e' il punto: R27 non riguarda cosa MARS restituisce, ma
+    che cosa MARS dice al daemon. Un finto che accettasse tutto in
+    silenzio non potrebbe rivelare una fermata mai chiesta.
+    """
+
+    def __init__(self, spider_finisce=True, ascan_finisce=True,
+                 stop_solleva=None, lentezza=0.0):
+        self.chiamate = []
+        self.spider_finisce = spider_finisce
+        self.ascan_finisce = ascan_finisce
+        self.stop_solleva = stop_solleva
+        self.lentezza = lentezza
+
+    def spider_scan(self, url):
+        self.chiamate.append(("spider_scan", url))
+        return "11"
+
+    def spider_status(self, sid):
+        self.chiamate.append(("spider_status", sid))
+        if self.lentezza:
+            time.sleep(self.lentezza)
+        return 100 if self.spider_finisce else 40
+
+    def spider_stop(self, sid):
+        self.chiamate.append(("spider_stop", sid))
+        if self.stop_solleva:
+            raise self.stop_solleva
+
+    def ascan_scan(self, url):
+        self.chiamate.append(("ascan_scan", url))
+        return "22"
+
+    def ascan_status(self, sid):
+        self.chiamate.append(("ascan_status", sid))
+        return 100 if self.ascan_finisce else 15
+
+    def ascan_stop(self, sid):
+        self.chiamate.append(("ascan_stop", sid))
+        if self.stop_solleva:
+            raise self.stop_solleva
+
+    def alerts(self, baseurl):
+        self.chiamate.append(("alerts", baseurl))
+        return []
+
+    def fatte(self, nome):
+        return [c for c in self.chiamate if c[0] == nome]
+
+
+@pytest.fixture
+def zap_veloce(monkeypatch):
+    """Timeout minuscolo: la scadenza deve scattare dentro il test."""
+    monkeypatch.setattr(mars_wapt, "ZAP_TIMEOUT_SCAN", 0.6)
+    monkeypatch.setattr(mars_wapt, "ZAP_ATTESA", 0.1)
+
+
+def test_wapt_il_timeout_ferma_lo_spider(zap_veloce):
+    """Regressione R27: allo scadere del timeout MARS smetteva di
+    ASPETTARE e il daemon proseguiva.
+
+    Verificato end-to-end su ZAP 2.17.0 prima di scrivere questo test:
+    quattro secondi dopo il timeout il daemon dichiarava la scansione
+    RUNNING al 35%, mentre il referto la dava per interrotta.
+    """
+    c = _ZapFinto(spider_finisce=False)
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    assert completa is False
+    assert fermate is True
+    assert c.fatte("spider_stop") == [("spider_stop", "11")], \
+        "lo spider scaduto va fermato, con il suo scanId"
+
+
+def test_wapt_il_timeout_ferma_lactive_scan(zap_veloce):
+    """L'active scan invia payload d'attacco: abbandonarlo in corso e'
+    la forma peggiore del difetto."""
+    c = _ZapFinto(ascan_finisce=False)
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    assert completa is False and fermate is True
+    assert c.fatte("ascan_stop") == [("ascan_stop", "22")]
+    # Lo spider era finito: non va fermato.
+    assert not c.fatte("spider_stop")
+
+
+def test_wapt_non_avvia_un_attacco_che_non_puo_sorvegliare(zap_veloce):
+    """La scadenza e' UNA per spider piu' active scan e non si rinnova.
+
+    Se lo spider la esaurisce, prima restava comunque un
+    ascan/action/scan — payload d'attacco — seguito da zero controlli
+    di avanzamento e da nessuna fermata: un attacco lanciato e
+    abbandonato. Meglio non avviarlo.
+    """
+    c = _ZapFinto(spider_finisce=True, lentezza=0.8)   # consuma il budget
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    assert not c.fatte("ascan_scan"), \
+        "nessun payload d'attacco senza tempo per sorvegliarlo"
+    assert completa is False, "e l'audit deve dichiararsi incompleto"
+
+
+def test_wapt_una_scansione_gia_conclusa_non_e_un_fallimento(zap_veloce):
+    """La corsa fra l'ultimo controllo e la fermata.
+
+    Fra i due passano fino a ZAP_ATTESA secondi, e la scansione puo'
+    concludersi da sola proprio li'. ZAP risponde allora 400
+    does_not_exist. Verificato sul daemon vero. Trattarlo come guasto
+    farebbe dichiarare al referto che una scansione conclusa sta
+    ancora girando.
+    """
+    risposta = requests.Response()
+    risposta.status_code = 400
+    risposta._content = b'{"code":"does_not_exist","message":"Non esiste"}'
+    c = _ZapFinto(spider_finisce=False,
+                  stop_solleva=requests.HTTPError(response=risposta))
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    assert completa is False
+    assert fermate is True, "non c'e' piu' nulla da fermare: e' l'esito buono"
+
+
+@pytest.mark.parametrize("stato, corpo", [
+    (500, b'{"code":"internal_error","message":"boom"}'),
+    (400, b'{"code":"illegal_parameter","message":"scanId"}'),
+    (400, b'non e\' nemmeno JSON'),
+])
+def test_wapt_solo_does_not_exist_vale_come_fermata(zap_veloce, stato, corpo):
+    """`does_not_exist` e' l'unico errore che significa "non sta
+    girando". Ogni altro guasto lascia la scansione in dubbio, e il
+    dubbio va dichiarato, non risolto a favore nostro."""
+    risposta = requests.Response()
+    risposta.status_code = stato
+    risposta._content = corpo
+    c = _ZapFinto(spider_finisce=False,
+                  stop_solleva=requests.HTTPError(response=risposta))
+    _, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    assert completa is False
+    assert fermate is False, "un errore diverso non prova che si sia fermata"
+
+
+def test_wapt_un_daemon_muto_non_puo_dirsi_fermato(zap_veloce):
+    """L'opposto: se il daemon non risponde, la scansione puo' benissimo
+    proseguire, e il referto non deve dichiararla interrotta."""
+    c = _ZapFinto(spider_finisce=False,
+                  stop_solleva=requests.ConnectionError("daemon muto"))
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    assert completa is False and fermate is False
+
+
+def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
+                                                          monkeypatch):
+    """R27 chiede che il messaggio corrisponda al fatto."""
+    def esito(fermate):
+        monkeypatch.setattr(mars_wapt, "connect_zap",
+                            lambda credentials=None: _ZapFinto())
+        monkeypatch.setattr(mars_wapt, "run_zap",
+                            lambda url, client=None, active=False:
+                            ([], False, fermate))
+        return mars_wapt.audit({"url": "https://x/",
+                                "owner_declaration": False})
+
+    fermata = esito(True)
+    abbandonata = esito(False)
+    assert fermata["stopped"] is True
+    assert abbandonata["stopped"] is False
+    assert "fermata" in fermata["issues"][0]
+    assert "NON fermata" in abbandonata["issues"][0]
+    assert "prosegue nel daemon" in abbandonata["issues"][0]
 
 
 # ----------------------------------------------------------------------

@@ -2235,6 +2235,97 @@ copriva. Ora c'è.
 - [x] R9 preservata senza toccarne il test.
 - [x] Misurato su 209 intestazioni e 453 chunk di un sito reale.
 
+### R27 — ✅ RISOLTO (2026-08-21): il timeout ZAP adesso ferma la scansione
+Allo scadere di `ZAP_TIMEOUT_SCAN`, `_attendi()` usciva dal ciclo e `run_zap`
+proseguiva. `ZapClient` non esponeva nemmeno gli endpoint di stop, quindi non
+veniva fermato nulla: **MARS smetteva di aspettare, il daemon no.** Il referto
+dichiarava intanto *«Scansione ZAP interrotta dal timeout»* — l'interruzione
+riguardava solo l'attesa.
+
+**Riprodotto, e il secondo caso è peggiore di come la voce lo descriveva.**
+
+```
+1. scansione ATTIVA in timeout
+   chiamate al daemon: spider/action/scan, spider/view/status,
+                       ascan/action/scan  <- PAYLOAD D'ATTACCO
+                       core/view/alerts
+   chiamate di STOP:   NESSUNA
+
+2. la scadenza e' UNA per spider+ascan e non si rinnova
+   active scan AVVIATO: True
+   active scan ATTESO:  False
+```
+
+Il budget è unico per spider e active scan. Se lo spider lo esaurisce, `run_zap`
+lanciava comunque `ascan/action/scan` — payload d'attacco: XSS, SQL injection,
+path traversal — e poi **non attendeva neanche un controllo di avanzamento**,
+né lo fermava. Un attacco avviato e abbandonato.
+
+**Verificato sul daemon vero prima di scrivere il codice**, perché il progetto
+si era già scottato dando per buono il client ufficiale ZAP (C9). Su ZAP
+2.17.0:
+
+```
+spider/action/stop?scanId=999   -> HTTP 400 {"code":"does_not_exist"}
+ascan/action/stop?scanId=999    -> HTTP 400 {"code":"does_not_exist"}
+spider/action/stopAllScans      -> {"Result":"OK"}
+```
+
+Il 400 non è un dettaglio: `_get()` chiama `raise_for_status()`, quindi
+fermare una scansione **conclusasi da sola** solleverebbe. Non è un guasto —
+fra l'ultimo controllo di avanzamento e la fermata passano fino a
+`ZAP_ATTESA` secondi, e la scansione può finire proprio lì.
+
+**Risoluzione.** `ZapClient` espone `spider_stop` e `ascan_stop`. `_ferma()`
+li chiama senza mai sollevare, e **restituisce se il daemon ha accettato**:
+`does_not_exist` vale come fermata riuscita (quella scansione non sta
+girando), ogni altro errore no. `run_zap` restituisce ora una terna
+`(alerts, completa, fermate)`, e il referto distingue:
+
+```
+Scansione ZAP interrotta dal timeout e fermata: i rilievi sono parziali
+Scansione ZAP scaduta e NON fermata: prosegue nel daemon ZAP, e i rilievi
+qui sono parziali
+```
+
+Il secondo messaggio è il caso che prima era **l'unico**, dichiarato come se
+fosse il primo. La chiave `stopped` porta il fatto anche nel dato.
+
+**E non si avvia più un attacco che non si potrebbe sorvegliare**: se la
+scadenza è già passata, l'active scan non parte. Con la fermata funzionante,
+avviarlo quando resta poco tempo è di nuovo sicuro — verrà fermato.
+
+**La prova end-to-end viene dal daemon, non dal codice.** Un bersaglio locale
+deliberatamente lento (60 pagine, 0,4 s a richiesta) e un timeout di 3 s. Mai
+un sito reale: l'active scan è un attacco.
+
+| | `run_zap` restituisce | ZAP, 4 secondi dopo |
+|---|---|---|
+| **prima** | `completa=False` | scansione **`RUNNING` al 35%** |
+| **dopo** | `completa=False, fermate=True` | scansione **`FINISHED`** |
+
+**La prova che conta: reintrodurre il difetto.** Nove mutazioni, tutte
+rilevate — le due fermate tolte una per volta, l'attacco riavviato senza
+tempo, l'esito della fermata ignorato, `does_not_exist` trattato come guasto,
+un daemon muto dichiarato fermato, il referto che non distingue più i due
+casi, e la fermata chiesta sullo scanId sbagliato.
+
+Una non era rilevata alla prima esecuzione: `_ferma` che dichiara riuscita
+**ogni** `HTTPError`. I test coprivano `does_not_exist` e il daemon
+irraggiungibile, ma non un errore HTTP *diverso* — un 500, o un codice
+inatteso. È il caso in cui non sappiamo se la scansione si sia fermata, e il
+dubbio va dichiarato invece di risolverlo a nostro favore. Ora c'è.
+
+`mars_wapt` non aveva rete di test sui propri rami d'uscita: il commit se la
+porta, con un daemon finto che **registra gli ordini ricevuti** invece di
+accettarli in silenzio. È il punto: R27 non riguarda cosa `run_zap`
+restituisce, ma che cosa MARS dice al daemon.
+
+- [x] `spider_stop` e `ascan_stop` esposti e chiamati nel ramo di timeout.
+- [x] Il messaggio del referto corrisponde al fatto, nei due casi.
+- [x] Nessun active scan avviato senza tempo per sorvegliarlo.
+- [x] Verificato end-to-end su ZAP 2.17.0, bersaglio locale.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

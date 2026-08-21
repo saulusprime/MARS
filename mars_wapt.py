@@ -132,6 +132,20 @@ class ZapClient:
         return int(self._get("ascan/view/status",
                              scanId=scan_id).get("status", 0))
 
+    # Fermare una scansione non e' un dettaglio di cortesia: senza,
+    # allo scadere del timeout MARS smetteva di ASPETTARE e il daemon
+    # proseguiva. Per l'active scan significa lasciare in corso l'invio
+    # di payload d'attacco contro un sito, senza piu' nessuno che
+    # guardi. Verificato su ZAP 2.17.0: fermare una scansione gia'
+    # conclusa risponde HTTP 400 {"code":"does_not_exist"}, quindi
+    # _get() solleverebbe — chi chiama deve tollerarlo, perche' e' una
+    # corsa normale fra l'ultimo controllo e la fermata.
+    def spider_stop(self, scan_id: str) -> None:
+        self._get("spider/action/stop", scanId=scan_id)
+
+    def ascan_stop(self, scan_id: str) -> None:
+        self._get("ascan/action/stop", scanId=scan_id)
+
     def alerts(self, baseurl: str) -> List[dict]:
         return list(self._get("core/view/alerts",
                               baseurl=baseurl).get("alerts") or [])
@@ -169,6 +183,35 @@ def _attendi(stato, scan_id: str, scadenza: float) -> bool:
     return False
 
 
+def _ferma(azione, scan_id: str) -> bool:
+    """Ferma una scansione. True se il daemon ha accettato l'ordine.
+
+    Non solleva mai: una scansione che si e' conclusa da sola fra
+    l'ultimo controllo e la fermata risponde 400 `does_not_exist`, ed
+    e' l'esito buono, non un guasto. Ma il valore restituito NON va
+    ignorato: se il daemon non ha accettato, la scansione prosegue e
+    il referto deve dirlo invece di dichiararla interrotta.
+    """
+    try:
+        azione(scan_id)
+        return True
+    except requests.HTTPError as exc:
+        # Verificato su ZAP 2.17.0: fermare una scansione che non c'e'
+        # piu' risponde 400 {"code": "does_not_exist"}. E' l'esito
+        # VOLUTO — quella scansione non sta girando — non un guasto, e
+        # succede davvero: fra l'ultimo controllo di avanzamento e la
+        # fermata passano fino a ZAP_ATTESA secondi, e la scansione
+        # puo' concludersi da sola proprio li'. Confonderlo con un
+        # errore farebbe dichiarare al referto che una scansione
+        # conclusa sta ancora girando.
+        try:
+            return exc.response.json().get("code") == "does_not_exist"
+        except (ValueError, AttributeError):
+            return False
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return False
+
+
 def run_zap(url: str, client=None,
             active: bool = False) -> Optional[tuple]:
     """Spider, alert e — solo se autorizzato — active scan.
@@ -182,24 +225,44 @@ def run_zap(url: str, client=None,
     quelli PASSIVI, ricavati osservando le risposte: header mancanti,
     informazioni divulgate, cookie senza attributi. Utili e innocui.
 
-    Restituisce (alerts, completata). None se fallisce.
+    Restituisce (alerts, completata, fermate). None se fallisce.
+    `fermate` e' False quando una scansione e' scaduta e il daemon non
+    ha accettato l'ordine di fermarla: sta ancora girando, e chi scrive
+    il referto deve poterlo dire.
     """
     client = client or connect_zap()
     if client is None:
         return None
     scadenza = time.time() + ZAP_TIMEOUT_SCAN
+    # Diventa False se una scansione e' scaduta e il daemon non ha
+    # accettato l'ordine di fermarla: in quel caso sta ancora girando,
+    # e il referto non puo' dichiararla interrotta.
+    fermate = True
     try:
         scan_id = client.spider_scan(url)
         spider_ok = _attendi(client.spider_status, scan_id, scadenza)
+        if not spider_ok:
+            fermate &= _ferma(client.spider_stop, scan_id)
+
         ascan_ok = True
-        if active:
+        if active and time.time() >= scadenza:
+            # Avviare un attacco che non si potrebbe sorvegliare e'
+            # peggio che non avviarlo: il budget e' uno per spider piu'
+            # active scan, e se lo spider l'ha esaurito qui restava
+            # comunque un ascan/action/scan, seguito da zero controlli
+            # di avanzamento e da nessuna fermata.
+            ascan_ok = False
+        elif active:
             scan_id = client.ascan_scan(url)
             ascan_ok = _attendi(client.ascan_status, scan_id, scadenza)
+            if not ascan_ok:
+                fermate &= _ferma(client.ascan_stop, scan_id)
+
         alerts = client.alerts(url)
         # Gli alert parziali di una scansione interrotta valgono piu'
         # di niente, ma spacciarli per completi no: il chiamante deve
         # poterlo dire nel referto.
-        return alerts, (spider_ok and ascan_ok)
+        return alerts, (spider_ok and ascan_ok), fermate
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return None
 
@@ -254,18 +317,30 @@ def audit(context: dict) -> dict:
                  "ATTIVA" if active else "passiva"))
         esito_zap = run_zap(url, client, active=active)
         if esito_zap is not None:
-            alerts, completa = esito_zap
+            alerts, completa, fermate = esito_zap
             esito = score_from_alerts(alerts)
             issues = list(esito["issues"])
-            if not completa:
-                issues.insert(0, "Scansione ZAP interrotta dal timeout: "
-                                 "i rilievi sono parziali")
+            if not completa and fermate:
+                issues.insert(0, "Scansione ZAP interrotta dal timeout e "
+                                 "fermata: i rilievi sono parziali")
+            elif not completa:
+                # Il caso peggiore, e prima era l'unico: MARS ha smesso
+                # di aspettare, il daemon no. Dirlo, perche' chi legge
+                # deve sapere che c'e' ancora traffico in corso — di
+                # attacco, se l'active scan era abilitato.
+                issues.insert(0, "Scansione ZAP scaduta e NON fermata: "
+                                 "prosegue nel daemon ZAP, e i rilievi "
+                                 "qui sono parziali")
             if not active:
                 issues.append("Solo scansione passiva: l'active scan "
                               "richiede --i-own-this-domain")
             return {"score": esito["score"],
                     "tool": "ZAP (attiva)" if active else "ZAP (passiva)",
                     "complete": completa, "active_scan": active,
+                    # Distingue "interrotta" da "abbandonata": senza,
+                    # il referto dichiarava interrotta una scansione
+                    # che stava ancora girando.
+                    "stopped": fermate,
                     "alerts_by_risk": esito["alerts_by_risk"],
                     "rules_violated": esito["rules_violated"],
                     "issues": issues}

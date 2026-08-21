@@ -2546,8 +2546,52 @@ sono tutte cose che si davano per ovvie:
 - [x] `mars_core`: costanti, `Finding`, conversione delle scale.
 - [x] `build_report`: `findings` su ogni area, errore sintetizzato.
 - [x] Contratto di test derivato dal registro, e l'invariante asserito.
+#### U1.4 — `mars_schema`, la prima area senza una scala propria (2026-08-21)
+
+Qui la gravità **non esiste nel modulo**: c'è solo l'ordinamento implicito
+delle penalità, 50/10/5. Renderla canonica è quindi una **scelta editoriale**,
+e va dichiarata come tale invece di lasciarla dedurre dai numeri.
+
+`source_severity` resta **vuoto**, ed è l'opposto di `mars_tech`. Là
+`[critico]` è la parola che l'utente legge; qui le `issues` non portano alcun
+prefisso di severità, quindi dichiararne una attribuirebbe al modulo una scala
+che non pubblica.
+
+**JSON-LD assente resta `warning`, non `critical`, benché costi metà del
+punteggio.** In MARS `critical` significa che il sito è **invisibile** agli
+assistenti — è l'uso che ne fa `mars_tech` con i crawler bloccati e le pagine
+noindex. Senza JSON-LD un sito è meno leggibile, non invisibile: appiattire la
+differenza toglierebbe senso al livello più alto.
+
+**Primo caso di aggregazione per chiave.** Le `issues` restano una per blocco —
+dicono su quale URL sta il difetto, e sono sotto test — mentre i `findings`
+aggregano per controllo, con le occorrenze in `params["n"]` e gli URL in
+`params["urls"]`. Su tre blocchi difettosi: **tre issues, due rilievi**.
+
+Non è estetica. In quest'area `score -= 5` sta accanto a ogni `append`, quindi
+la cardinalità della lista **è accoppiata al punteggio**: spezzare un controllo
+in N rilievi farebbe crollare i punteggi di chiunque li conti. È il difetto
+C10 già pagato in `mars_tech`. La penalità di un rilievo aggregato è quindi
+quella **totale** del controllo, `n × per-occorrenza`, così la somma ricostruisce
+lo score.
+
+Verificato per confronto col codice precedente: punteggi e `issues` identici su
+quattro casi, compreso quello senza pagine.
+
+Dieci mutazioni, tutte rilevate. Una non lo era alla prima esecuzione, e la
+lezione vale oltre questa voce: **i valori delle penalità non erano fissati,
+solo la loro relazione.** Un test che verifica «la somma ricostruisce lo score»
+resta verde anche cambiando una penalità, perché i due lati cambiano insieme.
+Ora ci sono cinque casi con il punteggio atteso, e pinnano anche l'ordine che
+ha un significato: un blocco malformato costa il **doppio** di uno vuoto, perché
+un JSON rotto è un errore e un blocco vuoto una dimenticanza.
+
+- [x] `mars_core`: costanti, `Finding`, conversione delle scale.
+- [x] `build_report`: `findings` su ogni area, errore sintetizzato.
+- [x] Contratto di test derivato dal registro, e l'invariante asserito.
 - [x] `mars_tech`: dodici chiavi, penalità nei params, comportamento identico.
-- [ ] I cinque moduli restanti (U1.4-U1.8), più `mars_llm_judge` (U1.9).
+- [x] `mars_schema`: gravità editoriale dichiarata, aggregazione per controllo.
+- [ ] I quattro moduli restanti (U1.5-U1.8), più `mars_llm_judge` (U1.9).
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

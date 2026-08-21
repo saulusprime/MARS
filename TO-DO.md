@@ -137,7 +137,7 @@ AS-IS conserva nove misure invece di un riassunto.
 - [x] **U1.3** — `mars_tech`. È il banco di prova del modello: unica scala
       propria, due gravità calcolate a runtime, punteggio accoppiato alla
       scala, e la rete di test più fitta del progetto.
-- [ ] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di
+- [x] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di
       aggregazione per chiave.
 - [ ] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
       editoriale), il marcatore `surface`, l'impact assente.

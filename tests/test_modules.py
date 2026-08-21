@@ -531,6 +531,130 @@ def test_schema_nessun_json_ld():
     assert esito["score"] == 50
 
 
+# --- U1.4: i rilievi di mars_schema come dato ------------------------
+
+SD_BUONO = '<script type="application/ld+json">{"@type":"Organization"}</script>'
+SD_VUOTO = '<script type="application/ld+json"></script>'
+SD_ROTTO = '<script type="application/ld+json">{non json}</script>'
+
+
+def _sito_schema(*frammenti_per_pagina):
+    return {"pages": {"https://x/p%d" % i: pagina(
+        html="<html><body>%s</body></html>" % "".join(f))
+        for i, f in enumerate(frammenti_per_pagina)}}
+
+
+def test_schema_un_controllo_e_un_rilievo_anche_con_molti_blocchi():
+    """Regola dell'adeguamento: un controllo = un Finding, le occorrenze
+    stanno nei params.
+
+    Non e' estetica. In quest'area `score -= 5` sta accanto a ogni
+    append, quindi la cardinalita' della lista E' accoppiata al
+    punteggio: spezzare un controllo in N rilievi farebbe crollare i
+    punteggi di chiunque li conti. E' il difetto C10 gia' pagato in
+    mars_tech.
+
+    Qui i due ordini divergono di proposito: tre blocchi difettosi,
+    tre issues, ma DUE rilievi."""
+    esito = mars_schema.audit(_sito_schema([SD_VUOTO, SD_ROTTO],
+                                           [SD_VUOTO, SD_BUONO]))
+    assert len(esito["issues"]) == 3, "la vista compatta resta per blocco"
+    assert len(esito["findings"]) == 2, "il dato canonico aggrega per controllo"
+
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+    assert per_chiave["sd.jsonld.block_empty"]["params"]["n"] == 2
+    assert per_chiave["sd.jsonld.block_malformed"]["params"]["n"] == 1
+    # E gli URL ci sono, deduplicati e ordinati: servono a chi corregge.
+    assert per_chiave["sd.jsonld.block_empty"]["params"]["urls"] == [
+        "https://x/p0", "https://x/p1"]
+
+
+def test_schema_le_penalita_ricostruiscono_il_punteggio():
+    """La penalita' dichiarata da un rilievo aggregato e' quella TOTALE
+    del controllo: n x per-occorrenza. Se non lo fosse, il referto
+    direbbe un punteggio e i rilievi ne giustificherebbero un altro."""
+    for ctx in (_sito_schema([], []),
+                _sito_schema([SD_VUOTO, SD_ROTTO], [SD_VUOTO]),
+                _sito_schema([SD_BUONO])):
+        esito = mars_schema.audit(ctx)
+        somma = sum(f["params"]["penalty"] for f in esito["findings"])
+        assert esito["score"] == max(0, round(100 - somma))
+
+
+@pytest.mark.parametrize("frammenti, score, motivo", [
+    ([SD_BUONO], 100, "un blocco valido non costa nulla"),
+    ([SD_VUOTO], 95, "un blocco vuoto costa 5"),
+    ([SD_ROTTO], 90, "un blocco malformato costa 10, il doppio di un vuoto"),
+    ([SD_VUOTO, SD_ROTTO], 85, "e si sommano"),
+    ([], 50, "l'assenza totale costa 50, meta' del punteggio"),
+])
+def test_schema_le_penalita_hanno_valori_fissati(frammenti, score, motivo):
+    """I valori, non solo la loro relazione.
+
+    Un test che verifica soltanto «la somma delle penalita' ricostruisce
+    lo score» resta verde anche se si cambia una penalita': cambiano
+    insieme. Ma quei numeri sono la scala editoriale dell'area, e
+    spostarne uno sposta ogni punteggio del sito in silenzio.
+
+    L'ordine fra i due difetti e' la parte con un significato: un
+    blocco malformato costa il DOPPIO di uno vuoto, perche' un JSON
+    rotto e' un errore, un blocco vuoto una dimenticanza."""
+    assert mars_schema.audit(_sito_schema(frammenti))["score"] == score, motivo
+
+
+def test_schema_la_gravita_e_dichiarata_come_editoriale():
+    """Quest'area non ha una scala propria: la gravita' l'abbiamo
+    scelta noi, e `source_severity` deve restare VUOTO.
+
+    Le issues di mars_schema non portano alcun prefisso di severita',
+    quindi dichiararne una attribuirebbe al modulo una scala che non
+    pubblica — l'opposto di mars_tech, dove `[critico]` e' la parola
+    che l'utente legge."""
+    esito = mars_schema.audit(_sito_schema([SD_VUOTO], []))
+    assert esito["findings"]
+    for f in esito["findings"]:
+        assert f["source_severity"] == "", \
+            "%s: nessuno strumento ha detto questa gravita'" % f["key"]
+
+
+def test_schema_json_ld_assente_non_e_critico():
+    """Scelta dichiarata: costa meta' punteggio ma resta `warning`.
+
+    In MARS `critical` significa che il sito e' INVISIBILE agli
+    assistenti — e' l'uso che ne fa mars_tech con i crawler bloccati e
+    le pagine noindex. Senza JSON-LD il sito e' meno leggibile, non
+    invisibile: appiattire la differenza toglierebbe senso al livello
+    piu' alto."""
+    esito = mars_schema.audit(_sito_schema([], []))
+    f = esito["findings"][0]
+    assert f["key"] == "sd.jsonld.missing"
+    assert f["severity"] == SEV_WARNING
+    assert f["weight"] == 2.0
+    assert f["params"]["penalty"] == 50.0
+
+
+def test_schema_le_chiavi_usano_il_prefisso_dell_area():
+    """`sd.`, non `schema.`: e' il prefisso del riferimento, e i
+    cataloghi di traduzione della Fase 9 sono riusabili solo se le
+    chiavi coincidono dove il controllo coincide."""
+    esito = mars_schema.audit(_sito_schema([SD_VUOTO, SD_ROTTO]))
+    esito["findings"].append(
+        mars_schema.audit({"pages": {}})["findings"][0])
+    for f in esito["findings"]:
+        parti = f["key"].split(".")
+        assert len(parti) == 3, f["key"]
+        assert parti[0] == AREA_PREFIX["mars_schema"] == "sd"
+
+
+def test_schema_anche_l_area_non_misurata_ha_un_rilievo():
+    """Senza pagine l'area non e' misurabile, ed e' uno STATO: deve
+    comparire negli elenchi costruiti sui rilievi, non sparirne."""
+    esito = mars_schema.audit({"pages": {}})
+    assert esito["status"] == "unavailable"
+    assert [f["key"] for f in esito["findings"]] == ["sd.status.no_pages"]
+    assert esito["findings"][0]["severity"] == SEV_INFO
+
+
 # ----------------------------------------------------------------------
 # mars_wcag (C8)
 # ----------------------------------------------------------------------

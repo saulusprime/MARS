@@ -13,7 +13,8 @@ import json
 import pytest
 
 from mars_core import load_queries
-from mars_report import (RENDERERS, _classe, _quadrante, build_report,
+from mars_report import (RENDERERS, _classe, _etichetta_area,
+                         _quadrante, build_report,
                          render_html, render_json, render_text)
 
 
@@ -23,11 +24,15 @@ def referto(contesto):
         "mars_tech": {"score": 85, "issues": ["[lieve] robots.txt muto"]},
         "mars_seo": {"score": None, "status": "unavailable",
                      "issues": ["Lighthouse assente"]},
-        "mars_lexical": {"rank": [0, 1], "top_chunk": "https://x/ § H",
+        # status e tool come li dichiarano i moduli veri (R38): senza,
+        # la fixture proverebbe una resa che in produzione non esiste.
+        "mars_lexical": {"status": "ranking", "tool": "BM25 (k1=1.5, b=0.75)",
+                         "rank": [0, 1], "top_chunk": "https://x/ § H",
                          "queries": ["alfa", "beta"],
                          "per_query": [{"query": "alfa", "rank": [0, 1]},
                                        {"query": "beta", "rank": [1, 0]}]},
-        "mars_semantic": {"rank": [0, 1], "answer_shaped_ratio": 0.5,
+        "mars_semantic": {"status": "ranking", "tool": "proxy char-TFIDF",
+                          "rank": [0, 1], "answer_shaped_ratio": 0.5,
                           "n_chunks": 2,
                           "per_query": [{"query": "alfa", "rank": [0, 1]},
                                         {"query": "beta", "rank": [0, 1]}]},
@@ -219,12 +224,82 @@ def test_scala_dei_colori_e_quella_di_lighthouse(valore, classe):
 
 def test_html_non_finge_un_voto_per_lessicale_e_semantica(referto):
     """Quelle due aree producono classifiche, non voti: mettere loro
-    uno zero — o un quadrante qualunque — sarebbe inventare una misura."""
+    uno zero — o un quadrante qualunque — sarebbe inventare una misura.
+
+    L'intento e' lo stesso di prima; il meccanismo no. Il verdetto
+    veniva sovrascritto con "classifica" cablando il NOME del modulo
+    nella vista, ed e' da li' che nasceva il difetto R38: la vista
+    decideva sul nome invece che sul dato, e su un'area andata in
+    errore stampava comunque l'etichetta normale. Ora la parola arriva
+    dallo stato dichiarato dal modulo."""
     uscita = render_html(referto)
-    assert uscita.count(">classifica<") == 2
-    for atteso in ("Classifica BM25, non un voto",
-                   "Classifica vettoriale, non un voto"):
-        assert atteso in uscita
+
+    # Lo strumento c'e': un rango senza il nome di chi l'ha calcolato
+    # non e' verificabile, e prima il referto non lo diceva affatto.
+    assert "BM25 (k1=1.5, b=0.75)" in uscita
+    assert "proxy char-TFIDF" in uscita
+
+    schede = uscita.split("<div class='area'>")[1:]
+    for etichetta in ("3. Lessicale", "4. Semantica"):
+        trovate = [s for s in schede if etichetta in s]
+        assert len(trovate) == 1, "scheda %s: %d" % (etichetta, len(trovate))
+        assert "classifica, non un voto" in trovate[0]
+        # L'asserzione forte: nessun voto inventato.
+        assert "/100" not in trovate[0], \
+            "%s non deve esibire un punteggio" % etichetta
+
+
+@pytest.mark.parametrize("modulo, etichetta", [
+    ("mars_lexical", "3. Lessicale"),
+    ("mars_semantic", "4. Semantica"),
+])
+def test_un_errore_nelle_aree_di_classifica_non_sparisce(contesto, modulo,
+                                                         etichetta):
+    """Regressione R38: R22 non valeva per due aree su nove.
+
+    render_text intercettava mars_lexical e mars_semantic per NOME e
+    stampava "Analizzato", saltando sia la riga di stato sia il ciclo
+    dei rilievi. Un plugin che rompeva spariva dentro una parola che
+    dichiarava il contrario — e "un'area persa in silenzio e' peggio
+    di una dichiarata fallita" (CLAUDE.md).
+    """
+    contesto["results"] = {modulo: {"error": "RuntimeError: plugin rotto"}}
+    referto = build_report(contesto["results"], contesto)
+
+    testo = render_text(referto)
+    assert "errore del modulo" in testo
+    assert "RuntimeError: plugin rotto" in testo, \
+        "il motivo del fallimento e' il rilievo dell'area"
+    assert "Analizzato" not in testo
+
+    # E in HTML: il verdetto non deve piu' essere sovrascritto.
+    html = render_html(referto)
+    scheda = [x for x in html.split("<div class='area'>")[1:]
+              if etichetta in x]
+    assert len(scheda) == 1
+    assert "errore del modulo" in scheda[0]
+    assert "RuntimeError: plugin rotto" in scheda[0]
+    # Nessun paragrafo che descriva una classifica inesistente.
+    assert "Passaggio in testa" not in scheda[0]
+
+
+def test_i_quadranti_coprono_tutte_le_aree(referto):
+    """R38: la fascia saltava mars_lexical e mars_semantic per NOME.
+
+    Due ambiti su nove non comparivano affatto in testa al referto —
+    nemmeno per dire che non avevano un voto — mentre il ramo generico
+    `score is None` sa gia' disegnare il quadrante tratteggiato con la
+    nota di stato, che e' il trattamento onesto. Il caso speciale non
+    andava spostato: andava tolto.
+    """
+    html = render_html(referto)
+    # L'elenco atteso viene dal referto stesso: cosi' il test non
+    # invecchia quando si aggiunge un'area, e non puo' passare
+    # elencando meno di quel che c'e'.
+    for area in referto["areas"]:
+        nome = _etichetta_area(area)
+        assert "<div class='nome'>%s" % nome in html, \
+            "%s manca dalla fascia dei quadranti" % nome
 
 
 def test_html_dichiara_lo_stato_di_cio_che_non_ha_misurato(referto):

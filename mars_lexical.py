@@ -66,6 +66,15 @@ def audit(context: dict) -> dict:
     rank = [indice for indice, _ in fusi]
 
     return {
+        # Quest'area produce una CLASSIFICA, non un voto: e' un fatto
+        # del dato, non una particolarita' della vista. Finche' stava
+        # solo nelle viste, queste intercettavano il modulo per NOME e
+        # stampavano "Analizzato" — anche quando il modulo era andato
+        # in errore, ingoiandone il motivo.
+        "status": "ranking",
+        # Quale recuperatore ha prodotto la classifica. Un rango senza
+        # il nome di chi l'ha calcolato non e' verificabile.
+        "tool": "BM25 (k1=%.1f, b=%.2f)" % (bm25.k1, bm25.b),
         "rank": rank,
         "per_query": per_query,
         "queries": queries,

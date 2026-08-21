@@ -182,6 +182,12 @@ AS-IS conserva nove misure invece di un riassunto.
 
 ### U13 — `mars_lexical` e `mars_semantic` non hanno controlli
 
+> **Aggiornamento 2026-08-21.** La metà di *resa* è chiusa da **R38**: il
+> referto copre ora tutti e nove gli ambiti, ciascuno con uno stato
+> dichiarato, e non afferma più «Analizzato» su aree che non hanno giudicato.
+> Resta la metà di *sostanza*, qui sotto: quelle due aree non emettono
+> controlli.
+
 *(trovata mappando i moduli per U1, il 2026-08-21)*
 
 Le due aree **non emettono un solo rilievo**: producono metriche

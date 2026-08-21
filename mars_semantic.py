@@ -206,6 +206,14 @@ def audit(context: dict) -> dict:
             answer_shaped += 1
 
     return {
+        # Vedi mars_lexical: e' una classifica, e lo dice il dato.
+        "status": "ranking",
+        # Dei due recuperatori vettoriali il referto non diceva quale
+        # avesse girato, benche' cambi il senso di ogni rango: il
+        # modello multilingue e il proxy char-TFIDF non misurano la
+        # stessa cosa. VectorRetriever lo sa gia'.
+        "tool": ("vettoriale %s" % context["embeddings_model"]
+                 if vec.use_real else "proxy char-TFIDF"),
         "rank": rank,
         "per_query": per_query,
         "queries": queries,

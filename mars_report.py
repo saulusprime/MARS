@@ -187,6 +187,10 @@ def render_json(referto: dict) -> str:
 # ZAP completa sono lo stesso numero e due fatti diversi.
 STATO_LEGGIBILE = {
     "surface": "controllo di superficie",
+    # Un'area che ordina invece di giudicare. Prima il fatto non stava
+    # nel dato e le viste lo cablavano per nome del modulo: da li'
+    # nasceva "Analizzato", stampato anche su un'area andata in errore.
+    "ranking": "classifica, non un voto",
     "unavailable": "non misurato",
     "disabled": "disattivato",
     "error": "errore del modulo",
@@ -264,19 +268,6 @@ def render_text(referto: dict) -> str:
     for area in referto["areas"]:
         if area["module"] == "mars_citability":
             continue  # ha un blocco tutto suo, in fondo
-        if area["module"] == "mars_lexical":
-            righe.append("%-20s : Analizzato (Top: %s)"
-                         % (area["label"],
-                            referto["lexical"]["top_chunk"] or "N/A"))
-            continue
-        if area["module"] == "mars_semantic":
-            sem = referto["semantic"]
-            righe.append("%-20s : Analizzato (%.0f%% di %s chunk "
-                         "answer-shaped)"
-                         % (area["label"],
-                            100 * (sem["answer_shaped_ratio"] or 0),
-                            sem["n_chunks"] or 0))
-            continue
         righe.append(_riga_area(area))
         # Con che cosa e' stato misurato, per OGNI area e non piu' per
         # la sola accessibilita': senza, 100/100 dai soli header HTTP
@@ -561,8 +552,6 @@ def _fascia_quadranti(referto: dict) -> str:
     """
     pezzi = []
     for area in referto["areas"]:
-        if area["module"] in ("mars_lexical", "mars_semantic"):
-            continue
         if area["score"] is None:
             nota, parziale = _stato_area(area), False
         else:
@@ -658,16 +647,24 @@ def _scheda_area(area: dict, referto: dict) -> str:
                 % (_classe(area["score"]), area["score"]))
 
     corpo = []
-    if area["module"] == "mars_lexical":
-        corpo.append("<p class='strumento'>Classifica BM25, non un voto. "
-                     "Passaggio in testa: <code>%s</code></p>"
+    # I paragrafi descrittivi valgono solo se la classifica c'e'
+    # davvero: su un'area in errore "Passaggio in testa: —" descrive
+    # un risultato inesistente. La condizione guarda lo STATO, non il
+    # nome del modulo — che e' il difetto da cui nasceva "Analizzato".
+    ordina = area.get("status") == "ranking"
+    if ordina and area["module"] == "mars_lexical":
+        # Il paragrafo descrittivo resta; il VERDETTO no. Prima
+        # veniva sovrascritto con "classifica" anche quando l'area era
+        # in errore, nascondendo il fallimento dietro un'etichetta
+        # normale. Ora lo stato arriva dal dato, come per le altre.
+        corpo.append("<p class='strumento'>Passaggio in testa: "
+                     "<code>%s</code></p>"
                      % _e((referto.get("lexical") or {}).get("top_chunk")
                           or "—"))
-        voto = "<span class='muted'>classifica</span>"
-    elif area["module"] == "mars_semantic":
+    elif ordina and area["module"] == "mars_semantic":
         sem = referto.get("semantic") or {}
-        corpo.append("<p class='strumento'>Classifica vettoriale, non un "
-                     "voto. %.0f%% di %s chunk in forma di risposta.</p>"
+        corpo.append("<p class='strumento'>%.0f%% di %s chunk in forma "
+                     "di risposta.</p>"
                      % (100 * (sem.get("answer_shaped_ratio") or 0),
                         sem.get("n_chunks") or 0))
         # Segnali di PAGINA, tenuti fuori dal rapporto ma non nascosti:
@@ -675,7 +672,6 @@ def _scheda_area(area: dict, referto: dict) -> str:
         for nome, quante in (sem.get("page_signals") or {}).items():
             corpo.append("<p class='strumento'>%s: %d pagine su %d.</p>"
                          % (_e(nome), quante, referto["pages_crawled"]))
-        voto = "<span class='muted'>classifica</span>"
 
     qualifiche = _qualificatori(area)
     if qualifiche:

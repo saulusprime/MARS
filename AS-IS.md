@@ -2326,6 +2326,101 @@ restituisce, ma che cosa MARS dice al daemon.
 - [x] Nessun active scan avviato senza tempo per sorvegliarlo.
 - [x] Verificato end-to-end su ZAP 2.17.0, bersaglio locale.
 
+### R38 — ✅ RISOLTO (2026-08-21): il referto copre tutti e nove gli ambiti
+*(aperta e chiusa lo stesso giorno, trovata progettando U13)*
+
+Il referto dichiarava **«Analizzato»** per le aree 3 (Lessicale) e 4
+(Semantica), che non producono né punteggio né rilievi. Due ambiti su nove
+affermavano un'analisi che non c'era stata.
+
+**Ma il difetto vero è peggiore, e sta nel meccanismo.** `render_text`
+decideva **sul nome del modulo**, non sul dato:
+
+```python
+if area["module"] == "mars_lexical":
+    righe.append("%-20s : Analizzato (Top: %s)" % ...)
+    continue          # salta _riga_area E il ciclo dei rilievi
+```
+
+Quel `continue` scavalcava sia la riga di stato sia i rilievi. Quindi se uno
+di quei due plugin **rompeva**, il referto lo dichiarava analizzato e ne
+ingoiava il motivo. Riprodotto:
+
+```
+1. Tecnica           : errore del modulo
+  ⚠ RuntimeError: il plugin tecnico e' rotto      <- R22 funziona
+3. Lessicale         : Analizzato (Top: N/A)      <- l'errore SPARISCE
+```
+
+È **R22 riaperta per due aree su nove** — «un'area persa in silenzio è peggio
+di una dichiarata fallita», dice [CLAUDE.md](CLAUDE.md). Il caso speciale era
+nato prima della macchina dell'onestà e non era mai stato ricondotto a essa.
+
+**Un terzo stato non dichiarato.** `score: None` **senza** `status` non è nel
+vocabolario di `STATO_LEGGIBILE`, e le viste lo collassavano su *«non
+misurato»*. Due casi veri, oltre alle aree di classifica:
+
+- `mars_citability`, quando **nessun segnale** è misurabile: il composito non
+  esiste (`totale` zero) e usciva un None muto;
+- `mars_llm_judge`, quando il modello **risponde ma omette il punteggio**: è
+  una risposta, non una misura.
+
+**Risoluzione: il fatto entra nel dato, e il caso speciale sparisce.**
+
+I due moduli dichiarano `status: "ranking"` e `tool`; `STATO_LEGGIBILE`
+guadagna `"ranking": "classifica, non un voto"`; le viste perdono **tutti** i
+`if area["module"] == …`, in `render_text`, in `_scheda_area` e in
+`_fascia_quadranti`. Da nove punti cablati sul nome a uno stato nel dato.
+
+```
+3. Lessicale         : classifica, non un voto
+  BM25 (k1=1.5, b=0.75)
+4. Semantica         : classifica, non un voto
+  proxy char-TFIDF
+```
+
+**Un guadagno che non era nell'ambito della voce.** Il referto non diceva
+**quale recuperatore avesse girato**, benché cambi il senso di ogni rango: il
+modello multilingue e il proxy char-TFIDF non misurano la stessa cosa.
+`VectorRetriever.use_real` lo sapeva già; ora esce.
+
+**Guardato, non dedotto.** Con l'area lessicale forzata in errore, lo scatto
+del referto HTML mostrava ancora *«Passaggio in testa: —»*: un paragrafo che
+descrive una classifica inesistente. Legato allo **stato** — non al nome del
+modulo, che è il difetto da cui si veniva.
+
+**Perché questa forma non andrà rifatta dopo U13.** `_qualificatori` ha già la
+regola: *lo stato si annota solo se convive con un punteggio*. Quando U13 darà
+un voto alle due aree, `ranking` migrerà da solo dal posto del verdetto a
+quello dei qualificatori, come fa `surface`. Un solo vocabolario.
+
+**La prova che conta: reintrodurre il difetto.** Undici mutazioni, tutte
+rilevate. Cinque **non** lo erano alla prima esecuzione, e sono la misura di
+quanto la suite non proteggesse:
+
+- la fascia dei quadranti che torna a saltare le due aree — nessun test
+  guardava che ci fossero tutte. Ora l'elenco atteso **viene dal referto
+  stesso**, così non invecchia e non può passare elencandone meno;
+- gli stati mancanti di `mars_citability` e `mars_llm_judge`;
+- lo strumento non dichiarato dai due moduli di classifica;
+- `mars_semantic` che finge il modello vero mentre gira il proxy.
+
+Due errori miei, registrati perché sono ricorrenti: una mutazione con un
+pattern non univoco (cinque occorrenze), e **un test vacuo** — l'asserzione
+stava dentro un `if` che la eseguiva solo quando era già vera. Riscritto sul
+punto d'iniezione documentato (`context["_anthropic_client"]`), senza rami.
+
+Il test riscritto è `test_html_non_finge_un_voto_per_lessicale_e_semantica`:
+l'intento era giusto e resta, il meccanismo no. Asseriva la stringa cablata
+che è stata rimossa; ora verifica, **per scheda**, che il verdetto sia lo
+stato dichiarato e che non compaia alcun `/100`.
+
+- [x] Nessun `if` sul nome del modulo nelle viste.
+- [x] R22 vale di nuovo per tutte e nove le aree.
+- [x] Nessuno `score: None` senza `status` — ed è un contratto sotto test per
+      ogni modulo, non una correzione puntuale.
+- [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

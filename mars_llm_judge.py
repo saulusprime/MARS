@@ -221,9 +221,20 @@ def audit(context: dict) -> dict:
     migliore = (describe_chunk(chunks[indice])
                 if isinstance(indice, int) and 0 <= indice < len(chunks)
                 else None)
+    # Il modello puo' rispondere con un JSON valido e ometterne il
+    # punteggio: e' una risposta, non una misura, e senza status
+    # finiva nel referto come score None indistinguibile da un'area
+    # mai eseguita.
+    citabilita = giudizio.get("citabilita")
+    issues = list(giudizio.get("punti_deboli") or [])[:3]
+    if citabilita is None:
+        issues.insert(0, "Il modello ha risposto senza indicare un "
+                         "punteggio di citabilita'")
+
     return {
-        "score": giudizio.get("citabilita"),
-        "issues": list(giudizio.get("punti_deboli") or [])[:3],
+        "score": citabilita,
+        "status": None if citabilita is not None else "unavailable",
+        "issues": issues,
         "model": MODEL,
         "motivazione": giudizio.get("motivazione"),
         "punti_forti": giudizio.get("punti_forti"),

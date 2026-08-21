@@ -27,6 +27,7 @@ import mars_tech
 import mars_wapt
 import mars_wcag
 from conftest import pagina
+from mars_report import STATO_LEGGIBILE
 
 
 # ----------------------------------------------------------------------
@@ -46,6 +47,25 @@ def test_ogni_modulo_rispetta_il_contratto(modulo, contesto):
     assert isinstance(esito.get("issues", []), list)
 
 
+@pytest.mark.parametrize("modulo", MODULI, ids=lambda m: m.__name__)
+def test_nessuno_score_none_senza_stato(modulo, contesto):
+    """Regressione R38: score None SENZA status era un terzo stato che
+    il vocabolario del referto non contempla.
+
+    `score: None` piu' `status` dice PERCHE' non c'e' un punteggio —
+    strumento assente, area disattivata, classifica invece di voto. Un
+    None muto le collassa tutte su "non misurato", che e' una diagnosi
+    diversa da ciascuna di esse. Vale per ogni modulo, non solo per i
+    due che avevano il difetto: e' un contratto, non una correzione."""
+    esito = modulo.audit(contesto)
+    if esito.get("score") is None and "error" not in esito:
+        assert esito.get("status"), (
+            "%s: score None senza dire perche'" % modulo.__name__)
+        assert esito["status"] in STATO_LEGGIBILE, (
+            "%s: stato %r fuori dal vocabolario del referto"
+            % (modulo.__name__, esito["status"]))
+
+
 @pytest.mark.parametrize("modulo", [mars_schema, mars_wcag],
                          ids=lambda m: m.__name__)
 def test_pagine_vuote_danno_non_misurato(modulo):
@@ -53,6 +73,75 @@ def test_pagine_vuote_danno_non_misurato(modulo):
     esito = modulo.audit({"pages": {}, "url": "https://x/"})
     assert esito["score"] is None
     assert esito["status"] == "unavailable"
+
+
+def test_citability_senza_un_solo_segnale_dichiara_lo_stato():
+    """R38: con nessun segnale misurabile il composito non esiste, e
+    prima usciva come score None muto — indistinguibile da un'area mai
+    eseguita."""
+    esito = mars_citability.audit({
+        "market": "eu",
+        # C'e' un'area, quindi non scatta l'uscita anticipata, ma
+        # nessuna porta un punteggio.
+        "results": {"mars_tech": {"score": None},
+                    "mars_seo": {"score": None}}})
+    assert esito["score"] is None
+    assert esito["status"] == "unavailable"
+
+
+def test_llm_judge_senza_punteggio_dichiara_lo_stato(contesto):
+    """R38: il modello puo' rispondere con un JSON valido e ometterne il
+    punteggio.
+
+    E' una risposta, non una misura: senza status finiva nel referto
+    come score None muto, indistinguibile da un'area mai eseguita. Il
+    percorso e' quello vero — client iniettato da
+    context["_anthropic_client"], che e' il punto documentato — non un
+    ramo scorciatoiato."""
+    class Blocco:
+        type = "text"
+        # JSON valido, ma senza "citabilita".
+        text = json.dumps({"motivazione": "Motivo.",
+                           "punti_forti": ["A"], "punti_deboli": ["B"]})
+
+    class Risposta:
+        content = [Blocco()]
+        stop_reason = "end_turn"
+
+    class ClientFinto:
+        def __init__(self):
+            self.beta = type("B", (), {"messages": self})()
+
+        def create(self, **kw):
+            return Risposta()
+
+    contesto["llm"] = "on"
+    contesto["_anthropic_client"] = ClientFinto()
+    esito = mars_llm_judge.audit(contesto)
+
+    assert esito["score"] is None
+    assert esito["status"] == "unavailable"
+    assert any("senza indicare un punteggio" in i for i in esito["issues"]), \
+        "e va detto perche', non solo che non c'e'"
+
+
+@pytest.mark.parametrize("modulo, atteso", [
+    (mars_lexical, "BM25"),
+    (mars_semantic, "proxy char-TFIDF"),
+])
+def test_le_aree_di_classifica_dichiarano_lo_strumento(contesto, modulo,
+                                                       atteso):
+    """Un rango senza il nome di chi l'ha calcolato non e' verificabile,
+    e il referto non lo diceva affatto.
+
+    Per il vettoriale la distinzione conta il doppio: il modello
+    multilingue e il proxy char-TFIDF non misurano la stessa cosa, e
+    dichiarare il primo mentre gira il secondo sarebbe una misura
+    attribuita a uno strumento che non l'ha prodotta."""
+    contesto["force_proxy"] = True
+    esito = modulo.audit(contesto)
+    assert esito["status"] == "ranking"
+    assert atteso in esito["tool"]
 
 
 # ----------------------------------------------------------------------

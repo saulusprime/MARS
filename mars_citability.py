@@ -213,6 +213,12 @@ def audit(context: dict) -> dict:
 
     return {
         "score": composito,
+        # Senza un solo segnale misurabile il composito non esiste, e
+        # va DICHIARATO: score None senza status era un terzo stato che
+        # il vocabolario del referto non contempla, e che le viste
+        # collassavano su "non misurato" senza distinguerlo da un'area
+        # mai eseguita.
+        "status": None if composito is not None else "unavailable",
         "issues": issues,
         "market": nome_mercato,
         "profiles": profili,

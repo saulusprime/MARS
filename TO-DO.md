@@ -7,6 +7,10 @@
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
+>
+> Dal 2026-08-21 è aperto il **programma UPGRADE** (U1-U12), che porta il
+> referto al livello di `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md),
+> le voci aperte qui sotto, il lavoro sul ramo `upgrade`.
 
 ---
 
@@ -86,6 +90,64 @@ La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
       funzioni pure (`evaluate_answer`, `overall_rate`, lo storico JSONL) sono
       facilmente verificabili.
 - [ ] Eseguire la suite in una pipeline, non solo a mano.
+
+---
+
+## Programma UPGRADE — il referto al livello di marsbeacon
+
+Il piano completo sta in [UPGRADE.md](UPGRADE.md): 15 divari individuati
+confrontando sul codice `MARS/` (la versione definitiva) e `marsbeacon/` (il
+riferimento per la reportistica), ciascuno verificato in modo avversariale.
+Qui restano solo le **voci aperte**, una per fase; il dettaglio non si duplica.
+
+Convenzioni della lavorazione, dal documento: un commit per fase, bump di
+`__version__` (minor per fase), `pytest` verde senza rete e `flake8 .` a zero
+prima del commit, golden rigenerati **intenzionalmente** dalla Fase 2 in poi.
+Il lavoro sta sul ramo **`upgrade`**.
+
+### Decisioni ratificate (2026-08-21)
+
+Registrate qui perché non vengano prese "di fatto" scrivendo codice.
+
+| | decisione | esito |
+|---|---|---|
+| **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni. Adottata **solo dalla Fase 8**; fino ad allora ogni sezione nuova è statica. Ribalta il vincolo "NESSUNO SCRIPT" di `mars_report.py` e il test che lo presidia |
+| **D2** | Scala di severità canonica | **Sì**, quattro livelli `critical`/`warning`/`info`/`ok`. La granularità in più delle tre scale esistenti si conserva nel **peso**, non in livelli extra |
+| **D3** | Pesi del punteggio complessivo | **Sì**: aree misurate a peso 1.0, Recuperabilità-RRF e "In forma di risposta" a 1.5; **esclusi** Citabilità (sintesi derivata: conterebbe due volte) e Giudizio LLM (opzionale e a pagamento). Rinormalizzazione sulle aree presenti |
+| **D4** | Lingue | **Rinviata**: la i18n esce dal piano delle fasi e diventa la voce U9 qui sotto. Il referto resta in italiano finché non la si affronta |
+
+### Fasi
+
+- [ ] **U1 — Modello dati dei rilievi** (G01, [Fase 1](UPGRADE.md)) —
+      **prerequisito di U2, U3, U4, U5, U7**. Dataclass `Finding` e scala
+      severità unificata in `mars_core.py`, poi i moduli **uno per commit**.
+      La dataclass **non** attraversa il confine dei plugin: i moduli
+      restituiscono `findings` come lista di dict, accanto alle `issues`
+      attuali, che restano.
+- [ ] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
+      tutte le fasi successive: ogni cambiamento di resa passa da una
+      rigenerazione intenzionale con revisione del diff.
+- [ ] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
+- [ ] **U4 — Piano di remediation ordinato** (G02, Fase 4) — il cuore
+      dell'adeguamento.
+- [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).
+- [ ] **U6 — Formati Markdown e CSV** (G04, Fase 6).
+- [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
+      `schema_version`, parametri RRF e soglie nel referto; delta fra due
+      esecuzioni e storico.
+- [ ] **U8 — Analisi della superficie** (G12, Fase 8): profondità, treemap,
+      grafo dei link (qui entra D1), matematica dell'RRF, `pages[]`.
+- [ ] **U9 — i18n del referto** (G05, Fase 9) — *rinviata da D4*. Cataloghi e
+      `--lang` per it/en/fr/de/es, riusando i cataloghi già scritti in
+      marsbeacon dove i controlli coincidono. Ridurre a it/en è legittimo ma
+      va **dichiarato** come livello inferiore rispetto al riferimento.
+      Prerequisito implicito: `key` e `params` dei `Finding` (U1).
+- [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
+      Kimi accanto a Claude.
+- [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
+      accessibilità delle tabelle, brand nel footer.
+- [ ] **U12 — Ancore esterne alla simulazione** (G13, Fase 12) — *opzionale*:
+      Brave Search e confronto competitivo.
 
 ---
 

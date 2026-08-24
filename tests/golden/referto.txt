@@ -5,6 +5,10 @@
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
+  → robots.txt BLOCCA 1 crawler IA: GPTBot
+    Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
+  → 2/3 pagine senza <link rel="canonical">
+    Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               :  27/100
   Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti
   ⚠ [Lighthouse] L'indicizzazione della pagina è bloccata (X-Robots-Tag: noindex)
@@ -15,14 +19,24 @@
   proxy char-TFIDF
 5. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
+  → 1 blocchi JSON-LD malformati
+    Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 6. Accessibilità     :  37/100
   axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
+  → Le immagini devono avere un testo alternativo
+    Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
+  → Il contrasto deve essere sufficiente
+    Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
 7. Sicurezza         :  57/100
   ZAP (passiva)
   ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
   ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
+  → Cross Site Scripting (Reflected)
+    Convalida l'input e codifica l'output.
+  → Content Security Policy (CSP) Header Not Set
+    Configura il server per impostare l'header CSP.
 9. Giudizio LLM      :  61/100
   ⚠ Nessun prezzo verificabile
   ⚠ Nessuna fonte citata

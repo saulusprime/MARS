@@ -13,8 +13,9 @@ import json
 import pytest
 
 from mars_core import SEV_CRITICAL, SEV_INFO, Finding, load_queries
-from mars_report import (RENDERERS, _classe, _etichetta_area,
-                         _quadrante, build_report,
+from mars_report import (RENDERERS, _classe, _correzioni,
+                         _correzioni_testo, _elenco_controlli,
+                         _etichetta_area, _quadrante, build_report,
                          render_html, render_json, render_text)
 
 
@@ -635,3 +636,182 @@ def test_html_mostra_la_legenda_della_scala(referto):
     uscita = render_html(referto)
     for fascia in ("0-49", "50-89", "90-100", "non misurato"):
         assert fascia in uscita
+
+
+# ----------------------------------------------------------------------
+# U3.3: la resa dei testi di correzione
+# ----------------------------------------------------------------------
+
+def _rilievo(**kw) -> dict:
+    base = {"area": "mars_tech", "severity": SEV_CRITICAL, "title": "Titolo",
+            "key": "tech.x.y", "detail": "", "fix": "", "example": "",
+            "url": "", "weight": 1.0, "source_severity": "", "params": {}}
+    base.update(kw)
+    return base
+
+
+def test_correzioni_rende_fix_ed_esempio():
+    reso = _correzioni([_rilievo(fix="Aggiungi X.", example="<link rel='x'>")])
+    assert "Aggiungi X." in reso
+    assert "<pre class='ex'>" in reso
+    assert "Come si aggiusta" in reso
+
+
+def test_correzioni_esce_vuoto_senza_nulla_da_dire():
+    """Nessun blocco vuoto: un titolo senza contenuto sotto e' rumore."""
+    assert _correzioni([]) == ""
+    assert _correzioni([_rilievo()]) == ""
+
+
+def test_correzioni_ignora_chi_ha_solo_una_spiegazione():
+    """Il blocco si intitola «Come si aggiusta»: una spiegazione non aggiusta.
+
+    Sono due i casi che verrebbero dentro, e sono proprio quelli che non
+    devono starci: l'area in ERRORE, il cui `detail` e' il messaggio
+    dell'eccezione, e `wcag.status.no_fixes`, che dice a chi fa girare
+    MARS dove manca il locale di axe.
+    """
+    assert _correzioni([_rilievo(detail="MemoryError: corpus troppo grande")
+                        ]) == ""
+
+
+def test_correzioni_mostra_la_spiegazione_accanto_al_fix():
+    """Con un fix la spiegazione serve: e' il PERCHE' prima del COME."""
+    reso = _correzioni([_rilievo(detail="Senza CSP il browser non sa.",
+                                 fix="Configura l'header.")])
+    assert "Senza CSP il browser non sa." in reso
+    assert "Configura l&#x27;header." in reso
+
+
+def test_correzioni_non_ripete_la_gravita_dello_strumento():
+    """`[axe:critical]` sta gia' nella riga della vista compatta.
+
+    Il blocco sta due centimetri piu' sotto: ridirlo sarebbe la terza
+    volta che il referto dice la stessa cosa nella stessa scheda.
+    """
+    reso = _correzioni([_rilievo(source_severity="axe:critical", fix="Fai X.")])
+    assert "axe:critical" not in reso
+
+
+def test_correzioni_neutralizza_il_markup_del_sito():
+    """Un fix o un esempio possono contenere HTML: sono testo, non markup.
+
+    Il catalogo ne e' pieno per costruzione — gli esempi sono <link>,
+    <label>, <table> — e la `solution` di ZAP arriva da fuori.
+    """
+    reso = _correzioni([_rilievo(fix="<script>alert(1)</script>",
+                                 example="<img src=x onerror=alert(1)>",
+                                 detail="<b>grassetto</b>")])
+    assert "<script>" not in reso
+    # `onerror=alert(1)` sopravvive come TESTO, ed e' giusto cosi': il
+    # difetto sarebbe un `<img` che apre un tag, non le parole dentro.
+    assert "<img" not in reso
+    assert "<b>grassetto</b>" not in reso
+    assert "&lt;script&gt;" in reso
+    assert "&lt;img src=x onerror=alert(1)&gt;" in reso
+
+
+def test_controlli_agganciano_la_spiegazione_per_id_e_non_per_posizione():
+    """L'aggancio e' una CHIAVE: `params["rule"]` e' l'id dell'audit.
+
+    Con i due elenchi in ordine diverso, un aggancio per posizione
+    metterebbe la spiegazione sotto il controllo sbagliato — e nessuno
+    se ne accorgerebbe, perche' il testo resterebbe plausibile.
+    """
+    controlli = [{"id": "canonical", "title": "Canonical", "passed": False},
+                 {"id": "image-alt", "title": "Alt", "passed": False}]
+    rilievi = [_rilievo(area="mars_seo", key="seo.lh.image_alt",
+                        detail="Perche' conta l'alt.",
+                        params={"rule": "image-alt"}),
+               _rilievo(area="mars_seo", key="seo.lh.canonical",
+                        detail="Perche' conta il canonical.",
+                        params={"rule": "canonical"})]
+    reso = _elenco_controlli(controlli, rilievi)
+    canonico = reso[reso.index("Canonical"):reso.index("Alt")]
+    assert "Perche&#x27; conta il canonical." in canonico
+    assert "alt" not in canonico.lower().replace("canonical", "")
+
+
+def test_controlli_senza_rilievi_restano_come_prima():
+    """Retrocompatibilita': `rilievi` e' facoltativo."""
+    reso = _elenco_controlli([{"id": "a", "title": "A", "passed": True}])
+    assert "A" in reso
+    assert "spiegazione" not in reso
+
+
+def test_html_nessun_rilievo_solo_senza_findings_e_senza_issues(contesto):
+    """Il vincolo di U3.3, e non e' teorico: due aree lo violerebbero.
+
+    `mars_llm_judge` riuscito porta tre issues e ZERO findings (scelta
+    di U1.9: i punti deboli non sono rilievi), e un'area che avesse
+    solo rilievi strutturati sarebbe il caso opposto. Guardare un solo
+    elenco farebbe dire «Nessun rilievo.» a un'area che i rilievi ce
+    li ha, cioe' il referto che smentisce se' stesso.
+    """
+    contesto["results"] = {
+        "mars_tech": {"score": 90, "issues": ["Solo issue"], "findings": []},
+        "mars_schema": {"score": 90, "issues": [],
+                        "findings": [_rilievo(area="mars_schema",
+                                              key="sd.a.b",
+                                              title="Solo finding")]},
+        "mars_wcag": {"score": 100, "issues": [], "findings": []},
+    }
+    html = render_html(build_report(contesto["results"], contesto))
+    assert html.count("Nessun rilievo.") == 1, \
+        "solo l'area senza ne' issues ne' findings"
+    assert "Solo issue" in html
+    # L'area coi soli findings non dice «Nessun rilievo.» ed e' il punto
+    # del test. Che poi non mostri nemmeno il titolo e' corretto qui —
+    # quel rilievo non ha ne' fix ne' example — e resta un caso
+    # ipotetico: oggi ogni modulo che produce findings produce anche
+    # issues.
+    assert "Solo finding" not in html
+
+
+def test_html_un_area_con_soli_findings_non_dice_nessun_rilievo(contesto):
+    contesto["results"] = {
+        "mars_tech": {"score": 90, "issues": [],
+                      "findings": [_rilievo(fix="Fai X.")]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "Nessun rilievo." not in html
+    assert "Fai X." in html
+
+
+def test_testo_porta_titolo_e_correzione():
+    """Titolo e poi prescrizione: senza il titolo non si sa a che si
+    riferisca, perche' fra issues e findings non c'e' una chiave."""
+    righe = _correzioni_testo([_rilievo(title="CSP mancante",
+                                        fix="Aggiungi l'header.")])
+    assert righe == ["  → CSP mancante", "    Aggiungi l'header."]
+
+
+def test_testo_si_ferma_a_due_come_le_issues():
+    """E' la vista che sta in un terminale: due, non nove."""
+    molti = [_rilievo(title="T%d" % i, fix="F%d" % i) for i in range(9)]
+    assert _correzioni_testo(molti) == ["  → T0", "    F0",
+                                        "  → T1", "    F1"]
+
+
+def test_testo_ignora_i_rilievi_senza_fix():
+    """L'area in errore non deve comparire fra le correzioni: il suo
+    `detail` e' il messaggio dell'eccezione, non una prescrizione."""
+    assert _correzioni_testo([_rilievo(detail="MemoryError: corpus")]) == []
+    assert _correzioni_testo([]) == []
+
+
+def test_testo_lascia_fuori_l_esempio():
+    """Cinque o sette righe di nginx per area triplicherebbero il
+    referto: gli example vivono nell'HTML e nel JSON, per intero."""
+    righe = _correzioni_testo([_rilievo(fix="Fai X.",
+                                        example="riga1\nriga2\nriga3")])
+    assert not any("riga1" in r for r in righe)
+
+
+def test_testo_mostra_le_correzioni_nel_referto_intero(contesto):
+    contesto["results"] = {
+        "mars_tech": {"score": 60, "issues": ["[critico] robots muto"],
+                      "findings": [_rilievo(title="robots muto",
+                                            fix="Pubblica un robots.txt.")]}}
+    testo = render_text(build_report(contesto["results"], contesto))
+    assert "  → robots muto" in testo
+    assert "    Pubblica un robots.txt." in testo

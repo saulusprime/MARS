@@ -5,6 +5,10 @@
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
+  → robots.txt BLOCCA 1 crawler IA: GPTBot
+    Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
+  → 2/3 pagine senza <link rel="canonical">
+    Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               : non misurato
   ⚠ Lighthouse non trovato nel PATH
 3. Lessicale         : classifica, non un voto
@@ -13,14 +17,24 @@
   ⚠ MemoryError: corpus troppo grande
 5. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
+  → 1 blocchi JSON-LD malformati
+    Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 6. Accessibilità     :  40/100
   markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie
   ⚠ [1.1.1] 1/2 immagini prive di testo alternativo
   ⚠ [1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
+  → 1/2 immagini prive di testo alternativo
+    Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
+  → 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
+    Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
 7. Sicurezza         :  75/100
   HTTP-Headers · controllo di superficie
   ⚠ CSP mancante
   ⚠ X-Frame-Options mancante
+  → CSP mancante
+    Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
+  → X-Frame-Options mancante
+    Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.
 9. Giudizio LLM      : disattivato
   ⚠ Giudizio LLM disattivato (--llm off)
 -------------------------------------------------------

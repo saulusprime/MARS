@@ -139,7 +139,7 @@ strumento assente.
 
 ### Altre fasi
 
-- [ ] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
+- [x] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
       Spezzata in tre come U1, e per la stessa ragione: in un commit solo il
       diff sarebbe di ~700 righe di cui metà golden, cioè irrivedibile — e la
       revisione del diff dei golden è tutto il valore di U2.
@@ -155,16 +155,16 @@ strumento assente.
         invece di prescrivere), i link Markdown ridotti alla loro
         etichetta con gli URL in `params["references"]`, la `description`
         di ZAP in `detail`. Si è mosso **un solo golden**, `referto.json`.
-  - [ ] **U3.3** — la resa. `render_text`, `_scheda_area`, il CSS (`.fix`,
-        `pre.ex`), i sei golden rigenerati. È il commit del diff da leggere
-        riga per riga, e grazie ai due precedenti quel diff contiene **solo**
-        cambiamenti di resa.
-        Vincolo emerso dalla critica avversariale, da rispettare: far leggere
-        alle viste i `findings` invece delle `issues` farebbe dire «Nessun
-        rilievo.» a due aree che i rilievi ce l'hanno — `mars_citability`
-        (2 issues → 4 findings) e `mars_llm_judge` quando riesce (3 issues →
-        0 findings, per scelta di U1.9). Il ramo «Nessun rilievo.» deve
-        valere solo quando l'area **non ha né findings né issues**.
+  - [x] **U3.3** — la resa. Il blocco «Come si aggiusta» in `_scheda_area`,
+        la spiegazione di Lighthouse in linea sotto ogni controllo
+        (agganciata per `params["rule"]`, l'unica chiave vera del referto),
+        il CSS (`.correzioni`, `.spiegazione`, `.fix`, `pre.ex`). Il vincolo
+        è rispettato: «Nessun rilievo.» solo quando l'area non ha né
+        findings né issues. In `render_text` fino a **due** correzioni per
+        area, titolo e prescrizione, senza gli `example` — cinque o sette
+        righe di nginx per area triplicherebbero un referto da terminale.
+        Golden mossi: **quattro**, i `.html` e i `.txt`; il JSON no, perché
+        il dato c'era già dalla Fase 1.
 - [ ] **U4 — Piano di remediation ordinato** (G02, Fase 4) — il cuore
       dell'adeguamento.
 - [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).

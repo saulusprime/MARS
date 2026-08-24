@@ -68,6 +68,21 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
+/* --- come si aggiusta: i testi di correzione (Fase 3) --- */
+.titolo-correzioni { font-size:.72rem; text-transform:uppercase;
+                     letter-spacing:.05em; color:var(--muted);
+                     margin:.8rem 0 .25rem; }
+ul.correzioni { list-style:none; margin:0; padding:0; }
+ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
+                   border-left:2px solid var(--line); }
+.spiegazione { display:block; margin-top:.15rem; font-size:.83rem;
+               color:var(--muted); }
+.fix { display:block; margin-top:.2rem; font-size:.85rem; }
+.fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+pre.ex { margin:.4rem 0 0; padding:.55rem .65rem; background:var(--track);
+         border-radius:.35rem; font-size:.78rem; line-height:1.45;
+         overflow-x:auto; white-space:pre; }
+
 table { width:100%; border-collapse:collapse; }
 th,td { text-align:left; padding:.5rem .6rem;
         border-bottom:1px solid var(--line); vertical-align:top; }
@@ -226,6 +241,25 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <li>[critico] robots.txt BLOCCA 1 crawler IA: GPTBot</li>
 <li>[lieve] 2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</li>
 </ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li>
+<b>robots.txt BLOCCA 1 crawler IA: GPTBot</b>
+<span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
+<pre class='ex'># robots.txt — il gruppo va CORRETTO, non aggiunto
+# prima:
+#   User-agent: GPTBot
+#   Disallow: /
+# dopo:
+User-agent: GPTBot
+Disallow:</pre>
+</li>
+<li>
+<b>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</b>
+<span class='fix'>Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
+<pre class='ex'>&lt;link rel=&quot;canonical&quot; href=&quot;https://esempio.it/servizi/&quot;&gt;</pre>
+</li>
+</ul>
 </div>
 <div class='area'>
 <div class='riga'>
@@ -241,41 +275,49 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='segno'>✗</span>
 <span>L&#x27;indicizzazione della pagina è bloccata<br>
 <span class='dettaglio'>X-Robots-Tag: noindex</span>
+<span class='spiegazione'>I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell&#x27;autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.</span>
 </span>
 </li>
 <li class='fallito'>
 <span class='segno'>✗</span>
 <span>Il documento non ha un elemento `&lt;title&gt;`<br>
 <span class='dettaglio'>html</span>
+<span class='spiegazione'>Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.</span>
 </span>
 </li>
 <li class='fallito'>
 <span class='segno'>✗</span>
-<span>Il documento non ha una meta descrizione</span>
+<span>Il documento non ha una meta descrizione<span class='spiegazione'>Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.</span>
+</span>
 </li>
 <li class='fallito'>
 <span class='segno'>✗</span>
 <span>I link non hanno testo descrittivo<br>
 <span class='dettaglio'>/p0, /p1, /p2, /p3, /p4</span>
+<span class='spiegazione'>Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.</span>
 </span>
 </li>
 <li class='fallito'>
 <span class='segno'>✗</span>
 <span>Gli elementi immagine non hanno attributi `[alt]`<br>
 <span class='dettaglio'>body &gt; img, body &gt; img</span>
+<span class='spiegazione'>Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull&#x27;attributo `alt`.</span>
 </span>
 </li>
 <li class='manuale'>
 <span class='segno'>?</span>
-<span>robots.txt è valido</span>
+<span>robots.txt è valido<span class='spiegazione'>Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.</span>
+</span>
 </li>
 <li class='manuale'>
 <span class='segno'>?</span>
-<span>Il documento ha un elemento `rel=canonical` valido</span>
+<span>Il documento ha un elemento `rel=canonical` valido<span class='spiegazione'>I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. Scopri di più sui link canonici.</span>
+</span>
 </li>
 <li class='manuale'>
 <span class='segno'>?</span>
-<span>Dati strutturati validi</span>
+<span>Dati strutturati validi<span class='spiegazione'>Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.</span>
+</span>
 </li>
 <li class='superato'>
 <span class='segno'>✓</span>
@@ -324,6 +366,17 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <ul class='rilievi'>
 <li>JSON-LD malformato su https://esempio.test/servizi/</li>
 </ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li>
+<b>1 blocchi JSON-LD malformati</b>
+<span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+<pre class='ex'>// prima — la virgola finale rende il blocco invalido
+{&quot;@type&quot;: &quot;Service&quot;,}
+// dopo
+{&quot;@type&quot;: &quot;Service&quot;}</pre>
+</li>
+</ul>
 </div>
 <div class='area'>
 <div class='riga'>
@@ -345,6 +398,47 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <li>[1.3.1] 1 tabelle dati senza intestazioni &lt;th&gt;</li>
 <li>[2.4.4] 1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</li>
 </ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li>
+<b>Le immagini devono avere un testo alternativo</b>
+<span class='fix'>Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
+</li>
+<li>
+<b>Il contrasto deve essere sufficiente</b>
+<span class='fix'>Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+</li>
+<li>
+<b>1/2 immagini prive di testo alternativo</b>
+<span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
+&lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
+</li>
+<li>
+<b>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</b>
+<span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+</li>
+<li>
+<b>1 campi di modulo senza etichetta</b>
+<span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
+&lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
+</li>
+<li>
+<b>1 tabelle dati senza intestazioni &lt;th&gt;</b>
+<span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+<pre class='ex'>&lt;table&gt;
+  &lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Trattamento&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Durata&lt;/th&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;Drenaggio&lt;/td&gt;&lt;td&gt;50 minuti&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</pre>
+</li>
+<li>
+<b>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</b>
+<span class='fix'>Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
+&lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
+</li>
+</ul>
 </div>
 <div class='area'>
 <div class='riga'>
@@ -360,6 +454,19 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <li>[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)</li>
 <li>[ZAP:Low] Strict-Transport-Security non impostato (1 URL)</li>
 <li>Solo scansione passiva: l&#x27;active scan richiede --i-own-this-domain</li>
+</ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li>
+<b>Cross Site Scripting (Reflected)</b>
+<span class='spiegazione'>Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo&#x27; farvi eseguire script arbitrario nel browser della vittima.</span>
+<span class='fix'>Convalida l&#x27;input e codifica l&#x27;output.</span>
+</li>
+<li>
+<b>Content Security Policy (CSP) Header Not Set</b>
+<span class='spiegazione'>Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.</span>
+<span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
+</li>
 </ul>
 </div>
 <div class='area'>

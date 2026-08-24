@@ -294,6 +294,28 @@ def _riga_area(area: dict) -> str:
     return f"{area['label']:<20} : {area['score']:>3.0f}/100"
 
 
+def _correzioni_testo(findings: List[dict], quante: int = 2) -> List[str]:
+    """Le prime correzioni di un'area, per la vista compatta.
+
+    Titolo e poi prescrizione, come nel referto HTML, e per la stessa
+    ragione: fra `issues` e `findings` non esiste una chiave — per
+    posizione si disallineano appena axe o ZAP superano le cinque
+    regole — quindi un `-> fix` appeso sotto le due issues lascerebbe
+    il lettore a indovinare a quale delle due si riferisce. Col titolo
+    non c'e' niente da indovinare, al prezzo di una riga ripetuta.
+
+    Due, come le issues: questa e' la vista che sta in un terminale.
+    L'`example` resta fuori — sono blocchi nginx e JSON-LD di cinque o
+    sette righe, e due per area triplicherebbero il referto. Chi li
+    vuole ha l'HTML e il JSON, dove ci sono per intero.
+    """
+    righe: List[str] = []
+    for f in [x for x in findings if x.get("fix")][:quante]:
+        righe.append("  → %s" % f.get("title"))
+        righe.append("    %s" % f["fix"])
+    return righe
+
+
 def render_text(referto: dict) -> str:
     righe = ["", "=" * 55,
              "           MARS BEACON - REPORT FINALE           ", "=" * 55]
@@ -310,6 +332,7 @@ def render_text(referto: dict) -> str:
             righe.append("  " + " · ".join(qualifiche))
         for problema in area["issues"][:2]:
             righe.append(f"  ⚠ {problema}")
+        righe.extend(_correzioni_testo(area.get("findings") or []))
 
     aggregato = referto.get("rrf_aggregate")
     if aggregato:
@@ -469,6 +492,21 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
                           word-break:break-all; }
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
+
+/* --- come si aggiusta: i testi di correzione (Fase 3) --- */
+.titolo-correzioni { font-size:.72rem; text-transform:uppercase;
+                     letter-spacing:.05em; color:var(--muted);
+                     margin:.8rem 0 .25rem; }
+ul.correzioni { list-style:none; margin:0; padding:0; }
+ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
+                   border-left:2px solid var(--line); }
+.spiegazione { display:block; margin-top:.15rem; font-size:.83rem;
+               color:var(--muted); }
+.fix { display:block; margin-top:.2rem; font-size:.85rem; }
+.fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+pre.ex { margin:.4rem 0 0; padding:.55rem .65rem; background:var(--track);
+         border-radius:.35rem; font-size:.78rem; line-height:1.45;
+         overflow-x:auto; white-space:pre; }
 
 table { width:100%; border-collapse:collapse; }
 th,td { text-align:left; padding:.5rem .6rem;
@@ -636,7 +674,8 @@ def _legenda() -> str:
         ".pallino.ok{background:var(--ok)}</style>")
 
 
-def _elenco_controlli(controlli: List[dict]) -> str:
+def _elenco_controlli(controlli: List[dict],
+                      rilievi: Optional[List[dict]] = None) -> str:
     """I singoli controlli, nell'ordine in cui Lighthouse li mostra.
 
     Prima i falliti — sono quelli su cui si interviene — poi quelli da
@@ -644,12 +683,22 @@ def _elenco_controlli(controlli: List[dict]) -> str:
     e' ridondanza: senza, non si sa CHE COSA sia stato guardato, e un
     punteggio pieno resta indistinguibile da un controllo che non e'
     stato eseguito affatto.
+
+    I testi del rilievo — la `description` di Lighthouse, che U3.2 ha
+    messo in `detail` — si agganciano al controllo tramite
+    `params["rule"]`, che e' l'id dell'audit. E' una CHIAVE, non una
+    somiglianza fra stringhe: e' l'unico posto del referto dove i due
+    elenchi si possono unire senza indovinare, ed e' il motivo per cui
+    qui la spiegazione sta sotto la voce e altrove ha un blocco suo.
     """
     def chiave(c: dict) -> int:
         if c.get("manual"):
             return 1
         return 0 if not c.get("passed") else 2
 
+    per_regola = {r["params"]["rule"]: r for r in (rilievi or [])
+                  if isinstance(r.get("params"), dict)
+                  and r["params"].get("rule")}
     righe = []
     for c in sorted(controlli, key=chiave):
         if c.get("manual"):
@@ -661,13 +710,71 @@ def _elenco_controlli(controlli: List[dict]) -> str:
         else:
             classe, segno = "fallito", "\u2717"
         dettaglio = ", ".join(c.get("items") or [])
+        rilievo = per_regola.get(c.get("id")) or {}
         righe.append(
-            "<li class='%s'><span class='segno'>%s</span><span>%s%s</span>"
+            "<li class='%s'><span class='segno'>%s</span><span>%s%s%s</span>"
             "</li>"
             % (classe, segno, _e(c.get("title")),
                "<br><span class='dettaglio'>%s</span>" % _e(dettaglio)
-               if dettaglio else ""))
+               if dettaglio else "",
+               # Nessun <br>: `.spiegazione` e' gia' display:block,
+               # e il <br> aggiungerebbe una riga vuota.
+               "<span class='spiegazione'>%s</span>"
+               % _e(rilievo["detail"]) if rilievo.get("detail") else ""))
     return "<ul class='controlli'>%s</ul>" % "".join(righe)
+
+
+def _correzioni(findings: List[dict]) -> str:
+    """Il blocco «Come si aggiusta», dai rilievi che hanno qualcosa da dire.
+
+    Sta SOTTO l'elenco dei rilievi invece che dentro, e ne ripete i
+    titoli. La ripetizione e' il prezzo di una scelta, non una
+    distrazione: le `issues` sono la vista compatta che ogni modulo
+    compone per se', e portano cose che il rilievo tiene nei params —
+    «(2 elementi su 1 pagine)», «[1.1.1]», l'URL del blocco JSON-LD
+    malformato. Toglierle per mettere al loro posto i `findings`
+    perderebbe quelle informazioni; ricostruirle qui dai params
+    significherebbe riscrivere nel referto la presentazione che sta nei
+    moduli, cioe' la solita coppia di implementazioni che divergono in
+    silenzio.
+
+    E unire i due elenchi non si puo': **non esiste una chiave**. Per
+    posizione si disallineano appena axe o ZAP superano le cinque
+    regole, perche' le issues si fermano a cinque e i rilievi no; per
+    somiglianza del testo fallisce mars_schema, dove la issue dice
+    «JSON-LD malformato su <url>» e il titolo «1 blocchi JSON-LD
+    malformati». L'unica area con una chiave vera e' mars_seo, che
+    infatti la spiegazione ce l'ha in linea.
+    """
+    # Serve un `fix` o un `example`: il blocco si intitola «Come si
+    # aggiusta», e un rilievo che ha solo `detail` non aggiusta nulla.
+    # Sono due i casi, e vanno tenuti fuori tutt'e due: l'area in
+    # ERRORE, il cui detail e' il messaggio dell'eccezione, e
+    # `wcag.status.no_fixes`, che dice dove manca il locale di axe —
+    # istruzioni per chi fa girare MARS, non per chi possiede il sito,
+    # cioe' la stessa esclusione che regge il catalogo di U3.1.
+    voci = [f for f in findings if f.get("fix") or f.get("example")]
+    if not voci:
+        return ""
+    righe = []
+    for f in voci:
+        pezzi = ["<b>%s</b>" % _e(f.get("title"))]
+        # `source_severity` NON si stampa: dove c'e' — "[critico]",
+        # "[axe:critical]", "[ZAP:High]" — sta gia' nella riga della
+        # vista compatta, due centimetri piu' su.
+        if f.get("detail"):
+            pezzi.append("<span class='spiegazione'>%s</span>"
+                         % _e(f["detail"]))
+        if f.get("fix"):
+            pezzi.append("<span class='fix'>%s</span>" % _e(f["fix"]))
+        # L'esempio e' codice: <pre> perche' gli a-capo e
+        # l'indentazione di un blocco nginx o JSON-LD sono il suo
+        # contenuto, non la sua impaginazione.
+        if f.get("example"):
+            pezzi.append("<pre class='ex'>%s</pre>" % _e(f["example"]))
+        righe.append("<li>%s</li>" % "".join(pezzi))
+    return ("<p class='titolo-correzioni'>Come si aggiusta</p>"
+            "<ul class='correzioni'>%s</ul>" % "".join(righe))
 
 
 def _scheda_area(area: dict, referto: dict) -> str:
@@ -715,16 +822,26 @@ def _scheda_area(area: dict, referto: dict) -> str:
         corpo.append("<p class='strumento%s'>%s</p>"
                      % (" parziale" if parziale else "",
                         _e(" · ".join(qualifiche))))
+    rilievi = area.get("findings") or []
     if area.get("audits"):
         # L'elenco dei controlli sostituisce quello dei rilievi: li
         # contiene gia' tutti, e in piu' dice che cosa e' stato
         # guardato e superato — che e' l'informazione che mancava.
-        corpo.append(_elenco_controlli(area["audits"]))
-    elif area["issues"]:
-        corpo.append("<ul class='rilievi'>%s</ul>"
-                     % "".join("<li>%s</li>" % _e(i) for i in area["issues"]))
-    elif area["score"] is not None:
-        corpo.append("<p class='nessun-rilievo'>Nessun rilievo.</p>")
+        corpo.append(_elenco_controlli(area["audits"], rilievi))
+    else:
+        if area["issues"]:
+            corpo.append("<ul class='rilievi'>%s</ul>"
+                         % "".join("<li>%s</li>" % _e(i)
+                                   for i in area["issues"]))
+        corpo.append(_correzioni(rilievi))
+        # "Nessun rilievo." vale solo quando l'area non ha NE' issues
+        # NE' findings. Guardare i soli findings direbbe che il
+        # giudizio LLM riuscito non ha rilevato nulla — ne elenca tre,
+        # e findings non ne produce per scelta di U1.9 — e guardare le
+        # sole issues farebbe lo stesso con un'area che avesse solo
+        # rilievi strutturati.
+        if not area["issues"] and not rilievi and area["score"] is not None:
+            corpo.append("<p class='nessun-rilievo'>Nessun rilievo.</p>")
 
     return ("<div class='area'><div class='riga'><h3>%s</h3>"
             "<span class='punteggio'>%s</span></div>%s</div>"

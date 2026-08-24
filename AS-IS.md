@@ -3407,6 +3407,85 @@ golden di testo e HTML, quindi non è materia di U3.2: è **R44**.
       `detail`), `mars_wapt.py` (`detail`), `conftest.py`, 23 test nuovi,
       un golden.
 
+### U3.3 — ✅ (2026-08-24): la resa dei testi di correzione
+
+**Il problema.** Dopo U3.1 e U3.2 i `fix`, gli `example` e i `detail` erano nel
+dato e in nessuna vista: solo il JSON li mostrava, perché li mostra tutti per
+costruzione. Il referto HTML — quello che si consegna — continuava a dire
+*che cosa* è rotto e mai *come* si aggiusta.
+
+**Non esiste una chiave fra `issues` e `findings`, ed è questa la scoperta che
+ha deciso la forma.** Sembrano due viste della stessa cosa e non lo sono:
+
+- **per posizione** si disallineano appena axe o ZAP superano le cinque
+  regole, perché le issues si fermano a cinque e i rilievi no. Non è un caso
+  di laboratorio: è quasi ogni sito reale, e il guasto sarebbe *silenzioso*;
+- **per somiglianza del testo** fallisce su `mars_schema`, dove la issue dice
+  «JSON-LD malformato su `<url>`» e il titolo «1 blocchi JSON-LD malformati»:
+  nessuna delle due contiene l'altra;
+- `mars_citability` ne ha 2 contro 4, `mars_llm_judge` riuscito 3 contro 0.
+
+L'unica area con una chiave vera è `mars_seo`: `params["rule"]` **è** l'id
+dell'audit Lighthouse. E infatti è l'unica in cui la spiegazione sta **in
+linea**, sotto la voce del controllo — non per estetica, ma perché lì unire i
+due elenchi non richiede di indovinare.
+
+**Dove non c'è chiave, il blocco è separato.** «Come si aggiusta» sta sotto
+l'elenco dei rilievi e ne ripete i titoli. La ripetizione è il prezzo di una
+scelta dichiarata: le `issues` sono la vista compatta che ogni modulo compone
+per sé, e portano cose che il rilievo tiene nei `params` — «(2 elementi su 1
+pagine)», «[1.1.1]», l'URL del blocco malformato. Sostituirle coi titoli dei
+findings le perderebbe; **ricostruirle nel referto dai params significherebbe
+riscrivere lì la presentazione che sta nei moduli**, cioè la solita coppia di
+implementazioni che divergono in silenzio.
+
+**Due difetti visti nel diff del golden, non nel codice.** È esattamente ciò
+per cui U2 esiste:
+
+- il blocco stampava `source_severity` come etichetta accanto al titolo —
+  «critico», «axe:critical» — che sta **già** nella riga della vista compatta
+  due centimetri più su. Terza volta che la stessa scheda dice la stessa cosa:
+  tolto;
+- l'area **in errore** finiva sotto «Come si aggiusta»: `_finding_errore`
+  mette il messaggio dell'eccezione in `detail`, e il blocco accettava chi
+  avesse un `detail` qualunque. «MemoryError: corpus troppo grande» non
+  aggiusta niente. Ora serve un `fix` o un `example`, e la stessa condizione
+  tiene fuori `wcag.status.no_fixes`, che è un'istruzione per chi fa girare
+  MARS — la stessa esclusione che regge il catalogo di U3.1.
+
+**Il vincolo di «Nessun rilievo.», rispettato.** Il ramo si accende solo quando
+l'area non ha **né** issues **né** findings. Guardare i soli findings farebbe
+dire «Nessun rilievo.» al giudizio LLM riuscito, che ne elenca tre e findings
+non ne produce per scelta di U1.9. Nei due golden quel ramo non compare mai —
+lo provano due test, e due mutazioni lo confermano.
+
+**Anche la vista testo, e con la stessa forma.** Qui la prima stesura si era
+fermata all'HTML, con l'argomento che le righe compatte portano i conteggi di
+diffusione e il criterio WCAG e che il «come si aggiusta» nel terminale poteva
+aspettare U4. UPGRADE.md, Fase 3, chiede però esplicitamente una riga
+`-> Fix: …` sotto il rilievo: l'argomento era buono per *sostituire* le
+issues, non per non aggiungere nulla, e chi usa la CLI non avrebbe mai visto
+una prescrizione. Ora ogni area mostra fino a **due** correzioni — titolo e
+poi prescrizione, come nell'HTML e per la stessa ragione: senza il titolo, un
+`->` appeso sotto due issues lascerebbe indovinare a quale si riferisca.
+
+L'`example` resta fuori dal solo testo: sono blocchi nginx e JSON-LD di
+cinque o sette righe, e due per area triplicherebbero un referto che sta in un
+terminale. Nell'HTML e nel JSON ci sono per intero.
+
+**Si muovono quattro golden su sei**: i due `.html` e i due `.txt`, +14 righe
+ciascuno. Il JSON non si muove — il dato era già tutto lì dalla Fase 1, ed è
+la conferma che questo commit contiene soltanto resa.
+
+**Ventuno mutazioni, nessuna sfuggita** — comprese le due che riportano
+«Nessun rilievo.» a guardare un elenco solo, quella che aggancia la
+spiegazione dei controlli per posizione invece che per id, e quella che toglie
+il tetto di due alla vista testo.
+
+- [x] `_correzioni()`, `_correzioni_testo()`,
+      `_elenco_controlli(controlli, rilievi)`, il CSS (`.correzioni`,
+      `.spiegazione`, `.fix`, `pre.ex`), quindici test, quattro golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

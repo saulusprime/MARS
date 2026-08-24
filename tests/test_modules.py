@@ -3250,3 +3250,313 @@ def test_llm_seleziona_i_chunk_dall_rrf(contesto):
                            "mars_semantic": {"rank": [1, 0]}}
     scelti = mars_llm_judge.seleziona_chunk(contesto)
     assert scelti[0] is contesto["chunks"][1]
+
+
+# --- U1.9: i rilievi di stato di mars_llm_judge ------------------------
+#
+# Quest'area emette SOLO llm.status.*: i punti deboli che il modello
+# nomina restano issues, perche' prosa libera non ha una chiave stabile.
+# Conseguenza dichiarata: quando il giudizio RIESCE l'area non produce
+# rilievi, ed e' l'unico punto della fase in cui la vista compatta dice
+# piu' del dato canonico.
+
+def _risposta_llm(payload, stop="end_turn"):
+    """Una risposta dell'SDK, nella forma che `interroga` legge."""
+    class Blocco:
+        type = "text"
+        text = json.dumps(payload)
+
+    class Risposta:
+        content = [Blocco()]
+        stop_reason = stop
+    return Risposta()
+
+
+class _ClientLLM:
+    """Client finto: `esito` e' una risposta oppure un'eccezione."""
+
+    def __init__(self, esito):
+        self.esito = esito
+        self.beta = type("B", (), {"messages": self})()
+
+    def create(self, **kw):
+        if isinstance(self.esito, BaseException):
+            raise self.esito
+        return self.esito
+
+
+GIUDIZIO = {"citabilita": 71, "motivazione": "Motivo.",
+            "punti_forti": ["A"], "punti_deboli": ["B", "C"],
+            "passaggio_migliore": 0}
+
+
+def _llm(contesto, esito=None, **cambi):
+    """Un audit LLM col client iniettato: non tocca la rete, non spende."""
+    contesto.update(dict({"llm": "on"}, **cambi))
+    if esito is not None:
+        contesto["_anthropic_client"] = _ClientLLM(esito)
+    return mars_llm_judge.audit(contesto)
+
+
+def _rami_llm(contesto, monkeypatch):
+    """Tutti i rami che escono senza un giudizio, chiave attesa."""
+    import anthropic
+    senza_key = dict(contesto, llm="auto", credentials={})
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    return [
+        ("llm.status.disabled", lambda: _llm(dict(contesto), llm="off")),
+        ("llm.status.not_attempted",
+         lambda: mars_llm_judge.audit(dict(senza_key))),
+        ("llm.status.no_chunks",
+         lambda: _llm(dict(contesto, chunks=[]),
+                      _risposta_llm(GIUDIZIO))),
+        ("llm.status.api_failed",
+         lambda: _llm(dict(contesto),
+                      anthropic.APIConnectionError(request=object()))),
+        ("llm.status.no_credentials",
+         lambda: _llm(dict(contesto),
+                      TypeError("Could not resolve authentication method"))),
+        ("llm.status.bad_call",
+         lambda: _llm(dict(contesto), TypeError("kwarg ignoto 'foo'"))),
+        ("llm.status.unreadable",
+         lambda: _llm(dict(contesto),
+                      _risposta_llm(GIUDIZIO, stop="refusal"))),
+        ("llm.status.no_score",
+         lambda: _llm(dict(contesto),
+                      _risposta_llm(dict(GIUDIZIO, citabilita=None)))),
+    ]
+
+
+def test_llm_ogni_ramo_senza_giudizio_porta_un_rilievo(contesto, monkeypatch):
+    """Senza l'area 9 il referto resta muto in ogni vista basata sui
+    findings, e proprio nei casi in cui qualcosa non ha funzionato."""
+    for chiave, esegui in _rami_llm(contesto, monkeypatch):
+        esito = esegui()
+        assert esito["score"] is None, chiave
+        assert [f["key"] for f in esito["findings"]] == [chiave], chiave
+
+
+def test_llm_le_chiavi_sono_tutte_di_stato_e_ben_formate(
+        contesto, monkeypatch):
+    """Tre segmenti, prefisso d'area preso dalla costante e non cablato:
+    `llm.status.error` lo costruisce il referto proprio da AREA_PREFIX, e
+    due spazi di nomi diversi non darebbero alcun errore."""
+    chiavi = []
+    for chiave, esegui in _rami_llm(contesto, monkeypatch):
+        chiavi += [f["key"] for f in esegui()["findings"]]
+    for chiave in chiavi:
+        parti = chiave.split(".")
+        assert parti[0] == AREA_PREFIX["mars_llm_judge"] == "llm"
+        assert parti[1] == "status", "quest'area emette SOLO stati"
+        assert len(parti) == 3
+    assert "llm.status.error" not in chiavi, "quella e' del referto"
+
+
+def test_llm_nessun_rilievo_e_un_difetto_del_sito(contesto, monkeypatch):
+    """Una libreria mancante o un modello che risponde male non si
+    riparano cambiando il sito: alzarne la gravita' li farebbe risalire
+    sopra ogni rilievo reale nel piano di interventi."""
+    for chiave, esegui in _rami_llm(contesto, monkeypatch):
+        for f in esegui()["findings"]:
+            assert f["severity"] == SEV_INFO, chiave
+            assert f["weight"] == 1.0
+            assert f["source_severity"] == ""
+            assert "penalty" not in f["params"]
+            # Il NOME del modulo, non il prefisso: `area` e `key` sono
+            # due cose diverse, e a un carattere di distanza dall'errore
+            # nessun test del progetto lo asseriva.
+            assert f["area"] == "mars_llm_judge"
+
+
+def test_llm_disattivato_non_e_un_esito_pulito(contesto):
+    """`disabled` ha una chiave sua perche' e' l'unico esito che dipende
+    da una SCELTA dell'utente. E resta `info`, non `ok`: `ok` significa
+    "controllo eseguito e superato", mentre qui non e' stato eseguito
+    nulla — sarebbe score 0 spacciato per score None al contrario."""
+    esito = _llm(contesto, llm="off")
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "llm.status.disabled"
+    assert rilievo["severity"] == SEV_INFO
+    assert rilievo["params"]["attempted"] is False
+    assert esito["issues"] == ["Giudizio LLM disattivato (--llm off)"]
+    assert rilievo["title"] == "Giudizio LLM disattivato (--llm off)"
+
+
+def test_llm_la_modalita_nel_dato_e_quella_normalizzata(contesto):
+    """`params["mode"]` viene da `modalita`, non da context["llm"]: con
+    "OFF" o None il valore grezzo e il ramo davvero preso divergono."""
+    for grezzo, atteso in (("OFF", "off"), ("Off", "off")):
+        esito = _llm(dict(contesto), llm=grezzo)
+        assert esito["findings"][0]["params"]["mode"] == atteso
+
+
+def test_llm_non_tentato_e_credenziale_non_risolta_sono_due_fatti(
+        contesto, monkeypatch):
+    """La chiave manca in entrambi, ma il primo si ripara anche con
+    --llm on — lo dice il testo stesso della issue — e il secondo no."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    non_tentato = mars_llm_judge.audit(
+        dict(contesto, llm="auto", credentials={}))
+    non_risolta = _llm(dict(contesto),
+                       TypeError("Could not resolve authentication method"))
+    assert non_tentato["findings"][0]["key"] == "llm.status.not_attempted"
+    assert non_risolta["findings"][0]["key"] == "llm.status.no_credentials"
+    assert non_tentato["findings"][0]["params"]["attempted"] is False
+    assert non_risolta["findings"][0]["params"]["attempted"] is True
+
+
+def test_llm_la_credenziale_non_risolta_dice_in_quale_momento(contesto,
+                                                              monkeypatch):
+    """Che l'SDK sollevi costruendo il client o facendo la richiesta
+    dipende dalla SUA versione, non da un fatto sull'audit: una chiave
+    sola, e `stage` a distinguere il momento. Senza, un aggiornamento
+    sposterebbe il fatto senza lasciare traccia."""
+    import anthropic
+    alla_richiesta = _llm(
+        dict(contesto), TypeError("Could not resolve authentication method"))
+    assert alla_richiesta["findings"][0]["params"]["stage"] == "request"
+
+    monkeypatch.setattr(anthropic, "Anthropic",
+                        lambda **kw: (_ for _ in ()).throw(
+                            TypeError("niente credenziali")))
+    ctx = dict(contesto, llm="on", credentials={})
+    ctx.pop("_anthropic_client", None)
+    alla_costruzione = mars_llm_judge.audit(ctx)
+    rilievo = alla_costruzione["findings"][0]
+    assert rilievo["key"] == "llm.status.no_credentials"
+    assert rilievo["params"]["stage"] == "client"
+    assert rilievo["params"]["attempted"] is False
+
+
+def test_llm_una_chiamata_malformata_non_e_una_credenziale_mancante(
+        contesto):
+    """Un TypeError senza "authentication" nel messaggio vuol dire che la
+    chiamata e' malformata — kwarg ignoto, SDK incompatibile — ed e' un
+    difetto nostro. Fonderlo con l'altro rifarebbe il difetto che C2 ha
+    gia' chiuso."""
+    esito = _llm(contesto, TypeError("unexpected keyword argument 'foo'"))
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "llm.status.bad_call"
+    assert rilievo["title"] == "Chiamata non valida", "il titolo e' fisso"
+    assert "foo" in rilievo["detail"], "il messaggio sta in detail"
+    assert esito["issues"] == [
+        "Chiamata non valida: unexpected keyword argument 'foo'"]
+
+
+def test_llm_il_rifiuto_dei_classificatori_arriva_nel_dato(contesto):
+    """Chiusura parziale di R31: la issue pubblica il solo tipo
+    (RuntimeError), e il motivo — l'unica diagnosi del rifiuto — si
+    perdeva. Ora sta in `detail`. La issue non cambia: e' la vista
+    congelata, e resta imprecisa."""
+    esito = _llm(contesto, _risposta_llm(GIUDIZIO, stop="refusal"))
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "llm.status.unreadable"
+    assert rilievo["detail"] == (
+        "RuntimeError: richiesta declinata dai classificatori")
+    assert esito["issues"] == ["Giudizio non interpretabile: RuntimeError"]
+
+
+def test_llm_una_chiave_sbagliata_non_e_una_chiave_assente(contesto):
+    """`anthropic.AuthenticationError` E' un `APIError`, quindi una
+    chiave scaduta o revocata esce come `api_failed` e non come
+    `no_credentials`. Sono due fatti con riparazioni diverse — l'SDK non
+    ha RISOLTO una credenziale contro l'API ha RIFIUTATO quella
+    risolta — e `detail` porta il nome dell'eccezione, che si
+    autonomina."""
+    import anthropic
+    assert issubclass(anthropic.AuthenticationError, anthropic.APIError)
+    esito = _llm(contesto, anthropic.APIConnectionError(request=object()))
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "llm.status.api_failed"
+    assert rilievo["detail"] == "APIConnectionError"
+
+
+def test_llm_i_rami_dopo_l_invio_portano_la_traccia_della_spesa(contesto):
+    """E' l'unica area che spende, e `costo_stimato` esce solo dal ramo
+    di successo: la traccia spariva esattamente quando qualcosa andava
+    storto DOPO l'invio."""
+    riuscito = _llm(dict(contesto), _risposta_llm(GIUDIZIO))
+    fallito = _llm(dict(contesto), TypeError("kwarg ignoto"))
+    params = fallito["findings"][0]["params"]
+    assert params["attempted"] is True
+    assert params["model"] == mars_llm_judge.MODEL
+    assert params["chunks_sent"] == riuscito["chunk_valutati"]
+    # Non ricalcolato dal modulo — sarebbe circolare — ma confrontato col
+    # ramo di successo sullo stesso contesto, che quel numero lo pubblica
+    # gia' da prima di U1.9.
+    assert params["estimated_input_tokens"] == \
+        riuscito["costo_stimato"]["token_stimati_input"]
+
+
+def test_llm_prima_dell_invio_non_c_e_traccia_di_spesa(contesto,
+                                                       monkeypatch):
+    """`attempted: False` e nessun numero: dichiarare un costo dove non
+    e' partito nulla sarebbe peggio che tacerlo."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    for esito in (_llm(dict(contesto), llm="off"),
+                  mars_llm_judge.audit(dict(contesto, llm="auto",
+                                            credentials={})),
+                  _llm(dict(contesto, chunks=[]),
+                       _risposta_llm(GIUDIZIO))):
+        params = esito["findings"][0]["params"]
+        assert params["attempted"] is False
+        assert "estimated_input_tokens" not in params
+        assert "model" not in params
+
+
+def test_llm_un_giudizio_riuscito_non_produce_rilievi(contesto):
+    """Conseguenza dichiarata dell'ambito "solo llm.status.*": l'area
+    compare negli elenchi basati sui findings SOLO quando non ha
+    prodotto un giudizio.
+
+    Qui la vista compatta dice piu' del dato canonico — le issues
+    portano fino a tre punti deboli — ed e' l'unico punto della Fase 1
+    in cui la divergenza va in questa direzione."""
+    esito = _llm(contesto, _risposta_llm(GIUDIZIO))
+    assert esito["score"] == 71
+    assert esito["findings"] == []
+    assert esito["issues"] == ["B", "C"], "i punti deboli restano issues"
+
+
+def test_llm_una_risposta_senza_punteggio_lo_dichiara_in_testa(contesto):
+    """`info` e non `warning` benche' sia una delusione: e' una
+    risposta, non una misura, e resta un fatto sull'esecuzione."""
+    esito = _llm(contesto, _risposta_llm(dict(GIUDIZIO, citabilita=None)))
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "llm.status.no_score"
+    assert rilievo["severity"] == SEV_INFO
+    # in testa come la issue corrispondente
+    assert esito["issues"][0].startswith("Il modello ha risposto senza")
+    assert rilievo["title"] == esito["issues"][0]
+
+
+def test_llm_la_rete_vera_e_bloccata_anche_per_httpx():
+    """`niente_rete` copre `requests`; l'SDK Anthropic passa da httpx e
+    non lo vede.
+
+    Misurato prima di scrivere la fixture: un test con
+    ANTHROPIC_API_KEY nell'ambiente e `llm: "auto"` faceva partire tre
+    POST veri verso api.anthropic.com. Qui si verifica il MECCANISMO —
+    che il transport sia sostituito — perche' verificarne l'effetto
+    richiederebbe di tentare una richiesta, e la fixture fa fallire in
+    teardown proprio i test che ci provano."""
+    import httpx
+    assert getattr(httpx.HTTPTransport.handle_request,
+                   "_mars_blocca_la_rete", False), \
+        "la rete vera non e' bloccata: un test puo' spendere"
+
+
+def test_llm_i_findings_arrivano_al_referto(contesto):
+    """Come mars_citability, quest'area esce dal referto per DUE canali:
+    la voce d'area e la copia integrale in `llm_judgement`."""
+    from mars_report import build_report
+    esito = _llm(contesto, llm="off")
+    referto = build_report({"mars_llm_judge": esito}, {"url": "https://x/"})
+    area = [a for a in referto["areas"]
+            if a["module"] == "mars_llm_judge"][0]
+    assert area["findings"] == esito["findings"]
+    assert referto["llm_judgement"]["findings"] == esito["findings"]
+    json.dumps(referto)

@@ -15,6 +15,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import httpx  # noqa: E402
 import requests  # noqa: E402
 
 import mars_core  # noqa: E402
@@ -123,6 +124,46 @@ def niente_rete(monkeypatch):
     for nome in ("get", "post", "head", "request"):
         monkeypatch.setattr("requests." + nome, vietato, raising=False)
     monkeypatch.setattr(mars_core, "Crawler", None, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def nessuna_spesa(monkeypatch):
+    """L'unica area che spende denaro non deve poter spendere in un test.
+
+    `niente_rete` copre `requests`; l'SDK Anthropic passa da **httpx**, e
+    non lo vede. Misurato prima di scrivere questa fixture: un test con
+    `ANTHROPIC_API_KEY` nell'ambiente e `llm: "auto"` faceva partire tre
+    POST veri verso api.anthropic.com. E' R20 nella stessa forma — si
+    neutralizza la LIBRERIA, non il modulo — sull'unico modulo che, se
+    sfugge, presenta un conto.
+
+    Si intercetta il **transport** e non `httpx.Client.send`: il
+    `TestClient` di FastAPI e' esso stesso un client httpx, con un
+    transport suo che parla all'applicazione in memoria. Bloccare `send`
+    fermerebbe anche quello; `HTTPTransport` e' esattamente e soltanto la
+    rete vera.
+
+    L'asserzione sta DOPO lo yield perche' sollevare non basta: l'SDK
+    incapsula qualunque eccezione del transport in un
+    `APIConnectionError`, che `mars_llm_judge` gestisce e dichiara. Senza
+    il controllo in coda, un test che sfugge finirebbe verde esercitando
+    il ramo sbagliato.
+    """
+    tentati = []
+
+    def vietato(self, request, **kwargs):
+        tentati.append(str(request.url))
+        raise RuntimeError("un test ha tentato una richiesta HTTP reale")
+
+    # Marcatore: e' l'unico modo che un test ha di verificare che il
+    # blocco sia installato senza tentare una richiesta — e chi ci prova
+    # fallisce in teardown, non asserisce.
+    vietato._mars_blocca_la_rete = True
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", vietato,
+                        raising=False)
+    yield
+    assert not tentati, ("un test ha tentato una richiesta HTTP reale: %s"
+                         % tentati)
 
 
 @pytest.fixture(autouse=True)

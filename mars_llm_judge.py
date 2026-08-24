@@ -13,7 +13,8 @@ import json
 import os
 from typing import Dict, List, Optional
 
-from mars_core import describe_chunk, reciprocal_rank_fusion
+from mars_core import (SEV_INFO, Finding, describe_chunk,
+                       reciprocal_rank_fusion)
 
 MODEL = "claude-opus-5"
 MAX_CHUNK = 8          # quanti passaggi sottoporre al modello
@@ -63,6 +64,36 @@ solo fuori dal suo contesto.
 Non giudicare gli aspetti tecnici (robots.txt, header, dati
 strutturati): sono già misurati altrove. Sii severo: la maggior parte
 dei siti non è citabile, e un voto alto deve significare qualcosa."""
+
+
+def _stato(chiave: str, testo: str, dettaglio: str = "",
+           **params: object) -> dict:
+    """Un fatto sull'ESECUZIONE del giudizio, mai un difetto del sito.
+
+    Quest'area emette SOLO rilievi di stato. I `punti_deboli` che il
+    modello restituisce restano `issues` e non diventano Finding:
+    `Finding.key` e' cio' su cui poggeranno il confronto fra due
+    esecuzioni e i cataloghi di traduzione, e una chiave ricavata da
+    prosa libera sarebbe o variabile — vietato — o ripetuta, che
+    distrugge l'identita'. Quella prosa cambia per giunta a ogni
+    esecuzione (`thinking: adaptive`) e a ogni modello: un confronto fra
+    due referti riporterebbe differenze a ogni giro.
+
+    Tutti `info` a peso 1.0: nessuno di questi esiti si ripara cambiando
+    il sito — una libreria mancante, una chiave assente, un modello che
+    risponde male sono guasti dei nostri strumenti, e alzarne la gravita'
+    li farebbe risalire sopra ogni rilievo reale nel piano di interventi.
+    Nessuna `penalty`: chiave assente significa "non e' un difetto".
+    `source_severity` vuoto: l'API restituisce stati HTTP, che non sono
+    una scala di gravita'.
+
+    `attempted` dice se si e' arrivati a chiamare il modello. NON
+    significa "speso": un 429 non si paga, e nessun ramo puo' sapere se
+    la richiesta e' stata fatturata.
+    """
+    return Finding(area="mars_llm_judge", severity=SEV_INFO, key=chiave,
+                   title=testo, detail=dettaglio,
+                   params=dict(params)).as_dict()
 
 
 def credenziali_presenti(context: Optional[dict] = None) -> bool:
@@ -159,24 +190,55 @@ def audit(context: dict) -> dict:
     poter esercitare tutto il percorso senza spendere nulla.
     """
     modalita = (context.get("llm") or "auto").lower()
+    # `modalita`, non context["llm"]: con llm None o "OFF" il valore
+    # grezzo e il ramo davvero preso divergerebbero.
+    stato = {"mode": modalita, "attempted": False}
     if modalita == "off":
         return {"score": None, "status": "disabled",
-                "issues": ["Giudizio LLM disattivato (--llm off)"]}
+                "issues": ["Giudizio LLM disattivato (--llm off)"],
+                # Chiave sua, e non fusa con not_attempted: e' l'unico
+                # esito del progetto che dipende da una SCELTA
+                # dell'utente e non da uno stato del mondo. E `info`,
+                # non SEV_OK: `ok` significa "controllo eseguito e
+                # superato", mentre qui non e' stato eseguito nulla —
+                # sarebbe la confusione fra score 0 e score None
+                # spostata di un livello.
+                "findings": [_stato(
+                    "llm.status.disabled",
+                    "Giudizio LLM disattivato (--llm off)", **stato)]}
     if modalita == "auto" and not credenziali_presenti(context):
         return {"score": None, "status": "unavailable",
                 "issues": ["ANTHROPIC_API_KEY non presente: giudizio LLM "
-                           "non eseguito (--llm on per tentare comunque)"]}
+                           "non eseguito (--llm on per tentare comunque)"],
+                # `not_attempted` e non `no_key`: la chiave manca anche
+                # in `no_credentials`, e cio' che distingue questo ramo
+                # e' che non si e' tentato — per politica di --llm auto,
+                # e infatti si ripara anche con --llm on.
+                "findings": [_stato(
+                    "llm.status.not_attempted",
+                    "ANTHROPIC_API_KEY non presente: giudizio LLM non "
+                    "eseguito (--llm on per tentare comunque)", **stato)]}
     try:
         import anthropic
     except ImportError:
         return {"score": None, "status": "unavailable",
                 "issues": ["Libreria anthropic non installata "
-                           "(pip install -r requirements-optional.txt)"]}
+                           "(pip install -r requirements-optional.txt)"],
+                "findings": [_stato(
+                    "llm.status.no_library",
+                    "Libreria anthropic non installata "
+                    "(pip install -r requirements-optional.txt)", **stato)]}
 
     chunks = seleziona_chunk(context)
     if not chunks:
         return {"score": None, "status": "unavailable",
-                "issues": ["Nessun passaggio da valutare"]}
+                "issues": ["Nessun passaggio da valutare"],
+                # `no_chunks` come `sd.status.no_pages` e
+                # `wcag.status.no_pages`: la chiave nomina la cosa che
+                # manca, non il fatto astratto che manchi un ingresso.
+                "findings": [_stato("llm.status.no_chunks",
+                                    "Nessun passaggio da valutare",
+                                    **stato)]}
 
     # Il client si costruisce PRIMA di annunciare la spesa: senza
     # credenziali risolvibili l'SDK solleva TypeError, e annunciare un
@@ -189,33 +251,90 @@ def audit(context: dict) -> dict:
     except (TypeError, ValueError, anthropic.AnthropicError) as exc:
         return {"score": None, "status": "unavailable",
                 "issues": ["Nessuna credenziale Anthropic utilizzabile "
-                           "(%s)" % type(exc).__name__]}
+                           "(%s)" % type(exc).__name__],
+                # Stessa chiave del ramo piu' sotto, con `stage` a
+                # distinguere il momento: che l'SDK sollevi costruendo
+                # il client o facendo la richiesta dipende dalla sua
+                # versione, non da un fatto sull'audit. Senza `stage`,
+                # un aggiornamento sposterebbe il fatto da un ramo
+                # all'altro senza lasciare traccia.
+                "findings": [_stato(
+                    "llm.status.no_credentials",
+                    "Nessuna credenziale Anthropic utilizzabile",
+                    type(exc).__name__, stage="client", **stato)]}
 
     prompt = costruisci_prompt(context.get("url", ""), chunks)
     costo = costo_stimato(prompt)
     print("  Giudizio LLM: invio %d passaggi (~%d token stimati) a %s..."
           % (len(chunks), costo["token_stimati_input"], MODEL))
 
+    # Da qui in avanti la richiesta e' partita: i rilievi lo dicono, e
+    # portano con se' la traccia della spesa. `costo_stimato` esce oggi
+    # solo dal ramo di successo, cioe' sparisce esattamente quando
+    # qualcosa e' andato storto dopo l'invio.
+    inviato = {"mode": modalita, "attempted": True, "model": MODEL,
+               "chunks_sent": len(chunks),
+               "estimated_input_tokens": costo["token_stimati_input"]}
     try:
         giudizio = interroga(client, prompt)
     except anthropic.APIError as exc:
+        # `api_failed` e non `api_error`: `llm.status.error` e' gia' la
+        # chiave che il referto sintetizza quando il MODULO solleva, e
+        # due chiavi che differiscono per una parola e significano cose
+        # diverse si confondono a mano.
+        #
+        # Da sapere: anthropic.AuthenticationError E' un APIError,
+        # quindi una chiave sbagliata o scaduta finisce QUI e non in
+        # `no_credentials`. I due fatti sono distinti e hanno riparazioni
+        # diverse — l'SDK non ha RISOLTO una credenziale contro l'API ha
+        # RIFIUTATO quella risolta — e `detail` porta il nome
+        # dell'eccezione, che si autonomina.
         return {"score": None, "status": "unavailable",
-                "issues": ["Errore API Anthropic: %s" % type(exc).__name__]}
+                "issues": ["Errore API Anthropic: %s" % type(exc).__name__],
+                "findings": [_stato("llm.status.api_failed",
+                                    "Errore API Anthropic",
+                                    type(exc).__name__, **inviato)]}
     except TypeError as exc:
         # L'SDK segnala l'assenza di credenziali con un TypeError, e lo
         # fa al momento della richiesta, non della costruzione del
         # client: senza questa distinzione un problema di chiave
         # verrebbe riportato come "giudizio non interpretabile".
         credenziali = "authentication" in str(exc).lower()
+        if credenziali:
+            return {"score": None, "status": "unavailable",
+                    "issues": ["Nessuna credenziale Anthropic utilizzabile"],
+                    "findings": [_stato(
+                        "llm.status.no_credentials",
+                        "Nessuna credenziale Anthropic utilizzabile",
+                        type(exc).__name__, stage="request", **inviato)]}
+        # Fatto DIVERSO, quindi chiave diversa: un TypeError senza
+        # "authentication" nel messaggio vuol dire che la chiamata a
+        # interroga() e' malformata — un kwarg ignoto, un SDK
+        # incompatibile — ed e' un difetto nostro, non una credenziale
+        # mancante. Fonderli rifarebbe il difetto che C2 ha gia' chiuso.
         return {"score": None, "status": "unavailable",
-                "issues": ["Nessuna credenziale Anthropic utilizzabile"
-                           if credenziali else
-                           "Chiamata non valida: %s" % exc]}
+                "issues": ["Chiamata non valida: %s" % exc],
+                # `str(exc)` in detail e non nel title: il titolo resta
+                # invariante come la chiave, e la issue quel messaggio
+                # lo pubblica gia'.
+                "findings": [_stato("llm.status.bad_call",
+                                    "Chiamata non valida",
+                                    str(exc), **inviato)]}
     except (RuntimeError, KeyError, StopIteration,
             json.JSONDecodeError) as exc:
         return {"score": None, "status": "unavailable",
                 "issues": ["Giudizio non interpretabile: %s"
-                           % type(exc).__name__]}
+                           % type(exc).__name__],
+                # Una chiave per quattro eccezioni — sono gia' indistinte
+                # nella issue, e quattro chiavi per quattro nomi di
+                # eccezione Python farebbero della chiave un dettaglio
+                # del linguaggio. Il messaggio entra in `detail` perche'
+                # e' l'unico posto in cui sopravvive il "richiesta
+                # declinata dai classificatori" che interroga() solleva:
+                # la issue pubblica il solo tipo, RuntimeError.
+                "findings": [_stato(
+                    "llm.status.unreadable", "Giudizio non interpretabile",
+                    "%s: %s" % (type(exc).__name__, exc), **inviato)]}
 
     indice: Optional[int] = giudizio.get("passaggio_migliore")
     migliore = (describe_chunk(chunks[indice])
@@ -227,12 +346,25 @@ def audit(context: dict) -> dict:
     # mai eseguita.
     citabilita = giudizio.get("citabilita")
     issues = list(giudizio.get("punti_deboli") or [])[:3]
+    rilievi: List[dict] = []
     if citabilita is None:
         issues.insert(0, "Il modello ha risposto senza indicare un "
                          "punteggio di citabilita'")
+        # In testa come la issue. `info` e non `warning` benche' sia una
+        # delusione: e' una risposta, non una misura, e resta un fatto
+        # sull'esecuzione — nessuna modifica al sito lo ripara.
+        rilievi.append(_stato(
+            "llm.status.no_score",
+            "Il modello ha risposto senza indicare un punteggio di "
+            "citabilita'", **inviato))
+    # Quando il giudizio riesce l'elenco resta VUOTO, ed e' voluto: i
+    # punti deboli che il modello nomina sono prosa, non rilievi (vedi
+    # _stato). E' l'unico punto della fase in cui la vista compatta dice
+    # piu' del dato canonico, e va saputo.
 
     return {
         "score": citabilita,
+        "findings": rilievi,
         "status": None if citabilita is not None else "unavailable",
         "issues": issues,
         "model": MODEL,

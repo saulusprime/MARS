@@ -149,7 +149,7 @@ AS-IS conserva nove misure invece di un riassunto.
       `weight` di `auditRefs`, che oggi **non viene mai letto**.
 - [x] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
       gli altri sei. Ogni suo rilievo porta `params["derived"] = True`.
-- [ ] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
+- [x] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
       UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
       findings.
 - [ ] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
@@ -176,6 +176,24 @@ AS-IS conserva nove misure invece di un riassunto.
       Prerequisito implicito: `key` e `params` dei `Finding` (U1).
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
       Kimi accanto a Claude.
+- [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
+      U1.9 li ha lasciati fuori di proposito: sono prosa libera, senza chiave
+      stabile, diversi a ogni esecuzione (`thinking: adaptive`) e a ogni
+      modello, quindi né confrontabili (U7) né traducibili (U9) — e
+      `Finding.key` è proprio ciò su cui quelle due fasi poggiano. Il prezzo è
+      che l'**unica prosa orientata al miglioramento** dell'intero referto
+      (UPGRADE.md: «unica prosa orientata al miglioramento è quella libera del
+      giudice LLM») resta fuori dal piano U4 e da ogni esportazione basata sui
+      findings. Riaprirla richiede prima **una** delle due cose che oggi
+      mancano: *(a)* far etichettare al modello ogni punto debole con una
+      delle chiavi che le altre otto aree già producono — allora il rilievo è
+      un derivato di quella chiave, con la prosa in `detail` e
+      `params["derived"] = True` come in `mars_citability`, e la chiave resta
+      stabile perché il modello la sceglie da un vocabolario chiuso invece di
+      scriverla; *(b)* il giudizio multi-modello, dove la **concordanza** fra
+      modelli è la misura che oggi manca e che renderebbe il rilievo una
+      misura invece di un'opinione. Senza (a) o (b) resta prosa, e va lasciata
+      dov'è.
 - [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
       accessibilità delle tabelle, brand nel footer.
 - [ ] **U12 — Ancore esterne alla simulazione** (G13, Fase 12) — *opzionale*:
@@ -290,7 +308,12 @@ altri client fino a fine scansione.
   viene letta tutta.
 
 - [ ] Errore anche per il file `--queries` senza righe utili.
-- [ ] Distinguere il `refusal` nel `mars_llm_judge`.
+- [ ] Distinguere il `refusal` nel `mars_llm_judge`. *(Chiuso a metà da U1.9:
+      il messaggio arriva nel dato — `llm.status.unreadable` porta in `detail`
+      «RuntimeError: richiesta declinata dai classificatori». Le `issues` non
+      cambiano, quindi la vista compatta continua a dire «Giudizio non
+      interpretabile: RuntimeError», che resta impreciso. Resta da fare: un
+      ramo e uno `status` propri per il rifiuto.)*
 
 ### R32 — ⚪ LIEVE: deriva fra documentazione e codice
 Divergenze verificate (documento → codice):

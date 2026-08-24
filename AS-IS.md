@@ -2422,8 +2422,8 @@ stato dichiarato e che non compaia alcun `/100`.
 - [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
 
 ### U1 — Fase 1 del programma UPGRADE: il modello dati dei rilievi
-*(in corso: 8 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
-voci aperte in [TO-DO.md](TO-DO.md).)*
+*(9 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le voci
+aperte in [TO-DO.md](TO-DO.md).)*
 
 Fino a qui un rilievo è una stringa con la gravità in un prefisso, e i
 prefissi sono **tre**, diversi per modulo: `[critico]`, `[axe:serious]`,
@@ -2955,6 +2955,114 @@ nome.
 
 - [x] `mars_citability`: derivati senza penalità, `sources`, chiavi per segnale.
 - [ ] `mars_llm_judge` (U1.9), poi il bump a 2.1.0.
+
+#### U1.9 — `mars_llm_judge`, e una fixture che mancava da sempre (2026-08-24)
+
+L'ultima delle nove, e la più piccola per ambito: **solo `llm.status.*`**.
+Nove chiavi per nove rami d'uscita, tutte `info` a peso 1.0, nessuna
+`penalty` — nessuno di questi esiti si ripara cambiando il sito.
+
+**La cosa più importante di questa voce non è nel modulo: è in
+`tests/conftest.py`.** Scrivendo nove test su l'unica area che *spende
+denaro*, la prima domanda era se la suite potesse spendere. Misurato, non
+dedotto: un test con `ANTHROPIC_API_KEY` nell'ambiente e `llm: "auto"` faceva
+partire **tre POST veri verso `api.anthropic.com`**. `niente_rete` copre
+`requests`; l'SDK Anthropic passa da **httpx** e non lo vede — è **R20 nella
+stessa forma**, sull'unico modulo che, se sfugge, presenta un conto.
+
+La fixture `nessuna_spesa` intercetta `httpx.HTTPTransport.handle_request` e
+non `httpx.Client.send`: il `TestClient` di FastAPI è *esso stesso* un client
+httpx, con un transport suo che parla all'applicazione in memoria — bloccare
+`send` fermerebbe anche quello, mentre `HTTPTransport` è esattamente e
+soltanto la rete vera. E l'asserzione sta **dopo lo `yield`**, perché
+sollevare non basta: l'SDK incapsula qualunque eccezione del transport in un
+`APIConnectionError`, che `mars_llm_judge` gestisce e dichiara. Senza il
+controllo in coda un test che sfugge finirebbe **verde**, esercitando il ramo
+sbagliato. Verificato dopo: la sonda che tenta la chiamata ora fallisce in
+teardown, con l'elenco degli URL tentati.
+
+**Un ramo, un fatto, una chiave.** Le due regole già fissate si applicano in
+direzioni opposte nello stesso modulo:
+
+- il `TypeError` con `"authentication"` nel messaggio e l'eccezione della
+  **costruzione** del client sono **lo stesso fatto in due momenti** — quale
+  dei due scatti dipende dalla versione dell'SDK, non da un fatto sull'audit:
+  una chiave sola, `llm.status.no_credentials`, con `params["stage"]` a
+  distinguere `client` da `request`. Senza, un aggiornamento dell'SDK
+  sposterebbe il fatto da un ramo all'altro senza lasciare traccia;
+- le **quattro eccezioni** catturate insieme sono già indistinte nella issue:
+  una chiave sola, `llm.status.unreadable`, e `detail` dice quale. È la regola
+  di `seo.status.failed`;
+- il `TypeError` **senza** `"authentication"` è invece un fatto diverso — la
+  chiamata è malformata, kwarg ignoto o SDK incompatibile — ed è un difetto
+  *nostro*: `llm.status.bad_call`. Fonderlo con l'altro rifarebbe il difetto
+  che C2 ha già chiuso.
+
+**Una chiave sbagliata non è una chiave assente**, e va saputo:
+`anthropic.AuthenticationError` **è** un `APIError`, quindi una chiave scaduta
+o revocata — il caso reale più frequente — esce come `api_failed`, non come
+`no_credentials`. Sono due fatti con riparazioni diverse: l'SDK non ha
+**risolto** una credenziale contro l'API ha **rifiutato** quella risolta. Il
+`detail` porta il nome dell'eccezione, che si autonomina.
+
+`api_failed` e non `api_error` proprio per questo genere di vicinanza:
+`llm.status.error` è già la chiave che il referto sintetizza quando il
+*modulo* solleva, e due chiavi che differiscono per una parola e significano
+cose diverse si confondono a mano.
+
+**La traccia della spesa non spariva quando serviva.** `costo_stimato` esce
+solo dal ramo di successo: nei rami che falliscono *dopo* l'invio, cioè quelli
+che possono essere stati fatturati, il numero non c'era. Ora i rilievi di quei
+rami portano `model`, `chunks_sent` e `estimated_input_tokens`. `attempted`
+dice se si è arrivati a chiamare il modello — e la docstring dice che **non**
+significa «speso»: un 429 non si paga, e nessun ramo può saperlo.
+
+**Perché i `punti_deboli` non diventano rilievi.** `Finding.key` è ciò su cui
+poggeranno il confronto fra due esecuzioni e i cataloghi di traduzione: una
+chiave ricavata da prosa libera sarebbe o **variabile** — vietato — o
+**ripetuta**, che distrugge l'identità e impedisce a un delta di distinguere
+«lo stesso punto debole persiste» da «ne è comparso un altro». Quella prosa
+cambia per giunta a ogni esecuzione (`thinking: adaptive`) e a ogni modello.
+Registrato in U10.1, con le due condizioni che permetterebbero di riaprirla.
+
+**Conseguenza dichiarata**: quando il giudizio **riesce**, l'area restituisce
+`findings: []` mentre le sue `issues` portano fino a tre punti deboli. È
+l'unico punto della Fase 1 in cui la vista compatta dice **più** del dato
+canonico — in `mars_seo` (titoli dei non misurati) e in `mars_citability`
+(`cit.status.no_composite`) la divergenza va nella direzione opposta. Non è
+un'anomalia: due delle nove aree, `mars_lexical` e `mars_semantic`, non
+producono né `issues` né `findings` **mai**.
+
+Chiusura parziale di **R31**: il `RuntimeError("richiesta declinata dai
+classificatori")` era l'unica diagnosi del rifiuto e si perdeva interamente —
+la issue pubblica il solo tipo. Ora arriva in `detail`. Le `issues` non
+cambiano, quindi la vista compatta resta imprecisa: resta da fare un ramo e
+uno `status` propri.
+
+Verificato per confronto col codice precedente su **tutti e nove i rami** più
+le funzioni pure, con uguaglianza totale del dict meno `findings`: zero
+divergenze.
+
+Ventitré mutazioni, tutte rilevate. Due sfuggite alla prima esecuzione, ed
+erano buchi veri:
+
+- **`Finding.area` non era asserito da nessun test di modulo** — in tutto il
+  progetto una sola asserzione, in `tests/test_report.py`. Sostituire
+  `area="mars_llm_judge"` col prefisso `"llm"` passava inosservato, a un
+  carattere di distanza dall'errore;
+- **la fixture contro la spesa non era presidiata da nulla**: un guardiano è
+  rilevabile solo se qualcosa prova a passargli davanti. Ora un test verifica
+  il **meccanismo** — che il transport sia sostituito, via un marcatore
+  sull'oggetto — perché verificarne l'effetto richiederebbe di tentare una
+  richiesta, e la fixture fa fallire in teardown proprio i test che ci provano.
+
+Una terza mutazione era mal costruita — rompeva la sintassi — ed è stata
+rifatta: un modulo che non si importa fa fallire tutto, e non dimostra che il
+test cogliesse *quel* difetto. È la stessa lezione di U1.6, alla terza
+occorrenza.
+
+- [x] `mars_llm_judge`: nove rami, nove chiavi di stato, la spesa tracciata.
+- [x] La suite non può più spendere: `nessuna_spesa` in `conftest.py`.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

@@ -105,7 +105,14 @@ cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
   suite può essere rossa senza che si veda. In uno script, decidere dal
   **codice di uscita**, mai da una parola nell'output.
 - **Reintrodurre il difetto per fidarsi del test.** Un test verde non
-  dimostra nulla finche' non lo si e' visto fallire.
+  dimostra nulla finche' non lo si e' visto fallire. Un giro di mutazioni
+  va eseguito con **`PYTHONDONTWRITEBYTECODE=1`**: applicare e
+  ripristinare una mutazione della stessa lunghezza dentro lo stesso
+  secondo lascia in `__pycache__` il bytecode vecchio (vedi la trappola
+  qui sotto), e le mutazioni di un carattere — `3.0` -> `5.0` — vengono
+  valutate sul codice sbagliato. Verificare inoltre che il file resti
+  **importabile**: una mutazione che rompe la sintassi fa fallire tutto
+  e non dimostra che il test cogliesse quel difetto.
 - **`flake8` deve restare a zero.** `setup.cfg` è già configurato:
   basta `flake8 .`. È il controllo che ha rivelato il difetto più grave
   del progetto (login rotto da una funzione definita due volte).

@@ -144,7 +144,7 @@ AS-IS conserva nove misure invece di un riassunto.
 - [x] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
       **nessuna rete di test esistente**: il commit si porta i propri. Qui si
       raccoglie anche `solution` di ZAP, che oggi viene scartata e serve a U3.
-- [ ] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
+- [x] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
       monte: `estrai_audit` deve conservare `score`, `scoreDisplayMode` e il
       `weight` di `auditRefs`, che oggi **non viene mai letto**.
 - [ ] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
@@ -252,8 +252,8 @@ dedurre*). Ordinate per gravità.
 Tutti gli handler REST sono `async def` (12 in [mars_api.py](mars_api.py)) ma
 fanno lavoro **sincrono bloccante**: `crawler.crawl()` con `session.get()` e
 `time.sleep()` per il rate-limit ([mars_core.py:227](mars_core.py#L227)),
-`subprocess.run(timeout=120)` ([mars_seo.py:32](mars_seo.py#L32)), il polling ZAP
-fino a 900 s ([mars_wapt.py:168](mars_wapt.py#L168)). In FastAPI un handler
+`subprocess.run(timeout=120)` ([mars_seo.py:339](mars_seo.py#L339)), il polling
+ZAP fino a 900 s ([mars_wapt.py:445](mars_wapt.py#L445)). In FastAPI un handler
 `async` gira **sull'event loop**: un audit blocca l'intero server per tutti gli
 altri client fino a fine scansione.
 
@@ -341,6 +341,11 @@ Divergenze verificate (documento → codice):
       dove indicato un'opzione di codice).
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
+- **Seconda fixture di controlli scritta a mano.**
+  [tests/test_report.py:454](tests/test_report.py#L454) (`CONTROLLI`) ricalca
+  a mano le voci di `audits` che `mars_seo.estrai_audit` produce, e da U1.7 è
+  ferma a cinque campi su otto: invecchia da sola, senza che nulla diventi
+  rosso. Candidata a sparire dentro **U2**, che congela la resa con i golden.
 - **Dipendenza dalla cwd.** [tests/test_cli.py](tests/test_cli.py) (righe 22, 100,
   107) e [tests/test_api.py:278](tests/test_api.py#L278) usano percorsi relativi:
   eseguendo `pytest` da un'altra directory si hanno 1 failure e 4 errori, e
@@ -474,6 +479,65 @@ esattamente ciò che un adeguamento di forma non deve fare.)*
 - [ ] Dire nel referto che ZAP era raggiungibile e ha fallito, invece di
       ripiegare in silenzio.
 - [ ] Conservare entrambe le diagnosi in `audit_headers`.
+
+### R40 — 🟡 MEDIO: sei difetti di `mars_seo` trovati adeguandolo a U1.7
+*(trovati leggendo il modulo e il sorgente di Lighthouse 13.4.1 per U1.7, il
+2026-08-24. Nessuno corretto lì: tutti sposterebbero punteggi, conteggi o
+testi.)*
+
+- **Un solo audit in errore fa buttare via gli altri dieci.** Lighthouse
+  azzera il peso degli audit non applicabili, informativi e manuali prima di
+  scriverlo nel LHR, ma **non** quello di un audit andato in `error`
+  (`core/scoring.js`): il suo `score: null` sopravvive al filtro e annulla il
+  punteggio dell'intera categoria. `riassumi` esce allora al primo `if`
+  ([mars_seo.py:265](mars_seo.py#L265)) con «Lighthouse non ha calcolato la
+  categoria SEO», **senza mai chiamare `estrai_audit`** — mentre nel LHR ci
+  sono dieci controlli perfettamente misurati. Vanno distinti i due casi: non
+  calcolabile *e* nulla di leggibile, contro non calcolabile *ma* dieci audit
+  su undici validi. Attenzione: aggiungere `audits` a quel ramo cambia anche
+  la resa, perché l'HTML mostra l'elenco dei controlli **al posto** dei rilievi
+  ([mars_report.py:718-725](mars_report.py#L718)).
+- **«da verificare a mano» detto a un `notApplicable`.** Lighthouse usa
+  `failureTitle` solo quando `score < 0.9`, quindi un controllo non misurato
+  porta il titolo del **successo**: la issue di una pagina senza canonical
+  recita «da verificare a mano: Il documento ha un elemento `rel=canonical`
+  valido», che afferma il contrario del vero due volte. U1.7 ha corretto il
+  **titolo del rilievo** (prefissi «Non applicabile a questa pagina» / «Da
+  verificare a mano» / «Controllo non eseguito da Lighthouse»); le `issues`
+  sono rimaste com'erano perché cambiarle è una regressione di testo.
+- **`MODI_NON_MISURATI_VOCE` e `LH_MODI_NON_MISURATI` divergono di
+  proposito**, e la divergenza va tolta con una misura, non per simmetria.
+  La voce si ferma a `("manual", "notApplicable")`
+  ([mars_seo.py:39](mars_seo.py#L39)); `mars_core` comprende anche
+  `informative` ed `error`. Un `informative` ha `score: 1` per costruzione,
+  quindi oggi è contato fra i **superati**; un `error` fra i **falliti**.
+  Allargare la tupla della voce sposterebbe `passed`/`failed`/`manual`, la
+  riga «N superati, M falliti» del referto e la ripartizione delle issues.
+- **Tre buchi in `_descrivi_item`** ([mars_seo.py:173](mars_seo.py#L173)): il
+  `source` che è un `NodeValue` invece di una stringa — è il caso più pesante
+  della categoria, `is-crawlable` bloccato da un `<meta robots noindex>`,
+  dove [:187](mars_seo.py#L187) cerca `url`/`value` e non `selector`; gli item
+  `{index, line, message}` di `robots-txt`; i `subItems` di `hreflang`.
+  Correggerli cambia il testo delle issues.
+- **`explanation`, `displayValue`, `warnings` e `description` di Lighthouse
+  sono ignorati.** Sono i testi che spiegano *perché* un controllo è fallito e
+  *come* rimediare: materiale della **Fase 3** (U3), dove `description` va
+  anche ripulita dai link Markdown — la funzione che lo fa in marsbeacon
+  (`_strip_md_links`) in MARS non esiste ancora. Da notare `warnings` di
+  `is-crawlable`: un audit che **passa** pur avendo qualcosa da dire.
+- **Il parametro `score` di `severita_lighthouse` non viene mai letto**
+  ([mars_core.py:337](mars_core.py#L337)): la funzione decide su modo e peso.
+  Non è morto per svista — è il chiamante che deve filtrare i superati, e
+  senza quel filtro un sito perfetto produrrebbe nove `warning` — ma un
+  parametro inerte in una firma pubblica invita a crederlo significativo.
+  Renderlo significativo vuol dire introdurre `SEV_OK`, che oggi nessun
+  modulo usa: è una decisione della fase che renderà i controlli superati.
+
+- [ ] Distinguere «categoria non calcolabile» da «categoria non calcolabile ma
+      dieci audit su undici misurati».
+- [ ] Allineare il testo delle issues dei non applicabili a quello dei
+      rilievi, rigenerando i golden.
+- [ ] Chiudere i tre buchi di `_descrivi_item`.
 
 ---
 

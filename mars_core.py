@@ -322,7 +322,16 @@ LH_PESO_CRITICO = 3.0
 
 # Modalita' in cui Lighthouse dichiara di NON aver misurato: non sono
 # fallimenti, e trattarle come tali sarebbe inventare un difetto.
-LH_MODI_NON_MISURATI = ("manual", "notapplicable", "informative")
+#
+# `error` e' entrato con U1.7, dopo averlo verificato sul sorgente: un
+# audit che solleva riceve `scoreDisplayMode: "error"` e `score: None`
+# (core/audits/audit.js, `_normalizeAuditScore`), quindi non e' misurato
+# per costruzione. Ma `core/scoring.js:56-71` azzera il peso solo per
+# notApplicable, informative e manual: un `error` conserva il suo, e
+# senza questa riga `is-crawlable` non riuscito sarebbe uscito
+# `critical` — un guasto dello strumento presentato come difetto grave
+# del sito. L'elenco era incompleto, non discutibile.
+LH_MODI_NON_MISURATI = ("manual", "notapplicable", "informative", "error")
 
 
 def severita_lighthouse(score: object, mode: str = "",

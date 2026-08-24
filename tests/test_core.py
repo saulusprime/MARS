@@ -1103,6 +1103,18 @@ def test_zap_la_confidenza_non_e_una_gravita():
     assert normalizza_severita("zap", "  hIgH  ") == (SEV_CRITICAL, 2.0)
 
 
+def test_lighthouse_un_audit_in_errore_non_e_un_fallimento():
+    """Regressione U1.7: `error` mancava da LH_MODI_NON_MISURATI.
+
+    Lighthouse azzera il peso dei non applicabili, degli informativi e
+    dei manuali prima di scriverlo nel referto, ma NON quello di un
+    audit andato in errore (`core/scoring.js`). Senza `error`
+    nell'elenco, un `is-crawlable` che lo strumento non e' riuscito a
+    eseguire usciva `critical` col suo peso 93/23: un guasto nostro
+    presentato come difetto grave del sito."""
+    assert severita_lighthouse(None, "error", 93 / 23) == (SEV_INFO, 1.0)
+
+
 def test_valore_sconosciuto_degrada_non_solleva():
     """Un impact di axe o un risk di ZAP che non conosciamo e' DATO
     ESTERNO: uno strumento che aggiorna la propria scala non deve far
@@ -1136,6 +1148,9 @@ def test_scala_sconosciuta_solleva():
     (None, "manual", 0, (SEV_INFO, 1.0)),
     (None, "notApplicable", 0, (SEV_INFO, 1.0)),
     (None, "informative", 0, (SEV_INFO, 1.0)),
+    # `error` conserva invece il suo peso nel LHR: se non fosse
+    # nell'elenco uscirebbe critical. Vedi il test qui sopra.
+    (None, "error", 93 / 23, (SEV_INFO, 1.0)),
 ])
 def test_severita_lighthouse(score, mode, weight, atteso):
     assert severita_lighthouse(score, mode, weight) == atteso

@@ -2422,7 +2422,7 @@ stato dichiarato e che non compaia alcun `/100`.
 - [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
 
 ### U1 — Fase 1 del programma UPGRADE: il modello dati dei rilievi
-*(in corso: 6 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
+*(in corso: 7 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
 voci aperte in [TO-DO.md](TO-DO.md).)*
 
 Fino a qui un rilievo è una stringa con la gravità in un prefisso, e i
@@ -2752,6 +2752,106 @@ commit lo conserva già.
 - [x] `mars_wcag`: due origini, penalità per ramo, `impact` assente onesto.
 - [x] `mars_wapt`: tre rami, gravità ancorata a ZAP, `solution` raccolta.
 - [ ] I due moduli restanti (U1.7-U1.8), più `mars_llm_judge` (U1.9).
+
+#### U1.7 — `mars_seo`, la prima penalità che non è una stima (2026-08-24)
+
+L'unica voce che chiede di **arricchire il dato a monte**: `score`,
+`scoreDisplayMode` e il `weight` di `auditRefs` venivano letti e buttati via,
+e senza di essi un rilievo Lighthouse non ha né gravità né peso.
+
+**Il peso va letto dal referto, mai dalla configurazione**, ed è il fatto su
+cui poggia tutto il resto. `core/scoring.js` di Lighthouse **azzera** il peso
+degli audit non applicabili, informativi e manuali prima di scriverlo nel LHR:
+un `is-crawlable` che Lighthouse non ha potuto applicare pesa **0** nel
+referto e **4,04** nel `default-config.js`. Una tabella cablata lo farebbe
+uscire `critical`.
+
+**Il peso di `error` invece non viene azzerato**, e la costante di U1.1 non lo
+contemplava: `severita_lighthouse(None, "error", 93/23)` restituiva
+`(critical, 2.0)` — un audit che lo strumento **non è riuscito a eseguire**
+presentato come difetto grave del sito, cioè R21. `"error"` è ora nella tupla
+`LH_MODI_NON_MISURATI`. È l'unica riga di `mars_core` toccata dalla voce, ed è
+la correzione di un fatto verificabile nel sorgente, non un cambio di
+progetto: nessun chiamante attuale ne cambia l'uscita.
+
+**La penalità qui si calcola, ed è esatta.** In tutte le altre aree è una
+scelta editoriale (40/20/8/3, 15/15/10, 25/10/3); qui il punteggio arriva già
+fatto da Lighthouse, e non c'è nessuna penalità *applicata* da registrare. Ma
+la sua formula — `clampTo2Decimals(Σ(score×peso)/Σpeso)`, `core/scoring.js` —
+è una media pesata, quindi **lineare**: il contributo di ogni audit è esatto,
+additivo e invertibile. `params["penalty"] = peso/Σpeso × 100 × (1 − score)` è
+di quanti punti risalirebbe l'area se quel controllo passasse, e la somma dei
+contributi ricostruisce `100 − score` a meno del solo arrotondamento a due
+decimali di Lighthouse, cioè mezzo punto. Misurato sul referto reale: 63,78
+contro 64,00. Resta una **ricostruzione**, non una misura — Lighthouse quel
+numero non lo pubblica — ma è la prima penalità del progetto che non è una
+stima, e la Fase 4 avrà qui un recupero vero.
+
+Sul referto reale: `is-crawlable` fallito vale **36,6 punti**, ciascuno degli
+altri **9,1**. È il 31% che il commento di `default-config.js` dichiara di
+aver risolto, ritrovato per calcolo.
+
+**Il titolo di un controllo non misurato era una frase falsa.** Lighthouse usa
+`failureTitle` solo quando `score < 0.9`, quindi un `notApplicable` porta il
+titolo del **successo**: su una pagina senza canonical la issue recita «da
+verificare a mano: Il documento ha un elemento `rel=canonical` valido», che
+sbaglia due volte. I `Finding` prefissano ora «Non applicabile a questa
+pagina», «Da verificare a mano», «Controllo non eseguito da Lighthouse»; le
+`issues` restano com'erano, perché sono la vista congelata. È **l'unico punto
+di tutta la fase in cui il dato nuovo si discosta dalla vista compatta**, e si
+discosta perché quella riga è nota per falsa.
+
+**I controlli superati non diventano rilievi**, e il filtro non è
+un'ottimizzazione: `severita_lighthouse` decide su modo e peso e **non guarda
+lo score**, quindi un superato a peso 1 uscirebbe `warning`. Un sito perfetto
+mostrerebbe nove voci da fare. `SEV_OK` resta perciò senza usi dopo U1.7, e
+non è una dimenticanza: usarla vorrebbe dire scavalcare l'unica funzione
+scritta per quest'area.
+
+**Un `1 − None` che avrebbe fatto sparire l'area.** Un `auditRef` il cui `id`
+non compare fra gli `audits` dà `score: None` e non è né superato né manuale:
+il calcolo della penalità sarebbe finito in `TypeError`, che l'`except` di
+`audit()` cattura — «Lighthouse non riuscito», area intera persa. È R22 sotto
+altra forma, ed è chiuso da una guardia e da un test suo.
+
+**La fixture di test è stata rifatta fedele**, ed era la condizione per
+poter provare qualunque cosa: aveva sei audit e **nessun peso**, quindi ogni
+rilievo sarebbe uscito `info` e un test sulla gravità sarebbe passato per il
+motivo sbagliato. Ora sono gli undici reali, coi pesi reali, il peso azzerato
+sui non applicabili, e un punteggio (0,27) che è il risultato aritmetico della
+formula di Lighthouse su quegli esiti. Quattro asserzioni esistenti sono
+cambiate di conseguenza, tutte visibili nel diff.
+
+Verificato per confronto col codice precedente su **52 casi**: LHR reale
+prodotto dalla Lighthouse 13.4.1 di `node_modules` contro una pagina servita
+in locale, la fixture di HEAD, pesi assenti/nulli/illeggibili/negativi, LHR
+degeneri, `error` a peso pieno e a peso zero, i sei rami di `audit()`. Zero
+divergenze: punteggi, `issues` e voci di `audits` identici, meno i tre campi
+nuovi.
+
+Ventotto mutazioni, tutte rilevate — ma **solo al secondo giro**, e la
+ragione vale più delle mutazioni:
+
+**Il banco di prova mentiva, ed era la trappola già scritta in CLAUDE.md.** Il
+bytecode cache di Python valida su *(mtime in secondi interi, dimensione)*: le
+due mutazioni che cambiavano una cifra senza cambiare la lunghezza —
+`LH_PESO_CRITICO` da `3.0` a `5.0`, `MAX_ELEMENTI` da `5` a `3` — venivano
+applicate e ripristinate dentro lo stesso secondo, e **pytest eseguiva la
+versione vecchia**. Il difetto si è manifestato al rovescio: dopo il giro, il
+sorgente diceva `3.0` e il runtime rispondeva `5.0`, facendo fallire un test
+che era corretto. Un giro di mutazioni deve girare con
+`PYTHONDONTWRITEBYTECODE=1`, altrimenti misura il codice sbagliato proprio
+sulle mutazioni più insidiose — quelle di un carattere.
+
+Due mutazioni erano davvero sfuggite, e tutte e due per lo stesso vizio:
+**il test confrontava una costante con se stessa.** `len(items) ==
+MAX_ELEMENTI` resta verde per qualunque valore della costante — è la lezione
+di U1.4 ripetuta — e il test sull'audit in errore non asseriva i conteggi,
+quindi non vedeva la tupla della voce allargarsi. Ora il primo pinna i cinque
+elementi per nome, il secondo pinna `(3, 6, 2)` e il testo della issue.
+
+- [x] `mars_seo`: peso dal referto, penalità esatta, titoli non più falsi.
+- [ ] `mars_citability` (U1.8) e `mars_llm_judge` (U1.9).
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

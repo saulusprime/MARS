@@ -1231,15 +1231,51 @@ def test_lexical_tokenizza_anche_la_query(contesto):
 # 13.4.1 reali, non dedotte: is-crawlable porta una "source" testuale,
 # image-alt un "node" del DOM, meta-description nessun dettaglio, e
 # structured-data e' sempre manuale.
-def _lhr(punteggio=0.42):
+# Peso reale di `is-crawlable` nella categoria SEO di Lighthouse:
+# `default-config.js` lo scrive letteralmente `93 / 23`, col commento
+# che spiega perche' — e' risolto in modo che quel solo fallimento
+# faccia fallire la categoria (>= 31% del punteggio). Gli altri nove
+# pesano 1, `structured-data` 0.
+PESO_CRAWLABLE = 93 / 23
+
+
+def _lhr(punteggio=0.27):
+    """Un LHR fedele: gli undici audit SEO reali, coi pesi reali.
+
+    Ricalcata su un referto vero prodotto dalla Lighthouse 13.4.1 di
+    `node_modules` contro una pagina servita in locale. Fedele in tre
+    punti che contano:
+
+    - **undici** auditRefs nell'ordine di `default-config.js`, non sei;
+    - i **pesi**, che prima mancavano del tutto: senza, ogni rilievo
+      uscirebbe `info` e un test sulla gravita' passerebbe per il
+      motivo sbagliato;
+    - il peso **azzerato** sui non applicabili e sul manuale, che e'
+      cio' che Lighthouse scrive nel LHR (`core/scoring.js`) e non cio'
+      che sta nella configurazione.
+
+    Il punteggio non e' inventato: con questi pesi e questi esiti la
+    media pesata di Lighthouse vale 3 / 11,043478 = 0,2717, che il suo
+    arrotondamento a due decimali porta a **0,27**.
+    """
     return {
         "lighthouseVersion": "13.4.1",
         "finalDisplayedUrl": "https://esempio.test/",
         "configSettings": {"formFactor": "mobile"},
         "categories": {"seo": {"score": punteggio, "auditRefs": [
-            {"id": "is-crawlable"}, {"id": "document-title"},
-            {"id": "meta-description"}, {"id": "image-alt"},
-            {"id": "http-status-code"}, {"id": "structured-data"},
+            {"id": "is-crawlable", "weight": PESO_CRAWLABLE},
+            {"id": "document-title", "weight": 1},
+            {"id": "meta-description", "weight": 1},
+            {"id": "http-status-code", "weight": 1},
+            {"id": "link-text", "weight": 1},
+            {"id": "crawlable-anchors", "weight": 1},
+            # Non applicabili: Lighthouse azzera il peso, non la
+            # configurazione, dove valgono 1.
+            {"id": "robots-txt", "weight": 0},
+            {"id": "image-alt", "weight": 1},
+            {"id": "hreflang", "weight": 1},
+            {"id": "canonical", "weight": 0},
+            {"id": "structured-data", "weight": 0},
         ]}},
         "audits": {
             "is-crawlable": {
@@ -1256,20 +1292,59 @@ def _lhr(punteggio=0.42):
             "meta-description": {
                 "title": "Il documento non ha una meta descrizione",
                 "score": 0, "scoreDisplayMode": "binary"},
+            "http-status-code": {
+                "title": "La pagina ha un codice di stato HTTP valido",
+                "score": 1, "scoreDisplayMode": "binary"},
+            # Otto elementi: e' l'unico audit che supera MAX_ELEMENTI,
+            # e prima della fixture fedele quel troncamento non era
+            # esercitato da nessun test.
+            "link-text": {
+                "title": "I link non hanno testo descrittivo",
+                "score": 0, "scoreDisplayMode": "binary",
+                "details": {"type": "table", "items": [
+                    {"href": "/p%d" % i, "text": "clicca qui"}
+                    for i in range(8)]}},
+            "crawlable-anchors": {
+                "title": "I link sono sottoponibili a scansione",
+                "score": 1, "scoreDisplayMode": "binary"},
+            "robots-txt": {
+                "title": "robots.txt è valido",
+                "score": None, "scoreDisplayMode": "notApplicable"},
             "image-alt": {
                 "title": "Gli elementi immagine non hanno attributi `[alt]`",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table", "items": [
                     {"node": {"selector": "body > img"}},
                     {"node": {"selector": "body > img"}}]}},
-            "http-status-code": {
-                "title": "La pagina ha un codice di stato HTTP valido",
+            "hreflang": {
+                "title": "Il documento ha un `hreflang` valido",
                 "score": 1, "scoreDisplayMode": "binary"},
+            "canonical": {
+                "title": "Il documento ha un elemento `rel=canonical` valido",
+                "score": None, "scoreDisplayMode": "notApplicable"},
             "structured-data": {
                 "title": "Dati strutturati validi",
                 "score": None, "scoreDisplayMode": "manual"},
         },
     }
+
+
+def _lhr_tutto_pesato(punteggio=0.23):
+    """La stessa pagina senza audit non applicabili: Sigma pesi = 13,043.
+
+    Serve perche' nella fixture principale la somma dei pesi (11,043) e'
+    a filo del NUMERO di auditRefs (11): una mutazione che usasse il
+    conteggio invece della somma resterebbe dentro il mezzo punto di
+    tolleranza dell'invariante, e passerebbe inosservata. Qui i due
+    numeri distano abbastanza da renderla rumorosa.
+    """
+    lhr = _lhr(punteggio)
+    for ref in lhr["categories"]["seo"]["auditRefs"]:
+        if ref["id"] in ("robots-txt", "canonical"):
+            ref["weight"] = 1
+    for nome in ("robots-txt", "canonical"):
+        lhr["audits"][nome].update(score=0, scoreDisplayMode="binary")
+    return lhr
 
 
 def test_seo_estrae_tutti_i_controlli_non_solo_i_falliti():
@@ -1281,8 +1356,9 @@ def test_seo_estrae_tutti_i_controlli_non_solo_i_falliti():
     """
     controlli = mars_seo.estrai_audit(_lhr())
     assert [c["id"] for c in controlli] == [
-        "is-crawlable", "document-title", "meta-description", "image-alt",
-        "http-status-code", "structured-data"]
+        "is-crawlable", "document-title", "meta-description",
+        "http-status-code", "link-text", "crawlable-anchors", "robots-txt",
+        "image-alt", "hreflang", "canonical", "structured-data"]
     per_id = {c["id"]: c for c in controlli}
     assert per_id["http-status-code"]["passed"] is True
     assert per_id["is-crawlable"]["passed"] is False
@@ -1316,13 +1392,15 @@ def test_seo_un_manuale_non_e_mai_un_superato():
     assert per_id["structured-data"]["manual"] is True
     assert per_id["structured-data"]["passed"] is False
     esito = mars_seo.riassumi(lhr)
-    assert esito["passed"] + esito["failed"] + esito["manual"] == 6
+    assert esito["passed"] + esito["failed"] + esito["manual"] == 11
 
 
 def test_seo_riassume_con_conteggi_e_strumento():
     esito = mars_seo.riassumi(_lhr())
-    assert esito["score"] == 42.0
-    assert (esito["passed"], esito["failed"], esito["manual"]) == (1, 4, 1)
+    assert esito["score"] == 27.0
+    # Tre superati, cinque falliti, tre non misurati: due non
+    # applicabili piu' il manuale.
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 5, 3)
     assert esito["tool"] == "Lighthouse 13.4.1"
     # Un referto mobile e uno desktop non sono confrontabili.
     assert esito["form_factor"] == "mobile"
@@ -1351,7 +1429,7 @@ def test_seo_chiede_i_titoli_in_italiano(monkeypatch):
     monkeypatch.setattr(mars_seo.subprocess, "run", finto_run)
     esito = mars_seo.audit({"url": "https://esempio.test/"})
     assert "--locale=it" in visti["argv"]
-    assert esito["score"] == 42.0
+    assert esito["score"] == 27.0
     # Regressione R3: l'URL resta un argomento, mai una stringa di shell
     assert visti["argv"][1] == "https://esempio.test/"
 
@@ -1387,6 +1465,352 @@ def test_seo_score_valido_resta_valido(monkeypatch):
             lambda *a, _g=grezzo, **k: types.SimpleNamespace(
                 stdout=json.dumps({"categories": {"seo": {"score": _g}}})))
         assert mars_seo.audit({"url": "https://x/"})["score"] == atteso
+
+
+# --- U1.7: i rilievi di mars_seo come dato -----------------------------
+#
+# Prima di U1.7 il modulo leggeva `score`, `scoreDisplayMode` e il
+# `weight` di auditRefs e li buttava via, e la fixture non aveva pesi:
+# nessun test poteva accorgersi della differenza fra un controllo che
+# fa fallire la categoria da solo e uno che vale un nono.
+
+def _findings(lhr) -> dict:
+    """I rilievi di un LHR, indicizzati per chiave."""
+    return {f["key"]: f for f in mars_seo.riassumi(lhr)["findings"]}
+
+
+def test_seo_la_voce_porta_punteggio_modo_e_peso():
+    """I tre campi che si perdevano, coi nomi di Lighthouse.
+
+    Sono suoi valori verbatim, come `id` e `title`; `passed` e `manual`
+    portano nomi nostri perche' sono giudizi nostri."""
+    per_id = {c["id"]: c for c in mars_seo.estrai_audit(_lhr())}
+    assert per_id["is-crawlable"]["score"] == 0
+    assert per_id["is-crawlable"]["scoreDisplayMode"] == "binary"
+    assert per_id["is-crawlable"]["weight"] == PESO_CRAWLABLE
+    assert per_id["canonical"]["scoreDisplayMode"] == "notApplicable"
+    assert per_id["canonical"]["score"] is None
+
+
+def test_seo_il_peso_viene_dal_referto_non_dalla_configurazione():
+    """Lighthouse azzera il peso dei non applicabili prima di scriverlo
+    nel LHR; nella configurazione quegli stessi audit pesano 1.
+
+    Leggerlo dalla configurazione farebbe uscire `critical` un
+    `is-crawlable` che Lighthouse non ha nemmeno potuto applicare."""
+    per_chiave = _findings(_lhr())
+    assert per_chiave["seo.lh.canonical"]["params"]["lh_weight"] == 0.0
+    assert per_chiave["seo.lh.canonical"]["params"]["lh_weight_total"] == (
+        pytest.approx(PESO_CRAWLABLE + 7))
+
+
+def test_seo_un_peso_assente_non_fa_cadere_l_area():
+    """Un LHR senza pesi degrada a `info`, non a un'importanza inventata,
+    e soprattutto non fa sparire l'area."""
+    lhr = _lhr()
+    for ref in lhr["categories"]["seo"]["auditRefs"]:
+        del ref["weight"]
+    rilievi = _findings(lhr)
+    assert all(f["severity"] == SEV_INFO for f in rilievi.values())
+    assert all("penalty" not in f["params"] for f in rilievi.values())
+    assert mars_seo.riassumi(lhr)["score"] == 27.0, "il punteggio non cambia"
+
+
+@pytest.mark.parametrize("valore", ["molto", None, {}, [1]])
+def test_seo_un_peso_illeggibile_non_solleva(valore):
+    """`estrai_audit` gira dentro il try di audit(), dove TypeError e'
+    catturato: un peso malformato farebbe sparire l'intera area con
+    "Lighthouse non riuscito" — R22 sotto altra forma."""
+    lhr = _lhr()
+    for ref in lhr["categories"]["seo"]["auditRefs"]:
+        ref["weight"] = valore
+    assert mars_seo.riassumi(lhr)["score"] == 27.0
+
+
+def test_seo_un_controllo_superato_non_e_un_rilievo():
+    """`severita_lighthouse` decide su modo e peso e NON guarda lo
+    score: senza il filtro, un sito perfetto produrrebbe nove
+    `warning`."""
+    rilievi = _findings(_lhr())
+    for superato in ("http-status-code", "crawlable-anchors", "hreflang"):
+        assert "seo.lh.%s" % superato.replace("-", "_") not in rilievi
+
+
+def test_seo_findings_e_issues_sono_la_stessa_lista():
+    """Due viste dello stesso referto: stessa cardinalita', stesso
+    ordine, altrimenti non si possono leggere affiancate."""
+    esito = mars_seo.riassumi(_lhr())
+    assert len(esito["findings"]) == len(esito["issues"]) == 8
+    assert [f["params"]["rule"] for f in esito["findings"]] == [
+        # prima i falliti, nell'ordine degli auditRefs...
+        "is-crawlable", "document-title", "meta-description", "link-text",
+        "image-alt",
+        # ...poi i non misurati, nello stesso ordine.
+        "robots-txt", "canonical", "structured-data"]
+
+
+def test_seo_solo_is_crawlable_puo_essere_critico():
+    """E' l'unico audit che da solo fa fallire la categoria: pesa 93/23,
+    cioe' il 31% del totale, e LH_PESO_CRITICO e' tarata su quello."""
+    rilievi = _findings(_lhr())
+    crawlable = rilievi["seo.lh.is_crawlable"]
+    assert (crawlable["severity"], crawlable["weight"]) == (SEV_CRITICAL, 2.0)
+    altri = [f for k, f in rilievi.items() if k != "seo.lh.is_crawlable"]
+    assert all(f["severity"] != SEV_CRITICAL for f in altri)
+
+
+def test_seo_un_audit_da_peso_uno_e_un_avvertimento():
+    rilievo = _findings(_lhr())["seo.lh.document_title"]
+    assert (rilievo["severity"], rilievo["weight"]) == (SEV_WARNING, 1.0)
+
+
+def test_seo_un_non_misurato_e_info_e_non_costa_punti():
+    """Manuali e non applicabili non sono difetti del sito: `penalty`
+    assente, non zero. Zero direbbe "difetto che qui non costa"."""
+    rilievi = _findings(_lhr())
+    for chiave in ("seo.lh.robots_txt", "seo.lh.canonical",
+                   "seo.lh.structured_data"):
+        assert rilievi[chiave]["severity"] == SEV_INFO
+        assert "penalty" not in rilievi[chiave]["params"]
+
+
+def test_seo_un_non_applicabile_non_e_un_manuale():
+    """Le issues li chiamano entrambi "da verificare a mano", ed e' una
+    frase falsa: Lighthouse dice "non applicabile", e usa il titolo del
+    SUCCESSO perche' `failureTitle` scatta solo sotto 0,9.
+
+    Le issues restano com'erano — sono la vista congelata — ma il dato
+    nuovo non ha l'obbligo di ripetere un errore noto."""
+    rilievi = _findings(_lhr())
+    assert rilievi["seo.lh.canonical"]["params"]["mode"] == "notApplicable"
+    assert rilievi["seo.lh.canonical"]["title"].startswith(
+        "Non applicabile a questa pagina: ")
+    assert rilievi["seo.lh.structured_data"]["params"]["mode"] == "manual"
+    assert rilievi["seo.lh.structured_data"]["title"].startswith(
+        "Da verificare a mano: ")
+    # E la issue, invece, resta la riga di sempre.
+    issues = mars_seo.riassumi(_lhr())["issues"]
+    assert any(i.startswith("[Lighthouse] da verificare a mano: Il documento "
+                            "ha un elemento") for i in issues)
+
+
+def test_seo_un_audit_in_errore_non_e_un_difetto_del_sito():
+    """Un audit che Lighthouse non e' riuscito a eseguire e' un guasto
+    dello strumento. `error` NON e' fra i modi a cui Lighthouse azzera
+    il peso, quindi senza la correzione in mars_core un `is-crawlable`
+    non riuscito sarebbe uscito `critical` — R21.
+
+    Si usa `structured-data`, l'unico a peso zero: un audit pesato in
+    errore annulla il punteggio di categoria e non arriverebbe qui."""
+    lhr = _lhr()
+    lhr["audits"]["structured-data"]["scoreDisplayMode"] = "error"
+    lhr["audits"]["structured-data"]["errorMessage"] = "boom"
+    rilievo = _findings(lhr)["seo.lh.structured_data"]
+    assert rilievo["severity"] == SEV_INFO
+    assert rilievo["title"].startswith("Controllo non eseguito da Lighthouse")
+    assert "penalty" not in rilievo["params"]
+    # E qui la divergenza deliberata fra le due viste, fissata perche'
+    # non la si chiuda per distrazione: la VOCE lo classifica fallito,
+    # perche' MODI_NON_MISURATI_VOCE si ferma a due modi. Allargarla
+    # sposterebbe i conteggi e il testo della issue.
+    esito = mars_seo.riassumi(lhr)
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 6, 2)
+    assert "[Lighthouse] Dati strutturati validi" in esito["issues"]
+
+
+def test_seo_un_informative_resta_un_superato_nella_voce():
+    """La voce classifica su due modi, mars_core su quattro, ed e'
+    voluto: allargare la tupla della voce sposterebbe i conteggi
+    passed/failed/manual e la riga "N superati, M falliti" del referto.
+
+    Un `informative` ha `score: 1` per costruzione, quindi resta
+    superato e non produce alcun rilievo. Registrato in R40."""
+    lhr = _lhr()
+    lhr["audits"]["hreflang"]["scoreDisplayMode"] = "informative"
+    per_id = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}
+    assert per_id["hreflang"]["passed"] is True
+    assert per_id["hreflang"]["manual"] is False
+    assert "seo.lh.hreflang" not in _findings(lhr)
+
+
+def test_seo_le_chiavi_hanno_tre_segmenti_e_niente_trattini():
+    """Gli id di Lighthouse sono in kebab-case: un trattino non rompe
+    la profondita' fissa, ma `chiave_esterna` normalizza il dato
+    esterno e l'id grezzo resta nei params."""
+    rilievi = _findings(_lhr())
+    for chiave, rilievo in rilievi.items():
+        parti = chiave.split(".")
+        assert parti[0] == AREA_PREFIX["mars_seo"]
+        assert len(parti) == 3
+        assert "-" not in chiave
+    assert rilievi["seo.lh.is_crawlable"]["params"]["rule"] == \
+        "is-crawlable", "l'id grezzo resta fedele"
+
+
+def test_seo_source_severity_resta_vuoto():
+    """Lighthouse una scala di gravita' non ce l'ha: ha punteggio, modo
+    e peso. `[Lighthouse]` e' un'etichetta di STRUMENTO, e metterla in
+    un campo di gravita' sarebbe peggio del vuoto."""
+    assert all(f["source_severity"] == ""
+               for f in _findings(_lhr()).values())
+
+
+def test_seo_gli_ingressi_della_gravita_restano_nel_dato():
+    """La severita' e' una derivazione nostra: cio' che la rende
+    verificabile sono i suoi ingressi, tutti e quattro."""
+    params = _findings(_lhr())["seo.lh.is_crawlable"]["params"]
+    assert params["mode"] == "binary"
+    assert params["score"] == 0
+    assert params["lh_weight"] == PESO_CRAWLABLE
+    assert params["lh_weight_total"] == pytest.approx(PESO_CRAWLABLE + 7)
+
+
+@pytest.mark.parametrize("fixture, punteggio", [
+    ("_lhr", 27.0),
+    # Sigma pesi 13,043 contro 11 auditRefs: qui usare il conteggio
+    # invece della somma si vede.
+    ("_lhr_tutto_pesato", 23.0),
+])
+def test_seo_le_penalita_sommano_a_cento_meno_il_punteggio(fixture,
+                                                           punteggio):
+    """L'invariante piu' forte della voce: lega il nostro calcolo al
+    numero che ha scritto Lighthouse.
+
+    La sua media pesata e' lineare, quindi il contributo di ogni audit
+    e' esatto e additivo. Lo scarto ammesso e' mezzo punto, ed e'
+    interamente l'arrotondamento a due decimali che Lighthouse applica
+    al punteggio di categoria."""
+    lhr = {"_lhr": _lhr, "_lhr_tutto_pesato": _lhr_tutto_pesato}[fixture]()
+    esito = mars_seo.riassumi(lhr)
+    assert esito["score"] == punteggio
+    somma = sum(f["params"].get("penalty", 0.0) for f in esito["findings"])
+    assert abs(somma - (100 - esito["score"])) <= 0.5
+
+
+def test_seo_la_penalita_e_la_quota_del_peso():
+    """I valori, non solo la loro relazione: l'invariante resta verde
+    anche se i due lati cambiano insieme (lezione di U1.4)."""
+    rilievi = _findings(_lhr())
+    totale = PESO_CRAWLABLE + 7
+    assert rilievi["seo.lh.is_crawlable"]["params"]["penalty"] == \
+        pytest.approx(PESO_CRAWLABLE / totale * 100)
+    assert rilievi["seo.lh.document_title"]["params"]["penalty"] == \
+        pytest.approx(1 / totale * 100)
+    # ...e il piu' pesante costa piu' del quadruplo di uno qualunque.
+    assert (rilievi["seo.lh.is_crawlable"]["params"]["penalty"]
+            > 4 * rilievi["seo.lh.document_title"]["params"]["penalty"])
+
+
+def test_seo_senza_pesi_nessuna_penalita_e_nessuna_divisione_per_zero():
+    """Il caso peggiore della degradazione: se Lighthouse smettesse di
+    scrivere `weight`, il segnale di recupero dell'area si azzererebbe
+    in silenzio. `lh_weight_total: 0.0` e' cio' che lo dichiara."""
+    lhr = _lhr()
+    for ref in lhr["categories"]["seo"]["auditRefs"]:
+        ref["weight"] = 0
+    rilievi = _findings(lhr)
+    assert rilievi, "i rilievi ci sono comunque"
+    assert all("penalty" not in f["params"] for f in rilievi.values())
+    assert all(f["params"]["lh_weight_total"] == 0.0
+               for f in rilievi.values())
+
+
+def test_seo_un_ref_fantasma_non_fa_cadere_l_area():
+    """Un auditRef il cui id non compare fra gli audits da' score None e
+    non e' ne' superato ne' manuale: `1 - None` solleverebbe TypeError,
+    che l'except di audit() cattura facendo sparire l'intera area."""
+    esito = mars_seo.riassumi({
+        "categories": {"seo": {"score": 0.5, "auditRefs": [
+            {"id": "fantasma", "weight": 1}]}}, "audits": {}})
+    assert esito["score"] == 50.0
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "seo.lh.fantasma"
+    assert "penalty" not in rilievo["params"], "senza score non e' calcolabile"
+
+
+def test_seo_gli_elementi_incriminati_entrano_nei_params():
+    """Lighthouse dice anche DOVE, e il troncamento a MAX_ELEMENTI e'
+    quello della vista: prima della fixture fedele nessun audit ne
+    aveva abbastanza da esercitarlo."""
+    rilievi = _findings(_lhr())
+    assert rilievi["seo.lh.is_crawlable"]["params"]["items"] == [
+        "X-Robots-Tag: noindex"]
+    # I VALORI, non il confronto con la costante: `len(items) ==
+    # MAX_ELEMENTI` e' circolare — cambiando la costante cambiano
+    # entrambi i lati e il test resta verde. E' la lezione di U1.4.
+    assert mars_seo.MAX_ELEMENTI == 5
+    assert rilievi["seo.lh.link_text"]["params"]["items"] == [
+        "/p0", "/p1", "/p2", "/p3", "/p4"], "otto elementi, cinque riportati"
+
+
+@pytest.mark.parametrize("chiave, prepara", [
+    ("seo.status.no_tool", "assente"),
+    ("seo.status.timeout", "timeout"),
+    ("seo.status.failed", "guasto"),
+    ("seo.status.not_scored", "non_calcolata"),
+])
+def test_seo_ogni_ramo_non_misurato_porta_un_solo_rilievo(monkeypatch,
+                                                          chiave, prepara):
+    """Un'area non misurata deve comunque comparire negli elenchi che le
+    fasi successive costruiranno sui findings: senza, sparisce."""
+    if prepara != "assente":
+        monkeypatch.setattr(mars_seo.shutil, "which",
+                            lambda nome: "/usr/bin/lighthouse")
+    if prepara == "timeout":
+        def run(*a, **k):
+            raise subprocess.TimeoutExpired("lighthouse", 120)
+    elif prepara == "guasto":
+        def run(*a, **k):
+            raise subprocess.CalledProcessError(1, "lighthouse")
+    elif prepara == "non_calcolata":
+        def run(*a, **k):
+            return types.SimpleNamespace(
+                stdout='{"categories":{"seo":{"score":null}}}')
+    else:
+        monkeypatch.setattr(mars_seo.shutil, "which", lambda nome: None)
+
+        def run(*a, **k):
+            raise AssertionError("non si deve arrivare qui")
+    monkeypatch.setattr(mars_seo.subprocess, "run", run)
+
+    esito = mars_seo.audit({"url": "https://x/"})
+    assert esito["score"] is None and esito["status"] == "unavailable"
+    assert [f["key"] for f in esito["findings"]] == [chiave]
+    rilievo = esito["findings"][0]
+    assert rilievo["severity"] == SEV_INFO
+    assert "penalty" not in rilievo["params"]
+
+
+def test_seo_il_fallimento_dice_quale(monkeypatch):
+    """Quattro eccezioni condividono la chiave — sono gia' indistinte
+    nella issue — ma `detail` dice quale, altrimenti la diagnosi si
+    perde."""
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome: "/usr/bin/lighthouse")
+    monkeypatch.setattr(mars_seo.subprocess, "run",
+                        lambda *a, **k: types.SimpleNamespace(
+                            stdout="non e' json"))
+    rilievo = mars_seo.audit({"url": "https://x/"})["findings"][0]
+    assert rilievo["key"] == "seo.status.failed"
+    assert rilievo["detail"] == "JSONDecodeError"
+
+
+def test_seo_i_findings_arrivano_al_referto(monkeypatch):
+    """Il modulo puo' produrli perfetti e build_report buttarli via:
+    copia una lista chiusa di chiavi."""
+    from mars_report import build_report
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome: "/usr/bin/lighthouse")
+    monkeypatch.setattr(mars_seo.subprocess, "run",
+                        lambda *a, **k: types.SimpleNamespace(
+                            stdout=json.dumps(_lhr())))
+    esito = mars_seo.audit({"url": "https://x/"})
+    referto = build_report({"mars_seo": esito}, {"url": "https://x/"})
+    area = [a for a in referto["areas"] if a["module"] == "mars_seo"][0]
+    assert area["findings"] == esito["findings"]
+    assert all(f["key"].startswith("seo.") for f in area["findings"])
+    # e il referto resta serializzabile: i params portano float e None
+    json.dumps(referto)
 
 
 # ----------------------------------------------------------------------

@@ -1,0 +1,1092 @@
+{
+  "tool": "mars_audit.py",
+  "version": "0.0.0",
+  "generated_at": "2026-01-01T00:00:00+0000",
+  "url": "https://esempio.test/",
+  "market": "eu",
+  "pages_crawled": 3,
+  "discovery": "sitemap",
+  "chunks": 4,
+  "robots_ignored": false,
+  "queries": [
+    "drenaggio linfatico",
+    "quanto costa una seduta di drenaggio linfatico",
+    "parcheggio riservato"
+  ],
+  "skipped": [
+    "vietato da robots.txt: https://esempio.test/privato",
+    "altro host: https://altro.test/",
+    "non HTML: https://esempio.test/listino.pdf",
+    "URL non analizzabile: https://esempio.test/[2001"
+  ],
+  "areas": [
+    {
+      "module": "mars_tech",
+      "label": "1. Tecnica",
+      "score": 57,
+      "status": null,
+      "issues": [
+        "[critico] robots.txt BLOCCA 1 crawler IA: GPTBot",
+        "[lieve] 2/3 pagine senza <link rel=\"canonical\">"
+      ],
+      "findings": [
+        {
+          "area": "mars_tech",
+          "severity": "critical",
+          "title": "robots.txt BLOCCA 1 crawler IA: GPTBot",
+          "key": "tech.robots.ai_blocked",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "critico",
+          "params": {
+            "bloccati": [
+              "GPTBot"
+            ],
+            "n": 1,
+            "penalty": 40.0
+          }
+        },
+        {
+          "area": "mars_tech",
+          "severity": "info",
+          "title": "2/3 pagine senza <link rel=\"canonical\">",
+          "key": "tech.canonical.missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "lieve",
+          "params": {
+            "pagine": 2,
+            "totale": 3,
+            "penalty": 3.0
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_seo",
+      "label": "2. SEO",
+      "score": 27.0,
+      "status": null,
+      "issues": [
+        "[Lighthouse] L'indicizzazione della pagina è bloccata (X-Robots-Tag: noindex)",
+        "[Lighthouse] Il documento non ha un elemento `<title>` (html)",
+        "[Lighthouse] Il documento non ha una meta descrizione",
+        "[Lighthouse] I link non hanno testo descrittivo (/p0, /p1, /p2, /p3, /p4)",
+        "[Lighthouse] Gli elementi immagine non hanno attributi `[alt]` (body > img, body > img)",
+        "[Lighthouse] da verificare a mano: robots.txt è valido",
+        "[Lighthouse] da verificare a mano: Il documento ha un elemento `rel=canonical` valido",
+        "[Lighthouse] da verificare a mano: Dati strutturati validi"
+      ],
+      "findings": [
+        {
+          "area": "mars_seo",
+          "severity": "critical",
+          "title": "L'indicizzazione della pagina è bloccata",
+          "key": "seo.lh.is_crawlable",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "rule": "is-crawlable",
+            "mode": "binary",
+            "score": 0,
+            "lh_weight": 4.043478260869565,
+            "lh_weight_total": 11.043478260869566,
+            "items": [
+              "X-Robots-Tag: noindex"
+            ],
+            "penalty": 36.61417322834645
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "warning",
+          "title": "Il documento non ha un elemento `<title>`",
+          "key": "seo.lh.document_title",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "document-title",
+            "mode": "binary",
+            "score": 0,
+            "lh_weight": 1.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": [
+              "html"
+            ],
+            "penalty": 9.05511811023622
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "warning",
+          "title": "Il documento non ha una meta descrizione",
+          "key": "seo.lh.meta_description",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "meta-description",
+            "mode": "binary",
+            "score": 0,
+            "lh_weight": 1.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": [],
+            "penalty": 9.05511811023622
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "warning",
+          "title": "I link non hanno testo descrittivo",
+          "key": "seo.lh.link_text",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "link-text",
+            "mode": "binary",
+            "score": 0,
+            "lh_weight": 1.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": [
+              "/p0",
+              "/p1",
+              "/p2",
+              "/p3",
+              "/p4"
+            ],
+            "penalty": 9.05511811023622
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "warning",
+          "title": "Gli elementi immagine non hanno attributi `[alt]`",
+          "key": "seo.lh.image_alt",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "image-alt",
+            "mode": "binary",
+            "score": 0,
+            "lh_weight": 1.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": [
+              "body > img",
+              "body > img"
+            ],
+            "penalty": 9.05511811023622
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "info",
+          "title": "Non applicabile a questa pagina: robots.txt è valido",
+          "key": "seo.lh.robots_txt",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "robots-txt",
+            "mode": "notApplicable",
+            "score": null,
+            "lh_weight": 0.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": []
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "info",
+          "title": "Non applicabile a questa pagina: Il documento ha un elemento `rel=canonical` valido",
+          "key": "seo.lh.canonical",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "canonical",
+            "mode": "notApplicable",
+            "score": null,
+            "lh_weight": 0.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": []
+          }
+        },
+        {
+          "area": "mars_seo",
+          "severity": "info",
+          "title": "Da verificare a mano: Dati strutturati validi",
+          "key": "seo.lh.structured_data",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "structured-data",
+            "mode": "manual",
+            "score": null,
+            "lh_weight": 0.0,
+            "lh_weight_total": 11.043478260869566,
+            "items": []
+          }
+        }
+      ],
+      "tool": "Lighthouse 13.4.1",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": [
+        {
+          "id": "is-crawlable",
+          "title": "L'indicizzazione della pagina è bloccata",
+          "passed": false,
+          "manual": false,
+          "items": [
+            "X-Robots-Tag: noindex"
+          ],
+          "score": 0,
+          "scoreDisplayMode": "binary",
+          "weight": 4.043478260869565
+        },
+        {
+          "id": "document-title",
+          "title": "Il documento non ha un elemento `<title>`",
+          "passed": false,
+          "manual": false,
+          "items": [
+            "html"
+          ],
+          "score": 0,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "meta-description",
+          "title": "Il documento non ha una meta descrizione",
+          "passed": false,
+          "manual": false,
+          "items": [],
+          "score": 0,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "http-status-code",
+          "title": "La pagina ha un codice di stato HTTP valido",
+          "passed": true,
+          "manual": false,
+          "items": [],
+          "score": 1,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "link-text",
+          "title": "I link non hanno testo descrittivo",
+          "passed": false,
+          "manual": false,
+          "items": [
+            "/p0",
+            "/p1",
+            "/p2",
+            "/p3",
+            "/p4"
+          ],
+          "score": 0,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "crawlable-anchors",
+          "title": "I link sono sottoponibili a scansione",
+          "passed": true,
+          "manual": false,
+          "items": [],
+          "score": 1,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "robots-txt",
+          "title": "robots.txt è valido",
+          "passed": false,
+          "manual": true,
+          "items": [],
+          "score": null,
+          "scoreDisplayMode": "notApplicable",
+          "weight": 0.0
+        },
+        {
+          "id": "image-alt",
+          "title": "Gli elementi immagine non hanno attributi `[alt]`",
+          "passed": false,
+          "manual": false,
+          "items": [
+            "body > img",
+            "body > img"
+          ],
+          "score": 0,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "hreflang",
+          "title": "Il documento ha un `hreflang` valido",
+          "passed": true,
+          "manual": false,
+          "items": [],
+          "score": 1,
+          "scoreDisplayMode": "binary",
+          "weight": 1.0
+        },
+        {
+          "id": "canonical",
+          "title": "Il documento ha un elemento `rel=canonical` valido",
+          "passed": false,
+          "manual": true,
+          "items": [],
+          "score": null,
+          "scoreDisplayMode": "notApplicable",
+          "weight": 0.0
+        },
+        {
+          "id": "structured-data",
+          "title": "Dati strutturati validi",
+          "passed": false,
+          "manual": true,
+          "items": [],
+          "score": null,
+          "scoreDisplayMode": "manual",
+          "weight": 0.0
+        }
+      ],
+      "form_factor": "mobile",
+      "complete": null
+    },
+    {
+      "module": "mars_lexical",
+      "label": "3. Lessicale",
+      "score": null,
+      "status": "ranking",
+      "issues": [],
+      "findings": [],
+      "tool": "BM25 (k1=1.5, b=0.75)",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_semantic",
+      "label": "4. Semantica",
+      "score": null,
+      "status": "ranking",
+      "issues": [],
+      "findings": [],
+      "tool": "proxy char-TFIDF",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_schema",
+      "label": "5. Dati Strutturati",
+      "score": 90,
+      "status": null,
+      "issues": [
+        "JSON-LD malformato su https://esempio.test/servizi/"
+      ],
+      "findings": [
+        {
+          "area": "mars_schema",
+          "severity": "warning",
+          "title": "1 blocchi JSON-LD malformati",
+          "key": "sd.jsonld.block_malformed",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
+            "n": 1,
+            "penalty": 10.0
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_wcag",
+      "label": "6. Accessibilità",
+      "score": 37,
+      "status": null,
+      "issues": [
+        "axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali",
+        "[axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)",
+        "[axe:serious] Il contrasto deve essere sufficiente (1 elementi su 1 pagine)",
+        "[axe:moderate] I campi di modulo devono avere un'etichetta (1 elementi su 1 pagine)",
+        "[1.1.1] 1/2 immagini prive di testo alternativo",
+        "[1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
+        "[1.3.1/3.3.2] 1 campi di modulo senza etichetta",
+        "[1.3.1] 1 tabelle dati senza intestazioni <th>",
+        "[2.4.4] 1 link con testo generico (\"clicca qui\", \"leggi tutto\")"
+      ],
+      "findings": [
+        {
+          "area": "mars_wcag",
+          "severity": "info",
+          "title": "axe non ha esaminato 1 delle 3 pagine del campione",
+          "key": "wcag.status.partial",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "mancate": 1,
+            "tentate": 3,
+            "analizzate": 2
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "critical",
+          "title": "Le immagini devono avere un testo alternativo",
+          "key": "wcag.axe.image_alt",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
+          "weight": 2.0,
+          "source_severity": "axe:critical",
+          "params": {
+            "rule": "image-alt",
+            "nodes": 2,
+            "pages": 1,
+            "penalty": 37.5
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "Il contrasto deve essere sufficiente",
+          "key": "wcag.axe.color_contrast",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
+          "weight": 2.0,
+          "source_severity": "axe:serious",
+          "params": {
+            "rule": "color-contrast",
+            "nodes": 1,
+            "pages": 1,
+            "penalty": 18.0
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "I campi di modulo devono avere un'etichetta",
+          "key": "wcag.axe.label",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "axe:moderate",
+          "params": {
+            "rule": "label",
+            "nodes": 1,
+            "pages": 1,
+            "penalty": 7.5
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "critical",
+          "title": "1/2 immagini prive di testo alternativo",
+          "key": "wcag.img.alt_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "immagini": 1,
+            "totale": 2,
+            "criterio": "1.1.1",
+            "penalty": 0.0
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
+          "key": "wcag.heading.skip",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "salti": 1,
+            "criterio": "1.3.1",
+            "penalty": 0.0
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "critical",
+          "title": "1 campi di modulo senza etichetta",
+          "key": "wcag.form.label_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "campi": 1,
+            "criterio": "1.3.1/3.3.2",
+            "penalty": 0.0
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "1 tabelle dati senza intestazioni <th>",
+          "key": "wcag.table.th_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "tabelle": 1,
+            "criterio": "1.3.1",
+            "penalty": 0.0
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "info",
+          "title": "1 link con testo generico (\"clicca qui\", \"leggi tutto\")",
+          "key": "wcag.link.generic",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "link": 1,
+            "criterio": "2.4.4",
+            "penalty": 0.0
+          }
+        }
+      ],
+      "tool": "axe-core",
+      "wcag_level": "WCAG 2.1 A + AA",
+      "pages_tested": 2,
+      "audits": null,
+      "form_factor": null,
+      "complete": false
+    },
+    {
+      "module": "mars_wapt",
+      "label": "7. Sicurezza",
+      "score": 57,
+      "status": null,
+      "issues": [
+        "[ZAP:High] Cross Site Scripting (Reflected) (1 URL)",
+        "[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)",
+        "[ZAP:Low] Strict-Transport-Security non impostato (1 URL)",
+        "Solo scansione passiva: l'active scan richiede --i-own-this-domain"
+      ],
+      "findings": [
+        {
+          "area": "mars_wapt",
+          "severity": "critical",
+          "title": "Cross Site Scripting (Reflected)",
+          "key": "sec.zap.40012",
+          "detail": "",
+          "fix": "Convalida l'input e codifica l'output.",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "ZAP:High",
+          "params": {
+            "rule": "40012",
+            "key_source": "pluginId",
+            "risk": "High",
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
+            "n": 1,
+            "alert_refs": [
+              "40012"
+            ],
+            "references": [
+              "https://owasp.org/xss",
+              "https://cwe.mitre.org/79"
+            ],
+            "soluzioni": 1,
+            "penalty": 27.500000000000004
+          }
+        },
+        {
+          "area": "mars_wapt",
+          "severity": "warning",
+          "title": "Content Security Policy (CSP) Header Not Set",
+          "key": "sec.zap.10038",
+          "detail": "",
+          "fix": "Configura il server per impostare l'header CSP.",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "ZAP:Medium",
+          "params": {
+            "rule": "10038",
+            "key_source": "pluginId",
+            "risk": "Medium",
+            "urls": [
+              "https://esempio.test/",
+              "https://esempio.test/faq/"
+            ],
+            "n": 2,
+            "alert_refs": [
+              "10038-1"
+            ],
+            "references": [],
+            "soluzioni": 1,
+            "penalty": 12.0
+          }
+        },
+        {
+          "area": "mars_wapt",
+          "severity": "info",
+          "title": "Strict-Transport-Security non impostato",
+          "key": "sec.zap.10035",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "ZAP:Low",
+          "params": {
+            "rule": "10035",
+            "key_source": "pluginId",
+            "risk": "Low",
+            "urls": [
+              "https://esempio.test/"
+            ],
+            "n": 1,
+            "alert_refs": [],
+            "references": [],
+            "soluzioni": 0,
+            "penalty": 3.3000000000000003
+          }
+        },
+        {
+          "area": "mars_wapt",
+          "severity": "info",
+          "title": "Solo scansione passiva: l'active scan richiede --i-own-this-domain",
+          "key": "sec.status.passive_only",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "active_scan": false
+          }
+        }
+      ],
+      "tool": "ZAP (passiva)",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": true
+    },
+    {
+      "module": "mars_citability",
+      "label": "8. Citabilità IA",
+      "score": 65.6,
+      "status": null,
+      "issues": [
+        "Segnale debole: Qualità SEO (27/100)",
+        "Segnale debole: Accessibilità (37/100)"
+      ],
+      "findings": [
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Qualità SEO (27/100)",
+          "key": "cit.seo.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "seo",
+            "label": "Qualità SEO",
+            "sources": [
+              "mars_seo"
+            ],
+            "value": 27.0,
+            "threshold": 60,
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Accessibilità (37/100)",
+          "key": "cit.accessibilita.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "accessibilita",
+            "label": "Accessibilità",
+            "sources": [
+              "mars_wcag"
+            ],
+            "value": 37.0,
+            "threshold": 60,
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Accesso e indicizzabilità (57/100)",
+          "key": "cit.tecnica.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "tecnica",
+            "label": "Accesso e indicizzabilità",
+            "sources": [
+              "mars_tech"
+            ],
+            "value": 57.0,
+            "threshold": 60,
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Sicurezza (57/100)",
+          "key": "cit.sicurezza.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "sicurezza",
+            "label": "Sicurezza",
+            "sources": [
+              "mars_wapt"
+            ],
+            "value": 57.0,
+            "threshold": 60,
+            "derived": true
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_llm_judge",
+      "label": "9. Giudizio LLM",
+      "score": 61,
+      "status": null,
+      "issues": [
+        "Nessun prezzo verificabile",
+        "Nessuna fonte citata",
+        "Nessuna data di aggiornamento"
+      ],
+      "findings": [],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    }
+  ],
+  "rrf_simulation": [
+    {
+      "query": "drenaggio linfatico",
+      "consensus_top3": 3,
+      "consensus_out_of": 3,
+      "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
+      "top_chunk_url": "https://esempio.test/",
+      "matched": true
+    },
+    {
+      "query": "quanto costa una seduta di drenaggio linfatico",
+      "consensus_top3": 2,
+      "consensus_out_of": 3,
+      "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
+      "top_chunk_url": "https://esempio.test/",
+      "matched": true
+    },
+    {
+      "query": "parcheggio riservato",
+      "consensus_top3": null,
+      "consensus_out_of": null,
+      "top_chunk": null,
+      "top_chunk_url": null,
+      "matched": false
+    }
+  ],
+  "rrf_aggregate": {
+    "query": "(aggregato su tutte le query)",
+    "consensus_top3": 3,
+    "consensus_out_of": 3,
+    "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
+    "top_chunk_url": "https://esempio.test/",
+    "matched": true,
+    "queries": [
+      "drenaggio linfatico",
+      "quanto costa una seduta di drenaggio linfatico",
+      "parcheggio riservato"
+    ]
+  },
+  "citability": {
+    "score": 65.6,
+    "status": null,
+    "issues": [
+      "Segnale debole: Qualità SEO (27/100)",
+      "Segnale debole: Accessibilità (37/100)"
+    ],
+    "findings": [
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Qualità SEO (27/100)",
+        "key": "cit.seo.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "seo",
+          "label": "Qualità SEO",
+          "sources": [
+            "mars_seo"
+          ],
+          "value": 27.0,
+          "threshold": 60,
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Accessibilità (37/100)",
+        "key": "cit.accessibilita.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "accessibilita",
+          "label": "Accessibilità",
+          "sources": [
+            "mars_wcag"
+          ],
+          "value": 37.0,
+          "threshold": 60,
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Accesso e indicizzabilità (57/100)",
+        "key": "cit.tecnica.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "tecnica",
+          "label": "Accesso e indicizzabilità",
+          "sources": [
+            "mars_tech"
+          ],
+          "value": 57.0,
+          "threshold": 60,
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Sicurezza (57/100)",
+        "key": "cit.sicurezza.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "sicurezza",
+          "label": "Sicurezza",
+          "sources": [
+            "mars_wapt"
+          ],
+          "value": 57.0,
+          "threshold": 60,
+          "derived": true
+        }
+      }
+    ],
+    "market": "eu",
+    "profiles": {
+      "Claude": 68.9,
+      "ChatGPT/Perplexity": 63.4,
+      "Qwen": 66.7,
+      "Kimi": 66.7
+    },
+    "signals": {
+      "Accesso e indicizzabilità": 57.0,
+      "Qualità SEO": 27.0,
+      "Dati strutturati": 90.0,
+      "Accessibilità": 37.0,
+      "Sicurezza": 57.0,
+      "Recuperabilità ibrida (consenso RRF)": 100.0,
+      "Contenuto in forma di risposta": 75.0
+    },
+    "disclaimer": "stime euristiche dichiarate, non comportamento documentato dai vendor"
+  },
+  "llm_judgement": {
+    "score": 61,
+    "findings": [],
+    "status": null,
+    "issues": [
+      "Nessun prezzo verificabile",
+      "Nessuna fonte citata",
+      "Nessuna data di aggiornamento"
+    ],
+    "model": "claude-opus-5",
+    "motivazione": "I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.",
+    "punti_forti": [
+      "Titoli interrogativi con risposta immediata",
+      "Durata e modalita' della seduta dichiarate"
+    ],
+    "punti_deboli": [
+      "Nessun prezzo verificabile",
+      "Nessuna fonte citata",
+      "Nessuna data di aggiornamento"
+    ],
+    "passaggio_migliore": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
+    "chunk_valutati": 4,
+    "costo_stimato": {
+      "caratteri": 1961,
+      "token_stimati_input": 490,
+      "token_massimi_output": 4000
+    }
+  },
+  "lexical": {
+    "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?"
+  },
+  "semantic": {
+    "answer_shaped_ratio": 0.75,
+    "n_chunks": 4,
+    "answer_shaped_signals": {
+      "punto interrogativo": 3,
+      "titolo interrogativo": 3,
+      "interrogativo a inizio frase": 1
+    },
+    "page_signals": {
+      "FAQPage JSON-LD": 2
+    },
+    "languages": {
+      "it": 4
+    }
+  }
+}

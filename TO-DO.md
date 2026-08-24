@@ -163,7 +163,7 @@ AS-IS conserva nove misure invece di un riassunto.
 
 ### Altre fasi
 
-- [ ] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
+- [x] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
       tutte le fasi successive: ogni cambiamento di resa passa da una
       rigenerazione intenzionale con revisione del diff.
 - [ ] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
@@ -369,6 +369,23 @@ Divergenze verificate (documento → codice):
 
 - [ ] Correggere ciascuna riga sopra (il testo, non il comportamento, tranne
       dove indicato un'opzione di codice).
+
+### R43 — ⚪ LIEVE: due cose che U2 ha visto e non ha corretto
+*(trovate costruendo i golden, il 2026-08-24)*
+
+- **La favicon dichiara un MIME che non e' il suo.** `file favicon.ico` dice
+  `PNG image data, 32 x 32`, mentre `_favicon_data_uri`
+  ([mars_report.py:381](mars_report.py#L381)) la incorpora come
+  `data:image/x-icon;base64,…` e la docstring parla di «.ico (2,8 KB)». I
+  browser lo digeriscono, ma la dichiarazione è falsa. Correggerla cambia il
+  golden HTML, quindi va fatta con la sua rigenerazione.
+- **Il degrado della favicon è silenzioso.** `except OSError: return ""` fa
+  sparire la riga `<link rel='icon'>` senza traccia: su un checkout parziale
+  il referto perde l'icona e nessuno lo saprebbe. Nel golden il fatto è
+  rilevato (il digest sparisce, il diff lo mostra), ma in produzione no.
+
+- [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
+- [ ] Dire nel referto quando l'icona non è stata incorporata.
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**

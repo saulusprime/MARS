@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang='it'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>MARS Beacon — https://esempio.test/</title>
+<link rel='icon' href='data:image/x-icon;base64,DIGEST'>
+<style>
+:root { --ok:#0cce6b; --warn:#ffa400; --bad:#ff4e42; --bg:#fff;
+        --fg:#1f2328; --muted:#5f6771; --line:#dfe3e8; --card:#f7f9fa;
+        --track:#e8ebee; --ombra:0 1px 3px rgba(0,0,0,.08); }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#12161c; --fg:#e6edf3; --muted:#98a1ad; --line:#2a3038;
+          --card:#1a1f27; --track:#2a3038; --ombra:none; } }
+* { box-sizing:border-box; }
+body { margin:0; padding:0 0 3rem; background:var(--bg); color:var(--fg);
+       font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+main { max-width:64rem; margin:0 auto; padding:0 1rem; }
+header.testata { border-bottom:1px solid var(--line); margin-bottom:1.5rem;
+                 padding:1.75rem 0 1.25rem; }
+h1 { font-size:1.35rem; margin:0 0 .3rem; letter-spacing:-.01em; }
+h2 { font-size:1.05rem; margin:2.25rem 0 .85rem;
+     border-bottom:1px solid var(--line); padding-bottom:.4rem; }
+h3 { font-size:.95rem; margin:0; }
+.meta { color:var(--muted); font-size:.87rem; margin:.15rem 0; }
+.meta code { word-break:break-all; }
+
+/* --- fascia dei quadranti, la firma visiva di Lighthouse --- */
+.quadranti { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem;
+             justify-content:center; padding:1.25rem 0 .5rem; }
+.quadrante { width:8.5rem; text-align:center; }
+.quadrante svg { display:block; margin:0 auto; width:5.5rem; height:5.5rem; }
+.quadrante .nome { font-size:.82rem; margin-top:.35rem; line-height:1.3;
+                   color:var(--fg); }
+.quadrante .nota { font-size:.72rem; color:var(--muted); }
+.quadrante .nota.parziale, .strumento.parziale { color:var(--warn); }
+.anello-fondo { stroke:var(--track); }
+.valore { font:600 30px/1 system-ui,sans-serif; }
+.valore.piccolo { font-size:22px; }
+
+/* --- legenda della scala --- */
+.legenda { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center;
+           font-size:.78rem; color:var(--muted); padding:.5rem 0 .25rem; }
+.legenda span { white-space:nowrap; }
+.pallino { display:inline-block; width:.62rem; height:.62rem;
+           border-radius:50%; vertical-align:-1px; margin-right:.3rem; }
+.pallino.vuoto { background:none; border:1.5px dashed var(--muted); }
+
+/* --- schede d'area --- */
+.area { background:var(--card); border:1px solid var(--line);
+        border-radius:.6rem; padding:.9rem 1rem; margin:.6rem 0;
+        box-shadow:var(--ombra); }
+.area .riga { display:flex; align-items:baseline; gap:.6rem;
+              justify-content:space-between; }
+.punteggio { font-variant-numeric:tabular-nums; font-weight:600;
+             white-space:nowrap; }
+.strumento { font-size:.78rem; color:var(--muted); margin:.3rem 0 0; }
+ul.rilievi { margin:.55rem 0 0; padding-left:1.15rem; }
+ul.controlli { list-style:none; margin:.6rem 0 0; padding:0; }
+ul.controlli li { font-size:.88rem; margin:.22rem 0; display:flex;
+                  gap:.5rem; align-items:baseline; }
+ul.controlli .segno { font-weight:700; flex:0 0 1rem; text-align:center; }
+ul.controlli li.fallito .segno { color:var(--bad); }
+ul.controlli li.superato .segno { color:var(--ok); }
+ul.controlli li.manuale .segno, ul.controlli li.manuale { color:var(--muted); }
+ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
+                          word-break:break-all; }
+ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
+.nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
+
+table { width:100%; border-collapse:collapse; }
+th,td { text-align:left; padding:.5rem .6rem;
+        border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:.75rem; text-transform:uppercase; color:var(--muted);
+     letter-spacing:.04em; }
+td.num { text-align:right; font-variant-numeric:tabular-nums;
+         white-space:nowrap; }
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.muted{color:var(--muted)}
+.bar { display:inline-block; height:.5rem; border-radius:.25rem;
+       background:currentColor; vertical-align:middle; min-width:2px; }
+.card { background:var(--card); border:1px solid var(--line);
+        border-radius:.6rem; padding:1rem; margin:.6rem 0;
+        box-shadow:var(--ombra); }
+.disclaimer { font-size:.83rem; color:var(--muted); font-style:italic; }
+code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
+       font-size:.85em; }
+.grande { font-size:1.6rem; font-weight:600;
+          font-variant-numeric:tabular-nums; }
+@media (max-width:40rem){
+  .quadrante { width:6.5rem; }
+  .quadrante svg { width:4.5rem; height:4.5rem; }
+  th,td { padding:.4rem .35rem; font-size:.9rem; }
+}
+</style>
+</head>
+<body>
+<main>
+<header class='testata'>
+<h1>MARS Beacon</h1>
+<p class='meta'>
+<code>https://esempio.test/</code>
+</p>
+<p class='meta'>2026-01-01T00:00:00+0000 · 3 pagine trovate via sitemap · 4 chunk · mercato eu · v0.0.0</p>
+</header>
+<div class='quadranti'>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Tecnica: 57 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='200.56 151.30' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>57</text>
+</svg>
+<div class='nome'>Tecnica</div>
+</div>
+<div class='quadrante bad'>
+<svg viewBox='0 0 120 120' role='img' aria-label='SEO: 27 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='95.00 256.86' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>27</text>
+</svg>
+<div class='nome'>SEO</div>
+<div class='nota'>Lighthouse 13.4.1</div>
+</div>
+<div class='quadrante muted'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Lessicale: non misurato'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='4 6'/>
+<text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
+</svg>
+<div class='nome'>Lessicale</div>
+<div class='nota'>classifica, non un voto</div>
+</div>
+<div class='quadrante muted'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Semantica: non misurato'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='4 6'/>
+<text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
+</svg>
+<div class='nome'>Semantica</div>
+<div class='nota'>classifica, non un voto</div>
+</div>
+<div class='quadrante ok'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Dati Strutturati: 90 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='316.67 35.19' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>90</text>
+</svg>
+<div class='nome'>Dati Strutturati</div>
+</div>
+<div class='quadrante bad'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Accessibilità: 37 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='130.19 221.67' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>37</text>
+</svg>
+<div class='nome'>Accessibilità</div>
+<div class='nota parziale'>axe-core · parziale</div>
+</div>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Sicurezza: 57 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='200.56 151.30' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>57</text>
+</svg>
+<div class='nome'>Sicurezza</div>
+<div class='nota'>ZAP (passiva)</div>
+</div>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 66 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='230.82 121.04' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>66</text>
+</svg>
+<div class='nome'>Citabilità IA</div>
+</div>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Giudizio LLM: 61 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='214.63 137.22' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>61</text>
+</svg>
+<div class='nome'>Giudizio LLM</div>
+</div>
+<div class='quadrante ok'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Recuperabilità: 100 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86 0.00' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>100</text>
+</svg>
+<div class='nome'>Recuperabilità</div>
+<div class='nota'>consenso 3/3</div>
+</div>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='In forma di risposta: 75 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='263.89 87.96' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>75</text>
+</svg>
+<div class='nome'>In forma di risposta</div>
+<div class='nota'>su 4 chunk</div>
+</div>
+</div>
+<div class='legenda'>
+<span>
+<i class='pallino bad'>
+</i>0-49</span>
+<span>
+<i class='pallino warn'>
+</i>50-89</span>
+<span>
+<i class='pallino ok'>
+</i>90-100</span>
+<span>
+<i class='pallino vuoto'>
+</i>non misurato</span>
+</div>
+<style>.pallino.bad{background:var(--bad)}.pallino.warn{background:var(--warn)}.pallino.ok{background:var(--ok)}</style>
+<h2>Aree</h2>
+<div class='area'>
+<div class='riga'>
+<h3>1. Tecnica</h3>
+<span class='punteggio'>
+<span class='warn'>57<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<ul class='rilievi'>
+<li>[critico] robots.txt BLOCCA 1 crawler IA: GPTBot</li>
+<li>[lieve] 2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>2. SEO</h3>
+<span class='punteggio'>
+<span class='bad'>27<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<p class='strumento'>Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti</p>
+<ul class='controlli'>
+<li class='fallito'>
+<span class='segno'>✗</span>
+<span>L&#x27;indicizzazione della pagina è bloccata<br>
+<span class='dettaglio'>X-Robots-Tag: noindex</span>
+</span>
+</li>
+<li class='fallito'>
+<span class='segno'>✗</span>
+<span>Il documento non ha un elemento `&lt;title&gt;`<br>
+<span class='dettaglio'>html</span>
+</span>
+</li>
+<li class='fallito'>
+<span class='segno'>✗</span>
+<span>Il documento non ha una meta descrizione</span>
+</li>
+<li class='fallito'>
+<span class='segno'>✗</span>
+<span>I link non hanno testo descrittivo<br>
+<span class='dettaglio'>/p0, /p1, /p2, /p3, /p4</span>
+</span>
+</li>
+<li class='fallito'>
+<span class='segno'>✗</span>
+<span>Gli elementi immagine non hanno attributi `[alt]`<br>
+<span class='dettaglio'>body &gt; img, body &gt; img</span>
+</span>
+</li>
+<li class='manuale'>
+<span class='segno'>?</span>
+<span>robots.txt è valido</span>
+</li>
+<li class='manuale'>
+<span class='segno'>?</span>
+<span>Il documento ha un elemento `rel=canonical` valido</span>
+</li>
+<li class='manuale'>
+<span class='segno'>?</span>
+<span>Dati strutturati validi</span>
+</li>
+<li class='superato'>
+<span class='segno'>✓</span>
+<span>La pagina ha un codice di stato HTTP valido</span>
+</li>
+<li class='superato'>
+<span class='segno'>✓</span>
+<span>I link sono sottoponibili a scansione</span>
+</li>
+<li class='superato'>
+<span class='segno'>✓</span>
+<span>Il documento ha un `hreflang` valido</span>
+</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>3. Lessicale</h3>
+<span class='punteggio'>
+<span class='muted'>classifica, non un voto</span>
+</span>
+</div>
+<p class='strumento'>Passaggio in testa: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
+</p>
+<p class='strumento'>BM25 (k1=1.5, b=0.75)</p>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>4. Semantica</h3>
+<span class='punteggio'>
+<span class='muted'>classifica, non un voto</span>
+</span>
+</div>
+<p class='strumento'>75% di 4 chunk in forma di risposta.</p>
+<p class='strumento'>FAQPage JSON-LD: 2 pagine su 3.</p>
+<p class='strumento'>proxy char-TFIDF</p>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>5. Dati Strutturati</h3>
+<span class='punteggio'>
+<span class='ok'>90<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<ul class='rilievi'>
+<li>JSON-LD malformato su https://esempio.test/servizi/</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>6. Accessibilità</h3>
+<span class='punteggio'>
+<span class='bad'>37<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<p class='strumento parziale'>axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate</p>
+<ul class='rilievi'>
+<li>axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali</li>
+<li>[axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)</li>
+<li>[axe:serious] Il contrasto deve essere sufficiente (1 elementi su 1 pagine)</li>
+<li>[axe:moderate] I campi di modulo devono avere un&#x27;etichetta (1 elementi su 1 pagine)</li>
+<li>[1.1.1] 1/2 immagini prive di testo alternativo</li>
+<li>[1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)</li>
+<li>[1.3.1/3.3.2] 1 campi di modulo senza etichetta</li>
+<li>[1.3.1] 1 tabelle dati senza intestazioni &lt;th&gt;</li>
+<li>[2.4.4] 1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>7. Sicurezza</h3>
+<span class='punteggio'>
+<span class='warn'>57<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<p class='strumento'>ZAP (passiva)</p>
+<ul class='rilievi'>
+<li>[ZAP:High] Cross Site Scripting (Reflected) (1 URL)</li>
+<li>[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)</li>
+<li>[ZAP:Low] Strict-Transport-Security non impostato (1 URL)</li>
+<li>Solo scansione passiva: l&#x27;active scan richiede --i-own-this-domain</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>8. Citabilità IA</h3>
+<span class='punteggio'>
+<span class='warn'>66<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<ul class='rilievi'>
+<li>Segnale debole: Qualità SEO (27/100)</li>
+<li>Segnale debole: Accessibilità (37/100)</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>9. Giudizio LLM</h3>
+<span class='punteggio'>
+<span class='warn'>61<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<ul class='rilievi'>
+<li>Nessun prezzo verificabile</li>
+<li>Nessuna fonte citata</li>
+<li>Nessuna data di aggiornamento</li>
+</ul>
+</div>
+<h2>Simulazione RRF</h2>
+<div class='card'>
+<p class='meta'>Consenso fra il recuperatore lessicale e quello vettoriale, aggregato su 3 query — la misura più solida, perché un accordo su una sola domanda può essere un caso.</p>
+<p class='grande ok'>3/3</p>
+<p class='meta'>Passaggio più recuperabile:<br>
+<code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
+</p>
+</div>
+<table>
+<tr>
+<th>Query</th>
+<th>Consenso</th>
+<th>Passaggio migliore</th>
+</tr>
+<tr>
+<td>
+<code>drenaggio linfatico</code>
+</td>
+<td class='num ok'>3/3</td>
+<td>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</td>
+</tr>
+<tr>
+<td>
+<code>quanto costa una seduta di drenaggio linfatico</code>
+</td>
+<td class='num warn'>2/3</td>
+<td>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</td>
+</tr>
+<tr>
+<td>
+<code>parcheggio riservato</code>
+</td>
+<td class='num muted'>nessun riscontro</td>
+<td>—</td>
+</tr>
+</table>
+<h2>Profili di citabilità IA</h2>
+<p class='meta'>Mercato: eu</p>
+<table>
+<tr>
+<td>Claude</td>
+<td class='num warn'>68.9</td>
+<td style='width:55%'>
+<span class='bar warn' style='width:69%'>
+</span>
+</td>
+</tr>
+<tr>
+<td>ChatGPT/Perplexity</td>
+<td class='num warn'>63.4</td>
+<td style='width:55%'>
+<span class='bar warn' style='width:63%'>
+</span>
+</td>
+</tr>
+<tr>
+<td>Qwen</td>
+<td class='num warn'>66.7</td>
+<td style='width:55%'>
+<span class='bar warn' style='width:67%'>
+</span>
+</td>
+</tr>
+<tr>
+<td>Kimi</td>
+<td class='num warn'>66.7</td>
+<td style='width:55%'>
+<span class='bar warn' style='width:67%'>
+</span>
+</td>
+</tr>
+<tr>
+<td>
+<strong>Indice composito</strong>
+</td>
+<td class='num warn'>
+<strong>65.6</strong>
+</td>
+<td>
+</td>
+</tr>
+</table>
+<p class='disclaimer'>stime euristiche dichiarate, non comportamento documentato dai vendor</p>
+<ul class='rilievi'>
+<li>Segnale debole: Qualità SEO (27/100)</li>
+<li>Segnale debole: Accessibilità (37/100)</li>
+</ul>
+<h2>Giudizio LLM</h2>
+<div class='card'>
+<p class='meta'>claude-opus-5 · 4 passaggi valutati</p>
+<p class='grande warn'>61<span class='muted'>/100</span>
+</p>
+<p>I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e&#x27; verificabile.</p>
+<p class='meta'>Passaggio migliore: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
+</p>
+<p class='strumento'>
+<strong>Punti di forza</strong>
+</p>
+<ul class='rilievi'>
+<li>Titoli interrogativi con risposta immediata</li>
+<li>Durata e modalita&#x27; della seduta dichiarate</li>
+</ul>
+<p class='strumento'>
+<strong>Da migliorare</strong>
+</p>
+<ul class='rilievi'>
+<li>Nessun prezzo verificabile</li>
+<li>Nessuna fonte citata</li>
+<li>Nessuna data di aggiornamento</li>
+</ul>
+</div>
+<h2>Cosa non è stato guardato</h2>
+<div class='card'>
+<p class='meta'>4 URL saltati:</p>
+<ul class='rilievi'>
+<li>vietato da robots.txt: https://esempio.test/privato</li>
+<li>altro host: https://altro.test/</li>
+<li>non HTML: https://esempio.test/listino.pdf</li>
+<li>URL non analizzabile: https://esempio.test/[2001</li>
+</ul>
+</div>
+</main>
+</body>
+</html>

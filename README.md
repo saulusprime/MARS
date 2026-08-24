@@ -199,7 +199,31 @@ Installazione. Le dipendenze sono divise per ruolo:
 
 I test si lanciano con `pytest` dalla radice del progetto: girano in
 meno di dieci secondi, non toccano la rete e non avviano Lighthouse,
-ZAP o un browser.
+ZAP o un browser. Non possono nemmeno spendere: l'unica area che
+chiama un'API a pagamento e' bloccata al livello del transport HTTP,
+e un test che ci provasse fallirebbe dicendolo.
+
+Golden del referto. tests/golden/ contiene la resa attesa dei tre
+formati su due referti sintetici: uno con ogni strumento a
+disposizione, uno con Lighthouse, ZAP e axe assenti e un'area caduta.
+Sei file, che qualunque cambiamento di resa fa fallire con un diff.
+
+Congelano la PIPELINE, non i soli renderer: i risultati d'area
+vengono dai moduli veri, quindi anche un punteggio che cambia li fa
+fallire. E' voluto, ed e' il motivo per cui la rigenerazione non e'
+il rimedio ma il primo dei due passi:
+
+    MARS_RIGENERA_GOLDEN=1 pytest tests/test_golden.py
+    git diff tests/golden/          # il passo che non si salta
+
+E' li' che si distingue una resa cambiata da una misura cambiata. I
+test rigenerati escono "skipped", non "passed": la variabile serve a
+rigenerare, non a far tornare il verde, e non va impostata in CI.
+
+Due cose cambiano il golden HTML senza che nessuno abbia toccato un
+renderer: favicon.ico, incorporata come data URI (nel golden compare
+come digest, cosi' il diff resta leggibile), e il CSS. Sono resa
+entrambe, ed e' giusto che il diff le mostri.
 
 requirements.txt copre sia l'audit da riga di comando sia l'API REST.
 Servizi utilizzati dall'API:

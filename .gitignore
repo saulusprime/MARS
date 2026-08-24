@@ -44,3 +44,10 @@ htmlcov/
 .idea/
 *.swp
 .DS_Store
+
+# --- Golden del referto: DATO DI TEST, non un artefatto rigenerabile ---
+# La riga `referto.json` qui sopra non ha '/', quindi vale a OGNI livello
+# e colpisce anche tests/golden/. Questi file sono la resa attesa dei
+# renderer: si rigenerano con MARS_RIGENERA_GOLDEN=1 e si RIVEDONO nel
+# diff, quindi vanno versionati.
+!tests/golden/referto*

@@ -3083,6 +3083,118 @@ ciascuna ha rivelato un test debole — un ordinamento mai asserito, una
 costante confrontata con sé stessa, un banco di prova che eseguiva bytecode
 vecchio, un guardiano che nessuno presidiava.
 
+### U2 — ✅ CHIUSA (2026-08-24): i golden del referto
+
+**Il problema.** `tests/test_report.py` fa asserzioni puntuali: colgono ciò
+che qualcuno ha pensato di guardare, e una modifica di resa che non tocca
+quei punti passa inosservata. Con **otto fasi di lavoro sul renderer davanti**,
+quella rete andava montata prima, non dopo.
+
+Sei file in `tests/golden/` — tre formati × due referti sintetici — più sette
+test in `tests/test_golden.py`. Nessuna riga di codice di produzione è
+cambiata.
+
+**Il dataset dichiara il proprio ambiente, non lo eredita.** È la decisione
+che regge tutto il resto. Su questa macchina Lighthouse, ZAP, Playwright e
+sentence-transformers sono *tutti installati*; su un runner nudo nessuno.
+Misurato: lasciando decidere all'ambiente, l'area sicurezza scrive nel referto
+la issue «Header non leggibili: **NienteRete**» — cioè **il nome di una
+fixture del banco di prova finisce dentro il golden**. Un golden costruito
+così misurerebbe quali strumenti mancano su una macchina, non come si rende un
+referto.
+
+**E non si costruisce a mano.** La strada opposta — scrivere `results` a
+mano, come fa la fixture di `test_report.py` — congelerebbe una forma che i
+moduli non producono più: è R33, già registrato per la costante `CONTROLLI`
+di quel file, ferma a cinque campi su otto. La via presa è la terza: i moduli
+**veri**, con l'uscita dello strumento iniettata **alla sua cucitura di I/O** —
+`run_axe`, `run_zap`, `context["_zap_client"]`, `context["_anthropic_client"]`,
+tutte cuciture già usate dai test di modulo. `mars_seo` passa da
+`riassumi(_lhr())`, che è ciò che `audit()` restituisce verbatim.
+
+**I moduli si prendono da `load_external_module`, non da un `import`**, ed è
+una trappola che sarebbe costata caro: il caricatore **sostituisce** l'oggetto
+in `sys.modules`, quindi `import mars_wcag` e il modulo che gira **non sono lo
+stesso oggetto** (verificato: `m is mars_wcag` → `False`). Una patch applicata
+all'oggetto importato non arriverebbe, `axe_disponibile()` resterebbe `False`
+per via della fixture, e il golden congelerebbe **il ramo di ripiego** senza
+che nulla sollevi. È R20 in abito nuovo.
+
+**Anche l'ultima area passa dal codice di produzione.** `mars_llm_judge`
+importa `anthropic` *dentro* il percorso di successo: scriverne a mano il
+risultato avrebbe reintrodotto R33 sull'unica area rimasta — e infatti un
+prototipo scritto a mano sbagliava su quattro punti, fra cui il nome del
+modello e la chiave `status`. Si stubba invece **la libreria** in `sys.modules`,
+con lo stesso schema con cui `conftest.py` rende non importabile
+`playwright.sync_api`, e il giudizio entra nel golden per la sua strada vera.
+
+**Due referti e non uno.** Ci sono rami che nessun singolo referto può
+contenere insieme: un'area misurata e la stessa senza strumento, il giudizio
+LLM reso e disattivato, robots rispettato e ignorato, la sezione RRF presente
+e assente. Il degradato accende **tre rami con un fatto solo** — `mars_semantic`
+che solleva dà l'area in `error`, la sezione RRF che sparisce e il quadrante
+«In forma di risposta» non misurato. I due insieme coprono **tutte e nove le
+aree del registro e tutte e cinque le voci di `STATO_LEGGIBILE`**, e questo è
+**asserito**, non sperato: un'area nuova o uno stato nuovo diventano rossi
+invece che invisibili.
+
+**Iniezione dei campi volatili, non sostituzione a valle.** `generated_at` e
+`version` si scrivono nel referto *prima* di renderlo. Il `_normalizza` del
+progetto di riferimento sostituisce la forma JSON `"generated_at": "…"` — in
+MARS il timestamp esce **nudo** dentro un `<p class='meta'>`, quindi copiarlo
+avrebbe lasciato l'HTML volatile senza che nessuno se ne accorgesse fino al
+primo cambio di fuso. E l'iniezione congela anche **il punto** in cui il campo
+compare: spostare la data nel piè di pagina — cosa che la Fase 11 prevede —
+è un diff di due righe invece che nulla. Il valore è plausibile
+(`2026-01-01T00:00:00+0000`, `0.0.0`) e non un segnaposto: un renderer futuro
+che formattasse la data cadrebbe su `GENERATED_AT`.
+
+**Due normalizzazioni per rendere il diff leggibile, ed è il punto della
+fase.** `render_html` è un `"".join()`: tutto ciò che segue `</style>` era
+**una riga sola da 13 KB**, e il criterio di accettazione — «un carattere di
+CSS fa fallire con diff leggibile» — sarebbe stato soddisfatto per il solo
+CSS, che porta gli a-capo suoi. Si spezza fra un tag e l'altro **prima di
+scrivere il golden**, non solo prima di mostrare il diff: il mezzo della
+revisione è `git diff tests/golden/`, e su una riga da 13 KB la revisione non
+è possibile — il presidio diventerebbe un rito. Misurato: 88 righe con la più
+lunga da 12 958 caratteri diventano **515 righe con la più lunga da 182**.
+La favicon, 3 773 caratteri di base64 sulla stessa riga, diventa un digest:
+un cambio d'icona resta rilevato, il diff resta leggibile.
+
+Limite dichiarato: il file su disco non è più byte per byte ciò che
+`render_html` emette, e un a-capo *letterale* fra due tag sarebbe invisibile.
+È l'unico angolo cieco e non riguarda nulla che il renderer faccia oggi.
+
+**`.gitignore` ignorava il golden JSON.** Verificato:
+`git check-ignore -v tests/golden/referto.json` → `.gitignore:16:referto.json`.
+Quella riga non ha `/`, quindi vale a ogni livello. Senza l'eccezione il
+golden si sarebbe rigenerato in locale, il test sarebbe passato sulla macchina
+di chi l'ha scritto, e **il file non sarebbe mai arrivato in CI**. Trappola da
+conoscere: `git check-ignore` **con `-v` esce 0 anche su una regola di
+negazione** — la prova è senza `-v` (deve uscire 1), o `git add -n`.
+
+**Il criterio di accettazione è un test, non una nota.** Un carattere di CSS
+cambiato con `monkeypatch` — non con un `sed` sul file, così il repo resta
+pulito anche se il test fallisce a metà — deve produrre un diff, e un diff
+**leggibile**: 11 righe, la più lunga da 74 caratteri.
+
+Otto mutazioni sulla resa, tutte colte: il carattere di CSS, il taglio delle
+issues nel testo, una parola del vocabolario degli stati, la precisione dei
+quadranti SVG, la larghezza della colonna dei nomi d'area, il separatore fra i
+qualificatori, una chiave sparita da `Finding.as_dict()`, un peso della scala
+canonica. Due erano mal costruite alla prima stesura — cercavano stringhe che
+nel file non esistono — e sono state rifatte sul testo vero.
+
+**Che cosa il golden NON è**, scritto qui perché non lo si scopra rigenerando:
+è un golden **della pipeline**, non dei soli formati. I risultati d'area
+vengono dai moduli veri, quindi un punteggio che cambia fa fallire tutti e sei
+i file. È il prezzo della fedeltà, ed è dichiarato nel README: la
+rigenerazione non è il rimedio, è il primo di due passi — il secondo è
+`git diff tests/golden/`, ed è lì che si distingue una resa cambiata da una
+misura cambiata.
+
+- [x] `tests/test_golden.py`, sei golden, `.gitignore`, README e CLAUDE.md.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

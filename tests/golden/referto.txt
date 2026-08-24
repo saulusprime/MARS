@@ -1,0 +1,61 @@
+
+=======================================================
+           MARS BEACON - REPORT FINALE           
+=======================================================
+1. Tecnica           :  57/100
+  ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
+  ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
+2. SEO               :  27/100
+  Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti
+  ⚠ [Lighthouse] L'indicizzazione della pagina è bloccata (X-Robots-Tag: noindex)
+  ⚠ [Lighthouse] Il documento non ha un elemento `<title>` (html)
+3. Lessicale         : classifica, non un voto
+  BM25 (k1=1.5, b=0.75)
+4. Semantica         : classifica, non un voto
+  proxy char-TFIDF
+5. Dati Strutturati  :  90/100
+  ⚠ JSON-LD malformato su https://esempio.test/servizi/
+6. Accessibilità     :  37/100
+  axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate
+  ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
+  ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
+7. Sicurezza         :  57/100
+  ZAP (passiva)
+  ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
+  ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
+9. Giudizio LLM      :  61/100
+  ⚠ Nessun prezzo verificabile
+  ⚠ Nessuna fonte citata
+-------------------------------------------------------
+Simulazione RRF      : Consenso Top-3 = 3/3 su 4 chunk
+  aggregato su 3 query
+Top Chunk Ibrido     : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
+  drenaggio linfatico                3/3
+  quanto costa una seduta di drenagg 2/3
+  parcheggio riservato               nessun riscontro
+-------------------------------------------------------
+Profili di citabilità IA  (mercato: eu)
+  Claude                68.9  █████████████
+  ChatGPT/Perplexity    63.4  ████████████
+  Qwen                  66.7  █████████████
+  Kimi                  66.7  █████████████
+  INDICE COMPOSITO      65.6
+  (stime euristiche dichiarate, non comportamento documentato dai vendor)
+  · Segnale debole: Qualità SEO (27/100)
+  · Segnale debole: Accessibilità (37/100)
+-------------------------------------------------------
+Giudizio LLM (claude-opus-5)  su 4 passaggi
+  Citabilità stimata   : 61/100
+  I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
+  Passaggio migliore   : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
+  · da migliorare: Nessun prezzo verificabile
+  · da migliorare: Nessuna fonte citata
+-------------------------------------------------------
+URL saltati          : 4
+  · vietato da robots.txt: https://esempio.test/privato
+  · altro host: https://altro.test/
+  · non HTML: https://esempio.test/listino.pdf
+  · ... e altri 1
+-------------------------------------------------------
+Pagine trovate via   : sitemap  (3 pagine, 4 chunk)
+=======================================================

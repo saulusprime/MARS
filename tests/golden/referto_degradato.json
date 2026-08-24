@@ -1,0 +1,724 @@
+{
+  "tool": "mars_audit.py",
+  "version": "0.0.0",
+  "generated_at": "2026-01-01T00:00:00+0000",
+  "url": "https://esempio.test/",
+  "market": "italia",
+  "pages_crawled": 3,
+  "discovery": "sitemap",
+  "chunks": 4,
+  "robots_ignored": true,
+  "queries": [
+    "drenaggio linfatico",
+    "quanto costa una seduta di drenaggio linfatico",
+    "parcheggio riservato"
+  ],
+  "skipped": [],
+  "areas": [
+    {
+      "module": "mars_tech",
+      "label": "1. Tecnica",
+      "score": 57,
+      "status": null,
+      "issues": [
+        "[critico] robots.txt BLOCCA 1 crawler IA: GPTBot",
+        "[lieve] 2/3 pagine senza <link rel=\"canonical\">"
+      ],
+      "findings": [
+        {
+          "area": "mars_tech",
+          "severity": "critical",
+          "title": "robots.txt BLOCCA 1 crawler IA: GPTBot",
+          "key": "tech.robots.ai_blocked",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "critico",
+          "params": {
+            "bloccati": [
+              "GPTBot"
+            ],
+            "n": 1,
+            "penalty": 40.0
+          }
+        },
+        {
+          "area": "mars_tech",
+          "severity": "info",
+          "title": "2/3 pagine senza <link rel=\"canonical\">",
+          "key": "tech.canonical.missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "lieve",
+          "params": {
+            "pagine": 2,
+            "totale": 3,
+            "penalty": 3.0
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_seo",
+      "label": "2. SEO",
+      "score": null,
+      "status": "unavailable",
+      "issues": [
+        "Lighthouse non trovato nel PATH"
+      ],
+      "findings": [
+        {
+          "area": "mars_seo",
+          "severity": "info",
+          "title": "Lighthouse non trovato nel PATH",
+          "key": "seo.status.no_tool",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "tool": "lighthouse"
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_lexical",
+      "label": "3. Lessicale",
+      "score": null,
+      "status": "ranking",
+      "issues": [],
+      "findings": [],
+      "tool": "BM25 (k1=1.5, b=0.75)",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_semantic",
+      "label": "4. Semantica",
+      "score": null,
+      "status": "error",
+      "issues": [
+        "MemoryError: corpus troppo grande"
+      ],
+      "findings": [
+        {
+          "area": "mars_semantic",
+          "severity": "info",
+          "title": "Area non calcolata: il modulo e' fallito",
+          "key": "sem.status.error",
+          "detail": "MemoryError: corpus troppo grande",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {}
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_schema",
+      "label": "5. Dati Strutturati",
+      "score": 90,
+      "status": null,
+      "issues": [
+        "JSON-LD malformato su https://esempio.test/servizi/"
+      ],
+      "findings": [
+        {
+          "area": "mars_schema",
+          "severity": "warning",
+          "title": "1 blocchi JSON-LD malformati",
+          "key": "sd.jsonld.block_malformed",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
+            "n": 1,
+            "penalty": 10.0
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_wcag",
+      "label": "6. Accessibilità",
+      "score": 40,
+      "status": "surface",
+      "issues": [
+        "[1.1.1] 1/2 immagini prive di testo alternativo",
+        "[1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
+        "[1.3.1/3.3.2] 1 campi di modulo senza etichetta",
+        "[1.3.1] 1 tabelle dati senza intestazioni <th>",
+        "[2.4.4] 1 link con testo generico (\"clicca qui\", \"leggi tutto\")"
+      ],
+      "findings": [
+        {
+          "area": "mars_wcag",
+          "severity": "critical",
+          "title": "1/2 immagini prive di testo alternativo",
+          "key": "wcag.img.alt_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "immagini": 1,
+            "totale": 2,
+            "criterio": "1.1.1",
+            "penalty": 12.0,
+            "surface": true
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
+          "key": "wcag.heading.skip",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "salti": 1,
+            "criterio": "1.3.1",
+            "penalty": 12.0,
+            "surface": true
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "critical",
+          "title": "1 campi di modulo senza etichetta",
+          "key": "wcag.form.label_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "campi": 1,
+            "criterio": "1.3.1/3.3.2",
+            "penalty": 12.0,
+            "surface": true
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "warning",
+          "title": "1 tabelle dati senza intestazioni <th>",
+          "key": "wcag.table.th_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "tabelle": 1,
+            "criterio": "1.3.1",
+            "penalty": 12.0,
+            "surface": true
+          }
+        },
+        {
+          "area": "mars_wcag",
+          "severity": "info",
+          "title": "1 link con testo generico (\"clicca qui\", \"leggi tutto\")",
+          "key": "wcag.link.generic",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "link": 1,
+            "criterio": "2.4.4",
+            "penalty": 12.0,
+            "surface": true
+          }
+        }
+      ],
+      "tool": "markup",
+      "wcag_level": "WCAG 2.1 A + AA (parziale: solo criteri statici)",
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_wapt",
+      "label": "7. Sicurezza",
+      "score": 75,
+      "status": "surface",
+      "issues": [
+        "CSP mancante",
+        "X-Frame-Options mancante"
+      ],
+      "findings": [
+        {
+          "area": "mars_wapt",
+          "severity": "warning",
+          "title": "CSP mancante",
+          "key": "sec.headers.csp_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "header": "Content-Security-Policy",
+            "penalty": 15.0,
+            "surface": true
+          }
+        },
+        {
+          "area": "mars_wapt",
+          "severity": "warning",
+          "title": "X-Frame-Options mancante",
+          "key": "sec.headers.xframe_missing",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "header": "X-Frame-Options",
+            "penalty": 10.0,
+            "surface": true
+          }
+        }
+      ],
+      "tool": "HTTP-Headers",
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_citability",
+      "label": "8. Citabilità IA",
+      "score": 67.9,
+      "status": null,
+      "issues": [
+        "Mercato 'italia' sconosciuto: uso 'global' (noti: cn, eu, global, us)",
+        "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso RRF), Contenuto in forma di risposta",
+        "Segnale debole: Accessibilità (40/100)",
+        "Segnale debole: Accesso e indicizzabilità (57/100)"
+      ],
+      "findings": [
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Mercato 'italia' sconosciuto: uso 'global'",
+          "key": "cit.status.unknown_market",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "requested": "italia",
+            "used": "global",
+            "known": [
+              "cn",
+              "eu",
+              "global",
+              "us"
+            ],
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale non misurato: Qualità SEO",
+          "key": "cit.seo.unmeasured",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "seo",
+            "label": "Qualità SEO",
+            "sources": [
+              "mars_seo"
+            ],
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale non misurato: Recuperabilità ibrida (consenso RRF)",
+          "key": "cit.recuperabilita.unmeasured",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "recuperabilita",
+            "label": "Recuperabilità ibrida (consenso RRF)",
+            "sources": [
+              "mars_lexical",
+              "mars_semantic"
+            ],
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale non misurato: Contenuto in forma di risposta",
+          "key": "cit.answer_shaped.unmeasured",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "answer_shaped",
+            "label": "Contenuto in forma di risposta",
+            "sources": [
+              "mars_semantic"
+            ],
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Accessibilità (40/100)",
+          "key": "cit.accessibilita.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "accessibilita",
+            "label": "Accessibilità",
+            "sources": [
+              "mars_wcag"
+            ],
+            "value": 40.0,
+            "threshold": 60,
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Accesso e indicizzabilità (57/100)",
+          "key": "cit.tecnica.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "tecnica",
+            "label": "Accesso e indicizzabilità",
+            "sources": [
+              "mars_tech"
+            ],
+            "value": 57.0,
+            "threshold": 60,
+            "derived": true
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
+      "module": "mars_llm_judge",
+      "label": "9. Giudizio LLM",
+      "score": null,
+      "status": "disabled",
+      "issues": [
+        "Giudizio LLM disattivato (--llm off)"
+      ],
+      "findings": [
+        {
+          "area": "mars_llm_judge",
+          "severity": "info",
+          "title": "Giudizio LLM disattivato (--llm off)",
+          "key": "llm.status.disabled",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "mode": "off",
+            "attempted": false
+          }
+        }
+      ],
+      "tool": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    }
+  ],
+  "rrf_simulation": [],
+  "rrf_aggregate": null,
+  "citability": {
+    "score": 67.9,
+    "status": null,
+    "issues": [
+      "Mercato 'italia' sconosciuto: uso 'global' (noti: cn, eu, global, us)",
+      "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso RRF), Contenuto in forma di risposta",
+      "Segnale debole: Accessibilità (40/100)",
+      "Segnale debole: Accesso e indicizzabilità (57/100)"
+    ],
+    "findings": [
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Mercato 'italia' sconosciuto: uso 'global'",
+        "key": "cit.status.unknown_market",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "requested": "italia",
+          "used": "global",
+          "known": [
+            "cn",
+            "eu",
+            "global",
+            "us"
+          ],
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale non misurato: Qualità SEO",
+        "key": "cit.seo.unmeasured",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "seo",
+          "label": "Qualità SEO",
+          "sources": [
+            "mars_seo"
+          ],
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale non misurato: Recuperabilità ibrida (consenso RRF)",
+        "key": "cit.recuperabilita.unmeasured",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "recuperabilita",
+          "label": "Recuperabilità ibrida (consenso RRF)",
+          "sources": [
+            "mars_lexical",
+            "mars_semantic"
+          ],
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale non misurato: Contenuto in forma di risposta",
+        "key": "cit.answer_shaped.unmeasured",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "answer_shaped",
+          "label": "Contenuto in forma di risposta",
+          "sources": [
+            "mars_semantic"
+          ],
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Accessibilità (40/100)",
+        "key": "cit.accessibilita.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "accessibilita",
+          "label": "Accessibilità",
+          "sources": [
+            "mars_wcag"
+          ],
+          "value": 40.0,
+          "threshold": 60,
+          "derived": true
+        }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Accesso e indicizzabilità (57/100)",
+        "key": "cit.tecnica.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "tecnica",
+          "label": "Accesso e indicizzabilità",
+          "sources": [
+            "mars_tech"
+          ],
+          "value": 57.0,
+          "threshold": 60,
+          "derived": true
+        }
+      }
+    ],
+    "market": "global",
+    "profiles": {
+      "Claude": 66.6,
+      "ChatGPT/Perplexity": 69.5,
+      "Qwen": 66.6,
+      "Kimi": 66.6
+    },
+    "signals": {
+      "Accesso e indicizzabilità": 57.0,
+      "Qualità SEO": null,
+      "Dati strutturati": 90.0,
+      "Accessibilità": 40.0,
+      "Sicurezza": 75.0,
+      "Recuperabilità ibrida (consenso RRF)": null,
+      "Contenuto in forma di risposta": null
+    },
+    "disclaimer": "stime euristiche dichiarate, non comportamento documentato dai vendor"
+  },
+  "llm_judgement": {
+    "score": null,
+    "status": "disabled",
+    "issues": [
+      "Giudizio LLM disattivato (--llm off)"
+    ],
+    "findings": [
+      {
+        "area": "mars_llm_judge",
+        "severity": "info",
+        "title": "Giudizio LLM disattivato (--llm off)",
+        "key": "llm.status.disabled",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "mode": "off",
+          "attempted": false
+        }
+      }
+    ]
+  },
+  "lexical": {
+    "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?"
+  },
+  "semantic": {
+    "answer_shaped_ratio": null,
+    "n_chunks": null,
+    "answer_shaped_signals": null,
+    "page_signals": null,
+    "languages": null
+  }
+}

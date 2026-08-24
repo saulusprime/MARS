@@ -113,6 +113,11 @@ cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
   valutate sul codice sbagliato. Verificare inoltre che il file resti
   **importabile**: una mutazione che rompe la sintassi fa fallire tutto
   e non dimostra che il test cogliesse quel difetto.
+- **Il referto ha dei golden.** `tests/golden/` congela la resa dei tre
+  formati su due referti sintetici. Cambiare una resa — o un punteggio,
+  perche' i golden congelano la pipeline intera — fa fallire
+  `tests/test_golden.py`: si rigenera con `MARS_RIGENERA_GOLDEN=1 pytest`
+  e **si rivede il diff**, non si rigenera per far tornare il verde.
 - **`flake8` deve restare a zero.** `setup.cfg` è già configurato:
   basta `flake8 .`. È il controllo che ha rivelato il difetto più grave
   del progetto (login rotto da una funzione definita due volte).

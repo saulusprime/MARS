@@ -191,10 +191,39 @@ def normalizza_risultato(module_name: str, res: object) -> dict:
     fatta per gli strumenti mancanti: il referto perde un'area, non
     tutto. Vive qui perche' CLI e API caricano gli stessi plugin.
     """
-    if isinstance(res, dict):
+    if not isinstance(res, dict):
+        return {"error": "%s ha restituito %s invece di un dict"
+                         % (module_name, type(res).__name__)}
+    return vesti_findings(res)
+
+
+def vesti_findings(res: dict) -> dict:
+    """I rilievi di un'area, con i testi di correzione a catalogo.
+
+    Sta QUI, nell'imbuto che CLI e API attraversano entrambe, e non
+    dentro i moduli: cosi' il catalogo si applica una volta sola, e
+    nessun modulo deve importarlo. Il contratto resta
+    `audit(context) -> dict` — un plugin di terzi continua a
+    funzionare senza sapere che `mars_fixes` esista, e se porta i
+    propri testi se li tiene (`mars_fixes.vesti`: il modulo vince, il
+    catalogo colma).
+
+    L'import e' locale e tollerante: il catalogo e' prosa editoriale,
+    non un pezzo del motore. Se il file mancasse, l'audit deve
+    proseguire senza i testi invece di cadere — ed e' la stessa scelta
+    fatta per Lighthouse, ZAP e le altre dipendenze opzionali.
+    """
+    rilievi = res.get("findings")
+    if not isinstance(rilievi, list):
         return res
-    return {"error": "%s ha restituito %s invece di un dict"
-                     % (module_name, type(res).__name__)}
+    try:
+        from mars_fixes import vesti
+    except ImportError:
+        return res
+    for finding in rilievi:
+        if isinstance(finding, dict):
+            vesti(finding)
+    return res
 
 
 def errore_modulo(exc: BaseException) -> dict:

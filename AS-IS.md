@@ -3195,6 +3195,99 @@ misura cambiata.
 
 - [x] `tests/test_golden.py`, sei golden, `.gitignore`, README e CLAUDE.md.
 
+### U3.1 — ✅ (2026-08-24): il catalogo dei testi di correzione
+
+**Il problema.** I moduli dicevano *che cosa* è rotto e mai *come* si
+aggiusta. I `Finding` hanno i campi `fix` ed `example` dalla Fase 1, e sono
+rimasti vuoti in tutti tranne uno: `mars_wapt`, che la `solution` la prende
+da ZAP. Venticinque controlli senza una riga di prescrizione.
+
+**Il catalogo sta in un file suo**, `mars_fixes.py`, e non dentro i moduli.
+Tre ragioni: la Fase 9 tradurrà **per chiave** da un catalogo, e con i testi
+sparsi in sei moduli l'italiano vivrebbe in due forme che divergono senza che
+nulla si rompa; un catalogo si legge *come catalogo*, che è l'unico modo di
+accorgersi che due controlli vicini dicono la stessa cosa in due modi; e i
+moduli restano plugin — **non importano il catalogo**, che si applica fuori,
+nell'imbuto di `normalizza_risultato`, quindi il contratto
+`audit(context) -> dict` non cambia (principio 3).
+
+In Python e non in JSON: un file di dati assente o illeggibile darebbe un
+referto con tutti i `fix` vuoti e **nessun errore**, che è la degradazione non
+dichiarata che il principio 2 vieta. E gli esempi sono multiriga: in JSON
+diventerebbero stringhe con `\n` letterali, irrivedibili in un `git diff` —
+cioè fuori dal presidio che U2 ha appena montato.
+
+**Il modulo vince, il catalogo colma.** Si scrive solo dove il rilievo ha il
+campo vuoto: è ciò che permette a `mars_wapt` di conservare la `solution` di
+ZAP (verificato nel golden: «Convalida l'input e codifica l'output.» resta
+quella dello strumento) e a un plugin di terzi di portare i propri testi senza
+sapere che il catalogo esista.
+
+**Chi riceve un fix, e perché non tutti.** La regola è una: *riceve un `fix`
+soltanto il rilievo che descrive uno stato del sito che chi lo possiede può
+cambiare*. Ne discendono tre esclusioni, ed è un test a farle rispettare:
+
+- i `*.status.*` sono fatti sulla **scansione**. «Lighthouse non trovato nel
+  PATH» ha un'azione ovvia, ma è un'istruzione per chi fa girare MARS: il
+  `fix` finisce nel piano di interventi e nel CSV, che si consegnano a un
+  cliente, e un piano che dica «installa Lighthouse» ha sbagliato
+  destinatario;
+- i rilievi di `mars_citability` portano `derived`: ridicono un difetto già
+  quantificato dall'area d'origine, e prescriverlo due volte gonfierebbe il
+  piano;
+- le tre famiglie dinamiche prendono il testo **dallo strumento**.
+
+**Due fix del progetto di riferimento sono stati bocciati**, non riusati:
+
+- «Verifica che l'esclusione sia voluta» per `tech.index.noindex` è una
+  *domanda*, e là sta sotto un `warning` mentre in MARS lo stesso rilievo è
+  **critico** quando tutto il sito è deindicizzato. Riscritto all'imperativo;
+- il fix di `sd.jsonld.missing` elencava i tipi Schema.org da aggiungere, ma
+  `mars_schema` **non guarda i tipi**: verifica che i blocchi si analizzino
+  (I11 è ancora aperta). Prescrivere più di quanto si misuri è la falsa
+  precisione che il principio 5 vieta.
+
+**L'esempio di robots.txt non correggeva il difetto**, ed è il caso in cui per
+poco non cascavo. L'esempio riusato mostra tre blocchi permissivi; chi lo
+incollasse **in coda** al proprio robots.txt — la lettura naturale, ed è
+quella che l'esempio gemello della sitemap prescrive esplicitamente —
+resterebbe bloccato, perché `RobotFileParser` tiene il **primo** gruppo che
+nomina quell'agente. Il proprietario crederebbe di aver corretto e la
+scansione successiva direbbe di no, senza modo di capire perché. Ora l'esempio
+mostra la **sostituzione**, e c'è un test di andata e ritorno che lo dà in
+pasto a `controlla_robots` e verifica che il rilievo si chiuda. Stessa prova
+per l'esempio di robots.txt completo e per il blocco JSON-LD.
+
+**Due esempi portano un'avvertenza dentro il fix**, e non è formalità:
+`Content-Security-Policy-Report-Only` **non chiude** il rilievo — il controllo
+cerca la chiave esatta — e il fix lo dice; HSTS è **irrevocabile** per tutta
+la durata di `max-age`, quindi l'esempio parte da un giorno e il fix dice di
+aggiungere `includeSubDomains` solo dopo aver verificato i sottodomini.
+
+**Nessuna interpolazione, e una formulazione per chiave.** Il catalogo si
+applica dove i moduli non ci sono più: un fix che nominasse GPTBot dovrebbe
+leggere i params. Il fix dice *che cosa fare*, il titolo e i params dicono *a
+chi* e *quanto*. E `tech.index.noindex` è critico o grave a seconda di quante
+pagine sono escluse: il testo è scritto per reggere entrambi i casi, perché un
+catalogo `chiave → {gravità → testo}` raddoppierebbe le voci da tradurre nella
+Fase 9 per una sfumatura che la prescrizione non cambia.
+
+**La prova che la divisione in tre serviva**: dei sei golden ne cambiano
+**due**, i `.json`, e il loro diff è di 34 righe modificate e 34 aggiunte —
+tutte e sole `"fix"` ed `"example"`. Testo e HTML sono **byte per byte
+identici**: nessuna resa è cambiata, quindi in questo commit si rivede la
+prosa e basta.
+
+Nove mutazioni, tutte rilevate. Due erano mal costruite alla prima stesura —
+una era il doppione di un'altra (il codice sta in `mars_fixes`, non in
+`mars_core`) e una cercava una stringa con l'indentazione sbagliata: rifatte.
+
+I due dataset dei golden esercitano **dieci** delle venticinque voci: le altre
+quindici non le vedrebbe nessuno finché un sito reale non le accende, e per
+questo un test le guarda tutte — lunghezza, imperativo, nessuna domanda.
+
+- [x] `mars_fixes.py`, `vesti_findings()`, quindici test, i due golden JSON.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

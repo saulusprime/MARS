@@ -167,6 +167,27 @@ AS-IS conserva nove misure invece di un riassunto.
       tutte le fasi successive: ogni cambiamento di resa passa da una
       rigenerazione intenzionale con revisione del diff.
 - [ ] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
+      Spezzata in tre come U1, e per la stessa ragione: in un commit solo il
+      diff sarebbe di ~700 righe di cui metà golden, cioè irrivedibile — e la
+      revisione del diff dei golden è tutto il valore di U2.
+  - [x] **U3.1** — il catalogo `mars_fixes.py` e la vestizione in
+        `normalizza_risultato`. Nessun modulo d'area toccato, nessuna resa
+        cambiata: si rivede **la prosa**, e solo i due golden `.json` si
+        muovono.
+  - [ ] **U3.2** — i testi che vengono dagli strumenti: il `fix` italiano di
+        axe da `node_modules/axe-core/locales/it.json`, la `description` di
+        Lighthouse ripulita dai link Markdown, il `detail` dove manca.
+        Ancora solo i `.json`: si rivede **il codice**.
+  - [ ] **U3.3** — la resa. `render_text`, `_scheda_area`, il CSS (`.fix`,
+        `pre.ex`), i sei golden rigenerati. È il commit del diff da leggere
+        riga per riga, e grazie ai due precedenti quel diff contiene **solo**
+        cambiamenti di resa.
+        Vincolo emerso dalla critica avversariale, da rispettare: far leggere
+        alle viste i `findings` invece delle `issues` farebbe dire «Nessun
+        rilievo.» a due aree che i rilievi ce l'hanno — `mars_citability`
+        (2 issues → 4 findings) e `mars_llm_judge` quando riesce (3 issues →
+        0 findings, per scelta di U1.9). Il ramo «Nessun rilievo.» deve
+        valere solo quando l'area **non ha né findings né issues**.
 - [ ] **U4 — Piano di remediation ordinato** (G02, Fase 4) — il cuore
       dell'adeguamento.
 - [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).

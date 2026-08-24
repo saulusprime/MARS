@@ -253,8 +253,15 @@ AREA_PREFIX = {
 #
 # "mars" e' la scala editoriale italiana: la usa mars_tech, che l'ha
 # definita, ma anche gli header di mars_wapt, i controlli statici di
-# mars_wcag, mars_schema e mars_citability. Si chiama "mars" e non
-# "mars_tech" proprio per questo: cinque moduli, non uno.
+# mars_wcag e mars_schema. Si chiama "mars" e non "mars_tech" proprio
+# per questo: quattro moduli, non uno.
+#
+# U1.1 contava anche mars_citability. U1.8 ha misurato che non le serve:
+# i suoi rilievi sono tutti `info` a peso 1.0 — sono sintesi, e non
+# devono mai scavalcare la misura che sintetizzano — quindi il modulo
+# usa SEV_INFO direttamente. Farlo passare da qui per tenere vero il
+# commento avrebbe voluto dire dichiarare "lieve" sette volte, cioe'
+# attribuirgli una scala editoriale che non pubblica.
 _SCALE_SEVERITA = {
     "mars": {
         "critico": (SEV_CRITICAL, 2.0),

@@ -2422,7 +2422,7 @@ stato dichiarato e che non compaia alcun `/100`.
 - [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
 
 ### U1 — Fase 1 del programma UPGRADE: il modello dati dei rilievi
-*(in corso: 7 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
+*(in corso: 8 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
 voci aperte in [TO-DO.md](TO-DO.md).)*
 
 Fino a qui un rilievo è una stringa con la gravità in un prefisso, e i
@@ -2852,6 +2852,109 @@ elementi per nome, il secondo pinna `(3, 6, 2)` e il testo della issue.
 
 - [x] `mars_seo`: peso dal referto, penalità esatta, titoli non più falsi.
 - [ ] `mars_citability` (U1.8) e `mars_llm_judge` (U1.9).
+
+#### U1.8 — `mars_citability`, l'area che ridice invece di misurare (2026-08-24)
+
+Le sei voci precedenti hanno adeguato aree che **misurano**. Questa adegua
+un'area che **rilegge**: `mars_citability` non guarda il sito, riduce i
+punteggi altrui a sette segnali, quattro profili e un indice. Il rischio non
+era perdere informazione — era **produrne di finta**, cioè un secondo elenco di
+difetti che sembra indipendente dal primo e che a valle verrebbe sommato al
+primo.
+
+**`params["derived"] = True` su ogni rilievo, senza eccezioni**, ed è un
+invariante d'area invece che un giudizio caso per caso. Le due letture
+possibili erano «questo rilievo ridice un difetto già misurato altrove» (vera
+per i segnali, falsa per il mercato sconosciuto) e «questo rilievo non nasce da
+una misura di quest'area: **descrive, non quantifica**» (vera per tutti). Vince
+la seconda: dà al consumatore una regola sola invece di tre classi, e un test
+su un invariante regge dove una tabella di casi deriva.
+
+**Nessun rilievo porta `penalty`, e l'assenza è il significato del
+marcatore.** Sarebbe calcolabile — il composito è una media pesata, quindi
+lineare come quella di Lighthouse, e il contributo di un segnale è esatto:
+proprio per questo non va messo. Sarebbe lo stesso deficit espresso in una
+seconda unità di misura, mentre l'area d'origine lo dichiara già riga per riga
+e con molto più dettaglio. È **D3 portata dentro il dato**: la citabilità è
+esclusa dal punteggio complessivo perché conterebbe due volte, e per la stessa
+ragione è esclusa dalle somme di recupero.
+
+**Tutti `info`, peso 1.0, e non è prudenza.** La severità è l'asse su cui la
+Fase 4 ordinerà il piano di interventi, e su quell'asse una sintesi non deve
+**mai** scavalcare la misura che sintetizza: «Segnale debole: Sicurezza
+(50/100)» e «[ZAP:High] SQL injection (3 URL)» descrivono lo stesso difetto, e
+il secondo porta regola, URL e soluzione. Tenerli al gradino più basso rende
+l'ordinamento per gravità **monotono rispetto alla derivazione**.
+
+Per la stessa ragione il modulo **non usa** la scala editoriale `"mars"`, e il
+commento di `_SCALE_SEVERITA` che da U1.1 contava «cinque moduli» è stato
+corretto a quattro, nel codice e nel test. L'alternativa — dichiarare `lieve`
+sette volte per tenere vera quella frase — attribuirebbe al modulo una scala
+che non pubblica.
+
+**Le chiavi si compongono col nome del segnale e NON passano da
+`chiave_esterna()`.** Quella funzione difende la profondità fissa da un id
+ostile — axe, ZAP, Lighthouse — al prezzo dell'iniettività (R39). Qui il
+vocabolario è scritto nel file: un refuso deve far fallire un test, non essere
+ripulito in silenzio. Famiglia = soggetto, esito = verdetto
+(`cit.seo.weak`, `cit.seo.unmeasured`), come `sd.jsonld.*` e `sec.headers.*`:
+così lo stesso segnale porta due esiti sotto la stessa famiglia.
+
+**Una issue che elenca sette segnali diventa sette rilievi**, e l'argomento di
+`mars_schema` per aggregare qui non vale: là la cardinalità era accoppiata al
+punteggio, qui non c'è punteggio da ricostruire. Ogni segnale non misurato
+punta invece a un'**area diversa** — che è l'unica informazione azionabile del
+caso — e `params["sources"]` la porta. Il rapporto fra le due viste è quindi
+uno-a-molti in un verso e molti-a-uno nell'altro (i deboli: tutti nel dato, due
+nelle issues): **non sono tenute alla stessa cardinalità, sono tenute allo
+stesso contenuto e allo stesso ordine**.
+
+**Un pareggio che decide quale segnale l'utente legge.** `deboli` si ordina per
+valore e, a parità, per **etichetta italiana**; per emettere la chiave serviva
+il nome interno, e metterlo al posto dell'etichetta avrebbe cambiato il
+tie-break — sei coppie su ventuno si invertono, e il pareggio attraversa il
+taglio `deboli[:2]`, quindi cambia *quale* segnale diventa issue. Il nome è
+entrato come **terzo** elemento della tupla, dove non viene mai confrontato
+perché le etichette sono uniche. Quel criterio non aveva una sola asserzione
+dietro: ora ne ha una, costruita su un pareggio vero.
+
+**`ORIGINE` è una seconda dichiarazione, e lo dice.** La corrispondenza
+segnale → area vive già dentro `raccogli_segnali`, che legge i moduli per nome.
+Riscriverla per leggere la tabella sarebbe un refactor a comportamento
+invariato dentro un commit che cambia il comportamento, e l'ordine del suo dict
+letterale è dato osservabile (decide l'ordine di `signals` nel JSON e dei nomi
+dentro la issue). A tenere insieme le due dichiarazioni non c'è un accorgimento
+ma **un test**, parametrizzato su tutti e sette i segnali: costruisce i
+`results` a partire da `ORIGINE` e verifica che il segnale corrispondente
+risulti misurato.
+
+**Il doppio canale, accettato e non filtrato.** I findings della citabilità
+escono nel JSON due volte: `referto["citability"]["findings"]` (copia integrale
+del dict) e la voce d'area (copia selettiva) — tre, contando `modules`
+dell'API. È l'unica area con questo doppio canale. Filtrarlo significherebbe
+far decidere a `build_report` sul **nome del modulo**, che è l'anti-pattern che
+R38 ha appena tolto da `render_text`: si chiuderebbe un doppione
+reintroducendone la causa. Chi renderà i findings in HTML dovrà agganciarsi a
+**uno solo** dei tre punti in cui la citabilità compare.
+
+Verificato per confronto col codice precedente su **58 casi**, con uguaglianza
+**totale** del dict (non chiave per chiave, così una chiave scomparsa non
+passa) più l'ordine delle chiavi di `signals`: zero divergenze. E le viste sono
+identiche **byte a byte**, testo e HTML.
+
+Ventisette mutazioni, tutte rilevate al primo giro — con
+`PYTHONDONTWRITEBYTECODE=1` fin dall'inizio, che è la lezione di U1.7 applicata
+invece che ripagata.
+
+Due difetti trovati e non corretti, in **R41** e **R42**: il marcatore
+`derived` non ha ancora un lettore, e le tre guardie contro il doppio conteggio
+non sono equivalenti — la Fase 5 conterebbe i derivati fra gli «Info»; e la
+vista testo, quando la citabilità fallisce, **non stampa nulla**, perché il suo
+blocco dedicato è protetto da `profiles` e il ciclo delle aree la salta per
+nome.
+
+- [x] `mars_citability`: derivati senza penalità, `sources`, chiavi per segnale.
+- [ ] `mars_llm_judge` (U1.9), poi il bump a 2.1.0.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

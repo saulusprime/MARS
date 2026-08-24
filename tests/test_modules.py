@@ -9,6 +9,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -2918,6 +2919,280 @@ def test_citability_dichiara_sempre_la_natura_euristica():
 def test_citability_senza_risultati():
     esito = mars_citability.audit({"results": {}})
     assert esito["score"] is None and esito["status"] == "unavailable"
+
+
+# --- U1.8: i rilievi derivati di mars_citability -----------------------
+#
+# Quest'area non misura il sito: rilegge i punteggi delle altre. I suoi
+# rilievi devono poter essere SALTATI da chi li somma, altrimenti lo
+# stesso difetto viene contato due volte — e' la decisione D3 portata
+# dentro il dato.
+
+def _rilievi(**cambi) -> dict:
+    """I rilievi di un audit di citabilita', indicizzati per chiave."""
+    esito = mars_citability.audit(
+        {"results": _risultati(**cambi), "market": "global"})
+    return {f["key"]: f for f in esito["findings"]}
+
+
+# Quattro segnali deboli con valori DISTINTI: answer_shaped va portato a
+# 1.0, altrimenti _risultati() lo lascia a 50 e pareggia con wcag.
+DEBOLI_DISTINTI = dict(
+    mars_seo={"score": 10}, mars_schema={"score": 30},
+    mars_wcag={"score": 50}, mars_wapt={"score": 59},
+    mars_semantic={"rank": [0, 1, 2], "answer_shaped_ratio": 1.0})
+
+
+def test_citability_ogni_rilievo_e_dichiarato_derivato():
+    """L'invariante d'area, non un giudizio caso per caso: nulla di
+    quello che dice quest'area nasce da una misura sua."""
+    for cambi in ({}, DEBOLI_DISTINTI, {"mars_seo": {"score": None}}):
+        esito = mars_citability.audit({"results": _risultati(**cambi)})
+        assert esito["findings"], "l'area deve dire qualcosa"
+        assert all(f["params"]["derived"] is True
+                   for f in esito["findings"])
+    # Anche i due rami che escono prima di ogni calcolo.
+    for ctx in ({"results": {}},
+                {"results": {"mars_tech": {"score": None}}}):
+        assert all(f["params"]["derived"] is True
+                   for f in mars_citability.audit(ctx)["findings"])
+
+
+def test_citability_nessun_rilievo_porta_una_penalita():
+    """L'assenza di `penalty` E' il significato di `derived`: un segnale
+    debole e' un difetto del sito, ma quantificarlo tocca all'area che
+    l'ha misurato. Sarebbe calcolabile — il composito e' una media
+    pesata — e proprio per questo non va messo."""
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI)})
+    assert esito["findings"]
+    assert all("penalty" not in f["params"] for f in esito["findings"])
+
+
+def test_citability_una_sintesi_non_scavalca_la_misura():
+    """Tutti `info` a peso 1.0: la severita' e' l'asse su cui la Fase 4
+    ordinera' il piano, e su quell'asse un rilievo derivato non deve mai
+    precedere quello che lo spiega — che ha regola, URL e soluzione."""
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI),
+                                   "market": "atlantide"})
+    assert esito["findings"]
+    for f in esito["findings"]:
+        assert f["severity"] == SEV_INFO
+        assert f["weight"] == 1.0
+        assert f["source_severity"] == ""
+
+
+def test_citability_le_chiavi_sono_ben_formate_e_uniche():
+    """Tre segmenti, prefisso d'area, nessun duplicato quando piu'
+    segnali sono deboli insieme."""
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI),
+                                   "market": "atlantide"})
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert len(chiavi) == len(set(chiavi))
+    for chiave in chiavi:
+        parti = chiave.split(".")
+        assert parti[0] == AREA_PREFIX["mars_citability"] == "cit"
+        assert len(parti) == 3
+
+
+def test_citability_i_nomi_dei_segnali_sono_segmenti_validi():
+    """La chiave si compone col nome interno del segnale e NON passa da
+    `chiave_esterna`: il vocabolario e' scritto in questo file, e un
+    refuso deve far fallire un test invece di essere ripulito in
+    silenzio. E nessun segnale puo' chiamarsi "status", o le due
+    famiglie collidereb bero."""
+    for segnale in mars_citability.SEGNALI:
+        assert re.fullmatch(r"[a-z][a-z0-9_]*", segnale), segnale
+        assert segnale != "status"
+
+
+def test_citability_ogni_segnale_dice_da_quale_area_viene():
+    """Un rilievo derivato senza indirizzo e' una lamentela: `sources`
+    e' cio' che permettera' di agganciarlo ai rilievi veri."""
+    rilievi = _rilievi(**DEBOLI_DISTINTI)
+    assert rilievi["cit.seo.weak"]["params"]["sources"] == ["mars_seo"]
+    # Il nome interno e l'etichetta viaggiano col rilievo: chi lo legge
+    # non deve doverli estrarre dalla chiave o dal titolo.
+    assert rilievi["cit.seo.weak"]["params"]["signal"] == "seo"
+    assert rilievi["cit.seo.weak"]["params"]["label"] == "Qualità SEO"
+    # Sempre una lista, anche di uno; e mai una tupla, che as_dict()
+    # non converte e che in JSON diventerebbe comunque una lista.
+    for f in rilievi.values():
+        if "sources" in f["params"]:
+            assert isinstance(f["params"]["sources"], list)
+    senza = mars_citability.audit({"results": {"mars_tech": {"score": 50}}})
+    per_chiave = {f["key"]: f for f in senza["findings"]}
+    assert per_chiave["cit.recuperabilita.unmeasured"]["params"]["sources"] \
+        == ["mars_lexical", "mars_semantic"], "due sorgenti, non una"
+
+
+@pytest.mark.parametrize("segnale", list(mars_citability.ORIGINE))
+def test_citability_origine_dice_davvero_chi_misura(segnale):
+    """ORIGINE e' una SECONDA dichiarazione di cio' che raccogli_segnali
+    legge: a tenerle insieme non c'e' un accorgimento ma questo test.
+
+    Si costruiscono i results a partire dalla tabella, e il segnale
+    corrispondente — e nessun altro — deve risultare misurato."""
+    results = {}
+    for modulo in mars_citability.ORIGINE[segnale]:
+        results[modulo] = {"score": 50, "rank": [0, 1, 2],
+                           "answer_shaped_ratio": 0.5}
+    segnali = mars_citability.raccogli_segnali(results)
+    assert segnali[segnale] is not None, "ORIGINE indica l'area sbagliata"
+
+
+def test_citability_il_dato_porta_tutti_i_deboli_le_issues_due():
+    """La vista compatta ne mostra due; il dato li porta tutti. E'
+    l'asimmetria gia' scelta per i cinque alert ZAP."""
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI)})
+    deboli = [f for f in esito["findings"] if f["key"].endswith(".weak")]
+    assert len(deboli) == 4
+    assert len([i for i in esito["issues"]
+                if i.startswith("Segnale debole")]) == 2
+
+
+def test_citability_i_deboli_escono_dal_peggiore():
+    """L'ordine dei rilievi e' quello delle issues: valore crescente,
+    il peggiore per primo."""
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI)})
+    deboli = [f for f in esito["findings"] if f["key"].endswith(".weak")]
+    assert [f["params"]["value"] for f in deboli] == [10.0, 30.0, 50.0, 59.0]
+    assert [f["key"] for f in deboli] == [
+        "cit.seo.weak", "cit.dati_strutturati.weak",
+        "cit.accessibilita.weak", "cit.sicurezza.weak"]
+
+
+def test_citability_a_parita_di_valore_decide_l_etichetta():
+    """Il pareggio attraversa il taglio a due, quindi decide QUALE
+    segnale diventa issue, non solo l'ordine.
+
+    Il criterio e' l'etichetta italiana, non il nome interno: con
+    `tecnica` e `answer_shaped` entrambi a 50, "Accesso e
+    indicizzabilita'" precede "Contenuto in forma di risposta", mentre
+    ordinando per nome interno vincerebbe `answer_shaped`. Sei coppie
+    su ventuno si invertono fra i due criteri."""
+    esito = mars_citability.audit({"results": _risultati(
+        mars_tech={"score": 50}, mars_seo={"score": 40},
+        mars_schema={"score": 100}, mars_wcag={"score": 100},
+        mars_wapt={"score": 100},
+        mars_semantic={"rank": [0, 1, 2], "answer_shaped_ratio": 0.5})})
+    assert esito["issues"] == [
+        "Segnale debole: Qualità SEO (40/100)",
+        "Segnale debole: Accesso e indicizzabilità (50/100)"]
+    deboli = [f["key"] for f in esito["findings"]
+              if f["key"].endswith(".weak")]
+    assert deboli == ["cit.seo.weak", "cit.tecnica.weak",
+                      "cit.answer_shaped.weak"]
+
+
+def test_citability_il_valore_nel_dato_non_e_arrotondato():
+    """Il titolo stampa "%.0f" come la issue; il dato conserva il float.
+    La vista arrotonda, il dato no."""
+    esito = mars_citability.audit({"results": _risultati(
+        mars_seo={"score": 59.6},
+        mars_semantic={"rank": [0, 1, 2], "answer_shaped_ratio": 1.0})})
+    debole = [f for f in esito["findings"] if f["key"] == "cit.seo.weak"][0]
+    assert debole["params"]["value"] == 59.6
+    assert debole["title"] == "Segnale debole: Qualità SEO (60/100)"
+
+
+def test_citability_il_rilievo_debole_dice_la_soglia():
+    """Un cit.sicurezza.weak che viaggi da solo nel piano o in un
+    catalogo deve poter dire sotto quale soglia sia debole."""
+    debole = _rilievi(**DEBOLI_DISTINTI)["cit.seo.weak"]
+    assert debole["params"]["threshold"] == 60
+    assert mars_citability.SOGLIA_DEBOLE == 60, "il valore, non la costante"
+
+
+def test_citability_un_segnale_non_misurato_e_un_rilievo_per_segnale():
+    """Una issue sola che li elenca tutti, un rilievo per segnale:
+    aggregarli toglierebbe l'unica informazione azionabile — QUALE
+    strumento manca — e renderebbe la chiave incomparabile fra due
+    esecuzioni."""
+    esito = mars_citability.audit({"results": {"mars_tech": {"score": 80}}})
+    non_misurati = [f for f in esito["findings"]
+                    if f["key"].endswith(".unmeasured")]
+    assert len(non_misurati) == 6, "sei dei sette segnali"
+    assert len([i for i in esito["issues"]
+                if i.startswith("Segnali non misurati")]) == 1
+    # e nell'ordine in cui la issue li elenca
+    assert [f["params"]["label"] for f in non_misurati] == [
+        e.strip() for e in
+        esito["issues"][0].split(":", 1)[1].split(",")]
+
+
+def test_citability_il_mercato_ignoto_conserva_quello_chiesto():
+    """Il rilievo si costruisce PRIMA della riassegnazione: due righe
+    piu' sotto `nome_mercato` vale gia' "global", e `requested` direbbe
+    che l'utente ha chiesto proprio cio' che ha ottenuto."""
+    esito = mars_citability.audit(
+        {"results": _risultati(), "market": "atlantide"})
+    rilievo = [f for f in esito["findings"]
+               if f["key"] == "cit.status.unknown_market"][0]
+    assert rilievo["params"]["requested"] == "atlantide"
+    assert rilievo["params"]["used"] == "global"
+    assert rilievo["params"]["known"] == ["cn", "eu", "global", "us"]
+    # e con un mercato noto quel rilievo non c'e'
+    noto = mars_citability.audit({"results": _risultati(), "market": "eu"})
+    assert all(f["key"] != "cit.status.unknown_market"
+               for f in noto["findings"])
+
+
+def test_citability_il_composito_assente_e_un_rilievo_in_coda():
+    """E' una conclusione, non una premessa: i segnali non misurati che
+    lo precedono ne sono la causa.
+
+    E non e' deducibile dai sette `unmeasured`: `profilo()` restituisce
+    None anche quando i pesi si annullano, e dedurlo significherebbe
+    reimplementarla nel consumatore."""
+    esito = mars_citability.audit({"results": {"mars_tech": {"score": None}}})
+    assert esito["score"] is None and esito["status"] == "unavailable"
+    assert esito["findings"][-1]["key"] == "cit.status.no_composite"
+    assert len(esito["findings"]) == 8, "sette segnali piu' la conclusione"
+    # Con un composito calcolabile non c'e'.
+    pieno = mars_citability.audit({"results": _risultati()})
+    assert all(f["key"] != "cit.status.no_composite"
+               for f in pieno["findings"])
+
+
+def test_citability_senza_aree_porta_il_proprio_rilievo():
+    """Anche l'uscita anticipata deve comparire negli elenchi che le
+    fasi successive costruiranno sui findings."""
+    esito = mars_citability.audit({"results": {}})
+    assert [f["key"] for f in esito["findings"]] == ["cit.status.no_results"]
+    assert esito["findings"][0]["severity"] == SEV_INFO
+
+
+def test_citability_i_findings_arrivano_al_referto():
+    """Il modulo puo' produrli perfetti e build_report buttarli via.
+
+    Qui escono per DUE canali — la copia integrale del dict e la voce
+    di area — ed e' l'unica area con questo doppio canale: chi rendera'
+    i findings in HTML dovra' agganciarsi a uno solo."""
+    from mars_report import build_report
+    esito = mars_citability.audit({"results": _risultati(**DEBOLI_DISTINTI)})
+    referto = build_report({"mars_citability": esito}, {"url": "https://x/"})
+    area = [a for a in referto["areas"]
+            if a["module"] == "mars_citability"][0]
+    assert area["findings"] == esito["findings"]
+    assert referto["citability"]["findings"] == esito["findings"]
+    assert all(f["key"].startswith("cit.") for f in area["findings"])
+    json.dumps(referto)
+
+
+def test_citability_l_area_fallita_non_e_un_derivato():
+    """L'eccezione all'invariante, e va conosciuta: `cit.status.error`
+    lo sintetizza il referto, non il modulo, e non porta `derived`.
+
+    E' giusto cosi': non e' una sintesi, e' un guasto del nostro
+    strumento — e a differenza dei derivati non va escluso dai conteggi,
+    perche' non lo sta gia' dicendo nessun altro."""
+    from mars_report import build_report
+    referto = build_report({"mars_citability": {"error": "RuntimeError"}},
+                           {"url": "https://x/"})
+    area = [a for a in referto["areas"]
+            if a["module"] == "mars_citability"][0]
+    assert [f["key"] for f in area["findings"]] == ["cit.status.error"]
+    assert "derived" not in area["findings"][0]["params"]
 
 
 # ----------------------------------------------------------------------

@@ -1061,8 +1061,9 @@ def test_build_context_pubblica_il_delay_effettivo(monkeypatch):
 
 @pytest.mark.parametrize("scala, valore, severita, peso", [
     # La scala editoriale italiana: la definisce mars_tech, ma la usano
-    # anche gli header di mars_wapt, i controlli statici di mars_wcag,
-    # mars_schema e mars_citability. Per questo si chiama "mars".
+    # anche gli header di mars_wapt, i controlli statici di mars_wcag e
+    # mars_schema. Per questo si chiama "mars". (Non mars_citability:
+    # vedi il commento di _SCALE_SEVERITA, corretto con U1.8.)
     ("mars", "critico", SEV_CRITICAL, 2.0),
     ("mars", "grave", SEV_WARNING, 2.0),
     ("mars", "medio", SEV_WARNING, 1.0),

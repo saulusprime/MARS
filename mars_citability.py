@@ -9,7 +9,9 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from mars_core import SEV_INFO, Finding
 
 # ======================================================================
 # AVVERTENZA
@@ -104,6 +106,93 @@ MERCATI: Dict[str, Dict[str, Dict[str, float]]] = {
     },
 }
 
+# Da quali aree viene ogni segnale. Serve ai rilievi: un rilievo
+# derivato senza indirizzo e' una lamentela, e con l'indirizzo la Fase 4
+# puo' agganciarlo ai rilievi veri che lo spiegano.
+#
+# E' una SECONDA dichiarazione della corrispondenza che `raccogli_segnali`
+# esprime leggendo i moduli — due implementazioni della stessa cosa, che
+# e' esattamente cio' che diverge in silenzio. A tenerle insieme non c'e'
+# un accorgimento ma un test: costruisce i `results` a partire da questa
+# tabella e verifica che il segnale corrispondente diventi misurato.
+# Riscrivere `raccogli_segnali` per leggerla e' possibile, ma sarebbe un
+# refactor a comportamento invariato dentro un commit che cambia il
+# comportamento, e l'ordine del suo dict letterale e' dato osservabile.
+ORIGINE: Dict[str, Tuple[str, ...]] = {
+    "tecnica": ("mars_tech",),
+    "seo": ("mars_seo",),
+    "dati_strutturati": ("mars_schema",),
+    "accessibilita": ("mars_wcag",),
+    "sicurezza": ("mars_wapt",),
+    "recuperabilita": ("mars_lexical", "mars_semantic"),
+    "answer_shaped": ("mars_semantic",),
+}
+
+# Sotto quale punteggio un segnale si dichiara debole. Soglia editoriale,
+# gia' nel codice da C1: qui prende un nome perche' entra anche nei
+# rilievi — un `cit.sicurezza.weak` che viaggi da solo nel piano o in un
+# catalogo di traduzione deve poter dire sotto quale soglia lo sia.
+SOGLIA_DEBOLE = 60
+
+
+def _derivato(chiave: str, testo: str, **params: object) -> dict:
+    """Un rilievo di quest'area: descrive, non quantifica.
+
+    `params["derived"] = True` su OGNI rilievo, ed e' un invariante
+    d'area, non un giudizio caso per caso: mars_citability non guarda
+    il sito, rilegge i punteggi delle altre aree. Chi consuma i rilievi
+    per SOMMARLI — piano di interventi, conteggi per gravita', confronto
+    fra due esecuzioni — deve saltare i derivati, altrimenti conta due
+    volte lo stesso difetto. E' la decisione D3 portata dentro il dato.
+
+    Nessun rilievo porta mai `penalty`, e l'assenza e' il significato:
+    un segnale debole E' un difetto del sito, ma quantificarlo tocca
+    all'area che l'ha misurato, che lo fa con molto piu' dettaglio.
+    Sarebbe calcolabile — il composito e' una media pesata, quindi
+    lineare come quella di Lighthouse — e proprio per questo non va
+    messo: sarebbe lo stesso deficit espresso in una seconda unita', e
+    un numero che somiglia a una penalita', dentro un elenco di rilievi,
+    prima o poi verrebbe sommato alle penalita'.
+
+    Tutti `info`, peso 1.0. La severita' e' l'asse su cui la Fase 4
+    ordinera' il piano, e su quell'asse una sintesi non deve MAI
+    scavalcare la misura che sintetizza: "Segnale debole: Sicurezza
+    (50/100)" e "[ZAP:High] SQL injection (3 URL)" descrivono lo stesso
+    difetto, e il secondo porta regola, URL e soluzione. Tenere i
+    derivati al gradino piu' basso rende l'ordinamento per gravita'
+    monotono rispetto alla derivazione.
+
+    `source_severity` resta vuoto ovunque: nessun altro modulo ha
+    espresso un giudizio su QUESTO rilievo.
+    """
+    return Finding(area="mars_citability", severity=SEV_INFO,
+                   key=chiave, title=testo,
+                   params=dict(params, derived=True)).as_dict()
+
+
+def _rilievo_segnale(segnale: str, esito: str, testo: str,
+                     **params: object) -> dict:
+    """Un rilievo su un segnale, con l'indirizzo di chi l'ha misurato.
+
+    La chiave e' `cit.<segnale>.<esito>` e NON passa da
+    `chiave_esterna()`: quella funzione difende la profondita' fissa da
+    un id ostile — axe, ZAP, Lighthouse — al prezzo dell'iniettivita'
+    (R39). Qui il vocabolario e' scritto in questo file, e un refuso
+    deve far fallire un test, non essere ripulito in silenzio.
+
+    Famiglia = soggetto, esito = verdetto, come `sd.jsonld.block_empty`
+    e `sec.headers.hsts_missing`: cosi' lo stesso segnale puo' avere due
+    esiti — `weak` e `unmeasured` — sotto la stessa famiglia.
+    """
+    return _derivato(
+        "cit.%s.%s" % (segnale, esito), testo,
+        signal=segnale, label=SEGNALI[segnale],
+        # Sempre una LISTA, anche di un elemento: `recuperabilita` ne ha
+        # due, e un campo a volte stringa e a volte lista rompe un
+        # consumatore in silenzio. E lista, non tupla: `as_dict()` non
+        # converte, e il dato avrebbe tipo diverso in Python e in JSON.
+        sources=list(ORIGINE[segnale]), **params)
+
 
 def raccogli_segnali(results: dict) -> Dict[str, Optional[float]]:
     """Riduce i risultati delle aree ai sette segnali, in scala 0-100.
@@ -174,14 +263,27 @@ def audit(context: dict) -> dict:
     if not any(k.startswith("mars_") for k in results):
         return {"score": None, "status": "unavailable",
                 "issues": ["Richiede le altre aree: eseguire l'audit "
-                           "completo (CLI o POST /audit/full)"]}
+                           "completo (CLI o POST /audit/full)"],
+                "findings": [_derivato(
+                    "cit.status.no_results",
+                    "Richiede le altre aree: eseguire l'audit completo "
+                    "(CLI o POST /audit/full)")]}
 
     nome_mercato = (context.get("market") or "global").lower()
     mercato = MERCATI.get(nome_mercato)
     issues = []
+    rilievi: List[dict] = []
     if mercato is None:
         issues.append("Mercato '%s' sconosciuto: uso 'global' (noti: %s)"
                       % (nome_mercato, ", ".join(sorted(MERCATI))))
+        # Il rilievo si costruisce PRIMA della riassegnazione: due righe
+        # piu' sotto `nome_mercato` vale gia' "global", e `requested`
+        # direbbe che l'utente ha chiesto proprio cio' che ha ottenuto.
+        rilievi.append(_derivato(
+            "cit.status.unknown_market",
+            "Mercato '%s' sconosciuto: uso 'global'" % nome_mercato,
+            requested=nome_mercato, used="global",
+            known=sorted(MERCATI)))
         nome_mercato, mercato = "global", MERCATI["global"]
 
     segnali = raccogli_segnali(results)
@@ -206,10 +308,40 @@ def audit(context: dict) -> dict:
     if non_misurati:
         issues.append("Segnali non misurati, esclusi dal calcolo: %s"
                       % ", ".join(non_misurati))
-    deboli = sorted((v, SEGNALI[s]) for s, v in segnali.items()
-                    if v is not None and v < 60)
-    for valore, etichetta in deboli[:2]:
+    # Una issue sola che li elenca tutti, un rilievo per segnale: la
+    # cardinalita' delle due viste puo' divergere, il contenuto e
+    # l'ordine no. Aggregarli in un rilievo unico toglierebbe l'unica
+    # informazione azionabile del caso — QUALE strumento manca — e
+    # renderebbe la chiave incomparabile fra due esecuzioni.
+    rilievi += [_rilievo_segnale(s, "unmeasured",
+                                 "Segnale non misurato: %s" % SEGNALI[s])
+                for s, v in segnali.items() if v is None]
+    # Il nome interno del segnale entra come TERZO elemento, non come
+    # secondo: l'ordinamento pareggia sull'etichetta italiana, e le
+    # etichette sono uniche, quindi il terzo non viene mai confrontato.
+    # Metterlo al posto dell'etichetta cambierebbe quale segnale
+    # sopravvive al taglio `deboli[:2]`, cioe' il testo delle issues.
+    deboli = sorted((v, SEGNALI[s], s) for s, v in segnali.items()
+                    if v is not None and v < SOGLIA_DEBOLE)
+    for valore, etichetta, _ in deboli[:2]:
         issues.append("Segnale debole: %s (%.0f/100)" % (etichetta, valore))
+    # Le issues ne mostrano due, il dato li porta tutti: e' la stessa
+    # asimmetria dei cinque alert ZAP e delle cinque violazioni axe.
+    rilievi += [_rilievo_segnale(
+        s, "weak", "Segnale debole: %s (%.0f/100)" % (etichetta, valore),
+        value=valore, threshold=SOGLIA_DEBOLE)
+        for valore, etichetta, s in deboli]
+
+    if composito is None:
+        # In coda, ed e' una CONCLUSIONE, non una premessa: i segnali non
+        # misurati che lo precedono ne sono la causa. Non ha una issue
+        # corrispondente — quel ramo e' muto da sempre — ed e' la seconda
+        # volta nella fase che il dato dice qualcosa che la vista compatta
+        # tace. Non e' deducibile dai sette `unmeasured`: `profilo()`
+        # restituisce None anche quando i pesi si annullano, e dedurlo
+        # significherebbe reimplementarla nel consumatore.
+        rilievi.append(_derivato("cit.status.no_composite",
+                                 "Indice composito non calcolabile"))
 
     return {
         "score": composito,
@@ -220,6 +352,11 @@ def audit(context: dict) -> dict:
         # mai eseguita.
         "status": None if composito is not None else "unavailable",
         "issues": issues,
+        # Nell'ordine in cui le issues raccontano lo stesso audit, e
+        # proseguendo dove le issues si fermano. Nessun `sorted` per
+        # gravita': sono tutti `info` a peso 1.0, quindi riordinarli
+        # sarebbe un no-op che nasconde il criterio vero.
+        "findings": rilievi,
         "market": nome_mercato,
         "profiles": profili,
         "signals": {SEGNALI[s]: v for s, v in segnali.items()},

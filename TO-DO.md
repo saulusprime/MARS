@@ -147,7 +147,7 @@ AS-IS conserva nove misure invece di un riassunto.
 - [x] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
       monte: `estrai_audit` deve conservare `score`, `scoreDisplayMode` e il
       `weight` di `auditRefs`, che oggi **non viene mai letto**.
-- [ ] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
+- [x] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
       gli altri sei. Ogni suo rilievo porta `params["derived"] = True`.
 - [ ] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
       UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
@@ -538,6 +538,62 @@ testi.)*
 - [ ] Allineare il testo delle issues dei non applicabili a quello dei
       rilievi, rigenerando i golden.
 - [ ] Chiudere i tre buchi di `_descrivi_item`.
+
+### R41 — 🟡 MEDIO: `derived` esiste, ma nessun consumatore lo legge ancora
+*(trovato chiudendo U1.8, il 2026-08-24: è il vincolo che quella voce impone
+alle fasi successive, e va scritto prima che le si scriva.)*
+
+Da U1.8 ogni rilievo di `mars_citability` porta `params["derived"] = True` e
+**nessuna** `penalty`: sono sintesi, ridicono difetti che altre aree hanno già
+misurato con più dettaglio. Il marcatore però **non ha ancora un lettore**
+(`grep -rn '"derived"' *.py` → solo `mars_citability`), e le tre "guardie"
+contro il doppio conteggio non sono equivalenti:
+
+- **niente `penalty`** protegge le *somme* di recupero, non l'*elenco*: il
+  piano della Fase 4 filtra per gravità, e un rilievo senza penalità vi
+  entrerebbe con guadagno zero;
+- **`severity: info`** è ciò che oggi li esclude davvero dal piano (che filtra
+  `critical`+`warning`), ma è una protezione **incidentale**: la Fase 5 prevede
+  tre riquadri coi conteggi per gravità *dai findings*, e lì i sette
+  `cit.*.unmeasured` e i `cit.*.weak` gonfierebbero il conteggio «Info»
+  accanto ai rilievi che ridicono. Il doppio conteggio che **D3** chiude sul
+  *punteggio* si riaprirebbe sui *conteggi di rilievi*.
+
+Il vincolo, da rispettare in U4, U5 e U7: **ogni consumatore che AGGREGA
+rilievi — piano di interventi, conteggi per gravità, confronto fra due
+esecuzioni — deve escludere quelli con `params.get("derived")`.** Chi invece li
+mostra uno per uno (elenco d'area, JSON, CSV) li tiene: dicono qualcosa di
+vero, e `params["sources"]` dice a quali aree agganciarli.
+
+Eccezione da conoscere: `cit.status.error`, che sintetizza `build_report`
+quando il modulo fallisce, **non** porta `derived` — ed è giusto, perché non è
+una sintesi ma un guasto del nostro strumento, e nessun'altra area lo sta già
+dicendo.
+
+- [ ] Annotare il vincolo su UPGRADE.md, accanto alle Fasi 4, 5 e 7.
+- [ ] Escludere i derivati in `build_remediation` e nei conteggi per gravità.
+
+### R42 — 🟢 LIEVE: la citabilità sparisce dalla vista testo quando fallisce
+*(trovato censendo i consumatori per U1.8, il 2026-08-24)*
+
+[mars_report.py:302](mars_report.py#L302) salta `mars_citability` nel ciclo
+delle aree, perché ha un blocco tutto suo in fondo — ma quel blocco è protetto
+da `if cit and cit.get("profiles")`. Quando i profili non ci sono, e cioè
+proprio quando qualcosa è andato storto, **la vista testo non stampa nulla**:
+né il nome dell'area, né il motivo. Misurato: con l'area in errore,
+`'plugin rotto' in testo` → `False` e `'Citabilit' in testo` → `False`.
+L'HTML invece la mostra (quadrante, scheda d'area, sezione dedicata).
+
+Sono i due rami dell'uscita anticipata («Richiede le altre aree») e dell'area
+fallita. È **R38 ancora aperto per una sola area su nove**, ed è anche
+l'ultimo punto di `render_text` che decide sul **nome del modulo** invece che
+sul dato — l'anti-pattern che R38 ha tolto per `mars_lexical`/`mars_semantic`.
+
+Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
+`cit.status.error`) mentre la vista testo continua a tacerla.
+
+- [ ] Far decidere la vista sul dato, non sul nome: stampare la riga d'area
+      quando il blocco dedicato non può girare. Rigenerando i golden (U2).
 
 ---
 

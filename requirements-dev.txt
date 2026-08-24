@@ -1,3 +1,7 @@
 # MARS Beacon — strumenti di sviluppo.
 pytest>=7
 flake8>=6
+# La fixture nessuna_spesa intercetta httpx.HTTPTransport per impedire
+# che un test raggiunga l'API Anthropic: httpx arrivava come dipendenza
+# transitiva di altri pacchetti, ma ora il banco di prova lo importa.
+httpx>=0.27

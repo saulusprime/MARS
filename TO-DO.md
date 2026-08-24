@@ -1,16 +1,23 @@
 # MARS Beacon — TO-DO
 
-> Stato rilevato: 2026-08-19; **rivisto il 2026-08-20** (revisione sistematica
-> di codice e documentazione: nuove voci R15-R35, I13-I16). R15-R26 sono
-> già chiuse — con esse tutte le voci GRAVI; restano aperte R28-R33 e R35-R37.
-> Riferimento: `README.md` (premesse di progetto) vs. codice presente in root.
+> Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
+> R15-R37, I13-I16); **rivisto il 2026-08-24** chiudendo le Fasi 1 e 2 del
+> programma UPGRADE.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
-> Dal 2026-08-21 è aperto il **programma UPGRADE** (U1-U12), che porta il
-> referto al livello di `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md),
-> le voci aperte qui sotto, il lavoro sul ramo `upgrade`.
+> **Correzioni chiuse**: R1-R27, R34, R38. **Aperte**: R28-R33, R35-R37 e
+> R39-R43, queste ultime cinque trovate *adeguando* i moduli alle Fasi 1 e 2 —
+> nessuna è stata corretta lì dentro, perché avrebbe spostato punteggi o testi
+> dentro un commit che cambiava la forma.
+>
+> **Programma UPGRADE** (U1-U12), che porta il referto al livello di
+> `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
+> `upgrade`. **U1 e U2 sono chiuse** — le loro dieci voci stanno in
+> [AS-IS.md](AS-IS.md) —, U3 è in corso. Da U3 in poi vale un vincolo nuovo:
+> ogni cambiamento di resa fa fallire i golden di `tests/golden/`, e la
+> rigenerazione va sempre seguita dalla **revisione del diff**.
 
 ---
 
@@ -118,54 +125,20 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1 — ✅ CHIUSA: modello dati dei rilievi (G01)
-*Prerequisito di U2, U3, U4, U5, U7 — ora soddisfatto. Le nove sotto-voci
-sono in [AS-IS.md](AS-IS.md); qui resta l'elenco per riferimento.*
+### U1 e U2 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
-Dataclass `Finding` e scala di severità unificata. La dataclass **non**
-attraversa il confine dei plugin: i moduli restituiscono `findings` come lista
-di dict, accanto alle `issues` attuali, che restano (vista compatta legacy).
+**U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
+nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
+emettono `findings` accanto alle `issues`, che non sono cambiate di una
+parola. Le misure, le decisioni editoriali e le tredici mutazioni sfuggite
+alla prima esecuzione stanno in AS-IS, voce per voce.
 
-Nove commit, non uno: così ogni passo chiude una voce con le sue verifiche e
-AS-IS conserva nove misure invece di un riassunto.
-
-- [x] **U1.1** — `mars_core`: `SEV_*`, `WEIGHTS`, `AREA_PREFIX`, `Finding`,
-      `normalizza_severita`, `severita_lighthouse`, `chiave_esterna`.
-- [x] **U1.2** — `build_report`: `findings` nell'area, sintesi di
-      `<prefisso>.status.error`, test di contratto esteso a **tutti e nove** i
-      moduli. Il consumatore **prima** dei produttori: `build_report` copia una
-      lista chiusa di chiavi, quindi senza questo passo i commit successivi
-      consegnerebbero una chiave che nessuno legge e nessun test vede.
-- [x] **U1.3** — `mars_tech`. È il banco di prova del modello: unica scala
-      propria, due gravità calcolate a runtime, punteggio accoppiato alla
-      scala, e la rete di test più fitta del progetto.
-- [x] **U1.4** — `mars_schema`. Prima area senza gravità propria, primo caso di
-      aggregazione per chiave.
-- [x] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
-      editoriale), il marcatore `surface`, l'impact assente.
-- [x] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
-      **nessuna rete di test esistente**: il commit si porta i propri. Qui si
-      raccoglie anche `solution` di ZAP, che oggi viene scartata e serve a U3.
-- [x] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
-      monte: `estrai_audit` deve conservare `score`, `scoreDisplayMode` e il
-      `weight` di `auditRefs`, che oggi **non viene mai letto**.
-- [x] **U1.8** — `mars_citability`. Modulo di sintesi: dipende da come emettono
-      gli altri sei. Ogni suo rilievo porta `params["derived"] = True`.
-- [x] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
-      UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
-      findings.
-- [x] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
-      *(Il badge non esiste: il README non ne ha nessuno, e introdurne uno da
-      shields.io aggiungerebbe un'origine esterna a un documento che non ne
-      ha. Al suo posto una riga di versione in testa, che dice anche che cosa
-      la 2.1.0 porta. Se il badge lo si vuole, è una scelta di presentazione
-      da fare a parte.)*
+**U2 — golden del referto** (G10): sei file in `tests/golden/` che congelano
+la resa dei tre formati su due referti sintetici, uno completo e uno con ogni
+strumento assente.
 
 ### Altre fasi
 
-- [x] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
-      tutte le fasi successive: ogni cambiamento di resa passa da una
-      rigenerazione intenzionale con revisione del diff.
 - [ ] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
       Spezzata in tre come U1, e per la stessa ragione: in un commit solo il
       diff sarebbe di ~700 righe di cui metà golden, cioè irrivedibile — e la
@@ -318,7 +291,10 @@ altri client fino a fine scansione.
   chiamante non deve sapere quale dei due sia attivo» si rompe con chunk vuoti, e
   `mars_semantic` muore invece di risultare non misurato.
 
-- [ ] Dichiarare `httpx` in `requirements-dev.txt`.
+- [x] Dichiarare `httpx` in `requirements-dev.txt`. *(Fatto con U1.9: la
+      fixture `nessuna_spesa` lo importa esplicitamente per bloccare il
+      transport HTTP, quindi non è più una dipendenza transitiva ma una
+      dichiarata.)*
 - [ ] Guardia sul corpus vuoto anche nel ramo embeddings reali.
 
 ### R31 — ⚪ LIEVE: casi limite e diagnosi imprecise
@@ -390,23 +366,6 @@ Divergenze verificate (documento → codice):
 
 - [ ] Correggere ciascuna riga sopra (il testo, non il comportamento, tranne
       dove indicato un'opzione di codice).
-
-### R43 — ⚪ LIEVE: due cose che U2 ha visto e non ha corretto
-*(trovate costruendo i golden, il 2026-08-24)*
-
-- **La favicon dichiara un MIME che non e' il suo.** `file favicon.ico` dice
-  `PNG image data, 32 x 32`, mentre `_favicon_data_uri`
-  ([mars_report.py:381](mars_report.py#L381)) la incorpora come
-  `data:image/x-icon;base64,…` e la docstring parla di «.ico (2,8 KB)». I
-  browser lo digeriscono, ma la dichiarazione è falsa. Correggerla cambia il
-  golden HTML, quindi va fatta con la sua rigenerazione.
-- **Il degrado della favicon è silenzioso.** `except OSError: return ""` fa
-  sparire la riga `<link rel='icon'>` senza traccia: su un checkout parziale
-  il referto perde l'icona e nessuno lo saprebbe. Nel golden il fatto è
-  rilevato (il digest sparisce, il diff lo mostra), ma in produzione no.
-
-- [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
-- [ ] Dire nel referto quando l'icona non è stata incorporata.
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**
@@ -662,6 +621,23 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 
 - [ ] Far decidere la vista sul dato, non sul nome: stampare la riga d'area
       quando il blocco dedicato non può girare. Rigenerando i golden (U2).
+
+### R43 — ⚪ LIEVE: due cose che U2 ha visto e non ha corretto
+*(trovate costruendo i golden, il 2026-08-24)*
+
+- **La favicon dichiara un MIME che non e' il suo.** `file favicon.ico` dice
+  `PNG image data, 32 x 32`, mentre `_favicon_data_uri`
+  ([mars_report.py:381](mars_report.py#L381)) la incorpora come
+  `data:image/x-icon;base64,…` e la docstring parla di «.ico (2,8 KB)». I
+  browser lo digeriscono, ma la dichiarazione è falsa. Correggerla cambia il
+  golden HTML, quindi va fatta con la sua rigenerazione.
+- **Il degrado della favicon è silenzioso.** `except OSError: return ""` fa
+  sparire la riga `<link rel='icon'>` senza traccia: su un checkout parziale
+  il referto perde l'icona e nessuno lo saprebbe. Nel golden il fatto è
+  rilevato (il digest sparisce, il diff lo mostra), ma in produzione no.
+
+- [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
+- [ ] Dire nel referto quando l'icona non è stata incorporata.
 
 ---
 

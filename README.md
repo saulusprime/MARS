@@ -2,6 +2,11 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
+Versione 2.1.0 — Fase 1 del programma UPGRADE: tutte e nove le aree
+emettono rilievi strutturati (`findings`) accanto alle `issues`, con
+gravita' canonica, chiave stabile e penalita' registrata. Il piano sta
+in UPGRADE.md, il lavoro concluso in AS-IS.md.
+
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche:
 

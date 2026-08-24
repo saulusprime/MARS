@@ -118,7 +118,9 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1 — Modello dati dei rilievi (G01) — prerequisito di U2, U3, U4, U5, U7
+### U1 — ✅ CHIUSA: modello dati dei rilievi (G01)
+*Prerequisito di U2, U3, U4, U5, U7 — ora soddisfatto. Le nove sotto-voci
+sono in [AS-IS.md](AS-IS.md); qui resta l'elenco per riferimento.*
 
 Dataclass `Finding` e scala di severità unificata. La dataclass **non**
 attraversa il confine dei plugin: i moduli restituiscono `findings` come lista
@@ -152,7 +154,12 @@ AS-IS conserva nove misure invece di un riassunto.
 - [x] **U1.9** — `mars_llm_judge`: solo `llm.status.*`. Fuori dai sei di
       UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
       findings.
-- [ ] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
+- [x] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
+      *(Il badge non esiste: il README non ne ha nessuno, e introdurne uno da
+      shields.io aggiungerebbe un'origine esterna a un documento che non ne
+      ha. Al suo posto una riga di versione in testa, che dice anche che cosa
+      la 2.1.0 porta. Se il badge lo si vuole, è una scelta di presentazione
+      da fare a parte.)*
 
 ### Altre fasi
 

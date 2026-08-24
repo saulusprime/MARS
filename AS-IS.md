@@ -3063,6 +3063,25 @@ occorrenza.
 
 - [x] `mars_llm_judge`: nove rami, nove chiavi di stato, la spesa tracciata.
 - [x] La suite non può più spendere: `nessuna_spesa` in `conftest.py`.
+- [x] `__version__` a **2.1.0**, versione dichiarata in testa al README.
+
+**La Fase 1 è chiusa.** Tutte e nove le aree emettono `findings` accanto alle
+`issues`, che non sono cambiate di una parola in nessuna delle nove voci: ogni
+adeguamento è stato verificato per confronto col codice precedente, sempre con
+zero divergenze — 43 casi in U1.6, 52 in U1.7, 58 in U1.8, tutti e nove i rami
+in U1.9.
+
+Le mutazioni provate nelle nove sotto-voci sono **162**, di cui 116 nei sei
+moduli che UPGRADE.md elenca; una sola non è riproducibile (U1.1, il default
+mutabile che la dataclass rifiuta all'import) e resta contata come tale, non
+fra i successi. La suite arriva a **548 test**: 118 li hanno aggiunti le
+ultime quattro voci, misurati da 430 a 548.
+
+Il valore non sta nel numero: sta nelle **tredici mutazioni sfuggite alla
+prima esecuzione**, che le voci qui sopra conservano una per una perché
+ciascuna ha rivelato un test debole — un ordinamento mai asserito, una
+costante confrontata con sé stessa, un banco di prova che eseguiva bytecode
+vecchio, un guardiano che nessuno presidiava.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

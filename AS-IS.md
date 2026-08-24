@@ -3486,6 +3486,30 @@ il tetto di due alla vista testo.
       `_elenco_controlli(controlli, rilievi)`, il CSS (`.correzioni`,
       `.spiegazione`, `.fix`, `pre.ex`), quindici test, quattro golden.
 
+### U3 — ✅ CHIUSA (2026-08-24): `__version__` a 2.2.0
+
+Ultima voce della fase, come per la Fase 1: il bump minore, e la riga di
+versione del README che dice che cosa la 2.2.0 porta. `USER_AGENT` segue —
+il crawler si presenta ora come `MARSBeacon/2.2.0`.
+
+**Numeri della fase, misurati e non stimati.** Cinquantadue mutazioni nei tre
+commit — 9 in U3.1, 22 in U3.2, 21 in U3.3 — tutte rilevate. La suite passa
+da 559 a 612 test. I golden si sono mossi **una
+volta ciascuno**: i `.json` in U3.1 (i testi del catalogo), il solo
+`referto.json` in U3.2 (i testi degli strumenti), i `.html` e i `.txt` in
+U3.3 (la resa). È la divisione in tre che rende leggibile ciò che altrimenti
+sarebbe stato un unico diff di settecento righe per metà golden.
+
+**Che cosa la fase ha aggiunto al referto.** Venticinque controlli hanno un
+`fix` scritto a mano e diciannove un `example` incollabile; le tre famiglie
+dinamiche prendono il testo dallo strumento, con una regola sola — la
+spiegazione in `detail`, la prescrizione in `fix` — misurata su tutti e tre.
+
+**Che cosa la fase ha lasciato aperto**, e sta scritto dove si trova:
+**R44** (i titoli axe in inglese) e la scelta, deliberata, che
+`mars_citability` non prescriva nulla perché ridirebbe ciò che l'area
+d'origine ha già quantificato.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

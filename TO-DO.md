@@ -14,8 +14,8 @@
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`. **U1 e U2 sono chiuse** — le loro dieci voci stanno in
-> [AS-IS.md](AS-IS.md) —, U3 è in corso. Da U3 in poi vale un vincolo nuovo:
+> `upgrade`. **U1, U2 e U3 sono chiuse** — le loro tredici voci stanno in
+> [AS-IS.md](AS-IS.md) —, e la prossima è U4. Da U3 in poi vale un vincolo:
 > ogni cambiamento di resa fa fallire i golden di `tests/golden/`, e la
 > rigenerazione va sempre seguita dalla **revisione del diff**.
 

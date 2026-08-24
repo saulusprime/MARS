@@ -9,7 +9,9 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import json
 import os
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
@@ -23,6 +25,13 @@ AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
 
 AXE_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       "node_modules", "axe-core", "axe.min.js")
+
+# I testi di correzione delle regole axe vengono da axe stesso, non da
+# `mars_fixes`: la regola violata la conosce lui, e le sue sono oltre
+# cento. Il locale italiano viaggia nello stesso pacchetto npm di
+# axe.min.js, quindi dove c'e' l'uno c'e' quasi sempre l'altro.
+AXE_LOCALE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "node_modules", "axe-core", "locales", "it.json")
 
 # Browser lento: si controllano le prime pagine, non tutte. Dichiarato
 # nel referto, cosi' nessuno crede che sia stato guardato l'intero sito.
@@ -210,6 +219,60 @@ def axe_disponibile() -> bool:
     return True
 
 
+def _leggi_locale_axe(percorso: str) -> Dict[str, str]:
+    """Il file di locale di axe-core come mappa id -> `description`.
+
+    Separata da `testi_axe` per essere verificabile: quella e'
+    memoizzata, e una funzione con una cache non si interroga due volte
+    su due file diversi. Qui il percorso e' un argomento, quindi il
+    file vero e un file che non esiste si provano tutti e due.
+    """
+    try:
+        with open(percorso, encoding="utf-8") as fh:
+            regole = (json.load(fh) or {}).get("rules") or {}
+    except (OSError, ValueError):
+        # File assente, illeggibile o non JSON: sono lo stesso caso —
+        # i testi non ci sono. Quale delle tre non cambia nulla per
+        # chi legge il referto.
+        return {}
+    return {str(chiave): str(voce["description"]).strip()
+            for chiave, voce in regole.items()
+            if isinstance(voce, dict) and voce.get("description")}
+
+
+@lru_cache(maxsize=1)
+def testi_axe() -> Dict[str, str]:
+    """id della regola -> prescrizione italiana, dal locale di axe-core.
+
+    axe descrive ogni regola due volte: `help` dice che cosa **deve**
+    valere ("Le immagini devono avere un testo alternativo"),
+    `description` che cosa **fare** perche' valga ("Assicurati che gli
+    elementi <img> abbiano un testo alternativo o un ruolo none o
+    presentation"). In italiano la seconda e' un imperativo in 100
+    delle 103 regole del locale 4.13.0: e' un `fix`, ed e' anche piu'
+    specifica del titolo, perche' nomina gli elementi e le vie
+    d'uscita che il titolo tace.
+
+    E' l'italiano di Deque, non una nostra traduzione: si aggiorna con
+    axe-core invece di invecchiare accanto a lui. Il file di locale sta
+    dentro il pacchetto npm, quindi non e' una dipendenza in piu'.
+
+    Il testo lo si legge QUI e non nel browser (axe accetta un
+    `axe.configure({locale})`) per due ragioni: cosi'
+    `score_from_violations` resta verificabile senza avviare nulla, e
+    un locale illeggibile costa i testi e non la misura — dentro la
+    pagina farebbe fallire `axe.run` e con lui l'intera area.
+
+    Il dizionario vuoto e' un esito legittimo, e chi lo riceve lo
+    dichiara: vedi `wcag.status.no_fixes`.
+
+    Memoizzata perche' il file e' un centinaio di kilobyte e la lettura
+    ricadrebbe su ogni gruppo di violazioni, mentre il contenuto non
+    cambia dentro un'esecuzione.
+    """
+    return _leggi_locale_axe(AXE_LOCALE)
+
+
 def score_from_violations(violations: List[dict],
                           pagine_testate: int = 1) -> dict:
     """Punteggio dalle violazioni axe, raggruppate per REGOLA.
@@ -254,6 +317,7 @@ def score_from_violations(violations: List[dict],
         conteggio[voce["impact"]] = conteggio.get(voce["impact"], 0) + 1
         voce["penalty"] = costo
 
+    testi = testi_axe()
     ordinate = sorted(per_regola.values(),
                       key=lambda v: -PESI_AXE.get(v["impact"], 2))
     for voce in ordinate:
@@ -262,6 +326,10 @@ def score_from_violations(violations: List[dict],
             area="mars_wcag", severity=severita, weight=peso,
             key="wcag.axe.%s" % chiave_esterna(voce["id"]),
             title=voce["help"],
+            # Vuoto per una regola che il locale non conosce: axe puo'
+            # segnalarne di aggiunte a mano con `axe.configure`, e un
+            # add-on non ha una traduzione dentro axe-core.
+            fix=testi.get(voce["id"], ""),
             url=voce["help_url"],
             # Vuoto quando axe NON ha dichiarato l'impact: scrivere
             # "axe:minor" dove axe ha taciuto significherebbe
@@ -271,6 +339,32 @@ def score_from_violations(violations: List[dict],
             params={"rule": voce["id"], "nodes": voce["nodes"],
                     "pages": voce["pages"], "penalty": voce["penalty"]}))
 
+    # Senza il locale i rilievi axe restano senza `fix`, e nessuno se
+    # ne accorgerebbe: un campo vuoto sembra un campo che non serviva.
+    # E' la degradazione non dichiarata che il principio 2 vieta, ed e'
+    # la stessa ragione per cui `mars_fixes` e' un file Python e non un
+    # JSON. Si dichiara SOLO quando costa qualcosa, cioe' quando ci
+    # sono violazioni da vestire.
+    #
+    # Rilievo e non issue, a differenza di `wcag.status.partial`: la
+    # riga compatta elenca cio' che non va nel SITO, e una scansione
+    # parziale ci sta perche' cambia come si legge il punteggio.
+    # Questa no — il punteggio e' lo stesso, mancano le istruzioni.
+    stato: List[Finding] = []
+    if rilievi_dato and not testi:
+        stato.append(Finding(
+            area="mars_wcag", severity=SEV_INFO, key="wcag.status.no_fixes",
+            title="Testi di correzione axe non disponibili: manca il "
+                  "locale italiano di axe-core",
+            # Il percorso RELATIVO, non `AXE_LOCALE`: quello e'
+            # assoluto, e un referto si consegna a un cliente. La
+            # struttura delle directory della macchina che ha fatto
+            # girare la scansione non e' un suo problema, ed e' la
+            # stessa regola per cui `detail` non porta mai il proxy o
+            # la chiave di ZAP.
+            detail="atteso in node_modules/axe-core/locales/it.json",
+            params={"regole": len(rilievi_dato)}))
+
     # La vista compatta ne mostra cinque; il dato li porta tutti.
     rilievi = ["[axe:%s] %s (%d elementi su %d pagine)"
                % (v["impact"], v["help"], v["nodes"], v["pages"])
@@ -279,7 +373,7 @@ def score_from_violations(violations: List[dict],
             "violations_by_impact": conteggio,
             "rules_violated": len(per_regola),
             "issues": rilievi,
-            "findings": [f.as_dict() for f in rilievi_dato]}
+            "findings": [f.as_dict() for f in stato + rilievi_dato]}
 
 
 def run_axe(urls: List[str],

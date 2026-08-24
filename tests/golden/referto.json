@@ -95,7 +95,7 @@
           "severity": "critical",
           "title": "L'indicizzazione della pagina è bloccata",
           "key": "seo.lh.is_crawlable",
-          "detail": "",
+          "detail": "I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.",
           "fix": "",
           "example": "",
           "url": "",
@@ -110,6 +110,9 @@
             "items": [
               "X-Robots-Tag: noindex"
             ],
+            "references": [
+              "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
+            ],
             "penalty": 36.61417322834645
           }
         },
@@ -118,7 +121,7 @@
           "severity": "warning",
           "title": "Il documento non ha un elemento `<title>`",
           "key": "seo.lh.document_title",
-          "detail": "",
+          "detail": "Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.",
           "fix": "",
           "example": "",
           "url": "",
@@ -133,6 +136,9 @@
             "items": [
               "html"
             ],
+            "references": [
+              "https://dequeuniversity.com/rules/axe/4.12/document-title"
+            ],
             "penalty": 9.05511811023622
           }
         },
@@ -141,7 +147,7 @@
           "severity": "warning",
           "title": "Il documento non ha una meta descrizione",
           "key": "seo.lh.meta_description",
-          "detail": "",
+          "detail": "Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.",
           "fix": "",
           "example": "",
           "url": "",
@@ -154,6 +160,9 @@
             "lh_weight": 1.0,
             "lh_weight_total": 11.043478260869566,
             "items": [],
+            "references": [
+              "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
+            ],
             "penalty": 9.05511811023622
           }
         },
@@ -162,7 +171,7 @@
           "severity": "warning",
           "title": "I link non hanno testo descrittivo",
           "key": "seo.lh.link_text",
-          "detail": "",
+          "detail": "Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.",
           "fix": "",
           "example": "",
           "url": "",
@@ -181,6 +190,9 @@
               "/p3",
               "/p4"
             ],
+            "references": [
+              "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
+            ],
             "penalty": 9.05511811023622
           }
         },
@@ -189,7 +201,7 @@
           "severity": "warning",
           "title": "Gli elementi immagine non hanno attributi `[alt]`",
           "key": "seo.lh.image_alt",
-          "detail": "",
+          "detail": "Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull'attributo `alt`.",
           "fix": "",
           "example": "",
           "url": "",
@@ -205,6 +217,9 @@
               "body > img",
               "body > img"
             ],
+            "references": [
+              "https://dequeuniversity.com/rules/axe/4.12/image-alt"
+            ],
             "penalty": 9.05511811023622
           }
         },
@@ -213,7 +228,7 @@
           "severity": "info",
           "title": "Non applicabile a questa pagina: robots.txt è valido",
           "key": "seo.lh.robots_txt",
-          "detail": "",
+          "detail": "Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.",
           "fix": "",
           "example": "",
           "url": "",
@@ -225,7 +240,10 @@
             "score": null,
             "lh_weight": 0.0,
             "lh_weight_total": 11.043478260869566,
-            "items": []
+            "items": [],
+            "references": [
+              "https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt/"
+            ]
           }
         },
         {
@@ -233,7 +251,7 @@
           "severity": "info",
           "title": "Non applicabile a questa pagina: Il documento ha un elemento `rel=canonical` valido",
           "key": "seo.lh.canonical",
-          "detail": "",
+          "detail": "I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. Scopri di più sui link canonici.",
           "fix": "",
           "example": "",
           "url": "",
@@ -245,7 +263,10 @@
             "score": null,
             "lh_weight": 0.0,
             "lh_weight_total": 11.043478260869566,
-            "items": []
+            "items": [],
+            "references": [
+              "https://developer.chrome.com/docs/lighthouse/seo/canonical/"
+            ]
           }
         },
         {
@@ -253,7 +274,7 @@
           "severity": "info",
           "title": "Da verificare a mano: Dati strutturati validi",
           "key": "seo.lh.structured_data",
-          "detail": "",
+          "detail": "Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.",
           "fix": "",
           "example": "",
           "url": "",
@@ -265,7 +286,11 @@
             "score": null,
             "lh_weight": 0.0,
             "lh_weight_total": 11.043478260869566,
-            "items": []
+            "items": [],
+            "references": [
+              "https://developers.google.com/search/docs/appearance/structured-data/",
+              "https://developer.chrome.com/docs/lighthouse/seo/structured-data/"
+            ]
           }
         }
       ],
@@ -283,7 +308,8 @@
           ],
           "score": 0,
           "scoreDisplayMode": "binary",
-          "weight": 4.043478260869565
+          "weight": 4.043478260869565,
+          "description": "I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. [Scopri di più sulle istruzioni dei crawler](https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/)."
         },
         {
           "id": "document-title",
@@ -295,7 +321,8 @@
           ],
           "score": 0,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. [Scopri di più sui titoli dei documenti](https://dequeuniversity.com/rules/axe/4.12/document-title)."
         },
         {
           "id": "meta-description",
@@ -305,7 +332,8 @@
           "items": [],
           "score": 0,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. [Scopri di più sulla meta descrizione](https://developer.chrome.com/docs/lighthouse/seo/meta-description/)."
         },
         {
           "id": "http-status-code",
@@ -315,7 +343,8 @@
           "items": [],
           "score": 1,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "Le pagine con codici di stato HTTP non validi potrebbero non essere indicizzate correttamente. [Scopri di più sui codici di stato HTTP](https://developer.chrome.com/docs/lighthouse/seo/http-status-code/)."
         },
         {
           "id": "link-text",
@@ -331,7 +360,8 @@
           ],
           "score": 0,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. [Scopri come rendere più accessibili i link](https://developer.chrome.com/docs/lighthouse/seo/link-text/)."
         },
         {
           "id": "crawlable-anchors",
@@ -341,7 +371,8 @@
           "items": [],
           "score": 1,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "I motori di ricerca potrebbero usare gli attributi `href` dei link per eseguire la scansione dei siti web. Assicurati che l'attributo `href` degli elementi anchor rimandi a una destinazione appropriata per consentire il rilevamento di un numero maggiore di pagine del sito. [Scopri come consentire la scansione dei link](https://support.google.com/webmasters/answer/9112205)"
         },
         {
           "id": "robots-txt",
@@ -351,7 +382,8 @@
           "items": [],
           "score": null,
           "scoreDisplayMode": "notApplicable",
-          "weight": 0.0
+          "weight": 0.0,
+          "description": "Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. [Scopri di più sul file robots.txt](https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt/)."
         },
         {
           "id": "image-alt",
@@ -364,7 +396,8 @@
           ],
           "score": 0,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. [Scopri di più sull'attributo `alt`](https://dequeuniversity.com/rules/axe/4.12/image-alt)."
         },
         {
           "id": "hreflang",
@@ -374,7 +407,8 @@
           "items": [],
           "score": 1,
           "scoreDisplayMode": "binary",
-          "weight": 1.0
+          "weight": 1.0,
+          "description": "I link hreflang indicano ai motori di ricerca quale versione di una pagina devono elencare nei risultati di ricerca per una determinata lingua o regione. [Scopri di più su `hreflang`](https://developer.chrome.com/docs/lighthouse/seo/hreflang/)."
         },
         {
           "id": "canonical",
@@ -384,7 +418,8 @@
           "items": [],
           "score": null,
           "scoreDisplayMode": "notApplicable",
-          "weight": 0.0
+          "weight": 0.0,
+          "description": "I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. [Scopri di più sui link canonici](https://developer.chrome.com/docs/lighthouse/seo/canonical/)."
         },
         {
           "id": "structured-data",
@@ -394,7 +429,8 @@
           "items": [],
           "score": null,
           "scoreDisplayMode": "manual",
-          "weight": 0.0
+          "weight": 0.0,
+          "description": "Esegui lo [Strumento di test per i dati strutturati](https://developers.google.com/search/docs/appearance/structured-data/) per convalidare i dati strutturati. [Scopri di più sui dati strutturati](https://developer.chrome.com/docs/lighthouse/seo/structured-data/)."
         }
       ],
       "form_factor": "mobile",
@@ -504,7 +540,7 @@
           "title": "Le immagini devono avere un testo alternativo",
           "key": "wcag.axe.image_alt",
           "detail": "",
-          "fix": "",
+          "fix": "Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation",
           "example": "",
           "url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
           "weight": 2.0,
@@ -522,7 +558,7 @@
           "title": "Il contrasto deve essere sufficiente",
           "key": "wcag.axe.color_contrast",
           "detail": "",
-          "fix": "",
+          "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
           "example": "",
           "url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
           "weight": 2.0,
@@ -663,7 +699,7 @@
           "severity": "critical",
           "title": "Cross Site Scripting (Reflected)",
           "key": "sec.zap.40012",
-          "detail": "",
+          "detail": "Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo' farvi eseguire script arbitrario nel browser della vittima.",
           "fix": "Convalida l'input e codifica l'output.",
           "example": "",
           "url": "",
@@ -693,7 +729,7 @@
           "severity": "warning",
           "title": "Content Security Policy (CSP) Header Not Set",
           "key": "sec.zap.10038",
-          "detail": "",
+          "detail": "Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.",
           "fix": "Configura il server per impostare l'header CSP.",
           "example": "",
           "url": "",

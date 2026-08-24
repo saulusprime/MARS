@@ -8,7 +8,7 @@
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
 > **Correzioni chiuse**: R1-R27, R34, R38. **Aperte**: R28-R33, R35-R37 e
-> R39-R43, queste ultime cinque trovate *adeguando* i moduli alle Fasi 1 e 2 —
+> R39-R44, queste ultime sei trovate *adeguando* i moduli alle Fasi 1, 2 e 3 —
 > nessuna è stata corretta lì dentro, perché avrebbe spostato punteggi o testi
 > dentro un commit che cambiava la forma.
 >
@@ -147,10 +147,14 @@ strumento assente.
         `normalizza_risultato`. Nessun modulo d'area toccato, nessuna resa
         cambiata: si rivede **la prosa**, e solo i due golden `.json` si
         muovono.
-  - [ ] **U3.2** — i testi che vengono dagli strumenti: il `fix` italiano di
-        axe da `node_modules/axe-core/locales/it.json`, la `description` di
-        Lighthouse ripulita dai link Markdown, il `detail` dove manca.
-        Ancora solo i `.json`: si rivede **il codice**.
+  - [x] **U3.2** — i testi che vengono dagli strumenti. Una regola sola,
+        misurata su tutti e tre: **la spiegazione va in `detail`, la
+        prescrizione in `fix`**. Il `fix` italiano di axe dal suo locale
+        (100 descrizioni su 103 sono imperative), la `description` di
+        Lighthouse in `detail` e non in `fix` (nove su undici spiegano
+        invece di prescrivere), i link Markdown ridotti alla loro
+        etichetta con gli URL in `params["references"]`, la `description`
+        di ZAP in `detail`. Si è mosso **un solo golden**, `referto.json`.
   - [ ] **U3.3** — la resa. `render_text`, `_scheda_area`, il CSS (`.fix`,
         `pre.ex`), i sei golden rigenerati. È il commit del diff da leggere
         riga per riga, e grazie ai due precedenti quel diff contiene **solo**
@@ -638,6 +642,45 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 
 - [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
 - [ ] Dire nel referto quando l'icona non è stata incorporata.
+
+### R44 — 🟡 MEDIO: nel ramo axe il referto parla inglese
+*(trovata chiudendo U3.2, il 2026-08-24)*
+
+`mars_wcag.run_axe` chiama `axe.run` senza configurarne il locale, quindi i
+`help` che diventano il **titolo** dei rilievi e il testo delle issues sono
+quelli di serie, cioè in inglese. Verificato caricando la libreria in node:
+
+```
+$ node -e "…axe.getRules(['wcag2a'])…"
+area-alt :: Active <area> elements must have alternative text
+```
+
+Il referto mostra quindi «Images must have alternative text» dentro
+un'interfaccia italiana (principio 6), e da U3.2 accanto a un `fix` che
+italiano lo è — perché quello viene dal locale.
+
+**La fixture del golden lo nasconde**: i `help` di `_violazioni_axe()` sono
+scritti in italiano, quindi `tests/golden/referto.txt` mostra un referto più
+bello di quello vero. È il caso in cui una fixture non fedele congela
+un'illusione, e va sistemato insieme al difetto, non prima.
+
+Due strade, e non sono equivalenti:
+
+- **tradurre in Python**, come si fa già per i `fix`: il locale è lo stesso
+  file, la traduzione costa una riga. Ma resta legata all'italiano, e la Fase
+  9 (i18n, `--lang` per cinque lingue) dovrebbe rifarla;
+- **passare il locale ad axe** con `axe.configure({locale})` prima di
+  `axe.run`: traduce anche i `failureSummary` dei nodi, ed è il meccanismo che
+  axe stesso prevede. Ma un locale illeggibile farebbe fallire `axe.run`, cioè
+  costerebbe **la misura e non solo i testi** — l'esatto contrario di come
+  U3.2 ha deciso di leggerlo. Servirebbe un `try` nel browser.
+
+Entrambe muovono i golden di testo e HTML: da fare in un commit suo, e
+verosimilmente **dentro U9**, dove la lingua diventa un parametro invece di
+una costante.
+
+- [ ] Tradurre i titoli axe, scegliendo fra le due strade.
+- [ ] Rendere fedele `_violazioni_axe()` nello stesso commit.
 
 ---
 

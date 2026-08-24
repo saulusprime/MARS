@@ -183,6 +183,14 @@ Costano ore se le si reincontra senza saperlo.
   dichiaravano il contrario. Si neutralizza la **libreria**, non
   `mars_wcag`, così non dipende da quale oggetto-modulo sia vivo.
   Vedi R20.
+- **`node_modules` non è nell'ambiente di test, ma i moduli lo leggono.**
+  `mars_wcag` prende da `node_modules/axe-core/locales/it.json` i testi di
+  correzione delle regole axe. Un file che c'è su questa macchina e non su
+  un clone appena fatto rende la suite **dipendente dalla macchina**:
+  misurato, cinque test verdi qui e rossi là. Lo si fissa in `conftest.py`
+  (`locale_axe_fisso`), come `force_proxy` fa con sentence-transformers.
+  E la fixture va **presidiata da un test**, perché dove il file c'è la
+  sua assenza è invisibile.
 - **La fixture `niente_rete` copre `requests.get`, non `Session.get`.**
   Il `Crawler` usa una `Session`: per esercitarlo nei test si monta un
   `requests.adapters.BaseAdapter` finto sulla sua `session`

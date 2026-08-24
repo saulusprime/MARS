@@ -9,9 +9,10 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
                        severita_lighthouse)
@@ -56,6 +57,41 @@ PREFISSO_NON_MISURATO = {
     "notApplicable": "Non applicabile a questa pagina",
     "error": "Controllo non eseguito da Lighthouse",
 }
+
+
+# I `description` di Lighthouse sono in Markdown, e l'unica sintassi
+# che usano davvero e' il link: `[testo](url)`. Misurato sugli undici
+# audit della categoria SEO nel locale italiano di Lighthouse 13.4.1 —
+# dieci ne hanno uno, `structured-data` due — piu' i code span fra
+# apici inversi, che restano perche' sono leggibili come sono.
+#
+# L'URL non si butta: e' documentazione dello strumento, e finisce in
+# `params["references"]` come i `reference` di ZAP. La forma e' la
+# stessa — una lista, non un `Finding.url` — perche' il problema e' lo
+# stesso: i link possono essere piu' d'uno, e sceglierne uno vuol dire
+# nascondere gli altri.
+#
+# `[^()\s]+` per l'URL: si ferma alla prima parentesi, quindi un URL
+# che ne contenga (Wikipedia) non verrebbe riconosciuto come link e
+# resterebbe nel testo com'e'. Preferibile all'alternativa, che e'
+# tagliare l'URL a meta' e lasciare ")" appeso nella frase.
+_LINK_MARKDOWN = re.compile(r"\[([^\]]*)\]\(([^()\s]+)\)")
+
+
+def _senza_link_markdown(testo: str) -> Tuple[str, List[str]]:
+    """Il testo con i link ridotti alla loro etichetta, piu' gli URL.
+
+    "Assicurati che [l'attributo href](https://x/) rimandi..." diventa
+    "Assicurati che l'attributo href rimandi..." e ["https://x/"].
+    Si tiene l'etichetta e non la si butta insieme all'URL: in
+    `crawlable-anchors` e in `structured-data` il link sta a meta'
+    frase, e toglierlo lascerebbe una frase monca.
+
+    Gli URL escono nell'ordine in cui compaiono, duplicati compresi:
+    e' il testo dello strumento, non una bibliografia da normalizzare.
+    """
+    urls = [m.group(2) for m in _LINK_MARKDOWN.finditer(testo)]
+    return _LINK_MARKDOWN.sub(lambda m: m.group(1), testo).strip(), urls
 
 
 def _peso(valore: object) -> float:
@@ -138,6 +174,18 @@ def _rilievo_audit(voce: dict, totale_pesi: float) -> dict:
     Cio' che rende la derivazione verificabile sta nei params, dove
     `score`, `mode`, `lh_weight` e `lh_weight_total` sono i suoi
     ingressi al completo.
+
+    La `description` di Lighthouse diventa `detail` e **non** `fix`.
+    Sembra il contrario finche' non la si legge: dei suoi undici audit
+    SEO nove spiegano perche' il controllo conta ("I motori di ricerca
+    non sono in grado di includere le pagine..."), e solo
+    `crawlable-anchors` e `structured-data` prescrivono qualcosa. Un
+    testo cosi' dentro `fix` sarebbe il piano della Fase 4 che, alla
+    voce "come si aggiusta", spiega il problema — un difetto che si
+    legge subito e si corregge tardi, perche' a quel punto sono
+    duecento righe di catalogo. Il `fix` dei controlli che Lighthouse
+    duplica esiste gia' sotto `tech.*`, dove MARS la stessa cosa la
+    misura da se'.
     """
     modo = str(voce["scoreDisplayMode"] or "")
     severita, peso = severita_lighthouse(voce["score"], modo, voce["weight"])
@@ -158,6 +206,9 @@ def _rilievo_audit(voce: dict, totale_pesi: float) -> dict:
         "lh_weight_total": totale_pesi,
         "items": list(voce["items"]),
     }
+    dettaglio, riferimenti = _senza_link_markdown(str(voce["description"]))
+    if riferimenti:
+        params["references"] = riferimenti
     penalita = _penalita(voce, totale_pesi)
     if penalita is not None:
         params["penalty"] = penalita
@@ -167,6 +218,7 @@ def _rilievo_audit(voce: dict, totale_pesi: float) -> dict:
         key="seo.lh.%s" % chiave_esterna(voce["id"]),
         title=("%s: %s" % (prefisso, voce["title"]) if prefisso
                else voce["title"]),
+        detail=dettaglio,
         params=params).as_dict()
 
 
@@ -250,6 +302,9 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
             "score": punteggio,
             "scoreDisplayMode": modo,
             "weight": _peso(ref.get("weight")),
+            # La `description` spiega PERCHE' il controllo conta.
+            # Verbatim e in Markdown: chi ne fa un `detail` la ripulisce.
+            "description": voce.get("description") or "",
         })
     return esito
 

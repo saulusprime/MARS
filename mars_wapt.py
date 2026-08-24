@@ -142,6 +142,7 @@ def _rilievo_zap(voce: dict) -> Finding:
         area="mars_wapt", severity=severita, weight=peso,
         key="sec.zap.%s" % chiave_esterna(voce["id"]),
         title=voce["name"],
+        detail=voce["description"],
         # La `solution` di ZAP e' testo semplice: i <p> che si vedono
         # nei referti tradizionali li aggiunge il loro generatore, non
         # l'alert. Arriva quindi cosi' com'e' — ripulirla mangerebbe in
@@ -238,6 +239,7 @@ def score_from_alerts(alerts: List[dict]) -> dict:
             "solution": "",
             "soluzioni": set(),
             "references": [],
+            "description": "",
         })
         if alert.get("url"):
             voce["urls"].add(alert["url"])
@@ -256,6 +258,17 @@ def score_from_alerts(alerts: List[dict]) -> dict:
                 voce["solution"] = soluzione
         if not voce["references"]:
             voce["references"] = _righe(alert.get("reference"))
+        # La `description` dice PERCHE' l'alert e' un problema, la
+        # `solution` come si chiude: sono due campi distinti in ZAP e
+        # restano due campi distinti nel rilievo. Fonderle darebbe alla
+        # Fase 4 una prescrizione che comincia con una spiegazione, e
+        # il piano di interventi si legge per fare, non per capire.
+        # Stessa regola della soluzione — la prima non vuota del
+        # gruppo — per la stessa ragione: dentro un pluginId gli
+        # alertRef possono averne di diverse.
+        descrizione = str(alert.get("description") or "").strip()
+        if descrizione and not voce["description"]:
+            voce["description"] = descrizione
 
     penalita = 0.0
     conteggio: Dict[str, int] = {}

@@ -19,6 +19,7 @@ import httpx  # noqa: E402
 import requests  # noqa: E402
 
 import mars_core  # noqa: E402
+import mars_wcag  # noqa: E402
 
 
 class NienteRete(AssertionError, requests.RequestException):
@@ -191,3 +192,43 @@ def strumenti_esterni_assenti(monkeypatch):
     # load_external_module), e copre entrambe le porte d'ingresso —
     # axe_disponibile() e run_axe() degradano tutte e due.
     monkeypatch.setitem(sys.modules, "playwright.sync_api", None)
+
+
+# Due regole vere del locale italiano di axe-core 4.13.0, verbatim.
+# Due bastano: quel che i test devono poter distinguere e' la regola
+# TRADOTTA da quella che il locale non conosce, e per la seconda va
+# bene qualunque id che non sia questi.
+TESTI_AXE = {
+    "image-alt": "Assicurati che gli elementi <img> abbiano un testo "
+                 "alternativo o un ruolo none o presentation",
+    "color-contrast": "Assicurati che il contrasto tra i colori in primo "
+                      "piano e di sfondo soddisfi le soglie minime del "
+                      "rapporto di contrasto WCAG 2 AA",
+}
+
+
+@pytest.fixture(autouse=True)
+def locale_axe_fisso(monkeypatch):
+    """Nessun test legge `node_modules`, nemmeno per i soli testi.
+
+    Misurato: senza questa fixture, spostando `AXE_LOCALE` su un file
+    inesistente cinque test di mars_wcag diventano rossi. Sono verdi
+    su questa macchina e rossi su un clone appena fatto — cioe' la
+    suite direbbe cose diverse a seconda che qualcuno abbia lanciato
+    `npm install`. E' la stessa dipendenza dall'ambiente che
+    `force_proxy` toglie a sentence-transformers e lo stub di
+    `anthropic` al giudizio LLM.
+
+    Si fissa un locale PRESENTE, non assente come per Lighthouse e ZAP,
+    perche' i due casi non si somigliano: quelli sono strumenti che si
+    installano a parte, questo e' un file dentro lo stesso pacchetto
+    npm di axe.min.js, che `axe_disponibile()` gia' pretende. In
+    produzione, se ci sono violazioni axe c'e' quasi sempre anche il
+    locale, e una suite che desse per normale il contrario proverebbe
+    ogni volta il ramo eccezionale.
+
+    Il ramo del locale assente si prova dove va provato: chiedendolo,
+    con un `testi_axe` vuoto, e sul lettore vero `_leggi_locale_axe`,
+    che questa fixture non tocca.
+    """
+    monkeypatch.setattr(mars_wcag, "testi_axe", lambda: dict(TESTI_AXE))

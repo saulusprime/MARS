@@ -3288,6 +3288,125 @@ questo un test le guarda tutte — lunghezza, imperativo, nessuna domanda.
 
 - [x] `mars_fixes.py`, `vesti_findings()`, quindici test, i due golden JSON.
 
+### U3.2 — ✅ (2026-08-24): i testi che vengono dagli strumenti
+
+**Il problema.** U3.1 ha escluso dal catalogo le tre famiglie dinamiche —
+`wcag.axe.*`, `sec.zap.*`, `seo.lh.*` — perché il testo lo conosce lo
+strumento, non noi: le regole di axe sono oltre cento e la regola violata la
+sa lui. Ma di quei testi ne veniva raccolto **uno solo**, la `solution` di
+ZAP. L'italiano di axe stava dentro `node_modules` senza che nessuno lo
+aprisse, e la `description` di Lighthouse veniva letta e buttata via da
+`estrai_audit`.
+
+**Una regola sola, misurata su tre strumenti: la spiegazione va in `detail`,
+la prescrizione in `fix`.** Non è una convenzione decisa a tavolino, è ciò che
+i testi dicono quando li si legge:
+
+- **Lighthouse** — dei suoi undici audit SEO, **nove spiegano perché il
+  controllo conta** («I motori di ricerca non sono in grado di includere le
+  pagine nei risultati di ricerca se non dispongono dell'autorizzazione…») e
+  solo `crawlable-anchors` e `structured-data` prescrivono qualcosa. Quel
+  testo dentro `fix` sarebbe il piano di interventi della Fase 4 che, alla
+  voce *come si aggiusta*, spiega il problema. Va in `detail`;
+- **axe** — delle 103 regole del locale italiano 4.13.0, **100 cominciano con
+  "Assicurati"**. È un imperativo, ed è anche più specifico del titolo, che
+  degli elementi e delle vie d'uscita non dice nulla: «Assicurati che gli
+  elementi `<img>` abbiano un testo alternativo **o un ruolo none o
+  presentation**». Va in `fix`;
+- **ZAP** — i due campi li tiene già separati lui, `description` e
+  `solution`, e restano separati nel rilievo.
+
+**Il Markdown di Lighthouse.** Le `description` arrivano da `--locale=it`, e
+l'unica sintassi che usano davvero è il link: misurati, dieci degli undici
+audit ne hanno **uno**, `structured-data` ne ha **due**, di cui il primo a
+metà frase. Si tiene l'etichetta e si toglie l'URL — buttare via anche
+l'etichetta lascerebbe una frase monca proprio in quei due — e gli URL
+finiscono in `params["references"]`, **lista e non `Finding.url`**, che è la
+stessa decisione presa in U1.6 per i `reference` di ZAP e per lo stesso
+motivo: i link possono essere più d'uno, e sceglierne uno nasconde gli altri.
+
+Un limite è dichiarato e verificato da un test: l'URL si ferma alla prima
+parentesi, quindi un link a una voce di Wikipedia con le parentesi nel titolo
+**resta nel testo com'è**. L'alternativa — un `[^)]+` avido — lo
+riconoscerebbe e ne troncherebbe l'URL, lasciando `)` appeso in mezzo alla
+frase e un riferimento che non si apre.
+
+**Il locale di axe si legge in Python, non nel browser.** axe accetta un
+`axe.configure({locale})`, che tradurrebbe anche i titoli. Non si è fatto per
+due ragioni: `score_from_violations` resta una funzione pura, verificabile
+senza avviare nulla; e un locale illeggibile costa **i testi e non la
+misura**, mentre dentro la pagina farebbe fallire `axe.run` e con lui l'intera
+area. È il principio 2 applicato al posto giusto.
+
+**La degradazione è dichiarata**, con lo stesso argomento per cui `mars_fixes`
+è un file Python e non un JSON: senza il locale i rilievi axe resterebbero
+senza `fix`, e **un campo vuoto sembra un campo che non serviva**. Nasce
+`wcag.status.no_fixes`, che si accende solo quando costa qualcosa — cioè
+quando ci sono violazioni da vestire — ed è un **rilievo e non una issue**, a
+differenza di `wcag.status.partial`: la riga compatta elenca ciò che non va
+nel *sito*, e una scansione parziale ci sta perché cambia come si legge il
+punteggio; questa no, il punteggio è lo stesso e mancano le istruzioni.
+
+Il suo `detail` porta il percorso **relativo** e non `AXE_LOCALE`, che è
+assoluto: un referto si consegna a un cliente, e la struttura delle directory
+della macchina che ha fatto girare la scansione non è un suo problema. È la
+stessa regola per cui `detail` non porta mai il proxy o la chiave di ZAP.
+
+**La misura che ha cambiato il progetto: la suite era diventata dipendente
+dalla macchina.** Spostando `AXE_LOCALE` su un file inesistente — cioè
+simulando un clone appena fatto, senza `npm install` — **cinque test di
+mars_wcag diventavano rossi**: il rilievo di stato in più spostava indici e
+conteggi. Verdi qui, rossi altrove, e nessuno se ne sarebbe accorto fino alla
+prima CI.
+
+La cura è `locale_axe_fisso` in `conftest.py`, autouse, che fissa due testi
+veri di axe-core. Fissa un locale **presente** e non assente come fanno
+Lighthouse, ZAP e il browser, perché i casi non si somigliano: quelli sono
+strumenti che si installano a parte, questo è un file dentro lo stesso
+pacchetto npm di `axe.min.js`, che `axe_disponibile()` già pretende. In
+produzione, se ci sono violazioni axe c'è quasi sempre anche il locale, e una
+suite che desse per normale il contrario proverebbe ogni volta il ramo
+eccezionale. Il ramo del locale assente si prova dove va provato: chiedendolo.
+
+E la fixture è **presidiata**, perché su questa macchina la sua assenza è
+invisibile — i testi arriverebbero dal file vero e i test resterebbero verdi
+lo stesso. Un test asserisce che durante la suite `testi_axe()` valga
+esattamente i due testi fissati, 2 regole e non 103: è la regola del guardiano
+rilevabile solo se qualcosa prova a passargli davanti. `testi_axe` è
+memoizzata; per poterla verificare la lettura vera è stata separata in
+`_leggi_locale_axe(percorso)`, che una cache non ce l'ha e si può quindi
+interrogare due volte su due file diversi.
+
+**Il golden.** Dei sei ne cambia **uno solo**, `referto.json`: 62 righe
+aggiunte e 26 modificate, tutte e sole `detail`, `fix` e `references`. Testo e
+HTML **byte per byte identici**, come U3.2 prometteva — la resa tocca a U3.3.
+Nel diff si vede anche la scelta di lasciare `label` fuori dal locale fissato:
+è la regola che il locale non conosce, e nel referto congelato si legge come
+`fix` vuoto invece che come niente.
+
+Le fixture sono diventate più fedeli, non solo più ricche: gli undici
+`description` di `_lhr()` sono **verbatim** dal locale italiano di Lighthouse
+13.4.1, coi link Markdown dentro — riscriverli a mano vorrebbe dire inventare
+il Markdown che si dice di saper ripulire — e un test ricompone i letterali e
+li confronta col file vero. Lo stesso per i due testi axe di `conftest`.
+
+**Ventidue mutazioni, nessuna sfuggita**, compresa quella sulla fixture nuova.
+
+**Una scelta consapevole nel dato**: `audits` continua a portare la
+`description` **grezza**, col Markdown, mentre i `findings` portano quella
+ripulita. È l'estrazione verbatim del LHR, la stessa regola per cui `score`,
+`scoreDisplayMode` e `weight` compaiono in tutt'e due i posti.
+
+**Trovato e non chiuso**: nel ramo axe i titoli del referto sono **in
+inglese**. Verificato caricando `axe-core` in node: `getRules()` restituisce
+«Active `<area>` elements must have alternative text». La fixture del golden
+lo nasconde, perché i suoi `help` sono già in italiano. Tradurli sposterebbe i
+golden di testo e HTML, quindi non è materia di U3.2: è **R44**.
+
+- [x] `mars_wcag.py` (locale + `no_fixes`), `mars_seo.py` (Markdown +
+      `detail`), `mars_wapt.py` (`detail`), `conftest.py`, 23 test nuovi,
+      un golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

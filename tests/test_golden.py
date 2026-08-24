@@ -207,15 +207,25 @@ def _violazioni_axe() -> list:
 
 
 def _alert_zap() -> list:
+    # La `description` e' la spiegazione, la `solution` la prescrizione:
+    # ZAP le tiene distinte e il rilievo pure (`detail` e `fix`). Il
+    # terzo alert e' apposta senza descrizione, cosi' il golden congela
+    # anche il gruppo che la eredita dal primo del suo pluginId, e
+    # l'ultimo non ne ha affatto: `detail` vuoto e' un esito legittimo.
     return [
         {"pluginId": "40012", "alertRef": "40012",
          "alert": "Cross Site Scripting (Reflected)", "risk": "High",
          "url": BASE + "servizi/",
+         "description": "Il valore inviato viene restituito nella pagina "
+                        "senza codifica: un attaccante puo' farvi eseguire "
+                        "script arbitrario nel browser della vittima.",
          "solution": "Convalida l'input e codifica l'output.",
          "reference": "https://owasp.org/xss\nhttps://cwe.mitre.org/79"},
         {"pluginId": "10038", "alertRef": "10038-1",
          "alert": "Content Security Policy (CSP) Header Not Set",
          "risk": "Medium", "url": BASE,
+         "description": "Senza Content-Security-Policy il browser non ha "
+                        "modo di sapere quali origini siano legittime.",
          "solution": "Configura il server per impostare l'header CSP."},
         {"pluginId": "10038", "alertRef": "10038-1",
          "alert": "Content Security Policy (CSP) Header Not Set",
@@ -223,6 +233,29 @@ def _alert_zap() -> list:
         {"pluginId": "10035", "alert": "Strict-Transport-Security non impostato",
          "risk": "Low", "url": BASE},
     ]
+
+
+def _testi_axe() -> dict:
+    """Il locale italiano di axe-core, congelato alle tre regole in gioco.
+
+    Il golden non puo' leggere `node_modules`: la' axe-core c'e' solo
+    se qualcuno ha lanciato `npm install`, e il referto direbbe cose
+    diverse a seconda della macchina — lo stesso motivo per cui il
+    recuperatore vettoriale e' forzato sul proxy e `anthropic` e' uno
+    stub. E' la cucitura di I/O di `mars_wcag.testi_axe`, iniettata
+    dove gia' si iniettano `run_axe` e `axe_disponibile`.
+
+    I testi sono verbatim da axe-core 4.13.0. `label` resta FUORI di
+    proposito: e' il ramo della regola che il locale non conosce, e nel
+    referto congelato si vede come `fix` vuoto invece che come niente.
+    """
+    return {
+        "image-alt": "Assicurati che gli elementi <img> abbiano un testo "
+                     "alternativo o un ruolo none o presentation",
+        "color-contrast": "Assicurati che il contrasto tra i colori in "
+                          "primo piano e di sfondo soddisfi le soglie "
+                          "minime del rapporto di contrasto WCAG 2 AA",
+    }
 
 
 def _giudizio_llm() -> dict:
@@ -318,6 +351,7 @@ def _referto_completo(monkeypatch) -> dict:
             monkeypatch.setattr(modulo, "axe_disponibile", lambda: True)
             monkeypatch.setattr(modulo, "run_axe",
                                 lambda urls, delay=0.0: (_violazioni_axe(), 2))
+            monkeypatch.setattr(modulo, "testi_axe", _testi_axe)
         if nome == "mars_wapt":
             # La cucitura documentata: il client entra dal context.
             contesto["_zap_client"] = object()

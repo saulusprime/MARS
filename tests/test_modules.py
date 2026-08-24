@@ -9,6 +9,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,7 +30,7 @@ import mars_seo
 import mars_tech
 import mars_wapt
 import mars_wcag
-from conftest import pagina
+from conftest import TESTI_AXE, pagina
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL,
                        SEV_INFO, SEV_WARNING, chiave_esterna,
                        load_external_module)
@@ -1137,6 +1138,163 @@ def test_wcag_axe_raggruppa_per_regola():
     assert cinque["score"] > una["score"] - 20, "il fattore deve essere 2, non 5"
 
 
+# --- U3.2: il fix di axe viene dal locale di axe ----------------------
+#
+# Le tre famiglie dinamiche prendono il testo dallo strumento e non dal
+# catalogo di `mars_fixes`: la regola violata la conosce axe, e le sue
+# sono oltre cento. Il locale italiano e' il posto dove axe scrive come
+# si aggiusta.
+
+def test_wcag_la_suite_non_legge_il_locale_vero():
+    """Presidio della fixture `locale_axe_fisso`.
+
+    Senza, la fixture sarebbe indistinguibile dalla sua assenza su una
+    macchina dove `npm install` e' stato lanciato — cioe' su tutte
+    quelle dove qualcuno lavora: i testi arriverebbero dal file vero e
+    i test resterebbero verdi lo stesso. Un guardiano si rileva solo se
+    qualcosa prova a passargli davanti, e qui a provarci e' questa
+    asserzione: 103 regole invece di 2.
+    """
+    assert mars_wcag.testi_axe() == TESTI_AXE
+
+
+def test_wcag_il_fix_axe_viene_dal_locale():
+    """La prescrizione italiana finisce nel rilievo, verbatim."""
+    esito = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical",
+          "help": "Images must have alternative text", "nodes": [0]}], 1)
+    rilievo = esito["findings"][0]
+    assert rilievo["fix"] == TESTI_AXE["image-alt"]
+    # E resta un fix, non un titolo: il titolo e' quello che ha detto
+    # axe girando, che e' un'altra frase e un'altra lingua.
+    assert rilievo["title"] == "Images must have alternative text"
+
+
+def test_wcag_regola_che_il_locale_non_conosce_resta_senza_fix():
+    """`axe.configure` permette regole aggiunte a mano: non sono tradotte.
+
+    Meglio un `fix` vuoto che il fix di un'altra regola, ed e' anche
+    perche' `testi_axe` restituisce una mappa e non una lista.
+    """
+    esito = mars_wcag.score_from_violations(
+        [{"id": "regola-di-un-addon", "impact": "serious",
+          "help": "Qualcosa", "nodes": [0]}], 1)
+    assert esito["findings"][0]["fix"] == ""
+
+
+def test_wcag_senza_locale_lo_dichiara(monkeypatch):
+    """Rilievi axe senza testi: si dichiara invece di lasciarli vuoti.
+
+    E' il principio 2 — se manca, si ripiega e LO SI DICE — applicato
+    a un file di dati la cui assenza non produce alcun errore: senza il
+    rilievo di stato, un `fix` vuoto sembrerebbe un `fix` che non
+    serviva.
+    """
+    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    esito = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical", "help": "x", "nodes": [0]},
+         {"id": "label", "impact": "moderate", "help": "y", "nodes": [0]}], 1)
+    stato = [f for f in esito["findings"]
+             if f["key"] == "wcag.status.no_fixes"]
+    assert len(stato) == 1, "uno, non uno per regola"
+    assert stato[0]["params"]["regole"] == 2
+    assert stato[0]["severity"] == mars_core.SEV_INFO
+    # Sta in testa, come wcag.status.partial: i rilievi sullo stato
+    # della scansione precedono quelli sul sito.
+    assert esito["findings"][0]["key"] == "wcag.status.no_fixes"
+
+
+def test_wcag_il_locale_assente_non_tocca_il_punteggio(monkeypatch):
+    """Perdere i testi non e' perdere la misura.
+
+    E' la ragione per cui il locale si legge in Python e non lo si
+    passa a `axe.configure` dentro la pagina: la' un file rotto farebbe
+    fallire `axe.run`, e con lui l'intera area.
+    """
+    violazioni = [{"id": "image-alt", "impact": "critical",
+                   "help": "x", "nodes": [0, 1]}]
+    con = mars_wcag.score_from_violations(violazioni, 1)
+    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    senza = mars_wcag.score_from_violations(violazioni, 1)
+    assert con["score"] == senza["score"]
+    assert con["issues"] == senza["issues"]
+    assert con["rules_violated"] == senza["rules_violated"]
+
+
+def test_wcag_senza_violazioni_non_dichiara_il_locale(monkeypatch):
+    """Il rilievo di stato esiste solo se costa qualcosa.
+
+    Nessuna violazione, nessun fix da scrivere: dichiarare la mancanza
+    di testi che non servivano sarebbe rumore in un referto pulito.
+    """
+    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    assert mars_wcag.score_from_violations([], 1)["findings"] == []
+
+
+def test_wcag_no_fixes_non_espone_il_percorso_della_macchina(monkeypatch):
+    """Un referto si consegna: la struttura delle directory non e' sua.
+
+    Stessa regola per cui `detail` non porta mai il proxy o la chiave
+    di ZAP (test_wapt_nessuna_credenziale_nei_rilievi).
+    """
+    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    esito = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical", "help": "x",
+          "nodes": [0]}], 1)
+    assert mars_wcag.AXE_LOCALE not in json.dumps(esito["findings"])
+    assert os.path.dirname(mars_wcag.AXE_LOCALE) not in json.dumps(
+        esito["findings"])
+
+
+def test_wcag_il_lettore_del_locale_regge_un_file_che_non_c_e():
+    """Nessuna eccezione: senza il file, i testi sono un dict vuoto."""
+    assert mars_wcag._leggi_locale_axe("/non/esiste/mai.json") == {}
+
+
+def test_wcag_il_lettore_del_locale_regge_un_file_che_non_e_json(tmp_path):
+    """Un locale troncato o sovrascritto e' lo stesso caso di uno assente."""
+    rotto = tmp_path / "it.json"
+    rotto.write_text('{"rules": {"image-alt"', encoding="utf-8")
+    assert mars_wcag._leggi_locale_axe(str(rotto)) == {}
+
+
+def test_wcag_il_lettore_del_locale_ignora_le_regole_senza_descrizione(
+        tmp_path):
+    """Una voce senza `description` non diventa un fix vuoto.
+
+    Distinzione che conta: una chiave presente col valore "" spegnerebbe
+    `wcag.status.no_fixes` pur non avendo nulla da dire.
+    """
+    parziale = tmp_path / "it.json"
+    parziale.write_text(json.dumps({"rules": {
+        "a": {"description": "Assicurati di a", "help": "A"},
+        "b": {"help": "B"},
+        "c": "non un dict",
+    }}), encoding="utf-8")
+    assert mars_wcag._leggi_locale_axe(str(parziale)) == {
+        "a": "Assicurati di a"}
+
+
+@pytest.mark.skipif(not os.path.exists(mars_wcag.AXE_LOCALE),
+                    reason="axe-core non installato (npm install)")
+def test_wcag_il_locale_vero_si_legge_e_copre_le_regole():
+    """L'unico test che tocca `node_modules`, e per questo puo' saltare.
+
+    Il resto della suite lavora sul locale fissato in conftest: qui si
+    verifica che il file VERO abbia la forma che quel finto imita —
+    altrimenti la fixture congelerebbe un'idea sbagliata del file, e
+    nessun test se ne accorgerebbe.
+    """
+    testi = mars_wcag._leggi_locale_axe(mars_wcag.AXE_LOCALE)
+    assert len(testi) > 50, "un locale axe elenca un centinaio di regole"
+    for regola, atteso in TESTI_AXE.items():
+        assert testi[regola] == atteso, (
+            "il locale di axe-core e' cambiato: rivedere TESTI_AXE")
+    # Sono prescrizioni, non descrizioni: e' cio' che le rende un `fix`.
+    imperativi = [t for t in testi.values() if t.startswith("Assicurati")]
+    assert len(imperativi) > len(testi) * 0.9
+
+
 # ----------------------------------------------------------------------
 # mars_lexical e mars_semantic
 # ----------------------------------------------------------------------
@@ -1253,7 +1411,11 @@ def _lhr(punteggio=0.27):
       motivo sbagliato;
     - il peso **azzerato** sui non applicabili e sul manuale, che e'
       cio' che Lighthouse scrive nel LHR (`core/scoring.js`) e non cio'
-      che sta nella configurazione.
+      che sta nella configurazione;
+    - le **`description`**, verbatim dal locale italiano di Lighthouse
+      13.4.1, coi link Markdown dentro. Sono cio' che diventa il
+      `detail` di un rilievo: riscriverle a mano vorrebbe dire
+      inventare il Markdown che si dice di saper ripulire.
 
     Il punteggio non e' inventato: con questi pesi e questi esiti la
     media pesata di Lighthouse vale 3 / 11,043478 = 0,2717, che il suo
@@ -1280,50 +1442,116 @@ def _lhr(punteggio=0.27):
         ]}},
         "audits": {
             "is-crawlable": {
+                "description": "I motori di ricerca non sono in grado di "
+                               "includere le pagine nei risultati di ricerca "
+                               "se non dispongono dell'autorizzazione per "
+                               "eseguirne la scansione. [Scopri di più sulle "
+                               "istruzioni dei crawler](https://developer.chro"
+                               "me.com/docs/lighthouse/seo/is-crawlable/).",
                 "title": "L'indicizzazione della pagina è bloccata",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table",
                             "items": [{"source": "X-Robots-Tag: noindex"}]}},
             "document-title": {
+                "description": "Il titolo fornisce agli utenti di screen "
+                               "reader una panoramica della pagina, mentre per"
+                               " gli utenti di motori di ricerca è utile per "
+                               "stabilire se una pagina è pertinente alla loro"
+                               " ricerca. [Scopri di più sui titoli dei docume"
+                               "nti](https://dequeuniversity.com/rules/axe/4.1"
+                               "2/document-title).",
                 "title": "Il documento non ha un elemento `<title>`",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table", "items": [
                     {"node": {"type": "node", "selector": "html",
                               "boundingRect": {"top": 0}}}]}},
             "meta-description": {
+                "description": "Le meta descrizioni possono essere incluse nei"
+                               " risultati di ricerca per riassumere "
+                               "brevemente i contenuti della pagina. [Scopri "
+                               "di più sulla meta descrizione](https://develop"
+                               "er.chrome.com/docs/lighthouse/seo/meta-descrip"
+                               "tion/).",
                 "title": "Il documento non ha una meta descrizione",
                 "score": 0, "scoreDisplayMode": "binary"},
             "http-status-code": {
+                "description": "Le pagine con codici di stato HTTP non validi "
+                               "potrebbero non essere indicizzate "
+                               "correttamente. [Scopri di più sui codici di "
+                               "stato HTTP](https://developer.chrome.com/docs/"
+                               "lighthouse/seo/http-status-code/).",
                 "title": "La pagina ha un codice di stato HTTP valido",
                 "score": 1, "scoreDisplayMode": "binary"},
             # Otto elementi: e' l'unico audit che supera MAX_ELEMENTI,
             # e prima della fixture fedele quel troncamento non era
             # esercitato da nessun test.
             "link-text": {
+                "description": "Il testo descrittivo dei link aiuta i motori "
+                               "di ricerca a comprendere i tuoi contenuti. "
+                               "[Scopri come rendere più accessibili i link](h"
+                               "ttps://developer.chrome.com/docs/lighthouse/se"
+                               "o/link-text/).",
                 "title": "I link non hanno testo descrittivo",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table", "items": [
                     {"href": "/p%d" % i, "text": "clicca qui"}
                     for i in range(8)]}},
             "crawlable-anchors": {
+                "description": "I motori di ricerca potrebbero usare gli "
+                               "attributi `href` dei link per eseguire la "
+                               "scansione dei siti web. Assicurati che "
+                               "l'attributo `href` degli elementi anchor "
+                               "rimandi a una destinazione appropriata per "
+                               "consentire il rilevamento di un numero "
+                               "maggiore di pagine del sito. [Scopri come "
+                               "consentire la scansione dei link](https://supp"
+                               "ort.google.com/webmasters/answer/9112205)",
                 "title": "I link sono sottoponibili a scansione",
                 "score": 1, "scoreDisplayMode": "binary"},
             "robots-txt": {
+                "description": "Se il file robots.txt non è valido, i crawler "
+                               "potrebbero non essere in grado di capire come "
+                               "vuoi che il tuo sito web venga sottoposto a "
+                               "scansione o indicizzato. [Scopri di più sul "
+                               "file robots.txt](https://developer.chrome.com/"
+                               "docs/lighthouse/seo/invalid-robots-txt/).",
                 "title": "robots.txt è valido",
                 "score": None, "scoreDisplayMode": "notApplicable"},
             "image-alt": {
+                "description": "Gli elementi informativi dovrebbero mostrare "
+                               "testo alternativo breve e descrittivo. Gli "
+                               "elementi decorativi possono essere ignorati "
+                               "con un attributo ALT vuoto. [Scopri di più "
+                               "sull'attributo `alt`](https://dequeuniversity."
+                               "com/rules/axe/4.12/image-alt).",
                 "title": "Gli elementi immagine non hanno attributi `[alt]`",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table", "items": [
                     {"node": {"selector": "body > img"}},
                     {"node": {"selector": "body > img"}}]}},
             "hreflang": {
+                "description": "I link hreflang indicano ai motori di ricerca "
+                               "quale versione di una pagina devono elencare "
+                               "nei risultati di ricerca per una determinata "
+                               "lingua o regione. [Scopri di più su `hreflang`"
+                               "](https://developer.chrome.com/docs/lighthouse"
+                               "/seo/hreflang/).",
                 "title": "Il documento ha un `hreflang` valido",
                 "score": 1, "scoreDisplayMode": "binary"},
             "canonical": {
+                "description": "I link canonici suggeriscono quale URL "
+                               "mostrare nei risultati di ricerca. [Scopri di "
+                               "più sui link canonici](https://developer.chrom"
+                               "e.com/docs/lighthouse/seo/canonical/).",
                 "title": "Il documento ha un elemento `rel=canonical` valido",
                 "score": None, "scoreDisplayMode": "notApplicable"},
             "structured-data": {
+                "description": "Esegui lo [Strumento di test per i dati strutt"
+                               "urati](https://developers.google.com/search/do"
+                               "cs/appearance/structured-data/) per "
+                               "convalidare i dati strutturati. [Scopri di più"
+                               " sui dati strutturati](https://developer.chrom"
+                               "e.com/docs/lighthouse/seo/structured-data/).",
                 "title": "Dati strutturati validi",
                 "score": None, "scoreDisplayMode": "manual"},
         },
@@ -1812,6 +2040,107 @@ def test_seo_i_findings_arrivano_al_referto(monkeypatch):
     assert all(f["key"].startswith("seo.") for f in area["findings"])
     # e il referto resta serializzabile: i params portano float e None
     json.dumps(referto)
+
+
+# --- U3.2: la description di Lighthouse, ripulita ---------------------
+#
+# Lighthouse gira con --locale=it e la description arriva gia' tradotta,
+# in Markdown. Diventa il `detail` del rilievo e non il `fix`: nove
+# degli undici audit SEO spiegano perche' il controllo conta, e solo
+# due prescrivono qualcosa.
+
+def test_seo_il_link_markdown_diventa_la_sua_etichetta():
+    """Si tiene il testo e si toglie l'URL: la frase deve restare intera."""
+    testo, urls = mars_seo._senza_link_markdown(
+        "Assicurati che [l'attributo href](https://x/doc) rimandi altrove.")
+    assert testo == "Assicurati che l'attributo href rimandi altrove."
+    assert urls == ["https://x/doc"]
+
+
+def test_seo_due_link_danno_due_riferimenti():
+    """`structured-data` ne ha due, uno a meta' frase e uno in coda."""
+    testo, urls = mars_seo._senza_link_markdown(
+        "Esegui lo [Strumento](https://a/) per convalidare. "
+        "[Scopri di piu'](https://b/).")
+    assert testo == "Esegui lo Strumento per convalidare. Scopri di piu'."
+    assert urls == ["https://a/", "https://b/"]
+
+
+def test_seo_testo_senza_link_resta_identico():
+    testo, urls = mars_seo._senza_link_markdown(
+        "Gli `alt` vuoti sono leciti sulle immagini decorative.")
+    assert testo == "Gli `alt` vuoti sono leciti sulle immagini decorative."
+    assert urls == []
+
+
+def test_seo_un_url_con_parentesi_resta_nel_testo():
+    """Limite dichiarato, verificato: meglio intatto che tagliato a meta'.
+
+    L'alternativa — un `[^)]+` avido di parentesi — riconoscerebbe il
+    link e ne troncherebbe l'URL alla prima chiusa, lasciando ")"
+    appeso in mezzo alla frase e un riferimento che non si apre.
+    """
+    grezzo = "Vedi [la voce](https://it.wikipedia.org/wiki/Foo_(bar))."
+    testo, urls = mars_seo._senza_link_markdown(grezzo)
+    assert testo == grezzo
+    assert urls == []
+
+
+def test_seo_la_description_diventa_detail_e_non_fix():
+    """La scelta di U3.2, fissata: e' una spiegazione, non una prescrizione.
+
+    Se un giorno finisse in `fix`, il piano di interventi della Fase 4
+    direbbe, alla voce "come si aggiusta", perche' il controllo conta.
+    """
+    rilievi = mars_seo.riassumi(_lhr())["findings"]
+    crawlable = [f for f in rilievi if f["key"] == "seo.lh.is_crawlable"][0]
+    assert crawlable["detail"].startswith("I motori di ricerca non sono in "
+                                          "grado di includere le pagine")
+    assert crawlable["fix"] == ""
+
+
+def test_seo_nessun_detail_conserva_il_markdown():
+    """Il Markdown non deve arrivare al referto: nessuno lo renderizza."""
+    for rilievo in mars_seo.riassumi(_lhr())["findings"]:
+        assert "](" not in rilievo["detail"], rilievo["key"]
+        assert "[Scopri" not in rilievo["detail"], rilievo["key"]
+
+
+def test_seo_i_link_della_description_diventano_riferimenti():
+    """L'URL non si butta: e' documentazione dello strumento.
+
+    Lista e non `Finding.url` per la stessa ragione dei `reference` di
+    ZAP (U1.6): i link possono essere piu' d'uno, e sceglierne uno
+    nasconderebbe gli altri. `structured-data` ne ha due davvero.
+    """
+    rilievi = {f["key"]: f for f in mars_seo.riassumi(_lhr())["findings"]}
+    assert rilievi["seo.lh.is_crawlable"]["params"]["references"] == [
+        "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"]
+    assert len(rilievi["seo.lh.structured_data"]["params"]["references"]) == 2
+
+
+def test_seo_senza_description_non_inventa_riferimenti():
+    """Un LHR senza description non deve produrre params vuoti.
+
+    `references: []` in ogni rilievo sarebbe una chiave che promette un
+    dato che non c'e' — e nel CSV della Fase 6 una colonna sempre vuota.
+    """
+    lhr = _lhr()
+    for voce in lhr["audits"].values():
+        voce.pop("description", None)
+    for rilievo in mars_seo.riassumi(lhr)["findings"]:
+        assert rilievo["detail"] == ""
+        assert "references" not in rilievo["params"]
+
+
+def test_seo_estrai_audit_conserva_la_description():
+    """Il punto di contatto col LHR e' uno solo: se non passa di qui,
+    a valle non si ricostruisce."""
+    voci = {c["id"]: c for c in mars_seo.estrai_audit(_lhr())}
+    assert voci["canonical"]["description"].startswith("I link canonici")
+    # Verbatim: il Markdown lo toglie chi ne fa un detail, non
+    # l'estrattore, che dei valori di Lighthouse e' fedele.
+    assert "](" in voci["canonical"]["description"]
 
 
 # ----------------------------------------------------------------------
@@ -2345,6 +2674,7 @@ def _alert(**kw) -> dict:
     base = {"pluginId": "10038", "alertRef": "10038-1",
             "alert": "CSP Header Not Set", "name": "CSP Header Not Set",
             "risk": "Medium", "url": "https://x/",
+            "description": "The header is not set.",
             "solution": "Ensure the header is set.",
             "reference": "https://a/\nhttps://b/"}
     base.update(kw)
@@ -2833,6 +3163,41 @@ def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
                         "zap_proxy": "http://interno:8080"}})
     assert "SPIA" not in json.dumps(esito["findings"])
     assert "interno" not in json.dumps(esito["findings"])
+
+
+# --- U3.2: la description di ZAP diventa il detail ---------------------
+
+def test_wapt_la_description_di_zap_diventa_detail():
+    """Due campi in ZAP, due campi nel rilievo.
+
+    `description` spiega, `solution` prescrive: fonderle darebbe alla
+    Fase 4 un intervento che comincia con una spiegazione.
+    """
+    esito = mars_wapt.score_from_alerts([_alert()])
+    rilievo = esito["findings"][0]
+    assert rilievo["detail"] == "The header is not set."
+    assert rilievo["fix"] == "Ensure the header is set."
+
+
+def test_wapt_il_detail_e_il_primo_non_vuoto_del_gruppo():
+    """Stessa regola della solution, per la stessa ragione.
+
+    Dentro un pluginId gli alertRef possono avere descrizioni diverse:
+    concatenarle darebbe un testo che non e' di nessuno dei due.
+    """
+    esito = mars_wapt.score_from_alerts([
+        _alert(description=None, url="https://x/a"),
+        _alert(description="La prima che parla.", url="https://x/b"),
+        _alert(description="La seconda, che non deve vincere.",
+               url="https://x/c")])
+    assert len(esito["findings"]) == 1
+    assert esito["findings"][0]["detail"] == "La prima che parla."
+
+
+def test_wapt_senza_description_il_detail_resta_vuoto():
+    """Non e' un errore: esistono alert Informational senza descrizione."""
+    esito = mars_wapt.score_from_alerts([_alert(description=None)])
+    assert esito["findings"][0]["detail"] == ""
 
 
 # ----------------------------------------------------------------------

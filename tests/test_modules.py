@@ -16,8 +16,10 @@ import types
 
 import pytest
 import requests
+from requests.structures import CaseInsensitiveDict
 
 import mars_citability
+import mars_core
 import mars_lexical
 import mars_llm_judge
 import mars_schema
@@ -28,7 +30,8 @@ import mars_wapt
 import mars_wcag
 from conftest import pagina
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL,
-                       SEV_INFO, SEV_WARNING, load_external_module)
+                       SEV_INFO, SEV_WARNING, chiave_esterna,
+                       load_external_module)
 from mars_report import STATO_LEGGIBILE
 
 
@@ -1893,6 +1896,518 @@ def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
     assert "fermata" in fermata["issues"][0]
     assert "NON fermata" in abbandonata["issues"][0]
     assert "prosegue nel daemon" in abbandonata["issues"][0]
+
+
+# ----------------------------------------------------------------------
+# mars_wapt — i rilievi come dato (U1.6)
+# ----------------------------------------------------------------------
+#
+# Prima di U1.6 quest'area aveva una rete su R27 (le fermate) e su C9
+# (il raggruppamento per regola), ma NIENTE su cio' che U1.6 tocca:
+# `audit_headers` non aveva un solo test proprio, il ramo "surface" non
+# era mai stato raggiunto, e `audit()` non aveva mai visto un alert non
+# vuoto. Questi test sono quella rete, non solo la verifica dei
+# findings.
+
+def _alert(**kw) -> dict:
+    """Un alert come lo restituisce `core/view/alerts` di ZAP.
+
+    I default sono quelli veri: `pluginId` sempre presente e stringa,
+    `risk` uno dei quattro `MSG_RISK`, `reference` UNA stringa con piu'
+    URL separati da a-capo. Un valore messo a None sparisce dal dict,
+    che e' come si prova il caso "campo assente".
+    """
+    base = {"pluginId": "10038", "alertRef": "10038-1",
+            "alert": "CSP Header Not Set", "name": "CSP Header Not Set",
+            "risk": "Medium", "url": "https://x/",
+            "solution": "Ensure the header is set.",
+            "reference": "https://a/\nhttps://b/"}
+    base.update(kw)
+    return {k: v for k, v in base.items() if v is not None}
+
+
+class _Risposta:
+    """Risposta HTTP finta, FEDELE su cio' che il modulo usa.
+
+    `headers` e' una `CaseInsensitiveDict`, non un `dict`: e' cio' che
+    `requests` restituisce, e `audit_headers` fa `header not in
+    resp.headers`. Con un dict semplice il test verificherebbe un
+    confronto che il codice reale non esegue — la stessa lezione
+    dell'adattatore finto del Crawler in tests/test_core.py.
+    """
+
+    def __init__(self, status_code: int = 200, headers=()):
+        self.status_code = status_code
+        self.headers = CaseInsensitiveDict(dict(headers))
+
+
+def _risposte(monkeypatch, *sequenza):
+    """Monta un copione su requests.head e requests.get.
+
+    La fixture `niente_rete` vieta la rete ma non fornisce risposte:
+    per esercitare il ramo "surface", mai raggiunto prima, serve un
+    finto locale.
+    """
+    coda = list(sequenza)
+
+    def servi(url, **kw):
+        esito = coda.pop(0)
+        if isinstance(esito, Exception):
+            raise esito
+        return esito
+
+    monkeypatch.setattr(mars_wapt.requests, "head", servi)
+    monkeypatch.setattr(mars_wapt.requests, "get", servi)
+
+
+def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
+               active=False):
+    """`audit()` sul ramo ZAP, con alert veri.
+
+    Si sostituisce `run_zap` intero e non il solo client: per ottenere
+    `completa=False` servirebbe far scadere `_attendi`, che aspetta
+    ZAP_TIMEOUT_SCAN secondi — quindici minuti dentro un test.
+    """
+    monkeypatch.setattr(mars_wapt, "connect_zap",
+                        lambda credentials=None: object())
+    monkeypatch.setattr(mars_wapt, "run_zap",
+                        lambda url, client=None, active=False:
+                        (alerts, completa, fermate))
+    return mars_wapt.audit({"url": "https://x/",
+                            "owner_declaration": active})
+
+
+def test_wapt_ogni_rilievo_zap_ha_una_chiave_stabile():
+    """Tre segmenti e il prefisso d'area: e' cio' su cui poggeranno il
+    confronto fra due esecuzioni e i cataloghi di traduzione."""
+    esito = mars_wapt.score_from_alerts([
+        _alert(pluginId="10038"),
+        _alert(pluginId="40012", alert="XSS", name="XSS", risk="High"),
+        # Gli alert manuali, da script e da alert/action/addAlert hanno
+        # pluginId "-1": e' dato reale, non un caso di laboratorio.
+        _alert(pluginId="-1", alert="Manuale", name="Manuale"),
+    ])
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert len(chiavi) == 3
+    for chiave in chiavi:
+        parti = chiave.split(".")
+        assert parti[0] == AREA_PREFIX["mars_wapt"]
+        assert len(parti) == 3, "profondita' fissa a tre segmenti"
+    assert "sec.zap.10038" in chiavi
+
+
+def test_wapt_la_chiave_zap_e_sanificata_ma_collide():
+    """Un id di ZAP e' dato esterno: passa da `chiave_esterna`, che pero'
+    NON e' iniettiva. Il fatto e' documentato, non nascosto: `-1` e `1`
+    danno la stessa chiave, e l'unico dato fedele e' params["rule"]."""
+    esito = mars_wapt.score_from_alerts(
+        [_alert(pluginId=None, alertRef=None,
+                alert="Cross Site Scripting (Reflected)",
+                name="Cross Site Scripting (Reflected)")])
+    finding = esito["findings"][0]
+    assert finding["key"] == "sec.zap.cross_site_scripting__reflected"
+    assert finding["params"]["rule"] == "Cross Site Scripting (Reflected)"
+    # E la collisione, dichiarata:
+    assert chiave_esterna("-1") == chiave_esterna("1")
+
+
+def test_wapt_la_chiave_dichiara_da_quale_campo_nasce():
+    """La chiave e' stabile SOLO quando nasce dal pluginId: un nome
+    viene dai Messages.properties di ZAP, cambia fra due release ed e'
+    localizzato. Chi confrontera' due esecuzioni deve poterlo sapere."""
+    da_plugin = mars_wapt.score_from_alerts([_alert()])
+    da_nome = mars_wapt.score_from_alerts(
+        [_alert(pluginId=None, alertRef=None)])
+    assert da_plugin["findings"][0]["params"]["key_source"] == "pluginId"
+    assert da_nome["findings"][0]["params"]["key_source"] == "name"
+
+
+@pytest.mark.parametrize("rischio, severita, peso", [
+    ("High", SEV_CRITICAL, 2.0),
+    ("Medium", SEV_WARNING, 1.0),
+    ("Low", SEV_INFO, 1.0),
+    ("Informational", SEV_INFO, 1.0),
+])
+def test_wapt_la_gravita_arriva_dalla_scala_zap(rischio, severita, peso):
+    """I quattro livelli di ZAP sulla scala canonica, con il peso che
+    conserva la granularita' che le quattro severita' perdono."""
+    esito = mars_wapt.score_from_alerts([_alert(risk=rischio)])
+    finding = esito["findings"][0]
+    assert (finding["severity"], finding["weight"]) == (severita, peso)
+    assert finding["source_severity"] == "ZAP:%s" % rischio
+
+
+def test_wapt_il_rischio_taciuto_non_diventa_un_giudizio_di_zap():
+    """Il modulo assume "Informational" quando `risk` manca, per poter
+    comunque pesare l'alert. E' una NOSTRA assunzione: scrivere
+    "ZAP:Informational" attribuirebbe a ZAP un giudizio mai espresso."""
+    esito = mars_wapt.score_from_alerts([_alert(risk=None)])
+    finding = esito["findings"][0]
+    assert finding["source_severity"] == "", "ZAP non ha parlato"
+    # ...ma il livello usato per il calcolo resta auditabile:
+    assert finding["params"]["risk"] == "Informational"
+    assert finding["params"]["penalty"] == 0.0
+
+
+def test_wapt_il_rischio_dichiarato_porta_la_parola_di_zap():
+    """L'opposto del caso sopra: quando ZAP il rischio lo dichiara,
+    `source_severity` deve dirlo, e con la stessa parola del prefisso
+    `[ZAP:...]` della issue — altrimenti chi legge il testo e chi legge
+    il dato vedono due scale."""
+    esito = mars_wapt.score_from_alerts([_alert(risk="High")])
+    assert esito["findings"][0]["source_severity"] == "ZAP:High"
+    assert esito["issues"][0].startswith("[ZAP:High]")
+
+
+def test_wapt_la_penalita_ricostruisce_il_punteggio():
+    """Senza la penalita' vera nel dato, la Fase 4 non puo' calcolare
+    quanto risalirebbe il punteggio se il rilievo fosse risolto."""
+    alerts = [_alert(pluginId="1", risk="High"),
+              _alert(pluginId="2", risk="Medium", url="https://x/b"),
+              _alert(pluginId="3", risk="Low", url="https://x/c")]
+    esito = mars_wapt.score_from_alerts(alerts)
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == max(0, round(100 - somma))
+
+
+def test_wapt_sotto_clamp_la_penalita_non_e_un_recupero():
+    """Il punteggio si ferma a zero, la somma delle penalita' no.
+
+    Va detto, perche' la Fase 4 usera' `penalty` come RECUPERO: su
+    un'area saturata prometterebbe un miglioramento che non arriva."""
+    alerts = [_alert(pluginId=str(i), risk="High") for i in range(30)]
+    esito = mars_wapt.score_from_alerts(alerts)
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == 0
+    assert somma > 100, "la somma supera il punteggio: e' il clamp"
+    assert esito["score"] == max(0, round(100 - somma))
+
+
+@pytest.mark.parametrize("quanti_url, moltiplicatore", [
+    (2, 1.2), (5, 1.5), (10, 2.0), (20, 2.0),
+])
+def test_wapt_la_penalita_tiene_conto_della_diffusione(quanti_url,
+                                                       moltiplicatore):
+    """La diffusione e' calcolabile solo dentro il ciclo che la applica:
+    se non finisce nel dato, nessuno la ricostruisce piu'.
+
+    I moltiplicatori sono scelti rappresentabili in binario: 1.1 non lo
+    e', e l'uguaglianza esatta fallirebbe per l'ultimo bit."""
+    alerts = [_alert(pluginId="1", risk="High", url="https://x/%d" % i)
+              for i in range(quanti_url)]
+    esito = mars_wapt.score_from_alerts(alerts)
+    penalita = esito["findings"][0]["params"]["penalty"]
+    assert penalita == 25 * moltiplicatore
+    assert esito["findings"][0]["params"]["n"] == quanti_url
+
+
+def test_wapt_un_alert_senza_url_conta_comunque_per_uno():
+    """ZAP puo' emettere un alert senza URL — quelli manuali e da
+    script non ne hanno.
+
+    Il moltiplicatore di diffusione resta 1, non 0: azzerarlo
+    annullerebbe la penalita' della regola e la issue direbbe
+    "(0 URL)". Sfuggiva a ogni test finche' `n` non e' finito nel
+    dato."""
+    esito = mars_wapt.score_from_alerts([_alert(url=None)])
+    assert esito["findings"][0]["params"]["n"] == 1
+    assert esito["findings"][0]["params"]["urls"] == []
+    assert esito["issues"][0].endswith("(1 URL)")
+    assert esito["score"] == 100 - round(10 * 1.1)
+
+
+def test_wapt_il_dato_non_tronca_a_cinque():
+    """La vista compatta ne mostra cinque; il dato canonico li porta
+    tutti — e' l'asimmetria gia' scelta in mars_wcag."""
+    alerts = [_alert(pluginId=str(i), url="https://x/%d" % i)
+              for i in range(8)]
+    esito = mars_wapt.score_from_alerts(alerts)
+    assert len(esito["issues"]) == 5
+    assert len(esito["findings"]) == 8
+    assert esito["rules_violated"] == 8
+
+
+def test_wapt_gli_url_colpiti_arrivano_tutti_e_serializzabili():
+    """Il raggruppamento usa un `set`, che `render_json` non sa
+    serializzare: `json.dumps` senza `default=` solleverebbe DOPO che
+    tutti i moduli sono girati, cioe' a lavoro fatto."""
+    alerts = [_alert(url="https://x/%d" % i) for i in range(3)]
+    esito = mars_wapt.score_from_alerts(alerts)
+    params = esito["findings"][0]["params"]
+    assert params["urls"] == ["https://x/0", "https://x/1", "https://x/2"]
+    json.dumps(esito["findings"])
+
+
+def test_wapt_la_solution_di_zap_diventa_la_correzione():
+    """La `solution` veniva scartata, ed e' il campo su cui poggia la
+    Fase 3. Non si ripulisce: e' testo semplice, i <p> dei referti
+    tradizionali li aggiunge il loro generatore, non l'alert."""
+    testo = "Ensure that your web server is configured to set the header."
+    esito = mars_wapt.score_from_alerts([_alert(solution=testo)])
+    assert esito["findings"][0]["fix"] == testo
+
+
+def test_wapt_una_solution_assente_non_e_un_errore():
+    """Esistono alert Informational senza soluzione (10049-2 di ZAP ne
+    e' uno): l'assenza non e' un motivo per scartare il rilievo."""
+    esito = mars_wapt.score_from_alerts([_alert(solution=None)])
+    assert esito["findings"][0]["fix"] == ""
+    assert esito["findings"][0]["params"]["soluzioni"] == 0
+
+
+def test_wapt_un_gruppo_con_piu_soluzioni_lo_dichiara():
+    """Dentro un pluginId gli alertRef possono avere soluzioni diverse:
+    `fix` ne porta una, e se le altre si perdono il dato deve dirlo
+    invece di lasciar credere che fosse l'unica."""
+    esito = mars_wapt.score_from_alerts([
+        _alert(alertRef="10038-1", solution="Prima."),
+        _alert(alertRef="10038-2", solution="Seconda.", url="https://x/b")])
+    finding = esito["findings"][0]
+    assert finding["fix"] == "Prima.", "la prima non vuota, deterministica"
+    assert finding["params"]["soluzioni"] == 2
+
+
+def test_wapt_le_reference_diventano_una_lista():
+    """`reference` e' UNA stringa con dentro piu' URL: metterla in
+    `Finding.url`, che e' un link solo, ne mostrerebbe uno e
+    nasconderebbe gli altri."""
+    esito = mars_wapt.score_from_alerts(
+        [_alert(reference="https://a/\r\nhttps://b/\nhttps://c/\n")])
+    finding = esito["findings"][0]
+    assert finding["params"]["references"] == ["https://a/", "https://b/",
+                                               "https://c/"]
+    assert finding["url"] == "", "ambiguo fra pagina colpita e documentazione"
+
+
+def test_wapt_gli_alert_refs_del_gruppo_non_si_perdono():
+    """Il raggruppamento resta per regola — cambiarlo sposterebbe i
+    punteggi — ma il dato che permettera' di affinarlo va conservato
+    ADESSO, perche' dopo il ciclo non c'e' piu'."""
+    esito = mars_wapt.score_from_alerts([
+        _alert(alertRef="10038-2"),
+        _alert(alertRef="10038-1", url="https://x/b")])
+    assert esito["findings"][0]["params"]["alert_refs"] == ["10038-1",
+                                                            "10038-2"]
+
+
+def test_wapt_le_due_tabelle_di_rischio_coprono_gli_stessi_livelli():
+    """`ZAP_PENALTIES` e la scala "zap" di mars_core vivono in file
+    diversi e devono conoscere gli stessi livelli.
+
+    Se divergessero, un livello noto a una sola delle due uscirebbe
+    come rilievo `info` che pero' costa punti (o viceversa), senza che
+    nulla si rompa."""
+    assert ({r.lower() for r in mars_wapt.ZAP_PENALTIES}
+            == set(mars_core._SCALE_SEVERITA["zap"]))
+
+
+# --- il ramo di superficie: gli header ---------------------------------
+
+@pytest.mark.parametrize("header, chiave, severita, peso", [
+    ("Strict-Transport-Security", "sec.headers.hsts_missing",
+     SEV_WARNING, 2.0),
+    ("Content-Security-Policy", "sec.headers.csp_missing",
+     SEV_WARNING, 2.0),
+    ("X-Frame-Options", "sec.headers.xframe_missing", SEV_WARNING, 1.0),
+])
+def test_wapt_ogni_header_ha_chiave_e_gravita_editoriale(
+        monkeypatch, header, chiave, severita, peso):
+    """La gravita' di questi tre e' NOSTRA: in questo ramo ZAP non e'
+    stato nemmeno raggiunto, e `source_severity` vuoto lo dichiara.
+
+    Nessuno e' `critical`: un header mancante e' una difesa in
+    profondita' assente, non una vulnerabilita' constatata — ed e' la
+    stessa lettura di ZAP, che li classifica Medium e Low."""
+    presenti = {h: "v" for h in mars_wapt.SECURITY_HEADERS if h != header}
+    _risposte(monkeypatch, _Risposta(200, presenti))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert len(esito["findings"]) == 1
+    finding = esito["findings"][0]
+    assert finding["key"] == chiave
+    assert (finding["severity"], finding["weight"]) == (severita, peso)
+    assert finding["source_severity"] == "", "la gravita' l'abbiamo scelta noi"
+    assert finding["params"]["header"] == header
+
+
+@pytest.mark.parametrize("presenti, punteggio", [
+    (["Strict-Transport-Security", "Content-Security-Policy",
+      "X-Frame-Options"], 100),
+    (["Strict-Transport-Security", "Content-Security-Policy"], 90),
+    (["Content-Security-Policy", "X-Frame-Options"], 85),
+    (["X-Frame-Options"], 70),
+    ([], 60),
+])
+def test_wapt_le_penalita_degli_header_sono_quelle_di_sempre(
+        monkeypatch, presenti, punteggio):
+    """I VALORI, non solo la loro relazione.
+
+    Un test che verifica "la somma ricostruisce lo score" resta verde
+    anche cambiando una penalita', perche' i due lati cambiano insieme:
+    e' la lezione di U1.4. Questi cinque punti pinnano i numeri, e con
+    essi il fatto che HSTS e CSP costino il doppio di X-Frame-Options."""
+    _risposte(monkeypatch, _Risposta(200, {h: "v" for h in presenti}))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert esito["score"] == punteggio
+    assert esito["status"] == "surface"
+    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == 100 - somma
+
+
+def test_wapt_il_ripiego_marca_ogni_rilievo_come_di_superficie(monkeypatch):
+    """Senza il marcatore, un elenco di soli findings mostrerebbe tre
+    `warning` come se una scansione di sicurezza ci fosse stata. E'
+    R21 portato dentro il dato, come nel ripiego di mars_wcag."""
+    _risposte(monkeypatch, _Risposta(200, {}))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert all(f["params"]["surface"] is True for f in esito["findings"])
+
+
+def test_wapt_il_ramo_zap_non_e_di_superficie():
+    """La meta' negativa del test sopra: `surface` marca un controllo
+    che non ha scansionato, e una scansione ZAP non lo e'."""
+    esito = mars_wapt.score_from_alerts([_alert()])
+    assert all("surface" not in f["params"] for f in esito["findings"])
+
+
+def test_wapt_l_ordine_degli_header_e_lo_stesso_nelle_due_viste(monkeypatch):
+    """HSTS e CSP costano uguale: un `sorted` applicato a una sola delle
+    due viste li riordinerebbe solo li', e le due racconterebbero la
+    stessa risposta in due ordini diversi."""
+    _risposte(monkeypatch, _Risposta(200, {}))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert esito["issues"] == ["HSTS mancante", "CSP mancante",
+                               "X-Frame-Options mancante"]
+    assert [f["params"]["header"] for f in esito["findings"]] == [
+        "Strict-Transport-Security", "Content-Security-Policy",
+        "X-Frame-Options"]
+
+
+def test_wapt_gli_header_illeggibili_sono_uno_stato_non_un_difetto(
+        monkeypatch):
+    """Anche un'area non misurata porta il proprio rilievo: senza,
+    sarebbe l'unica a sparire dagli elenchi costruiti sui findings.
+
+    `penalty` assente e non zero: zero significa "e' un difetto che qui
+    non costa punti", assente significa "non e' un difetto"."""
+    _risposte(monkeypatch, requests.ConnectionError("giu'"),
+              requests.ConnectionError("giu'"))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert esito["score"] is None and esito["status"] == "unavailable"
+    assert [f["key"] for f in esito["findings"]] == ["sec.status.unreadable"]
+    finding = esito["findings"][0]
+    assert finding["severity"] == SEV_INFO
+    assert "penalty" not in finding["params"]
+    assert finding["detail"] == "ConnectionError", "il motivo, non solo il fatto"
+
+
+def test_wapt_il_ripiego_su_get_resta_un_ripiego(monkeypatch):
+    """Esistono server che rifiutano HEAD con 405 o 501: leggerne gli
+    header e concluderne che mancano tutti sarebbe un verdetto falso
+    dato con sicurezza. Il ramo non aveva alcun test."""
+    _risposte(monkeypatch, _Risposta(405, {}),
+              _Risposta(200, {h: "v" for h in mars_wapt.SECURITY_HEADERS}))
+    esito = mars_wapt.audit_headers("https://x/")
+    assert esito["score"] == 100 and esito["findings"] == []
+
+
+# --- i rilievi di stato di audit() -------------------------------------
+
+def test_wapt_la_scansione_fermata_e_un_rilievo_di_stato(monkeypatch):
+    """Una scansione parziale vale piu' di niente, ma spacciarla per
+    completa no — e negli elenchi costruiti sui findings il fatto deve
+    esserci, non solo nel campo `complete`."""
+    esito = _audit_zap(monkeypatch, [_alert()], completa=False, fermate=True)
+    assert esito["findings"][0]["key"] == "sec.status.partial"
+    assert esito["findings"][0]["params"]["stopped"] is True
+
+
+def test_wapt_la_scansione_non_fermata_e_un_rilievo_distinto(monkeypatch):
+    """R27: interrotta e abbandonata sono due fatti diversi, e una
+    chiave sola con un flag li rimetterebbe insieme. `not_stopped` e'
+    la negazione esatta del campo `stopped` che il dict pubblica."""
+    esito = _audit_zap(monkeypatch, [_alert()], completa=False, fermate=False,
+                       active=True)
+    finding = esito["findings"][0]
+    assert finding["key"] == "sec.status.not_stopped"
+    assert finding["params"] == {"stopped": False, "active_scan": True}
+    # info e non warning: il difetto e' del nostro strumento, non del
+    # sito, e la Fase 4 ordina il piano di interventi su `severity`.
+    assert finding["severity"] == SEV_INFO
+
+
+def test_wapt_una_scansione_completa_non_porta_rilievi_di_stato(monkeypatch):
+    """Il ramo "tutto bene" non era mai stato esercitato: `complete`
+    era False in ogni test esistente."""
+    esito = _audit_zap(monkeypatch, [_alert()], completa=True, active=True)
+    assert all(not f["key"].startswith("sec.status.")
+               for f in esito["findings"])
+
+
+@pytest.mark.parametrize("attiva, attesa", [(False, True), (True, False)])
+def test_wapt_la_scansione_passiva_si_dichiara_nei_rilievi(monkeypatch,
+                                                           attiva, attesa):
+    """Un 100/100 passivo non e' un sito scansionato e trovato pulito:
+    l'active scan richiede la dichiarazione di proprieta'."""
+    esito = _audit_zap(monkeypatch, [_alert()], active=attiva)
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert ("sec.status.passive_only" in chiavi) is attesa
+    if attesa:
+        assert chiavi[-1] == "sec.status.passive_only", "in coda, come la issue"
+
+
+def test_wapt_i_rilievi_di_stato_non_pesano_sul_punteggio(monkeypatch):
+    """`penalty: 0.0` significa "difetto che qui non costa"; la chiave
+    assente significa "non e' un difetto". La distinzione va tenuta
+    ferma, perche' la Fase 4 legge il primo e deve ignorare il
+    secondo."""
+    esito = _audit_zap(monkeypatch, [_alert()], completa=False, fermate=False)
+    stati = [f for f in esito["findings"] if f["key"].startswith("sec.status")]
+    assert len(stati) == 2
+    assert all("penalty" not in f["params"] for f in stati)
+
+
+def test_wapt_l_ordine_dei_rilievi_rispecchia_quello_delle_issues(monkeypatch):
+    """Due viste della stessa scansione non possono raccontarla in due
+    ordini diversi: chi legge il testo e chi legge il dato devono
+    vedere gli stessi fatti nella stessa successione."""
+    alerts = [_alert(pluginId="1", risk="High"),
+              _alert(pluginId="2", risk="Medium", url="https://x/b"),
+              _alert(pluginId="3", risk="Low", url="https://x/c")]
+    esito = _audit_zap(monkeypatch, alerts, completa=False, fermate=True)
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert chiavi[0] == "sec.status.partial", "in testa, come la issue"
+    assert chiavi[-1] == "sec.status.passive_only", "in coda, come la issue"
+    assert chiavi[1:-1] == ["sec.zap.1", "sec.zap.2", "sec.zap.3"]
+    # e i titoli dei rilievi ZAP seguono l'ordine delle issues centrali
+    titoli = [f["title"] for f in esito["findings"][1:-1]]
+    assert all(t in i for t, i in zip(titoli, esito["issues"][1:4]))
+
+
+def test_wapt_i_findings_arrivano_al_referto(monkeypatch):
+    """Il modulo puo' produrli perfetti e `build_report` buttarli via:
+    copia una lista CHIUSA di chiavi. Il consumatore va verificato."""
+    from mars_report import build_report
+    esito = _audit_zap(monkeypatch, [_alert()])
+    referto = build_report({"mars_wapt": esito}, {"url": "https://x/"})
+    area = [a for a in referto["areas"] if a["module"] == "mars_wapt"][0]
+    assert area["findings"] == esito["findings"]
+    assert all(f["key"].startswith("sec.") for f in area["findings"])
+
+
+def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
+    """`details` porta il dict intero fuori dall'API: un rilievo che
+    citasse il proxy con la sua chiave la pubblicherebbe."""
+    monkeypatch.setattr(mars_wapt, "connect_zap",
+                        lambda credentials=None: object())
+    monkeypatch.setattr(mars_wapt, "run_zap",
+                        lambda url, client=None, active=False:
+                        ([_alert()], True, True))
+    esito = mars_wapt.audit({
+        "url": "https://x/", "owner_declaration": True,
+        "credentials": {"zap_api_key": "SPIA",
+                        "zap_proxy": "http://interno:8080"}})
+    assert "SPIA" not in json.dumps(esito["findings"])
+    assert "interno" not in json.dumps(esito["findings"])
 
 
 # ----------------------------------------------------------------------

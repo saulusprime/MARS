@@ -2422,7 +2422,7 @@ stato dichiarato e che non compaia alcun `/100`.
 - [x] Il referto dichiara quale recuperatore ha prodotto la classifica.
 
 ### U1 — Fase 1 del programma UPGRADE: il modello dati dei rilievi
-*(in corso: 2 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
+*(in corso: 6 sotto-voci su 9. Il piano sta in [UPGRADE.md](UPGRADE.md), le
 voci aperte in [TO-DO.md](TO-DO.md).)*
 
 Fino a qui un rilievo è una stringa con la gravità in un prefisso, e i
@@ -2646,6 +2646,112 @@ travestito da mutazione. Rifatta come si deve, il test la coglie.
 - [x] `mars_schema`: gravità editoriale dichiarata, aggregazione per controllo.
 - [x] `mars_wcag`: due origini, penalità per ramo, `impact` assente onesto.
 - [ ] I tre moduli restanti (U1.6-U1.8), più `mars_llm_judge` (U1.9).
+
+#### U1.6 — `mars_wapt`, tre rami e un solo elenco di rilievi (2026-08-24)
+
+Il modulo con la superficie più larga della fase: **tre rami d'uscita** — ZAP,
+ripiego sugli header, area non misurata — **due origini di gravità** e, come
+diceva la voce, **nessuna rete di test** su ciò che l'adeguamento tocca.
+`audit_headers()` non aveva un solo test proprio: il ramo `surface` non era mai
+stato raggiunto, le penalità 15/15/10 non erano protette da nulla, e `audit()`
+non aveva **mai visto un alert non vuoto** — `run_zap` veniva sostituito con un
+ritorno `([], False, fermate)`. Il commit si porta quella rete, ed è la ragione
+per cui i test propri dell'area passano da **15 a 61**.
+
+**La gravità dei tre header è nostra, ma non è arbitraria.** In quest'area
+`critico` è riservato a una vulnerabilità **sfruttabile constatata**; un header
+mancante è una difesa in profondità assente, che rende sfruttabile *un altro*
+difetto senza esserlo di per sé. E questo ramo non ha scansionato nulla: ha
+letto tre header di una risposta, quindi dichiarare `critical` di lì sarebbe
+R21 — vendere per misura ciò che non lo è. Lo conferma l'unico strumento con
+una scala tarata: ZAP classifica gli stessi tre fatti **Medium** (10038 CSP,
+10020 anti-clickjacking) e **Low** (10035 HSTS), mai High.
+
+Fra `grave` e `medio` decide la **monotonia con le penalità**, che sono già
+tarate e non si toccano: 15 → grave, 10 → medio, così la granularità che le
+quattro severità perdono si ritrova nel peso (2.0 contro 1.0) — è la decisione
+**D2** del programma. Conseguenza scritta nel codice perché non la si scopra
+dopo: un `grave` dedotto da un solo HEAD pesa **più** di un Medium di ZAP. È
+innocuo soltanto perché i due rami si escludono a vicenda.
+
+**`source_severity` resta vuoto quando ZAP tace.** Il modulo assume
+`Informational` se `risk` manca, per poter comunque pesare l'alert; ma è una
+*nostra* assunzione, e scrivere `ZAP:Informational` gli attribuirebbe un
+giudizio mai espresso. Qui però si chiude anche il buco lasciato in U1.5: il
+livello **usato per il calcolo** finisce in `params["risk"]`, così l'assunzione
+è auditabile invece che invisibile.
+
+**La `solution` di ZAP entra in `Finding.fix`, e non si ripulisce.** Verificato
+sul sorgente di ZAP e sul daemon installato: `core/view/alerts` restituisce
+**testo semplice**; i `<p>` che si vedono nei referti tradizionali li aggiunge
+`legacyEscapeParagraph` del generatore, e il progetto lo dichiara come scelta
+(issue zaproxy#5685). Cercati tag HTML in tutti i `.soln`/`.desc`/`.refs` di 79
+add-on: **zero**. Uno strip sarebbe il rimedio a un problema che lo strumento
+non ha, e mangerebbe in silenzio i `<meta http-equiv=…>` di cui un testo di
+sicurezza è pieno. Nessun campo di un `Finding` è HTML: chi lo renderà lo
+escapa, ed è già ciò che `_e()` fa con le issues.
+
+**`reference` va in `params["references"]`, non in `Finding.url`.** È **una**
+stringa con dentro più URL separati da a-capo: `url` è un link solo, e
+collassarla ne mostrerebbe uno nascondendo gli altri. In quest'area `url`
+sarebbe per giunta ambiguo fra «la pagina colpita» — che sono N, e stanno in
+`params["urls"]` — e «la documentazione della regola». Resta vuoto.
+
+**L'ordine dei findings rispecchia esattamente quello delle `issues`**: in
+testa i rilievi di timeout, in coda la nota sulla scansione passiva. Le due
+viste sono la stessa informazione per due lettori, e raccontare la stessa
+scansione in due ordini diversi ne impedirebbe il confronto. Per la stessa
+ragione l'ordinamento degli alert resta per **classe di rischio** e non passa
+alla «penalità decrescente» di U1.3: ordinare per penalità scavalcherebbe i
+pari-classe — un High su 10 URL davanti a un High su 1 — cambiando il testo che
+l'utente legge.
+
+**Interrotta e abbandonata restano due chiavi distinte**, `sec.status.partial`
+e `sec.status.not_stopped`: sono due fatti diversi — una scansione conclusa in
+anticipo e del traffico ancora in corso — ed è esattamente ciò che R27 esiste
+per non confondere. `not_stopped` è inoltre la negazione del campo `stopped`
+che il dict già pubblica, così chiave e campo non possono raccontare due
+storie. Entrambe sono `info`: la severità è la gravità del difetto **del
+sito**, e un daemon che non si ferma non si ripara cambiando il sito. L'urgenza
+la portano la posizione e il testo.
+
+**Verificato per confronto con il codice precedente**, preso da `git show`:
+punteggi, `issues` e ogni altra chiave del dict **identici** su 43 casi —
+diciannove per `score_from_alerts` (compresi risk assente, risk ignoto, alert
+senza URL, clamp a zero, gruppo con due `alertRef` e due soluzioni), tredici
+per `audit_headers` (gli otto sottoinsiemi dei tre header più i ripieghi
+HEAD→GET e i tre modi di non leggerli) e undici per `audit()`. Zero
+divergenze.
+
+**Ventotto mutazioni, tutte rilevate.** Una non lo era alla prima esecuzione:
+`quanti = len(urls)` senza il minimo di 1. Un alert **senza URL** — ne esistono,
+sono quelli manuali e da script — avrebbe visto la penalità della sua regola
+azzerarsi e la issue dire «(0 URL)», e nessun test se ne sarebbe accorto, perché
+tutti i casi provati un URL ce l'avevano. Il `n` finito nei params ha reso il
+buco visibile.
+
+Due mutazioni sono state **riscritte perché mal costruite**, ed è la stessa
+lezione di U1.5 sotto altra forma: la prima versione della «senza la chiave
+`findings`» rompeva la sintassi del file, e un modulo che non si importa fa
+fallire tutto — non dimostra che il test cogliesse *quel* difetto. Una
+mutazione vale solo se il codice resta valido.
+
+**Quattro difetti trovati e non corretti qui**, registrati in R39 perché
+correggerli sposterebbe punteggi o testi: `alertRef` è codice morto nella
+catena di raggruppamento (i tre alert CSP `10038-1/-2/-3` si fondono in uno);
+`chiave_esterna()` non è iniettiva e un `pluginId` `-1` collide con `1`; ZAP
+raggiunto e fallito non lascia traccia nel referto; `audit_headers` perde il
+primo errore quando ripiega. Il dato per chiudere il primo — `alert_refs` — il
+commit lo conserva già.
+
+- [x] `mars_core`: costanti, `Finding`, conversione delle scale.
+- [x] `build_report`: `findings` su ogni area, errore sintetizzato.
+- [x] Contratto di test derivato dal registro, e l'invariante asserito.
+- [x] `mars_tech`: dodici chiavi, penalità nei params, comportamento identico.
+- [x] `mars_schema`: gravità editoriale dichiarata, aggregazione per controllo.
+- [x] `mars_wcag`: due origini, penalità per ramo, `impact` assente onesto.
+- [x] `mars_wapt`: tre rami, gravità ancorata a ZAP, `solution` raccolta.
+- [ ] I due moduli restanti (U1.7-U1.8), più `mars_llm_judge` (U1.9).
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

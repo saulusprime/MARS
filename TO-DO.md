@@ -141,7 +141,7 @@ AS-IS conserva nove misure invece di un riassunto.
       aggregazione per chiave.
 - [x] **U1.5** — `mars_wcag`. Due origini nello stesso modulo (axe +
       editoriale), il marcatore `surface`, l'impact assente.
-- [ ] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
+- [x] **U1.6** — `mars_wapt`. Scala ZAP + header editoriali, tre rami d'uscita,
       **nessuna rete di test esistente**: il commit si porta i propri. Qui si
       raccoglie anche `solution` di ZAP, che oggi viene scartata e serve a U3.
 - [ ] **U1.7** — `mars_seo`. L'unico che richiede di arricchire il dato a
@@ -153,6 +153,7 @@ AS-IS conserva nove misure invece di un riassunto.
       UPGRADE.md, ma senza l'area 9 resta muta in ogni vista basata sui
       findings.
 - [ ] Bump `__version__` a **2.1.0** e badge nel README a fine fase.
+
 ### Altre fasi
 
 - [ ] **U2 — Golden test dei formati** (G10, Fase 2). Rete di sicurezza per
@@ -315,10 +316,26 @@ Divergenze verificate (documento → codice):
 - [requirements-optional.txt:20](requirements-optional.txt#L20): il commento su
   `playwright` dice «non ancora integrato: vedi C8», ma C8 è chiuso e axe-core è
   integrato — afferma il contrario del vero.
-- [mars_wapt.py:49-50](mars_wapt.py#L49): la docstring promette diffusione «1x per
-  un URL», ma la formula ([:74](mars_wapt.py#L74)) dà 1.1x (un `High` singolo →
-  score 72, non 75). Poiché la taratura di C9 è stata misurata sul codice attuale,
-  allineare la docstring.
+- [mars_wapt.py:204-205](mars_wapt.py#L204): la docstring promette diffusione
+  «1x per un URL», ma la formula ([:264](mars_wapt.py#L264)) dà 1.1x (un `High`
+  singolo → score 72, non 75). Poiché la taratura di C9 è stata misurata sul
+  codice attuale, allineare la docstring.
+- **«ZAP scrive la confidenza accanto al rischio»: la frase non regge alla
+  lettura del sorgente**, ed è in tre posti. In `core/view/alerts` il campo
+  `risk` vale sempre uno dei quattro `MSG_RISK`, perché `AlertAPI.alertToSet`
+  lo costruisce come `MSG_RISK[alert.getRisk()]`, senza concatenazioni; la
+  confidenza sta in un campo suo, `confidence`, e `"High (Medium)"` è
+  `riskdesc`, che i referti tradizionali compongono e l'endpoint non emette.
+  Il commento in `mars_wapt` è già riscritto da U1.6; restano la docstring di
+  `test_zap_la_confidenza_non_e_una_gravita`
+  ([tests/test_core.py:1098](tests/test_core.py#L1098)) e
+  [AS-IS.md:3219](AS-IS.md#L3219), che dà il caso per **osservato** sul daemon
+  reale. Prima di correggere quella riga va ricontrollato da dove venisse
+  l'osservazione — un referto, `riskdesc`, un campo diverso: è un fatto
+  registrato, e si annota, non si riscrive. Il comportamento in ogni caso non
+  cambia: lo `split(" ")[0]` resta come difesa verso gli alert che non nascono
+  dalle regole di serie (script utente, add-on di terzi,
+  `alert/action/addAlert`).
 
 - [ ] Correggere ciascuna riga sopra (il testo, non il comportamento, tranne
       dove indicato un'opzione di codice).
@@ -415,6 +432,48 @@ per nome.
 
 - [ ] Separare il prefisso per agente e graduare la gravità: tutti i crawler,
       solo i motori tradizionali, o proprio quelli IA.
+
+### R39 — 🟡 MEDIO: quattro difetti di `mars_wapt` trovati adeguandolo a U1.6
+*(trovati leggendo il modulo riga per riga per U1.6, il 2026-08-24. Nessuno è
+stato corretto lì: tutti cambierebbero punteggi o testi, cioè
+esattamente ciò che un adeguamento di forma non deve fare.)*
+
+- **`alertRef` non viene mai raggiunto, e tre difetti diversi si fondono in
+  uno.** La catena di raggruppamento è
+  `pluginId or alertRef or name or alert or "?"`
+  ([mars_wapt.py:215](mars_wapt.py#L215)), ma `pluginId` è **sempre** presente
+  e non vuoto nel JSON di ZAP (`AlertAPI.alertToSet` lo mette con
+  `String.valueOf`): `alertRef` è codice morto. Conseguenza reale: la regola
+  CSP 10038 emette `10038-1`, `10038-2` e `10038-3` — alert distinti, con
+  testi e soluzioni proprie — che oggi diventano **una** voce e **una**
+  penalità. Correggerlo è una **ritaratura di C9**, non un adeguamento: la
+  cardinalità dei gruppi *è* il punteggio, e ogni sito che viola quella regola
+  ne perderebbe il triplo. Porta con sé anche una **migrazione di chiavi**
+  (`sec.zap.10038` → `sec.zap.10038_1/_2/_3`), che per il confronto fra due
+  esecuzioni (U7) è una sparizione di massa seguita da una comparsa di massa.
+  U1.6 conserva già il dato che serve a farlo: `params["alert_refs"]`.
+- **`chiave_esterna()` non è iniettiva, e su ZAP il caso è reale.**
+  `chiave_esterna("-1") == chiave_esterna("1") == "1"`: gli alert manuali, da
+  script e da `alert/action/addAlert` hanno `pluginId = -1` e finiscono tutti
+  su `sec.zap.1`, indistinguibili da un plugin `1`. Il dato fedele resta in
+  `params["rule"]`, e `params["key_source"]` dice da quale campo la chiave sia
+  nata — solo `pluginId` la rende stabile, perché un `name` viene dai
+  `Messages.properties`, cambia fra due release ed è **localizzato**.
+- **ZAP raggiunto e fallito non lascia traccia nel referto.** Se `run_zap`
+  restituisce `None` ([mars_wapt.py:609](mars_wapt.py#L609)) c'è solo un
+  `print`, e il referto dichiara «HTTP-Headers, superficie» senza mai dire che
+  un daemon c'era e non ha portato a termine la scansione. È lo stesso difetto
+  di onestà che R38 ha chiuso altrove.
+- **`audit_headers` perde il primo errore.** Se HEAD solleva e GET risponde
+  ≥400, `errore` viene riassegnato a `None`
+  ([mars_wapt.py:497](mars_wapt.py#L497)) e la diagnosi diventa `HTTP 500`,
+  perdendo il `ConnectionError` che spiegava il primo tentativo.
+
+- [ ] Raggruppare per `alertRef`, ritarando le penalità e dichiarando la
+      migrazione di chiavi.
+- [ ] Dire nel referto che ZAP era raggiungibile e ha fallito, invece di
+      ripiegare in silenzio.
+- [ ] Conservare entrambe le diagnosi in `audit_headers`.
 
 ---
 

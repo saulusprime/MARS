@@ -1144,3 +1144,102 @@ def test_il_secondo_numero_zero_non_sparisce(contesto):
                                          "reference_tool": "Lighthouse"}}
     assert "Lighthouse 0/100" in render_text(
         build_report(contesto["results"], contesto))
+
+
+# ----------------------------------------------------------------------
+# U4.5: le azioni con maggior guadagno di profilo
+# ----------------------------------------------------------------------
+
+def _referto_profili(contesto):
+    """Un critico che muove poco e un'avvertenza che muove molto.
+
+    Serve a distinguere i due ordini: il piano mette il critico
+    davanti, questa sezione l'avvertenza.
+    """
+    contesto["results"] = {
+        # Il punteggio dev'essere COERENTE con la penalita', altrimenti
+        # l'area non e' certificata e i suoi numeri spariscono: R(2) = 98.
+        "mars_tech": {"score": 98, "issues": [], "findings": [
+            _rilievo(key="tech.robots.missing", title="critico che muove poco",
+                     severity=SEV_CRITICAL, params={"penalty": 2.0})]},
+        "mars_schema": {"score": 20, "issues": [], "findings": [
+            _rilievo(area="mars_schema", key="sd.jsonld.missing",
+                     title="avvertenza che muove molto",
+                     severity=SEV_WARNING, params={"penalty": 80.0})]},
+        "mars_citability": {
+            "score": 55.0, "market": "global", "issues": [],
+            "profiles": {"Claude": 55.0, "ChatGPT/Perplexity": 55.0},
+            "signals": {"Accesso e indicizzabilità": 98.0,
+                        "Dati strutturati": 20.0}},
+    }
+    return build_report(contesto["results"], contesto)
+
+
+def test_le_azioni_di_profilo_riordinano_per_solo_guadagno(contesto):
+    """Non e' l'elenco dei primi interventi: li' la gravita' domina."""
+    referto = _referto_profili(contesto)
+    assert [v["key"] for v in referto["remediation"]] == [
+        "tech.robots.missing", "sd.jsonld.missing"], "il piano: gravità prima"
+    html = render_html(referto)
+    prima = html.index("Azioni con maggior guadagno di profilo")
+    coda = html[prima:]
+    assert coda.index("avvertenza che muove molto") < \
+        coda.index("critico che muove poco"), "qui vince il guadagno"
+
+
+def test_le_azioni_di_profilo_nominano_l_assistente_che_guadagna(contesto):
+    """I pesi per assistente sono diversi: la stessa correzione non
+    vale uguale per tutti, ed e' l'unica cosa che questa sezione dice e
+    il piano no."""
+    html = render_html(_referto_profili(contesto))
+    assert "soprattutto" in html
+    assert "ChatGPT/Perplexity" in html or "Claude" in html
+
+
+def test_le_azioni_di_profilo_si_fermano_a_tre(contesto):
+    contesto["results"] = {
+        # base 90 -> R(90) = 10, coerente col punteggio dichiarato.
+        "mars_tech": {"score": 10, "issues": [], "findings": [
+            _rilievo(key="tech.robots.missing", title="uno",
+                     params={"penalty": 30.0}),
+            _rilievo(key="tech.sitemap.missing", title="due",
+                     params={"penalty": 25.0}),
+            _rilievo(key="tech.index.noindex", title="tre",
+                     params={"penalty": 20.0}),
+            _rilievo(key="tech.index.nofollow", title="quattro",
+                     params={"penalty": 15.0})]},
+        "mars_citability": {"score": 10.0, "market": "global", "issues": [],
+                            "profiles": {"Claude": 10.0},
+                            "signals": {"Accesso e indicizzabilità": 10.0}},
+    }
+    html = render_html(build_report(contesto["results"], contesto))
+    coda = html[html.index("Azioni con maggior guadagno di profilo"):]
+    assert "quattro" not in coda
+    assert coda.count("sull'indice") == 3
+
+
+def test_senza_guadagni_la_sezione_dei_profili_non_compare(contesto):
+    """Senza citabilita' non ci sono coefficienti, quindi non c'e'
+    nulla da ordinare: meglio niente che un elenco a guadagno zero."""
+    contesto["results"] = {
+        "mars_tech": {"score": 57, "issues": [], "findings": [
+            _rilievo(key="tech.robots.ai_blocked", params={"penalty": 43.0})]},
+        "mars_citability": {"score": 57.0, "market": "global", "issues": [],
+                            "profiles": {"Claude": 57.0}},
+    }
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "Azioni con maggior guadagno di profilo" not in html
+
+
+def test_le_azioni_di_profilo_neutralizzano_il_markup(contesto):
+    contesto["results"] = {
+        "mars_tech": {"score": 57, "issues": [], "findings": [
+            _rilievo(key="tech.robots.ai_blocked",
+                     title="<script>alert(1)</script>",
+                     params={"penalty": 43.0})]},
+        "mars_citability": {"score": 57.0, "market": "global", "issues": [],
+                            "profiles": {"Claude": 57.0},
+                            "signals": {"Accesso e indicizzabilità": 57.0}},
+    }
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "<script>alert(1)</script>" not in html

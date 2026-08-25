@@ -304,6 +304,15 @@ analizzato: passare tutto da `_e()`, `mars_report.py:373-375`).
 
 ### Fase 4 — Il piano di remediation (G02) — il cuore dell'adeguamento
 
+> **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
+> rilievi — piano di interventi, conteggi per gravità, confronto fra due
+> esecuzioni — deve escludere quelli con `params.get("derived")`, cioè le
+> sintesi di `mars_citability`: ridicono difetti che altre aree hanno già
+> misurato, e contarli due volte gonfierebbe l'aggregato. Chi invece li mostra
+> uno per uno (elenco d'area, JSON, CSV) li tiene. Non basta filtrare per
+> gravità: oggi sono tutti `info`, ma è una protezione incidentale.
+
+
 **Il problema.** MARS/ non ha nulla fra "elenco dei difetti" e "cosa
 faccio lunedì mattina" (verificato: zero occorrenze di
 remediation/raccomandazioni in `MARS/*.py`; i rilievi HTML sono un `ul`
@@ -367,6 +376,15 @@ mars_citability su un caso costruito a mano.
 ---
 
 ### Fase 5 — Punteggio complessivo, hero e ancore (G07, G11)
+
+> **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
+> rilievi — piano di interventi, conteggi per gravità, confronto fra due
+> esecuzioni — deve escludere quelli con `params.get("derived")`, cioè le
+> sintesi di `mars_citability`: ridicono difetti che altre aree hanno già
+> misurato, e contarli due volte gonfierebbe l'aggregato. Chi invece li mostra
+> uno per uno (elenco d'area, JSON, CSV) li tiene. Non basta filtrare per
+> gravità: oggi sono tutti `info`, ma è una protezione incidentale.
+
 
 **Passi (G07 — complessivo e hero).**
 
@@ -447,6 +465,15 @@ col piano.
 ---
 
 ### Fase 7 — Riproducibilità e storia (G09, G06)
+
+> **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
+> rilievi — piano di interventi, conteggi per gravità, confronto fra due
+> esecuzioni — deve escludere quelli con `params.get("derived")`, cioè le
+> sintesi di `mars_citability`: ridicono difetti che altre aree hanno già
+> misurato, e contarli due volte gonfierebbe l'aggregato. Chi invece li mostra
+> uno per uno (elenco d'area, JSON, CSV) li tiene. Non basta filtrare per
+> gravità: oggi sono tutti `info`, ma è una protezione incidentale.
+
 
 **Passi (G09 — metadati di schema).**
 

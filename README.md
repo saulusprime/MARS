@@ -2,13 +2,14 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.2.0 — Fase 3 del programma UPGRADE: ogni rilievo dice anche
-come si aggiusta. I `fix` e gli `example` vengono da un catalogo
-(`mars_fixes.py`) dove il controllo e' di MARS, e dallo strumento —
-axe, ZAP, Lighthouse — dove la regola e' sua. La Fase 1 aveva reso
-strutturati i rilievi di tutte e nove le aree, la Fase 2 ha congelato
-la resa del referto in `tests/golden/`. Il piano sta in UPGRADE.md, il
-lavoro concluso in AS-IS.md.
+Versione 2.3.0 — Fase 4 del programma UPGRADE: il referto non elenca
+piu' soltanto i difetti, ne ordina la correzione. Il piano di
+interventi (`mars_remediation.py`) dice per ogni rilievo di quanto
+risale il punteggio dell'area se lo si chiude, quanto ne guadagna
+l'indice di citabilita' e quanto costa in ordine di grandezza. Le fasi
+precedenti hanno reso strutturati i rilievi (1), congelato la resa in
+`tests/golden/` (2) e scritto come si aggiusta ogni controllo (3). Il
+piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche:

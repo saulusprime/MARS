@@ -1148,6 +1148,49 @@ def _sezione_citabilita(referto: dict, p: List[str]) -> None:
     if cit.get("issues"):
         p.append("<ul class='rilievi'>%s</ul>"
                  % "".join("<li>%s</li>" % _e(i) for i in cit["issues"]))
+    _azioni_di_profilo(referto, p)
+
+
+# Quante azioni mostrare sotto i profili di citabilita'. Tre: e' una
+# nota dentro un'altra sezione, non un secondo piano.
+AZIONI_DI_PROFILO = 3
+
+
+def _azioni_di_profilo(referto: dict, p: List[str]) -> None:
+    """Gli interventi che spostano di piu' l'indice di citabilita'.
+
+    Legge il piano canonico e lo riordina per solo guadagno: non e' lo
+    stesso elenco dei primi interventi, perche' li' la gravita' domina
+    — un rilievo critico che muove poco sta comunque davanti a
+    un'avvertenza che muove molto. Qui la domanda e' un'altra: fra
+    tutti, quali pesano di piu' su QUESTI profili.
+
+    Nessuna chiave nuova nel dato: il piano e' gia' pubblicato, e una
+    `top_actions` accanto ai profili sarebbe una seconda copia che
+    diverge in silenzio dalla prima. E' la stessa ragione per cui il
+    referto non ricalcola il piano dentro le viste.
+
+    Ogni voce nomina l'assistente che guadagna di piu': i pesi per
+    assistente sono diversi, quindi la stessa correzione non vale
+    uguale per tutti, ed e' l'unica cosa che questa sezione dice e il
+    piano no.
+    """
+    con_guadagno = [v for v in referto.get("remediation") or []
+                    if v.get("index_gain")]
+    if not con_guadagno:
+        return
+    ordinate = sorted(con_guadagno, key=lambda v: -v["index_gain"])
+    p.append("<p class='meta'>Azioni con maggior guadagno di profilo:</p>")
+    p.append("<ul class='rilievi'>")
+    for voce in ordinate[:AZIONI_DI_PROFILO]:
+        profili = voce.get("profile_gains") or {}
+        migliore = ""
+        if profili:
+            nome, guadagno = max(profili.items(), key=lambda c: c[1])
+            migliore = " — soprattutto %s (+%.2f)" % (_e(nome), guadagno)
+        p.append("<li>%s <strong>+%.2f</strong> sull'indice%s</li>"
+                 % (_e(voce["title"]), voce["index_gain"], migliore))
+    p.append("</ul>")
 
 
 def _sezione_llm(referto: dict, p: List[str]) -> None:

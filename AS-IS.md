@@ -3827,6 +3827,72 @@ confronta.
       `mars_wcag`, tre chiavi nel referto, `_qualificatori`, undici test,
       quattro golden.
 
+### U4.5 — ✅ (2026-08-25) e chiusura della Fase 4: `__version__` a 2.3.0
+
+**L'ultimo pezzo che la Fase 4 prometteva**: «Azioni con maggior guadagno di
+profilo», sotto i profili di citabilità. Riordina il piano canonico per **solo
+guadagno**, e non è lo stesso elenco dei primi interventi — là la gravità
+domina, e un rilievo critico che muove poco sta comunque davanti a
+un'avvertenza che muove molto. Qui la domanda è un'altra: fra tutti, quali
+pesano di più su *questi* profili.
+
+Ogni voce nomina **l'assistente che guadagna di più**, ed è l'unica cosa che
+questa sezione dice e il piano no: i pesi per assistente sono diversi, quindi
+la stessa correzione non vale uguale per tutti. Nel golden, togliere il blocco
+a GPTBot vale +7,54 sull'indice ma +8,57 su Qwen.
+
+**Nessuna chiave nuova nel dato.** UPGRADE.md prevedeva una `top_actions`
+derivata accanto alla citabilità: non si fa, perché sarebbe una seconda copia
+del piano che diverge in silenzio dalla prima. La sezione legge la lista
+canonica e la riordina, come le viste fanno già con tutto il resto.
+
+**Il vincolo R41 è ora scritto dove serve**: in UPGRADE.md, accanto alle Fasi
+4, 5 e 7, cioè le tre che aggregano rilievi. Prima viveva solo in una voce del
+TO-DO, che è il posto sbagliato per un vincolo che vale sul lavoro futuro.
+
+**Il bump a 2.3.0, e una rete che mancava.** Il numero di versione vive in due
+posti — `__version__`, che governa referto e `User-Agent` del crawler, e la
+riga in testa al README — e alzarne uno solo non rompeva niente. È esattamente
+la deriva fra documentazione e codice di R32. Ora un test li lega, e uno
+verifica che lo `User-Agent` continui a portare il numero: entrambi nati da una
+**mutazione sfuggita** al giro di U4.5, che nessun test presidiava.
+
+Il banco di prova ha mostrato un suo limite: valida con `ast.parse` ogni file
+mutato, quindi una mutazione su un `.md` viene scartata come «sintassi rotta».
+Quella sul README è stata verificata **a mano** — applicata, test rosso,
+ripristinata — invece di darla per buona.
+
+Sette mutazioni più una a mano, nessuna sfuggita.
+
+---
+
+**La Fase 4 è chiusa.** Numeri misurati, non stimati: **cinque commit**
+(U4.1-U4.5), la suite da 659 a 698 test, **sessantotto mutazioni** in tutto,
+tutte rilevate. I golden si sono mossi una volta per commit — i `.json` in
+U4.2, i `.txt` in U4.3, gli `.html` in U4.4 e U4.5 — che è la divisione che
+rende rivedibile un diff altrimenti illeggibile.
+
+**Che cosa la fase ha aggiunto al referto.** Un elenco ordinato di interventi
+che, per ognuno, dichiara di quanto risale il punteggio dell'area se lo si
+chiude, quanto ne guadagna l'indice di citabilità e su quale assistente, e
+quanto costa in ordine di grandezza. In tutte e tre le viste, con una copia
+sola del dato.
+
+**Che cosa la fase ha lasciato aperto**, e sta scritto dove si trova: **R46**
+(lo sforzo resta editoriale finché il conteggio delle istanze non è canonico),
+la seconda casella di **R41** (i conteggi per gravità, che nascono nella Fase
+5), e il widget «Top rilievi» in testa alla pagina, che UPGRADE.md lega
+esplicitamente all'hero della Fase 5.
+
+**Che cosa la fase ha dimostrato sul metodo.** Il progetto è stato preceduto da
+una ricognizione di dodici agenti in sola lettura, e i due critici avversariali
+hanno demolito due decisioni su undici — una delle quali poggiava su
+un'affermazione **verificata falsa**. Senza quella verifica sarebbero nati due
+commit inutili e una chiave pubblica in più nel dato canonico.
+
+- [x] `_azioni_di_profilo()`, il vincolo su UPGRADE.md, `__version__` 2.3.0,
+      il README, sette test, due golden `.html`.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

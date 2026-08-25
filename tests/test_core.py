@@ -9,6 +9,8 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import os
+import re
 from urllib.parse import urljoin
 
 import pytest
@@ -1235,3 +1237,29 @@ def test_i_pesi_restano_una_scala_chiusa():
     prodotti |= {severita_lighthouse(0, "binary", p)[1]
                  for p in (0, 1, 93 / 23)}
     assert prodotti <= set(WEIGHTS)
+
+
+def test_la_versione_del_readme_segue_quella_del_codice():
+    """Il numero di versione vive in due posti, e devono coincidere.
+
+    `__version__` governa il referto e lo `User-Agent` del crawler; il
+    README lo dichiara in testa insieme a che cosa quella versione
+    porta. Alzarne uno solo non rompe nulla — e' esattamente la deriva
+    fra documentazione e codice di R32 — quindi a legarli serve un
+    test, non l'attenzione.
+    """
+    radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(radice, "README.md"), encoding="utf-8") as fh:
+        readme = fh.read()
+    dichiarate = re.findall(r"^Versione (\d+\.\d+\.\d+)", readme,
+                            re.MULTILINE)
+    assert dichiarate == [mars_core.__version__], (
+        "README dichiara %s, il codice %s" % (dichiarate,
+                                              mars_core.__version__))
+
+
+def test_lo_user_agent_porta_la_versione():
+    """Il sito analizzato vede quale versione lo sta scansionando: e'
+    cio' che permette a chi legge i log di sapere con che cosa ha a che
+    fare, e va aggiornato insieme al resto."""
+    assert mars_core.USER_AGENT == "MARSBeacon/%s" % mars_core.__version__

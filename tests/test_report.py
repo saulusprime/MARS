@@ -8,6 +8,8 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import re
 
@@ -18,17 +20,28 @@ from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
 import mars_remediation
 import mars_report
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
-                         _ancora, _correzioni, ancore_dei_rilievi,
+                         _ancora, _correzioni, _md_cella,
+                         ancore_dei_rilievi,
                          conteggi_per_gravita, segnali_derivati,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
-                         render_html, render_json, render_text)
+                         render_csv, render_html, render_json,
+                         render_markdown, render_text, COLONNE_CSV)
 
 
 @pytest.fixture
 def referto(contesto):
     contesto["results"] = {
-        "mars_tech": {"score": 85, "issues": ["[lieve] robots.txt muto"]},
+        # Con un `findings`: dalla Fase 1 ogni area ne emette, e una
+        # fixture che non ne ha esercita le viste su una forma che in
+        # produzione non esiste — il CSV, per esempio, uscirebbe con la
+        # sola intestazione.
+        "mars_tech": {"score": 85, "issues": ["[lieve] robots.txt muto"],
+                      "findings": [Finding(
+                          area="mars_tech", severity=SEV_INFO,
+                          key="tech.robots.no_sitemap",
+                          title="robots.txt non dichiara la sitemap",
+                          params={"penalty": 15.0}).as_dict()]},
         "mars_seo": {"score": None, "status": "unavailable",
                      "issues": ["Lighthouse assente"]},
         # status e tool come li dichiarano i moduli veri (R38): senza,
@@ -1549,3 +1562,112 @@ def test_il_css_evidenzia_il_rilievo_raggiunto(referto):
     """Senza `:target` il salto avviene ma non si vede: in una pagina
     lunga il lettore non sa dove e' atterrato."""
     assert "li:target" in render_html(referto)
+
+
+# ----------------------------------------------------------------------
+# U6: Markdown e CSV
+# ----------------------------------------------------------------------
+
+def test_i_nuovi_formati_sono_nel_registro():
+    """La CLI li acquisisce da sola: `choices=tuple(RENDERERS)`."""
+    assert set(RENDERERS) == {"text", "json", "html", "markdown", "csv"}
+
+
+def test_il_markdown_neutralizza_le_celle():
+    """Due caratteri rompono una tabella GFM, e arrivano da fuori: la
+    pipe aprirebbe una colonna in piu', l'a-capo chiuderebbe la riga."""
+    assert _md_cella("a|b") == "a\\|b"
+    assert _md_cella("prima\nseconda") == "prima seconda"
+    assert _md_cella(None) == ""
+
+
+def test_il_markdown_rende_il_piano_una_task_list(contesto):
+    """E' il motivo per cui questo formato esiste: incollato in una
+    issue, il piano diventa una checklist spuntabile."""
+    reso = render_markdown(_referto_con_piano(contesto, quanti=4))
+    piano = reso[reso.index("## Piano di interventi"):
+                 reso.index("## Rilievi per area")]
+    assert piano.count("\n- [ ] ") == 4
+    assert piano.count("- [x]") == 0, "le caselle si consegnano vuote"
+
+
+def test_il_markdown_marca_la_gravita_con_le_parole(contesto):
+    """Mai solo il colore: in Markdown non c'e', e affidare la gravita'
+    alla posizione la perderebbe appena qualcuno copia una riga."""
+    reso = render_markdown(_referto_con_piano(contesto, quanti=2))
+    assert "**[CRITICO]**" in reso
+    assert "[AVVISO]" in reso
+
+
+def test_il_markdown_recinta_gli_esempi(contesto):
+    """Indentazione e a-capo di un blocco nginx SONO il suo contenuto."""
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
+        _rilievo(key="tech.robots.ai_blocked", fix="Fai X.",
+                 example="riga1\nriga2", params={"penalty": 43.0})]}}
+    reso = render_markdown(build_report(contesto["results"], contesto))
+    assert "  ```\n  riga1\n  riga2\n  ```" in reso
+
+
+def test_il_markdown_dichiara_la_scala(referto):
+    reso = render_markdown(referto)
+    assert "Scala dichiarata: critico sotto 50" in reso
+
+
+def test_il_csv_ha_il_bom_e_il_punto_e_virgola(referto):
+    """Senza BOM, Excel legge un CSV UTF-8 nella codepage di sistema e
+    «Accessibilità» diventa «AccessibilitÃ». Senza punto e virgola,
+    nelle impostazioni italiane finisce tutto in una colonna."""
+    reso = render_csv(referto)
+    assert reso.startswith("\ufeff")
+    prima = reso[1:].split("\r\n")[0]
+    assert prima == ";".join(COLONNE_CSV)
+
+
+def test_il_csv_ha_una_riga_per_rilievo(referto):
+    righe = list(csv.reader(io.StringIO(render_csv(referto)[1:]),
+                            delimiter=";"))
+    rilievi = [f for a in referto["areas"] for f in a["findings"]]
+    assert len(righe) - 1 == len(rilievi)
+
+
+def test_il_csv_tiene_i_derivati(contesto):
+    """R41 esclude i derivati da chi AGGREGA e li tiene per chi li
+    mostra uno per uno: il CSV e' esattamente quel caso."""
+    contesto["results"] = {"mars_citability": {
+        "score": 60.0, "issues": [], "profiles": {},
+        "findings": [_rilievo(area="mars_citability", key="cit.seo.weak",
+                              severity=SEV_INFO, title="Segnale debole",
+                              params={"derived": True})]}}
+    reso = render_csv(build_report(contesto["results"], contesto))
+    assert "Segnale debole" in reso
+
+
+def test_il_csv_lascia_vuoto_lo_sforzo_dove_non_e_azionabile(contesto):
+    """Vuoto e non «no»: un quick_win a «no» su un rilievo informativo
+    sembrerebbe una valutazione che nessuno ha fatto."""
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
+        _rilievo(key="tech.robots.ai_blocked", title="azionabile",
+                 params={"penalty": 43.0}),
+        _rilievo(key="tech.canonical.missing", title="informativo",
+                 severity=SEV_INFO, params={"penalty": 0.0})]}}
+    righe = list(csv.reader(
+        io.StringIO(render_csv(build_report(contesto["results"], contesto))[1:]),
+        delimiter=";"))
+    per_titolo = {r[4]: r for r in righe[1:]}
+    assert per_titolo["azionabile"][8] == "minuti"
+    assert per_titolo["azionabile"][9] == "sì"
+    assert per_titolo["informativo"][8] == ""
+    assert per_titolo["informativo"][9] == ""
+
+
+def test_il_csv_quota_le_celle_ostili(contesto):
+    """Un fix di ZAP pieno di virgolette, o un titolo con un punto e
+    virgola, spezzerebbe il file se lo si scrivesse a mano."""
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
+        _rilievo(key="tech.robots.ai_blocked",
+                 title='titolo; con "virgolette"',
+                 fix="prima riga\nseconda riga", params={"penalty": 43.0})]}}
+    reso = render_csv(build_report(contesto["results"], contesto))
+    righe = list(csv.reader(io.StringIO(reso[1:]), delimiter=";"))
+    assert righe[1][4] == 'titolo; con "virgolette"'
+    assert righe[1][6] == "prima riga\nseconda riga"

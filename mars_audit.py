@@ -115,6 +115,12 @@ esempi:
       --format json --output referto.json
   mars_citations.py https://example.com --from-audit referto.json
 
+  # da incollare in una issue: il piano di interventi e' una task list
+  mars_audit.py https://example.com --format markdown --output referto.md
+
+  # i rilievi come tabella, da aprire in Excel o Fogli
+  mars_audit.py https://example.com --format csv --output rilievi.csv
+
   # sito proprio: robots.txt ignorato e scansione WAPT attiva
   mars_audit.py https://miosito.it --i-own-this-domain
 

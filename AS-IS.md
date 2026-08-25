@@ -4014,6 +4014,55 @@ Resta valida l'eccezione: `cit.status.error`, che `build_report` sintetizza
 quando il modulo fallisce, **non** porta `derived` — non è una sintesi ma un
 guasto del nostro strumento, e nessun'altra area lo sta già dicendo.
 
+### U6 — ✅ (2026-08-25): Markdown e CSV, e `__version__` a 2.5.0
+
+**Markdown.** Serve dove l'HTML non arriva — una issue, un wiki, un messaggio —
+ed è l'unico formato in cui il piano diventa **operativo** invece che
+leggibile: una task list GFM si spunta. Un test pretende che le caselle si
+consegnino **vuote**, perché `- [x]` in un referto direbbe che l'intervento è
+già fatto.
+
+La gravità è un **marcatore testuale** e non un colore: `**[CRITICO]**`,
+`[AVVISO]`, `[INFO]`. In HTML il badge rosso porta già la parola; qui non c'è
+badge, e affidare la gravità alla sola posizione nell'elenco la perderebbe
+appena qualcuno riordina o copia una riga.
+
+`_md_cella` neutralizza due caratteri che rompono una tabella GFM e arrivano da
+fuori: la **pipe**, che aprirebbe una colonna in più, e l'**a-capo**, che
+chiuderebbe la riga. Gli `example` vanno invece in blocchi recintati:
+indentazione e a-capo di un blocco nginx *sono* il suo contenuto.
+
+**CSV.** Una riga per rilievo, `;` come delimitatore e **BOM UTF-8** in testa.
+Non sono vezzi: senza BOM, Excel legge un file UTF-8 nella codepage di sistema
+e «Accessibilità» diventa «AccessibilitÃ»; con la virgola, nelle impostazioni
+italiane finisce tutto in una colonna sola. Chi vuole i byte puliti ha il JSON,
+ed è il motivo per cui questa resa esiste separata.
+
+Le celle passano dal modulo `csv` della libreria standard invece che da una
+concatenazione a mano: un `fix` di ZAP pieno di virgolette o un titolo con un
+punto e virgola spezzerebbero il file, e sono dati che vengono da fuori.
+
+`sforzo` e `quick_win` restano **vuoti** dove il rilievo non è azionabile —
+vuoto e non «no»: un `quick_win` a «no» su un rilievo informativo sembrerebbe
+una valutazione che nessuno ha fatto. E il CSV **tiene i derivati**: R41 li
+esclude da chi *aggrega* e li tiene per chi li mostra uno per uno, che è
+esattamente questo caso.
+
+**Nessuna riga di codice nella CLI né nei golden.** `RENDERERS` è la sola
+registrazione: la CLI legge `choices=tuple(RENDERERS)` e la Fase 2 itera già
+sul registro, quindi i quattro golden nuovi sono nati da soli. È il ritorno di
+due decisioni prese fasi fa.
+
+Una cosa scoperta scrivendo i test: la fixture del referto di `test_report.py`
+non aveva `findings`, e il CSV ne usciva con la sola intestazione. Dalla Fase 1
+ogni area ne emette: la fixture ne esercitava una forma che in produzione non
+esiste, e ora ne ha uno.
+
+Quattordici mutazioni, nessuna sfuggita.
+
+- [x] `render_markdown()`, `render_csv()`, `_md_cella()`, gli esempi della
+      CLI, il README, quattordici test, quattro golden nuovi.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

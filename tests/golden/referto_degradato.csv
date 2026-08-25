@@ -1,0 +1,20 @@
+﻿sito;area;gravita;peso;titolo;dettaglio;correzione;url;sforzo;quick_win
+https://esempio.test/;1. Tecnica;critical;2.0;robots.txt BLOCCA 1 crawler IA: GPTBot;;Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.;;minuti;sì
+https://esempio.test/;1. Tecnica;info;1.0;"2/3 pagine senza <link rel=""canonical"">";;"Dichiara <link rel=""canonical""> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.";;;
+https://esempio.test/;2. SEO;info;1.0;Lighthouse non trovato nel PATH;;;;;
+https://esempio.test/;4. Semantica;info;1.0;Area non calcolata: il modulo e' fallito;MemoryError: corpus troppo grande;;;;
+https://esempio.test/;5. Dati Strutturati;warning;1.0;1 blocchi JSON-LD malformati;;Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.;;ore;
+https://esempio.test/;6. Accessibilità;critical;2.0;1/2 immagini prive di testo alternativo;;"Dai un testo alternativo a ogni immagine che porta informazione, e alt="""" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.";;giorni;
+https://esempio.test/;6. Accessibilità;warning;1.0;1 salti nella gerarchia degli heading (es. h2 seguito da h4);;Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.;;ore;
+https://esempio.test/;6. Accessibilità;critical;2.0;1 campi di modulo senza etichetta;;Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.;;giorni;
+https://esempio.test/;6. Accessibilità;warning;1.0;1 tabelle dati senza intestazioni <th>;;Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.;;ore;
+https://esempio.test/;6. Accessibilità;info;1.0;"1 link con testo generico (""clicca qui"", ""leggi tutto"")";;Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.;;;
+https://esempio.test/;7. Sicurezza;warning;2.0;CSP mancante;;Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.;;giorni;
+https://esempio.test/;7. Sicurezza;warning;1.0;X-Frame-Options mancante;;Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.;;minuti;
+https://esempio.test/;8. Citabilità IA;info;1.0;Mercato 'italia' sconosciuto: uso 'global';;;;;
+https://esempio.test/;8. Citabilità IA;info;1.0;Segnale non misurato: Qualità SEO;;;;;
+https://esempio.test/;8. Citabilità IA;info;1.0;Segnale non misurato: Recuperabilità ibrida (consenso RRF);;;;;
+https://esempio.test/;8. Citabilità IA;info;1.0;Segnale non misurato: Contenuto in forma di risposta;;;;;
+https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accessibilità (40/100);;;;;
+https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accesso e indicizzabilità (57/100);;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Giudizio LLM disattivato (--llm off);;;;;

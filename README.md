@@ -2,14 +2,15 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.4.0 — Fase 5 del programma UPGRADE: il referto si apre con un
-punteggio complessivo, il verdetto e la scala con cui e' stato dato,
-piu' le prime cose da fare. Ogni rilievo ha un indirizzo stabile, cosi'
-lo si puo' citare in una mail. Le fasi precedenti hanno reso
-strutturati i rilievi (1), congelato la resa in `tests/golden/` (2),
-scritto come si aggiusta ogni controllo (3) e ordinato gli interventi
-per quanto rendono (4). Il piano sta in UPGRADE.md, il lavoro concluso
-in AS-IS.md.
+Versione 2.5.0 — Fase 6 del programma UPGRADE: due formati nuovi.
+Markdown per incollare il referto in una issue o in un wiki, col piano
+di interventi come task list che si spunta; CSV per lavorare i rilievi
+altrove, con punto e virgola e BOM UTF-8 perche' Excel li apra con gli
+accenti giusti. Le fasi precedenti hanno reso strutturati i rilievi
+(1), congelato la resa in `tests/golden/` (2), scritto come si aggiusta
+ogni controllo (3), ordinato gli interventi per quanto rendono (4) e
+messo in testa il punteggio complessivo con le ancore stabili (5). Il
+piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche:
@@ -405,11 +406,17 @@ un consenso su una sola domanda puo' essere un caso.
 
 Formati del referto (--format, predefinito text):
 
-    text   il referto a video, come sopra
-    json   la struttura canonica: testo e HTML ne sono viste, e l'API
-           restituisce gli stessi campi su POST /audit/full
-    html   pagina autoconsistente — CSS incorporato, favicon inclusa,
-           nessuna CDN e nessuno script — con tema chiaro e scuro
+    text      il referto a video, come sopra
+    json      la struttura canonica: le altre viste ne sono derivate, e
+              l'API restituisce gli stessi campi su POST /audit/full
+    html      pagina autoconsistente — CSS incorporato, favicon inclusa,
+              nessuna CDN e nessuno script — con tema chiaro e scuro
+    markdown  da incollare in una issue o in un wiki: il piano di
+              interventi e' una task list GFM, quindi si spunta, e la
+              gravita' e' un marcatore testuale e non un colore
+    csv       una riga per rilievo, con punto e virgola e BOM UTF-8: si
+              apre in Excel o Fogli con gli accenti giusti e le colonne
+              separate
 
 Con --output il referto va su file invece che a video. Il referto JSON
 si dà in pasto a mars_citations.py --from-audit, che ne riusa le stesse

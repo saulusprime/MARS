@@ -67,7 +67,7 @@ def _leggibile(html: str) -> str:
 
 # Estensione del file per formato: unica eccezione, "text" -> .txt,
 # perche' e' cio' che un umano si aspetta di poter aprire.
-ESTENSIONI = {"text": "txt"}
+ESTENSIONI = {"text": "txt", "markdown": "md"}
 # Rese che non portano a-capo propri. Con il default trasparente, i
 # formati della Fase 6 entrano nel presidio senza toccare questo file.
 LEGGIBILI = {"html": _leggibile}

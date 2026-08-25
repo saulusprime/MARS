@@ -10,9 +10,11 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import base64
+import csv
 import html
 import json
 import math
+import io
 import os
 import re
 import time
@@ -20,8 +22,9 @@ from typing import Dict, List, Optional
 
 import mars_remediation
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL, SEV_INFO,
-                       SEV_WARNING, Finding, __version__, describe_chunk,
-                       normalizza_risultato, reciprocal_rank_fusion)
+                       SEV_OK, SEV_WARNING, Finding, __version__,
+                       describe_chunk, normalizza_risultato,
+                       reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -1622,4 +1625,232 @@ def render_html(referto: dict) -> str:
     return "".join(p)
 
 
-RENDERERS = {"text": render_text, "json": render_json, "html": render_html}
+# ======================================================================
+# Vista Markdown: il referto che si incolla in una issue (Fase 6)
+# ======================================================================
+#
+# Serve dove l'HTML non arriva: una issue di GitHub, una pagina di wiki,
+# un messaggio. Ed e' l'unico formato in cui il piano diventa
+# **operativo** invece che leggibile — una task list GFM si spunta.
+#
+# La gravita' e' un MARCATORE testuale e non un colore. In HTML il
+# badge rosso porta gia' la parola; qui non c'e' un badge, e affidare
+# la gravita' alla sola posizione nell'elenco significherebbe perderla
+# appena qualcuno riordina o copia una riga.
+
+_MARCATORE = {SEV_CRITICAL: "**[CRITICO]**", SEV_WARNING: "[AVVISO]",
+              SEV_INFO: "[INFO]", SEV_OK: "[OK]"}
+
+
+def _md_cella(valore: object) -> str:
+    """Un valore dentro una cella di tabella Markdown.
+
+    Due caratteri rompono una tabella GFM e vanno neutralizzati: la
+    pipe, che aprirebbe una colonna in piu', e l'a-capo, che chiuderebbe
+    la riga. Arrivano da fuori — titoli di pagina, `solution` di ZAP,
+    testi del sito — quindi non e' un'ipotesi.
+    """
+    testo = "" if valore is None else str(valore)
+    return testo.replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _md_rilievo(rilievo: dict) -> List[str]:
+    """Un rilievo come voce di elenco, con la correzione sotto."""
+    righe = ["- %s %s" % (_MARCATORE.get(rilievo.get("severity"), "[?]"),
+                          rilievo.get("title") or "")]
+    if rilievo.get("detail"):
+        righe.append("  %s" % rilievo["detail"])
+    if rilievo.get("fix"):
+        righe.append("  *Correzione:* %s" % rilievo["fix"])
+    if rilievo.get("example"):
+        # Recintato: un esempio nginx o JSON-LD dentro un elenco
+        # perderebbe indentazione e a-capo, che sono il suo contenuto.
+        righe.append("")
+        righe.append("  ```")
+        righe.extend("  %s" % r for r in rilievo["example"].split("\n"))
+        righe.append("  ```")
+    return righe
+
+
+def render_markdown(referto: dict) -> str:
+    """Il referto in Markdown, con il piano come task list.
+
+    Non e' una traduzione dell'HTML: e' la stessa struttura resa dove
+    non c'e' CSS. Legge gli stessi dati canonici — `overall`,
+    `remediation`, `findings` — quindi non puo' raccontare un referto
+    diverso dalle altre viste.
+    """
+    r: List[str] = ["# MARS Beacon — %s" % (referto.get("url") or "")]
+    r.append("")
+    r.append("*%s · v%s · %s pagine trovate via %s · %s chunk · mercato %s*"
+             % (referto.get("generated_at"), referto.get("version"),
+                referto.get("pages_crawled"), referto.get("discovery"),
+                referto.get("chunks"), referto.get("market")))
+
+    complessivo = referto.get("overall")
+    if complessivo:
+        r += ["", "## Complessivo", "",
+              "**%.0f/100** — %s" % (complessivo["score"],
+                                     _verdetto(complessivo["score"])),
+              "",
+              "Media pesata di %d misure; citabilità e giudizio LLM esclusi. "
+              "Scala dichiarata: critico sotto %d, da migliorare %d-%d, "
+              "buono da %d."
+              % (len(complessivo["components"]), SOGLIA_MEDIO, SOGLIA_MEDIO,
+                 SOGLIA_BUONO - 1, SOGLIA_BUONO)]
+
+    r += ["", "## Punteggi per area", "",
+          "| Area | Punteggio | Con che cosa |", "|---|---|---|"]
+    for area in referto.get("areas") or []:
+        voto = ("%.0f/100" % area["score"] if area["score"] is not None
+                else STATO_LEGGIBILE.get(area.get("status"), "non misurato"))
+        r.append("| %s | %s | %s |"
+                 % (_md_cella(area.get("label")), voto,
+                    _md_cella(" · ".join(_qualificatori(area)))))
+
+    piano = referto.get("remediation") or []
+    riepilogo = mars_remediation.riepilogo(piano, referto)
+    r += ["", "## Piano di interventi", ""]
+    if not piano:
+        r.append("Nessun rilievo critico o di avvertenza.")
+    else:
+        r.append("%d interventi (%d critici, %d avvertenze) · %d quick win."
+                 % (riepilogo["total"], riepilogo["critical"],
+                    riepilogo["warning"], riepilogo["quick_wins"]))
+        r.append("")
+        for voce in piano:
+            # Task list GFM: incollata in una issue diventa una
+            # checklist spuntabile, ed e' il motivo per cui questo
+            # formato esiste.
+            note = [voce["area_label"].split(". ", 1)[-1],
+                    "sforzo: %s" % (voce["effort"] or "non dichiarato")]
+            if voce["recovery"]:
+                note.append("+%d punti d'area" % voce["recovery"])
+            if voce["index_gain"]:
+                note.append("indice +%.2f" % voce["index_gain"])
+            # Il grassetto del quick win sta FUORI dal corsivo delle
+            # note: annidati darebbero `**QUICK WIN***`, e la terza
+            # asterisco chiude il corsivo invece del grassetto.
+            r.append("- [ ] %s %s — *%s*%s"
+                     % (_MARCATORE.get(voce["severity"], "[?]"),
+                        voce["title"], " · ".join(note),
+                        " · **QUICK WIN**" if voce["quick_win"] else ""))
+            if voce["fix"]:
+                r.append("      %s" % voce["fix"])
+
+    r += ["", "## Rilievi per area"]
+    for area in referto.get("areas") or []:
+        r += ["", "### %s" % (area.get("label") or area.get("module")), ""]
+        rilievi = area.get("findings") or []
+        if rilievi:
+            for rilievo in rilievi:
+                r += _md_rilievo(rilievo)
+        elif area.get("issues"):
+            r += ["- %s" % i for i in area["issues"]]
+        else:
+            r.append("Nessun rilievo.")
+
+    cit = referto.get("citability") or {}
+    if cit.get("profiles"):
+        r += ["", "## Profili di citabilità IA", "",
+              "Mercato: %s" % _md_cella(cit.get("market")), "",
+              "| Assistente | Indice |", "|---|---|"]
+        for assistente, valore in cit["profiles"].items():
+            r.append("| %s | %s |"
+                     % (_md_cella(assistente),
+                        "%.1f" % valore if valore is not None else "n/d"))
+        if cit.get("score") is not None:
+            r.append("| **Indice composito** | **%.1f** |" % cit["score"])
+        r += ["", "*%s*" % _md_cella(cit.get("disclaimer"))]
+
+    llm = referto.get("llm_judgement") or {}
+    if llm.get("motivazione"):
+        r += ["", "## Giudizio LLM", "",
+              "Modello: %s, su %s passaggi." % (_md_cella(llm.get("model")),
+                                                llm.get("chunk_valutati"))]
+        if llm.get("score") is not None:
+            r.append("")
+            r.append("Citabilità stimata: **%s/100**" % llm["score"])
+        r += ["", llm["motivazione"]]
+
+    simulazione = referto.get("rrf_simulation") or []
+    if simulazione:
+        r += ["", "## Simulazione RRF", "",
+              "| Query | Consenso | Passaggio migliore |", "|---|---|---|"]
+        for voce in simulazione:
+            r.append("| %s | %s | %s |"
+                     % (_md_cella(voce["query"]),
+                        _md_cella(_consenso_leggibile(voce)),
+                        _md_cella(voce.get("top_chunk") or "—")))
+
+    if referto.get("skipped"):
+        r += ["", "## Cosa non è stato guardato", ""]
+        r += ["- %s" % _md_cella(m) for m in referto["skipped"]]
+
+    r.append("")
+    return "\n".join(r)
+
+
+# ======================================================================
+# Vista CSV: i rilievi come righe, per chi li lavora altrove (Fase 6)
+# ======================================================================
+
+COLONNE_CSV = ("sito", "area", "gravita", "peso", "titolo", "dettaglio",
+               "correzione", "url", "sforzo", "quick_win")
+
+# Il BOM non e' un vezzo: senza, Excel apre un CSV UTF-8 leggendolo
+# nella codepage di sistema, e "Accessibilità" diventa "AccessibilitÃ ".
+# E' il motivo per cui questa resa esiste — chi vuole i byte puliti ha
+# il JSON.
+BOM_UTF8 = "\ufeff"
+
+# Il punto e virgola, non la virgola, per la stessa ragione: nelle
+# impostazioni italiane di Excel il separatore di lista e' quello, e un
+# file con le virgole finisce tutto in una colonna sola.
+DELIMITATORE_CSV = ";"
+
+
+def render_csv(referto: dict) -> str:
+    """Una riga per rilievo, con lo sforzo dove il piano lo dichiara.
+
+    Comprende i rilievi **derivati** di `mars_citability`: R41 esclude
+    i derivati da chi AGGREGA — piano, conteggi, confronti — e li tiene
+    per chi li mostra uno per uno, che e' esattamente questo. Il loro
+    `params["sources"]` dice a quali aree agganciarli.
+
+    `sforzo` e `quick_win` restano vuoti dove il rilievo non e'
+    azionabile: sono proprieta' di una voce del piano, e riportarle su
+    un rilievo che il piano non prende in carico direbbe il falso.
+    Vuoto, non «no»: un `quick_win` a «no» su un rilievo informativo
+    sembrerebbe una valutazione che nessuno ha fatto.
+    """
+    per_chiave = {v["key"]: v for v in referto.get("remediation") or []}
+    buffer = io.StringIO()
+    # `QUOTE_MINIMAL` e le regole di `csv` fanno il resto: una cella
+    # con un punto e virgola, un a-capo o una virgoletta viene quotata
+    # e le virgolette raddoppiate. Scriverlo a mano e' il classico
+    # punto in cui un fix di ZAP pieno di `"` spezza il file.
+    scrittore = csv.writer(buffer, delimiter=DELIMITATORE_CSV,
+                           quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
+    scrittore.writerow(COLONNE_CSV)
+    for area in referto.get("areas") or []:
+        for rilievo in area.get("findings") or []:
+            voce = per_chiave.get(rilievo.get("key") or "")
+            scrittore.writerow([
+                referto.get("url") or "",
+                area.get("label") or area.get("module") or "",
+                rilievo.get("severity") or "",
+                rilievo.get("weight") if rilievo.get("weight") is not None
+                else "",
+                rilievo.get("title") or "",
+                rilievo.get("detail") or "",
+                rilievo.get("fix") or "",
+                rilievo.get("url") or "",
+                (voce or {}).get("effort") or "",
+                "sì" if voce and voce.get("quick_win") else "",
+            ])
+    return BOM_UTF8 + buffer.getvalue()
+
+
+RENDERERS = {"text": render_text, "json": render_json, "html": render_html,
+             "markdown": render_markdown, "csv": render_csv}

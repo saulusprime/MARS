@@ -173,9 +173,10 @@ nelle tre viste umane. Bump a 2.6.0.
         profondità di crawl registrata dal crawler: nota quando si seguono
         i link, **ignota** per le pagine che vengono dalla sola sitemap.
         Lo status HTTP non c'è e non si inventa.
-  - [ ] **U8.2** — la resa della distribuzione di profondità e
-        `surface_math`: superficie attuale contro potenziale, con
-        l'assunzione dichiarata nel testo.
+  - [x] **U8.2** — `surface_math` e la sezione «Superficie» nelle tre viste
+        umane: distribuzione di profondità a barre e superficie attuale
+        contro potenziale, con l'assunzione dichiarata **dentro il dato**
+        perché ogni vista la ripeta.
   - [ ] **U8.3** — treemap della superficie: SVG statico con `role="img"`,
         `<title>` per rettangolo e tabella di ripiego in `<details>`.
   - [ ] **U8.4** — grafo dei link interni, e con esso **D1**: il primo

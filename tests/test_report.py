@@ -26,6 +26,7 @@ from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          ancore_dei_rilievi,
                          conteggi_per_gravita, depth_distribution,
                          pagine_scansionate, segnali_derivati,
+                         surface_math,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_csv, render_html, render_json,
@@ -616,8 +617,12 @@ def test_superficie_distinguibile_da_una_misura_piena(vista):
     completa = vista(_referto_sicurezza(**COMPLETA))
     assert superficie != completa, \
         "un controllo di superficie non puo' rendersi identico a un WAPT"
-    assert "superficie" in superficie.lower()
-    assert "superficie" not in completa.lower().replace("class='nota", "")
+    # La frase intera, non la sola parola: da U8.2 il referto ha una
+    # sezione «Superficie» che parla della superficie CONTENUTISTICA,
+    # e cercare «superficie» da sola la incontrerebbe in ogni referto.
+    # Restringere la spia rende il presidio piu' forte, non piu' debole.
+    assert "controllo di superficie" in superficie.lower()
+    assert "controllo di superficie" not in completa.lower()
 
 
 @pytest.mark.parametrize("vista", [render_text, render_html],
@@ -1871,3 +1876,61 @@ def test_i_secchielli_vuoti_non_compaiono():
     assert depth_distribution([{"depth": 0}]) == [
         {"label": "home", "pages": 1, "unknown": False}]
     assert depth_distribution([]) == []
+
+
+# ----------------------------------------------------------------------
+# U8.2: la matematica della superficie, e la sua resa
+# ----------------------------------------------------------------------
+
+def test_la_superficie_si_ricostruisce_a_mano(contesto):
+    """Tre pagine, quattro passaggi: il potenziale è 3 x 4 = 12, cioè
+    x3 rispetto ai quattro di adesso."""
+    contesto["pages"] = {"https://a/": {}, "https://b/": {}, "https://c/": {}}
+    contesto["chunks"] = [{"text": "una parola " * 10} for _ in range(4)]
+    m = surface_math(contesto)
+    assert (m["pages"], m["chunks"], m["words"]) == (3, 4, 80)
+    assert m["chunks_per_page"] == 1.33
+    assert m["potential_chunks"] == 12
+    assert m["multiplier"] == 3.0
+
+
+def test_la_proiezione_dichiara_la_propria_assunzione(contesto):
+    """È la differenza fra dire «potresti avere 12 passaggi» e dire «se
+    ogni pagina arrivasse a 900 parole»: l'assunzione viaggia nel dato
+    perché ogni vista la ripeta."""
+    m = surface_math(contesto)
+    assert "proiezione, non misura" in m["assumption"]
+    assert "900" in m["assumption"]
+    for reso in (render_text(build_report({}, contesto)),
+                 render_html(build_report({}, contesto)),
+                 render_markdown(build_report({}, contesto))):
+        assert "proiezione, non misura" in reso
+
+
+def test_senza_pagine_non_c_e_superficie_di_cui_parlare(contesto):
+    contesto["pages"] = {}
+    assert surface_math(contesto) is None
+
+
+def test_senza_passaggi_il_moltiplicatore_non_e_uno(contesto):
+    """`x1` su zero passaggi suonerebbe come «sei già a posto»."""
+    contesto["chunks"] = []
+    assert surface_math(contesto)["multiplier"] is None
+
+
+def test_le_tre_viste_mostrano_la_distribuzione_di_profondita(contesto):
+    contesto["pages"]["https://esempio.test/"]["depth"] = 0
+    referto = build_report({}, contesto)
+    for reso in (render_text(referto), render_html(referto),
+                 render_markdown(referto)):
+        assert "home" in reso
+
+
+def test_il_secchiello_delle_ignote_e_giallo_non_rosso(contesto):
+    """Non è un livello peggiore degli altri: è un livello che non
+    sappiamo, e il rosso lo leggerebbe come un difetto."""
+    referto = build_report({}, contesto)
+    html = render_html(referto)
+    sezione = html[html.index("<h2>Superficie</h2>"):]
+    assert "class='bar warn'" in sezione
+    assert "class='bar bad'" not in sezione

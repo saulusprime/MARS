@@ -4175,6 +4175,44 @@ esercitano i test, e due test nuovi sul `Crawler` verificano il giro completo
 - [x] `Crawler.crawl()` (la coda porta la profondità), `pagine_scansionate()`,
       `depth_distribution()`, `_tipi_json_ld()`, nove test, i due golden JSON.
 
+### U8.2 — ✅ (2026-08-25): la matematica della superficie
+
+**La domanda.** Due recuperatori che pescano fra dodici passaggi e due che
+pescano fra quaranta non fanno lo stesso lavoro: ogni chunk è un'occasione di
+essere recuperato. La sezione dice quanta superficie recuperabile c'è e di
+quanto si moltiplicherebbero le occasioni se le pagine avessero il contenuto
+che ci si dà per obiettivo.
+
+**È una proiezione, e lo dice il dato.** `assumption` viaggia dentro
+`surface_math` e ogni vista la ripete: «proiezione, non misura: si assume una
+pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker
+ricava circa 4 passaggi». È la differenza fra dire «potresti avere 12
+passaggi» e dire «*se* ogni pagina arrivasse a 900 parole» — e chi non è
+d'accordo col numero deve poterlo vedere invece di dedurlo dal risultato.
+
+Nel golden completo: 3 pagine, 4 passaggi, 87 parole per pagina, potenziale 12,
+cioè **x3**.
+
+**Due dettagli che sarebbero passati.** Il moltiplicatore è `None` e non `1.0`
+quando non ci sono passaggi: «x1» su zero suonerebbe come «sei già a posto». E
+il secchiello delle profondità ignote è **giallo, non rosso**: non è un livello
+peggiore degli altri, è un livello che non sappiamo, e il rosso lo leggerebbe
+come un difetto.
+
+**Una collisione, e la spia che ne è uscita più forte.** La sezione si chiama
+«Superficie», e un test di regressione di R21 — un controllo di sicurezza *di
+superficie* non deve rendersi identico a un WAPT completo — cercava la parola
+`superficie` come spia. Da oggi quella parola compare in ogni referto per
+un'altra ragione. Il test ora cerca la frase intera, «controllo di
+superficie», che è la stringa vera di `STATO_LEGGIBILE`: restringere la spia
+rende il presidio più forte, non più debole. Rinominare la sezione sarebbe
+stato più comodo e avrebbe lasciato in piedi una spia ambigua.
+
+Sedici mutazioni fra U8.1 e U8.2, nessuna sfuggita.
+
+- [x] `surface_math()`, `_superficie_testo()`, `_sezione_superficie()`, la
+      sezione Markdown, sei test, i sei golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

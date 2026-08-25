@@ -34,6 +34,12 @@ COMPLESSIVO          :  66/100  (da migliorare)
   ⚠ Nessun prezzo verificabile
   ⚠ Nessuna fonte citata
 -------------------------------------------------------
+SUPERFICIE
+  profondità ignota      3  ███
+  3 pagine, 4 passaggi (1.33 per pagina, 87 parole per pagina)
+  Con 900 parole per pagina i passaggi sarebbero 12, cioe' x3.0
+  (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
+-------------------------------------------------------
 RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   Complessivo          +5  (61 → 66)
   tech                 +17  (40 → 57)

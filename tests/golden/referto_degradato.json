@@ -53,6 +53,18 @@
       ]
     }
   ],
+  "surface_math": {
+    "pages": 3,
+    "chunks": 4,
+    "words": 261,
+    "words_per_page": 87.0,
+    "chunks_per_page": 1.33,
+    "target_words_per_page": 900,
+    "target_chunks_per_page": 4,
+    "potential_chunks": 12,
+    "multiplier": 3.0,
+    "assumption": "proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi"
+  },
   "areas": [
     {
       "module": "mars_tech",

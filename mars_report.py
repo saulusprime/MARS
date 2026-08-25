@@ -159,6 +159,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         # profondo. Serve alle integrazioni, e nessuna delle nove aree
         # lo espone — ognuna guarda la propria misura.
         "pages": pagine_scansionate(context),
+        "surface_math": surface_math(context),
         "areas": aree,
         # Chiave del contratto con mars_citations.py --from-audit:
         # lista di voci ciascuna con la propria "query".
@@ -393,6 +394,59 @@ def depth_distribution(pagine: List[dict]) -> List[Dict[str, object]]:
         esito.append({"label": "profondità ignota", "pages": ignote,
                       "unknown": True})
     return esito
+
+
+# L'obiettivo contro cui si misura la superficie attuale. E' una
+# ASSUNZIONE, non una misura, e viaggia dentro il dato perche' ogni
+# vista la ripeta: una pagina di contenuto sostanziale sta intorno alle
+# 900 parole e il chunker ne ricava quattro passaggi. Chi non e'
+# d'accordo col numero deve poterlo vedere invece di dedurlo dal
+# risultato.
+PAROLE_PER_PAGINA_OBIETTIVO = 900
+CHUNK_PER_PAGINA_OBIETTIVO = 4
+ASSUNZIONE_SUPERFICIE = (
+    "proiezione, non misura: si assume una pagina di contenuto "
+    "sostanziale intorno alle %d parole, da cui il chunker ricava circa "
+    "%d passaggi" % (PAROLE_PER_PAGINA_OBIETTIVO,
+                     CHUNK_PER_PAGINA_OBIETTIVO))
+
+
+def surface_math(context: dict) -> Optional[Dict[str, object]]:
+    """Quanta superficie recuperabile c'e', e quanta ce ne potrebbe essere.
+
+    Ogni chunk e' un'occasione di essere recuperato: due recuperatori
+    che pescano fra dodici passaggi e due che pescano fra quaranta non
+    fanno lo stesso lavoro. Questa sezione dice di quanto si
+    moltiplicherebbero le occasioni se le pagine avessero il contenuto
+    che si dara' per obiettivo.
+
+    E' una **proiezione dichiarata**, non una misura, e l'assunzione
+    viaggia dentro il dato: e' la differenza fra dire «potresti avere
+    40 passaggi» e dire «se ogni pagina arrivasse a 900 parole».
+
+    None senza pagine: non c'e' superficie di cui parlare.
+    """
+    pagine = context.get("pages") or {}
+    chunks = context.get("chunks") or []
+    if not pagine:
+        return None
+    parole = sum(len((c.get("text") or "").split()) for c in chunks)
+    potenziali = len(pagine) * CHUNK_PER_PAGINA_OBIETTIVO
+    return {
+        "pages": len(pagine),
+        "chunks": len(chunks),
+        "words": parole,
+        "words_per_page": round(parole / len(pagine), 1),
+        "chunks_per_page": round(len(chunks) / len(pagine), 2),
+        "target_words_per_page": PAROLE_PER_PAGINA_OBIETTIVO,
+        "target_chunks_per_page": CHUNK_PER_PAGINA_OBIETTIVO,
+        "potential_chunks": potenziali,
+        # None e non 1.0 quando non c'e' nulla da moltiplicare: dire
+        # «x1» su zero chunk suonerebbe come «sei gia' a posto».
+        "multiplier": (round(potenziali / len(chunks), 1)
+                       if chunks else None),
+        "assumption": ASSUNZIONE_SUPERFICIE,
+    }
 
 
 def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
@@ -670,6 +724,34 @@ def _segno(valore: float) -> str:
     return "%+.0f" % valore if valore else "invariato"
 
 
+def _superficie_testo(referto: dict) -> List[str]:
+    """La superficie: quanto e' profondo il sito e quanto contenuto ha."""
+    profondita = depth_distribution(referto.get("pages") or [])
+    matematica = referto.get("surface_math")
+    if not profondita and not matematica:
+        return []
+    righe = ["-" * 55, "SUPERFICIE"]
+    for voce in profondita:
+        # Barra e conteggio, come i profili di citabilita': la forma
+        # della distribuzione si legge prima dei numeri.
+        righe.append("  %-20s %3d  %s" % (voce["label"], voce["pages"],
+                                          "█" * min(voce["pages"], 30)))
+    if matematica:
+        righe.append("  %d pagine, %d passaggi (%.2f per pagina, %.0f "
+                     "parole per pagina)"
+                     % (matematica["pages"], matematica["chunks"],
+                        matematica["chunks_per_page"],
+                        matematica["words_per_page"]))
+        if matematica["multiplier"]:
+            righe.append("  Con %d parole per pagina i passaggi sarebbero "
+                         "%d, cioe' x%.1f"
+                         % (matematica["target_words_per_page"],
+                            matematica["potential_chunks"],
+                            matematica["multiplier"]))
+        righe.append("  (%s)" % matematica["assumption"])
+    return righe
+
+
 def _delta_testo(referto: dict) -> List[str]:
     """Il confronto con l'esecuzione precedente, se c'e'.
 
@@ -781,6 +863,7 @@ def render_text(referto: dict) -> str:
         righe.extend(_correzioni_testo(area.get("findings") or [],
                                        nel_piano))
 
+    righe.extend(_superficie_testo(referto))
     righe.extend(_delta_testo(referto))
     righe.extend(_piano_testo(referto))
 
@@ -1576,6 +1659,46 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
     return "".join(parti)
 
 
+def _sezione_superficie(referto: dict, p: List[str]) -> None:
+    """Profondita' di crawl e matematica della superficie."""
+    profondita = depth_distribution(referto.get("pages") or [])
+    matematica = referto.get("surface_math")
+    if not profondita and not matematica:
+        return
+    p.append("<h2>Superficie</h2>")
+    if profondita:
+        massimo = max(v["pages"] for v in profondita) or 1
+        p.append("<table><tr><th>Distanza dalla home</th><th>Pagine</th>"
+                 "<th></th></tr>")
+        for voce in profondita:
+            # Il secchiello delle ignote e' giallo: non e' un livello
+            # peggiore degli altri, e' un livello che non sappiamo.
+            classe = "warn" if voce["unknown"] else "muted"
+            p.append("<tr><td>%s</td><td class='num'>%d</td>"
+                     "<td style='width:60%%'><span class='bar %s' "
+                     "style='width:%.0f%%'></span></td></tr>"
+                     % (_e(voce["label"]), voce["pages"], classe,
+                        100.0 * voce["pages"] / massimo))
+        p.append("</table>")
+    if matematica:
+        p.append("<div class='card'><p>%d pagine, %d passaggi — %.2f per "
+                 "pagina, %.0f parole per pagina.</p>"
+                 % (matematica["pages"], matematica["chunks"],
+                    matematica["chunks_per_page"],
+                    matematica["words_per_page"]))
+        if matematica["multiplier"]:
+            p.append("<p class='grande'>x%.1f</p>"
+                     "<p class='meta'>passaggi recuperabili con %d parole "
+                     "per pagina: %d invece di %d. Ogni passaggio è "
+                     "un'occasione in più di essere recuperato.</p>"
+                     % (matematica["multiplier"],
+                        matematica["target_words_per_page"],
+                        matematica["potential_chunks"],
+                        matematica["chunks"]))
+        p.append("<p class='disclaimer'>%s</p></div>"
+                 % _e(matematica["assumption"]))
+
+
 def _sezione_delta(referto: dict, p: List[str]) -> None:
     """«Rispetto all'esecuzione precedente», con risolti e nuovi."""
     delta = referto.get("delta")
@@ -1826,6 +1949,7 @@ def render_html(referto: dict) -> str:
     for area in referto["areas"]:
         p.append(_scheda_area(area, referto, ancore))
 
+    _sezione_superficie(referto, p)
     _sezione_delta(referto, p)
     _sezione_piano(referto, p, ancore)
     _sezione_rrf(referto, p)
@@ -1930,6 +2054,28 @@ def render_markdown(referto: dict) -> str:
         r.append("| %s | %s | %s |"
                  % (_md_cella(area.get("label")), voto,
                     _md_cella(" · ".join(_qualificatori(area)))))
+
+    profondita = depth_distribution(referto.get("pages") or [])
+    matematica = referto.get("surface_math")
+    if profondita or matematica:
+        r += ["", "## Superficie", ""]
+        if profondita:
+            r += ["| Distanza dalla home | Pagine |", "|---|---|"]
+            r += ["| %s | %d |" % (_md_cella(v["label"]), v["pages"])
+                  for v in profondita]
+        if matematica:
+            r += ["", "%d pagine, %d passaggi — %.2f per pagina, %.0f parole "
+                      "per pagina."
+                  % (matematica["pages"], matematica["chunks"],
+                     matematica["chunks_per_page"],
+                     matematica["words_per_page"])]
+            if matematica["multiplier"]:
+                r.append("Con %d parole per pagina i passaggi sarebbero "
+                         "**%d**, cioè **x%.1f**."
+                         % (matematica["target_words_per_page"],
+                            matematica["potential_chunks"],
+                            matematica["multiplier"]))
+            r += ["", "*%s*" % _md_cella(matematica["assumption"])]
 
     delta = referto.get("delta")
     if delta:

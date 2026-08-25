@@ -22,6 +22,17 @@ Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: 
 | 8. Citabilità IA | 66/100 |  |
 | 9. Giudizio LLM | 61/100 |  |
 
+## Superficie
+
+| Distanza dalla home | Pagine |
+|---|---|
+| profondità ignota | 3 |
+
+3 pagine, 4 passaggi — 1.33 per pagina, 87 parole per pagina.
+Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
+
+*proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi*
+
 ## Rispetto all'esecuzione precedente
 
 Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).

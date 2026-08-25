@@ -3893,6 +3893,92 @@ commit inutili e una chiave pubblica in più nel dato canonico.
 - [x] `_azioni_di_profilo()`, il vincolo su UPGRADE.md, `__version__` 2.3.0,
       il README, sette test, due golden `.html`.
 
+### U5.1-U5.3 — ✅ (2026-08-25): complessivo, hero e ancore stabili
+
+**U5.1 — il punteggio complessivo.** Media pesata delle sole aree **misurate**,
+rinormalizzata su quelle presenti: un'area senza strumento non abbassa il
+complessivo, lo rende meno informato — la stessa regola che `mars_citability`
+applica ai suoi segnali. I due segnali derivati — consenso RRF e contenuto in
+forma di risposta — pesano **1,5** contro l'1,0 di un'area, perché non vengono
+da uno strumento esterno ma dal confronto fra i due recuperatori, che è la
+domanda del progetto.
+
+Citabilità e giudizio LLM sono esclusi **per nome** e non per una proprietà del
+dato (D3), ed è deliberato: la prima è una sintesi dei punteggi altrui, il
+secondo è opzionale e a pagamento — con dentro, lo stesso sito darebbe due
+complessivi a seconda che si sia speso o no. Per nome restano fuori **anche
+quando falliscono**, che è proprio il caso in cui una regola basata sul dato li
+lascerebbe rientrare.
+
+La chiave `overall` porta i **componenti e i pesi**: un numero che riassume
+nove aree vale quanto la possibilità di rifarne il conto, e senza sarebbe
+l'unica cifra del referto che nessuno può verificare. Nel golden completo:
+(57 + 27 + 90 + 37 + 57 + 1,5·100 + 1,5·75) / 8 = **66,3**.
+
+I due segnali derivati erano calcolati *dentro* la fascia dei quadranti:
+estratti in `segnali_derivati()` e letti da entrambi. La prova che il refactor
+è invariante è che l'HTML dei golden **non si è mosso**.
+
+**U5.2 — l'hero, e i conteggi che chiudono R41.** Un numero, un verdetto, la
+scala dichiarata e quattro caselle. Il quadrante è lo **stesso** `_quadrante`
+della fascia sotto, solo più grande per CSS: disegnarne un secondo, anche
+identico, vorrebbe dire avere due archi da tenere allineati.
+
+I conteggi per gravità **escludono i derivati**: è la seconda casella di R41, e
+con essa la voce si chiude. Contarli qui riaprirebbe sui *conteggi* il doppio
+conteggio che D3 chiude sul *punteggio* — nel golden sono quattro rilievi su
+dodici informativi. Il test costruisce un derivato **critico** apposta, perché
+oggi li terrebbe fuori anche la sola gravità: è la protezione incidentale che
+R41 denuncia.
+
+I rilievi di **stato** restano dentro: dicono qualcosa di vero su questa
+esecuzione, e la casella «informativi» non è una coda di lavoro — quella è il
+piano, che li esclude.
+
+Il **donut** previsto da UPGRADE.md diventa due numeri. La quota di URL
+scartati non è un voto — un PDF o un altro host sono scarti legittimi — e un
+anello la colorerebbe con la scala dei punteggi. Il taglio giusto (senza
+rilievi / con rilievi / scartate) richiede i `url` valorizzati sui Finding, che
+UPGRADE.md stesso dichiara assenti.
+
+**U5.3 — le ancore, e una prescrizione che non serviva.** UPGRADE.md prevedeva
+uno slug ricavato dal **titolo**, coi numeri normalizzati a `n` perché «2/3
+pagine senza canonical» e «117/400 pagine senza canonical» non producessero due
+ancore diverse. Qui non serve: dalla Fase 1 ogni rilievo ha già una `key`
+stabile per costruzione — tre segmenti, mai un valore variabile dentro — ed è
+esattamente il problema che quello slug cercava di risolvere a valle. Il
+progetto di riferimento non aveva chiavi, noi sì. Un test verifica comunque la
+proprietà che conta: cambiando solo i numeri del titolo, l'ancora non si muove.
+
+Il punto diventa trattino: un id coi punti è legale in HTML5, ma
+`#tech.robots.ai_blocked` in un selettore CSS si legge come un id più due
+classi. Oggi nessuno lo interroga — nel referto non c'è JavaScript — e proprio
+per questo conviene non lasciare la mina.
+
+**Le ancore si calcolano una volta sola** e si passano a chi le usa: la scheda
+che le emette, il piano e il riquadro «Da dove cominciare» che le linkano.
+Ricalcolare la condizione in tre posti significherebbe tre occasioni di
+divergere, e **un link rotto in un referto HTML non fa alcun rumore**: la
+pagina resta valida, il browser non protesta, il salto semplicemente non
+succede. Per questo l'invariante è un test: nel referto completo, 20 ancore
+emesse e 20 link, zero rotti.
+
+Riceve l'ancora solo il rilievo che la scheda d'area mostra come **elemento
+proprio** — una voce di «Come si aggiusta», o una riga dell'elenco dei
+controlli agganciata al suo rilievo. Dove non c'è, il piano stampa il titolo
+senza link invece di promettere un salto verso il nulla.
+
+Scrivendo quel test è emerso un fatto che avevo dato per scontato al contrario:
+un rilievo *senza* `fix` non esiste quasi mai, perché `vesti_findings` glielo
+riempie dal catalogo di U3.1. Il caso va costruito su una famiglia **dinamica**
+— `wcag.axe.*` — che dal catalogo non prende nulla.
+
+Trentadue mutazioni nelle tre voci, nessuna sfuggita.
+
+- [x] `overall_score()`, `segnali_derivati()`, `conteggi_per_gravita()`,
+      `_hero()`, `_ancora()`, `ancore_dei_rilievi()`, `_primi_rilievi()`, il
+      CSS, ventotto test, i golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

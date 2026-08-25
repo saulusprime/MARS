@@ -85,6 +85,17 @@ ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .tessera .grande { display:block; font-size:1.5rem; }
 .tessera .meta { display:block; margin:0; }
 
+/* --- ancore stabili (Fase 5) --- */
+.ancora { color:var(--muted); text-decoration:none; margin-left:.35rem;
+          opacity:0; transition:opacity .1s; }
+li:hover > .ancora, li:hover .ancora, .ancora:focus { opacity:1; }
+li:target { background:var(--track); border-radius:.35rem;
+            box-shadow:0 0 0 .35rem var(--track); }
+.primi { max-width:64rem; margin:0 auto; padding:.25rem 1rem 0; }
+ol.primi-rilievi { margin:.2rem 0 0; padding-left:1.4rem; font-size:.88rem; }
+ol.primi-rilievi li { margin:.12rem 0; }
+ol.primi-rilievi a { color:inherit; }
+
 /* --- piano di interventi (Fase 4) --- */
 .intervento { background:var(--card); border:1px solid var(--line);
               border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
@@ -183,6 +194,26 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </div>
 </div>
 </section>
+<div class='primi'>
+<p class='meta'>Da dove cominciare</p>
+<ol class='primi-rilievi'>
+<li class='bad'>
+<a href='#r-tech-robots-ai-blocked'>robots.txt BLOCCA 1 crawler IA: GPTBot</a>
+</li>
+<li class='bad'>
+<a href='#r-seo-lh-is-crawlable'>L&#x27;indicizzazione della pagina è bloccata</a>
+</li>
+<li class='bad'>
+<a href='#r-wcag-axe-image-alt'>Le immagini devono avere un testo alternativo</a>
+</li>
+<li class='bad'>
+<a href='#r-sec-zap-40012'>Cross Site Scripting (Reflected)</a>
+</li>
+<li class='bad'>
+<a href='#r-wcag-form-label-missing'>1 campi di modulo senza etichetta</a>
+</li>
+</ol>
+</div>
 <div class='quadranti'>
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Tecnica: 57 su 100'>
@@ -308,8 +339,9 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-tech-robots-ai-blocked'>
 <b>robots.txt BLOCCA 1 crawler IA: GPTBot</b>
+<a class='ancora' href='#r-tech-robots-ai-blocked' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
 <pre class='ex'># robots.txt — il gruppo va CORRETTO, non aggiunto
 # prima:
@@ -319,8 +351,9 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 User-agent: GPTBot
 Disallow:</pre>
 </li>
-<li>
+<li id='r-tech-canonical-missing'>
 <b>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</b>
+<a class='ancora' href='#r-tech-canonical-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
 <pre class='ex'>&lt;link rel=&quot;canonical&quot; href=&quot;https://esempio.it/servizi/&quot;&gt;</pre>
 </li>
@@ -336,52 +369,60 @@ Disallow:</pre>
 </div>
 <p class='strumento'>Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti</p>
 <ul class='controlli'>
-<li class='fallito'>
+<li id='r-seo-lh-is-crawlable' class='fallito'>
 <span class='segno'>✗</span>
-<span>L&#x27;indicizzazione della pagina è bloccata<br>
+<span>L&#x27;indicizzazione della pagina è bloccata<a class='ancora' href='#r-seo-lh-is-crawlable' aria-label='Link a questo rilievo'>#</a>
+<br>
 <span class='dettaglio'>X-Robots-Tag: noindex</span>
 <span class='spiegazione'>I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell&#x27;autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.</span>
 </span>
 </li>
-<li class='fallito'>
+<li id='r-seo-lh-document-title' class='fallito'>
 <span class='segno'>✗</span>
-<span>Il documento non ha un elemento `&lt;title&gt;`<br>
+<span>Il documento non ha un elemento `&lt;title&gt;`<a class='ancora' href='#r-seo-lh-document-title' aria-label='Link a questo rilievo'>#</a>
+<br>
 <span class='dettaglio'>html</span>
 <span class='spiegazione'>Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.</span>
 </span>
 </li>
-<li class='fallito'>
+<li id='r-seo-lh-meta-description' class='fallito'>
 <span class='segno'>✗</span>
-<span>Il documento non ha una meta descrizione<span class='spiegazione'>Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.</span>
+<span>Il documento non ha una meta descrizione<a class='ancora' href='#r-seo-lh-meta-description' aria-label='Link a questo rilievo'>#</a>
+<span class='spiegazione'>Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.</span>
 </span>
 </li>
-<li class='fallito'>
+<li id='r-seo-lh-link-text' class='fallito'>
 <span class='segno'>✗</span>
-<span>I link non hanno testo descrittivo<br>
+<span>I link non hanno testo descrittivo<a class='ancora' href='#r-seo-lh-link-text' aria-label='Link a questo rilievo'>#</a>
+<br>
 <span class='dettaglio'>/p0, /p1, /p2, /p3, /p4</span>
 <span class='spiegazione'>Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.</span>
 </span>
 </li>
-<li class='fallito'>
+<li id='r-seo-lh-image-alt' class='fallito'>
 <span class='segno'>✗</span>
-<span>Gli elementi immagine non hanno attributi `[alt]`<br>
+<span>Gli elementi immagine non hanno attributi `[alt]`<a class='ancora' href='#r-seo-lh-image-alt' aria-label='Link a questo rilievo'>#</a>
+<br>
 <span class='dettaglio'>body &gt; img, body &gt; img</span>
 <span class='spiegazione'>Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull&#x27;attributo `alt`.</span>
 </span>
 </li>
-<li class='manuale'>
+<li id='r-seo-lh-robots-txt' class='manuale'>
 <span class='segno'>?</span>
-<span>robots.txt è valido<span class='spiegazione'>Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.</span>
+<span>robots.txt è valido<a class='ancora' href='#r-seo-lh-robots-txt' aria-label='Link a questo rilievo'>#</a>
+<span class='spiegazione'>Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.</span>
 </span>
 </li>
-<li class='manuale'>
+<li id='r-seo-lh-canonical' class='manuale'>
 <span class='segno'>?</span>
-<span>Il documento ha un elemento `rel=canonical` valido<span class='spiegazione'>I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. Scopri di più sui link canonici.</span>
+<span>Il documento ha un elemento `rel=canonical` valido<a class='ancora' href='#r-seo-lh-canonical' aria-label='Link a questo rilievo'>#</a>
+<span class='spiegazione'>I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. Scopri di più sui link canonici.</span>
 </span>
 </li>
-<li class='manuale'>
+<li id='r-seo-lh-structured-data' class='manuale'>
 <span class='segno'>?</span>
-<span>Dati strutturati validi<span class='spiegazione'>Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.</span>
+<span>Dati strutturati validi<a class='ancora' href='#r-seo-lh-structured-data' aria-label='Link a questo rilievo'>#</a>
+<span class='spiegazione'>Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.</span>
 </span>
 </li>
 <li class='superato'>
@@ -433,8 +474,9 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-sd-jsonld-block-malformed'>
 <b>1 blocchi JSON-LD malformati</b>
+<a class='ancora' href='#r-sd-jsonld-block-malformed' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
 <pre class='ex'>// prima — la virgola finale rende il blocco invalido
 {&quot;@type&quot;: &quot;Service&quot;,}
@@ -465,40 +507,47 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-wcag-axe-image-alt'>
 <b>Le immagini devono avere un testo alternativo</b>
+<a class='ancora' href='#r-wcag-axe-image-alt' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
 </li>
-<li>
+<li id='r-wcag-axe-color-contrast'>
 <b>Il contrasto deve essere sufficiente</b>
+<a class='ancora' href='#r-wcag-axe-color-contrast' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
 </li>
-<li>
+<li id='r-wcag-img-alt-missing'>
 <b>1/2 immagini prive di testo alternativo</b>
+<a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-heading-skip'>
 <b>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</b>
+<a class='ancora' href='#r-wcag-heading-skip' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
 </li>
-<li>
+<li id='r-wcag-form-label-missing'>
 <b>1 campi di modulo senza etichetta</b>
+<a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-table-th-missing'>
 <b>1 tabelle dati senza intestazioni &lt;th&gt;</b>
+<a class='ancora' href='#r-wcag-table-th-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
 <pre class='ex'>&lt;table&gt;
   &lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Trattamento&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Durata&lt;/th&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;Drenaggio&lt;/td&gt;&lt;td&gt;50 minuti&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-link-generic'>
 <b>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</b>
+<a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
@@ -522,13 +571,15 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-sec-zap-40012'>
 <b>Cross Site Scripting (Reflected)</b>
+<a class='ancora' href='#r-sec-zap-40012' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo&#x27; farvi eseguire script arbitrario nel browser della vittima.</span>
 <span class='fix'>Convalida l&#x27;input e codifica l&#x27;output.</span>
 </li>
-<li>
+<li id='r-sec-zap-10038'>
 <b>Content Security Policy (CSP) Header Not Set</b>
+<a class='ancora' href='#r-sec-zap-10038' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.</span>
 <span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
 </li>
@@ -567,7 +618,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>1</span> robots.txt BLOCCA 1 crawler IA: GPTBot</h3>
+<span class='priorita'>1</span> <a href='#r-tech-robots-ai-blocked'>robots.txt BLOCCA 1 crawler IA: GPTBot</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Tecnica · sforzo: minuti · <span class='qw'>QUICK WIN</span>
@@ -578,7 +630,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>2</span> L&#x27;indicizzazione della pagina è bloccata</h3>
+<span class='priorita'>2</span> <a href='#r-seo-lh-is-crawlable'>L&#x27;indicizzazione della pagina è bloccata</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>SEO · sforzo: non dichiarato</p>
@@ -587,7 +640,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>3</span> Le immagini devono avere un testo alternativo</h3>
+<span class='priorita'>3</span> <a href='#r-wcag-axe-image-alt'>Le immagini devono avere un testo alternativo</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
@@ -597,7 +651,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>4</span> Cross Site Scripting (Reflected)</h3>
+<span class='priorita'>4</span> <a href='#r-sec-zap-40012'>Cross Site Scripting (Reflected)</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
@@ -607,7 +662,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>5</span> 1 campi di modulo senza etichetta</h3>
+<span class='priorita'>5</span> <a href='#r-wcag-form-label-missing'>1 campi di modulo senza etichetta</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: giorni</p>
@@ -617,7 +673,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>6</span> 1/2 immagini prive di testo alternativo</h3>
+<span class='priorita'>6</span> <a href='#r-wcag-img-alt-missing'>1/2 immagini prive di testo alternativo</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: giorni</p>
@@ -627,7 +684,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>7</span> Il contrasto deve essere sufficiente</h3>
+<span class='priorita'>7</span> <a href='#r-wcag-axe-color-contrast'>Il contrasto deve essere sufficiente</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
@@ -637,7 +695,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>8</span> 1 blocchi JSON-LD malformati</h3>
+<span class='priorita'>8</span> <a href='#r-sd-jsonld-block-malformed'>1 blocchi JSON-LD malformati</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Dati Strutturati · sforzo: ore</p>
@@ -647,7 +706,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>9</span> Il documento non ha un elemento `&lt;title&gt;`</h3>
+<span class='priorita'>9</span> <a href='#r-seo-lh-document-title'>Il documento non ha un elemento `&lt;title&gt;`</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>SEO · sforzo: non dichiarato</p>
@@ -656,7 +716,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>10</span> Gli elementi immagine non hanno attributi `[alt]`</h3>
+<span class='priorita'>10</span> <a href='#r-seo-lh-image-alt'>Gli elementi immagine non hanno attributi `[alt]`</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>SEO · sforzo: non dichiarato</p>
@@ -665,7 +726,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>11</span> I link non hanno testo descrittivo</h3>
+<span class='priorita'>11</span> <a href='#r-seo-lh-link-text'>I link non hanno testo descrittivo</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>SEO · sforzo: non dichiarato</p>
@@ -674,7 +736,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>12</span> Il documento non ha una meta descrizione</h3>
+<span class='priorita'>12</span> <a href='#r-seo-lh-meta-description'>Il documento non ha una meta descrizione</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>SEO · sforzo: non dichiarato</p>
@@ -692,7 +755,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>14</span> Content Security Policy (CSP) Header Not Set</h3>
+<span class='priorita'>14</span> <a href='#r-sec-zap-10038'>Content Security Policy (CSP) Header Not Set</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
@@ -702,7 +766,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>15</span> 1 salti nella gerarchia degli heading (es. h2 seguito da h4)</h3>
+<span class='priorita'>15</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>
@@ -712,7 +777,8 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>16</span> 1 tabelle dati senza intestazioni &lt;th&gt;</h3>
+<span class='priorita'>16</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>

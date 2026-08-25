@@ -85,6 +85,17 @@ ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .tessera .grande { display:block; font-size:1.5rem; }
 .tessera .meta { display:block; margin:0; }
 
+/* --- ancore stabili (Fase 5) --- */
+.ancora { color:var(--muted); text-decoration:none; margin-left:.35rem;
+          opacity:0; transition:opacity .1s; }
+li:hover > .ancora, li:hover .ancora, .ancora:focus { opacity:1; }
+li:target { background:var(--track); border-radius:.35rem;
+            box-shadow:0 0 0 .35rem var(--track); }
+.primi { max-width:64rem; margin:0 auto; padding:.25rem 1rem 0; }
+ol.primi-rilievi { margin:.2rem 0 0; padding-left:1.4rem; font-size:.88rem; }
+ol.primi-rilievi li { margin:.12rem 0; }
+ol.primi-rilievi a { color:inherit; }
+
 /* --- piano di interventi (Fase 4) --- */
 .intervento { background:var(--card); border:1px solid var(--line);
               border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
@@ -183,6 +194,26 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </div>
 </div>
 </section>
+<div class='primi'>
+<p class='meta'>Da dove cominciare</p>
+<ol class='primi-rilievi'>
+<li class='bad'>
+<a href='#r-tech-robots-ai-blocked'>robots.txt BLOCCA 1 crawler IA: GPTBot</a>
+</li>
+<li class='bad'>
+<a href='#r-wcag-form-label-missing'>1 campi di modulo senza etichetta</a>
+</li>
+<li class='bad'>
+<a href='#r-wcag-img-alt-missing'>1/2 immagini prive di testo alternativo</a>
+</li>
+<li class='warn'>
+<a href='#r-sd-jsonld-block-malformed'>1 blocchi JSON-LD malformati</a>
+</li>
+<li class='warn'>
+<a href='#r-sec-headers-csp-missing'>CSP mancante</a>
+</li>
+</ol>
+</div>
 <div class='quadranti'>
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Tecnica: 57 su 100'>
@@ -289,8 +320,9 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-tech-robots-ai-blocked'>
 <b>robots.txt BLOCCA 1 crawler IA: GPTBot</b>
+<a class='ancora' href='#r-tech-robots-ai-blocked' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
 <pre class='ex'># robots.txt — il gruppo va CORRETTO, non aggiunto
 # prima:
@@ -300,8 +332,9 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 User-agent: GPTBot
 Disallow:</pre>
 </li>
-<li>
+<li id='r-tech-canonical-missing'>
 <b>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</b>
+<a class='ancora' href='#r-tech-canonical-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
 <pre class='ex'>&lt;link rel=&quot;canonical&quot; href=&quot;https://esempio.it/servizi/&quot;&gt;</pre>
 </li>
@@ -353,8 +386,9 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-sd-jsonld-block-malformed'>
 <b>1 blocchi JSON-LD malformati</b>
+<a class='ancora' href='#r-sd-jsonld-block-malformed' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
 <pre class='ex'>// prima — la virgola finale rende il blocco invalido
 {&quot;@type&quot;: &quot;Service&quot;,}
@@ -381,32 +415,37 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-wcag-img-alt-missing'>
 <b>1/2 immagini prive di testo alternativo</b>
+<a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-heading-skip'>
 <b>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</b>
+<a class='ancora' href='#r-wcag-heading-skip' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
 </li>
-<li>
+<li id='r-wcag-form-label-missing'>
 <b>1 campi di modulo senza etichetta</b>
+<a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-table-th-missing'>
 <b>1 tabelle dati senza intestazioni &lt;th&gt;</b>
+<a class='ancora' href='#r-wcag-table-th-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
 <pre class='ex'>&lt;table&gt;
   &lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Trattamento&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Durata&lt;/th&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;Drenaggio&lt;/td&gt;&lt;td&gt;50 minuti&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</pre>
 </li>
-<li>
+<li id='r-wcag-link-generic'>
 <b>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</b>
+<a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
@@ -428,16 +467,18 @@ Disallow:</pre>
 </ul>
 <p class='titolo-correzioni'>Come si aggiusta</p>
 <ul class='correzioni'>
-<li>
+<li id='r-sec-headers-csp-missing'>
 <b>CSP mancante</b>
+<a class='ancora' href='#r-sec-headers-csp-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche&#x27; non passi all&#x27;header vero.</span>
 <pre class='ex'># nginx — prima si osserva
 add_header Content-Security-Policy-Report-Only &quot;default-src &#x27;self&#x27;&quot; always;
 # poi, quando le violazioni sono a zero
 add_header Content-Security-Policy &quot;default-src &#x27;self&#x27;&quot; always;</pre>
 </li>
-<li>
+<li id='r-sec-headers-xframe-missing'>
 <b>X-Frame-Options mancante</b>
+<a class='ancora' href='#r-sec-headers-xframe-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.</span>
 <pre class='ex'># nginx
 add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
@@ -476,7 +517,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>1</span> robots.txt BLOCCA 1 crawler IA: GPTBot</h3>
+<span class='priorita'>1</span> <a href='#r-tech-robots-ai-blocked'>robots.txt BLOCCA 1 crawler IA: GPTBot</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Tecnica · sforzo: minuti · <span class='qw'>QUICK WIN</span>
@@ -487,7 +529,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>2</span> 1 campi di modulo senza etichetta</h3>
+<span class='priorita'>2</span> <a href='#r-wcag-form-label-missing'>1 campi di modulo senza etichetta</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: giorni</p>
@@ -497,7 +540,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>3</span> 1/2 immagini prive di testo alternativo</h3>
+<span class='priorita'>3</span> <a href='#r-wcag-img-alt-missing'>1/2 immagini prive di testo alternativo</a>
+</h3>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: giorni</p>
@@ -507,7 +551,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>4</span> 1 blocchi JSON-LD malformati</h3>
+<span class='priorita'>4</span> <a href='#r-sd-jsonld-block-malformed'>1 blocchi JSON-LD malformati</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Dati Strutturati · sforzo: ore</p>
@@ -517,7 +562,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>5</span> CSP mancante</h3>
+<span class='priorita'>5</span> <a href='#r-sec-headers-csp-missing'>CSP mancante</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Sicurezza · sforzo: giorni</p>
@@ -527,7 +573,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>6</span> 1 salti nella gerarchia degli heading (es. h2 seguito da h4)</h3>
+<span class='priorita'>6</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>
@@ -537,7 +584,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>7</span> 1 tabelle dati senza intestazioni &lt;th&gt;</h3>
+<span class='priorita'>7</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>
@@ -547,7 +595,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>8</span> X-Frame-Options mancante</h3>
+<span class='priorita'>8</span> <a href='#r-sec-headers-xframe-missing'>X-Frame-Options mancante</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Sicurezza · sforzo: minuti</p>

@@ -14,6 +14,7 @@ import html
 import json
 import math
 import os
+import re
 import time
 from typing import Dict, List, Optional
 
@@ -776,6 +777,17 @@ ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .tessera .grande { display:block; font-size:1.5rem; }
 .tessera .meta { display:block; margin:0; }
 
+/* --- ancore stabili (Fase 5) --- */
+.ancora { color:var(--muted); text-decoration:none; margin-left:.35rem;
+          opacity:0; transition:opacity .1s; }
+li:hover > .ancora, li:hover .ancora, .ancora:focus { opacity:1; }
+li:target { background:var(--track); border-radius:.35rem;
+            box-shadow:0 0 0 .35rem var(--track); }
+.primi { max-width:64rem; margin:0 auto; padding:.25rem 1rem 0; }
+ol.primi-rilievi { margin:.2rem 0 0; padding-left:1.4rem; font-size:.88rem; }
+ol.primi-rilievi li { margin:.12rem 0; }
+ol.primi-rilievi a { color:inherit; }
+
 /* --- piano di interventi (Fase 4) --- */
 .intervento { background:var(--card); border:1px solid var(--line);
               border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
@@ -994,6 +1006,38 @@ def _hero(referto: dict) -> str:
            SOGLIA_BUONO - 1, SOGLIA_BUONO, "".join(caselle)))
 
 
+# Quanti rilievi mostra il riquadro in testa. Cinque, come ogni altra
+# vista compatta del referto.
+PRIMI_RILIEVI = 5
+
+
+def _primi_rilievi(referto: dict, ancore: Dict[str, str]) -> str:
+    """I primi interventi del piano, in testa e cliccabili.
+
+    E' la scorciatoia per chi apre il referto e vuole sapere subito da
+    dove cominciare, senza scorrere fino al piano. Legge la lista
+    canonica — nessun secondo ordinamento — e mostra le prime cinque
+    voci nell'ordine che il piano ha gia' deciso.
+
+    Ogni voce e' un link solo se la sua ancora esiste: dove il rilievo
+    non ha ne' `fix` ne' `example` la scheda d'area non emette alcun
+    id, e un link a vuoto sarebbe peggio di nessun link.
+    """
+    piano = referto.get("remediation") or []
+    if not piano:
+        return ""
+    voci = []
+    for voce in piano[:PRIMI_RILIEVI]:
+        ancora = ancore.get(voce.get("key") or "")
+        titolo = _e(voce["title"])
+        voci.append("<li class='%s'>%s</li>"
+                    % (_BADGE_GRAVITA.get(voce["severity"], ("muted", ""))[0],
+                       "<a href='#%s'>%s</a>" % (ancora, titolo)
+                       if ancora else titolo))
+    return ("<div class='primi'><p class='meta'>Da dove cominciare</p>"
+            "<ol class='primi-rilievi'>%s</ol></div>" % "".join(voci))
+
+
 def _fascia_quadranti(referto: dict) -> str:
     """La fascia in testa, come in Lighthouse: un quadrante per area.
 
@@ -1046,8 +1090,67 @@ def _legenda() -> str:
         ".pallino.ok{background:var(--ok)}</style>")
 
 
+def _ancora(chiave: str) -> str:
+    """L'id stabile di un rilievo, dalla sua chiave.
+
+    UPGRADE.md prevedeva uno slug ricavato dal TITOLO, coi numeri
+    normalizzati a `n` perche' «2/3 pagine senza canonical» e «1/3
+    pagine senza canonical» non producessero due ancore diverse. Qui
+    non serve: dalla Fase 1 ogni rilievo ha gia' una `key` stabile per
+    costruzione — tre segmenti, mai un valore variabile dentro — ed e'
+    esattamente il problema che quello slug cercava di risolvere a
+    valle. Il riferimento non aveva chiavi, noi si.
+
+    Il punto diventa trattino: un id con i punti e' legale in HTML5,
+    ma `#tech.robots.ai_blocked` in un selettore CSS si legge come un
+    id piu' due classi. Oggi nessuno lo interroga — nel referto non c'e'
+    JavaScript — e proprio per questo conviene non lasciare la mina.
+    """
+    pulita = re.sub(r"[^a-z0-9]+", "-", (chiave or "").lower()).strip("-")
+    return "r-%s" % pulita if pulita else ""
+
+
+def ancore_dei_rilievi(referto: dict) -> Dict[str, str]:
+    """chiave -> ancora, per i soli rilievi che una scheda d'area rende.
+
+    Calcolata **una volta** e passata a chi la usa — le schede, il
+    piano, il riquadro dei primi rilievi — invece di ricalcolare la
+    condizione in tre posti. Un link a un'ancora che nessuno emette e'
+    un link rotto, e nessun test sul contenuto lo vedrebbe: la pagina
+    resterebbe valida e il salto non succederebbe.
+
+    Riceve l'ancora chi la scheda d'area mostra come elemento proprio:
+    un rilievo del blocco «Come si aggiusta», o una voce dell'elenco
+    dei controlli agganciata al suo rilievo.
+    """
+    ancore: Dict[str, str] = {}
+    for area in referto.get("areas") or []:
+        rilievi = area.get("findings") or []
+        if area.get("audits"):
+            regole = {r["params"]["rule"] for r in rilievi
+                      if isinstance(r.get("params"), dict)
+                      and r["params"].get("rule")}
+            for rilievo in rilievi:
+                regola = (rilievo.get("params") or {}).get("rule")
+                if regola in regole and any(c.get("id") == regola
+                                            for c in area["audits"]):
+                    ancore[rilievo["key"]] = _ancora(rilievo["key"])
+            continue
+        for rilievo in rilievi:
+            if rilievo.get("fix") or rilievo.get("example"):
+                ancore[rilievo["key"]] = _ancora(rilievo["key"])
+    return {k: v for k, v in ancore.items() if k and v}
+
+
+def _permalink(ancora: str) -> str:
+    """Il cancelletto che rende citabile un rilievo."""
+    return ("<a class='ancora' href='#%s' aria-label='Link a questo "
+            "rilievo'>#</a>" % ancora)
+
+
 def _elenco_controlli(controlli: List[dict],
-                      rilievi: Optional[List[dict]] = None) -> str:
+                      rilievi: Optional[List[dict]] = None,
+                      ancore: Optional[Dict[str, str]] = None) -> str:
     """I singoli controlli, nell'ordine in cui Lighthouse li mostra.
 
     Prima i falliti — sono quelli su cui si interviene — poi quelli da
@@ -1083,10 +1186,13 @@ def _elenco_controlli(controlli: List[dict],
             classe, segno = "fallito", "\u2717"
         dettaglio = ", ".join(c.get("items") or [])
         rilievo = per_regola.get(c.get("id")) or {}
+        ancora = (ancore or {}).get(rilievo.get("key") or "")
         righe.append(
-            "<li class='%s'><span class='segno'>%s</span><span>%s%s%s</span>"
-            "</li>"
-            % (classe, segno, _e(c.get("title")),
+            "<li%s class='%s'><span class='segno'>%s</span>"
+            "<span>%s%s%s%s</span></li>"
+            % (" id='%s'" % ancora if ancora else "",
+               classe, segno, _e(c.get("title")),
+               _permalink(ancora) if ancora else "",
                "<br><span class='dettaglio'>%s</span>" % _e(dettaglio)
                if dettaglio else "",
                # Nessun <br>: `.spiegazione` e' gia' display:block,
@@ -1096,7 +1202,8 @@ def _elenco_controlli(controlli: List[dict],
     return "<ul class='controlli'>%s</ul>" % "".join(righe)
 
 
-def _correzioni(findings: List[dict]) -> str:
+def _correzioni(findings: List[dict],
+                ancore: Optional[Dict[str, str]] = None) -> str:
     """Il blocco «Come si aggiusta», dai rilievi che hanno qualcosa da dire.
 
     Sta SOTTO l'elenco dei rilievi invece che dentro, e ne ripete i
@@ -1130,7 +1237,9 @@ def _correzioni(findings: List[dict]) -> str:
         return ""
     righe = []
     for f in voci:
-        pezzi = ["<b>%s</b>" % _e(f.get("title"))]
+        ancora = (ancore or {}).get(f.get("key") or "")
+        pezzi = ["<b>%s</b>%s" % (_e(f.get("title")),
+                                  _permalink(ancora) if ancora else "")]
         # `source_severity` NON si stampa: dove c'e' — "[critico]",
         # "[axe:critical]", "[ZAP:High]" — sta gia' nella riga della
         # vista compatta, due centimetri piu' su.
@@ -1144,12 +1253,15 @@ def _correzioni(findings: List[dict]) -> str:
         # contenuto, non la sua impaginazione.
         if f.get("example"):
             pezzi.append("<pre class='ex'>%s</pre>" % _e(f["example"]))
-        righe.append("<li>%s</li>" % "".join(pezzi))
+        righe.append("<li%s>%s</li>"
+                     % (" id='%s'" % ancora if ancora else "",
+                        "".join(pezzi)))
     return ("<p class='titolo-correzioni'>Come si aggiusta</p>"
             "<ul class='correzioni'>%s</ul>" % "".join(righe))
 
 
-def _scheda_area(area: dict, referto: dict) -> str:
+def _scheda_area(area: dict, referto: dict,
+                 ancore: Optional[Dict[str, str]] = None) -> str:
     """Una scheda per area, con i rilievi sotto — come le categorie di
     Lighthouse elencano i propri audit."""
     if area["score"] is None:
@@ -1199,13 +1311,13 @@ def _scheda_area(area: dict, referto: dict) -> str:
         # L'elenco dei controlli sostituisce quello dei rilievi: li
         # contiene gia' tutti, e in piu' dice che cosa e' stato
         # guardato e superato — che e' l'informazione che mancava.
-        corpo.append(_elenco_controlli(area["audits"], rilievi))
+        corpo.append(_elenco_controlli(area["audits"], rilievi, ancore))
     else:
         if area["issues"]:
             corpo.append("<ul class='rilievi'>%s</ul>"
                          % "".join("<li>%s</li>" % _e(i)
                                    for i in area["issues"]))
-        corpo.append(_correzioni(rilievi))
+        corpo.append(_correzioni(rilievi, ancore))
         # "Nessun rilievo." vale solo quando l'area non ha NE' issues
         # NE' findings. Guardare i soli findings direbbe che il
         # giudizio LLM riuscito non ha rilevato nulla — ne elenca tre,
@@ -1224,7 +1336,8 @@ _BADGE_GRAVITA = {SEV_CRITICAL: ("bad", "CRITICO"),
                   SEV_WARNING: ("warn", "AVVERTENZA")}
 
 
-def _voce_piano_html(voce: dict) -> str:
+def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
+                     ) -> str:
     """Un intervento come scheda.
 
     Porta cio' che la scheda d'area non ha — priorita', sforzo,
@@ -1241,9 +1354,15 @@ def _voce_piano_html(voce: dict) -> str:
     priorita' lo renderebbero illeggibile proprio come elenco.
     """
     classe, etichetta = _BADGE_GRAVITA.get(voce["severity"], ("muted", "?"))
+    ancora = (ancore or {}).get(voce.get("key") or "")
+    # Il titolo diventa un link SOLO se l'ancora esiste davvero: un
+    # href verso un id che nessuno emette e' un salto che non succede,
+    # e la pagina resta valida — cioe' un difetto invisibile.
+    titolo = ("<a href='#%s'>%s</a>" % (ancora, _e(voce["title"]))
+              if ancora else _e(voce["title"]))
     parti = ["<div class='intervento'><div class='riga'>",
              "<h3><span class='priorita'>%d</span> %s</h3>"
-             % (voce["priority"], _e(voce["title"])),
+             % (voce["priority"], titolo),
              "<span class='badge %s'>%s</span></div>" % (classe, etichetta)]
 
     contesto = [_e(voce["area_label"].split(". ", 1)[-1])]
@@ -1274,7 +1393,8 @@ def _voce_piano_html(voce: dict) -> str:
     return "".join(parti)
 
 
-def _sezione_piano(referto: dict, p: List[str]) -> None:
+def _sezione_piano(referto: dict, p: List[str],
+                   ancore: Optional[Dict[str, str]] = None) -> None:
     """Il piano di interventi, ordinato.
 
     **Sempre presente**, anche vuoto, a differenza delle tre sezioni
@@ -1312,7 +1432,7 @@ def _sezione_piano(referto: dict, p: List[str]) -> None:
              "pesi per assistente.</p>"
              % (riepilogo["areas_covered"], riepilogo["areas_total"]))
     for voce in piano:
-        p.append(_voce_piano_html(voce))
+        p.append(_voce_piano_html(voce, ancore))
 
 
 def _sezione_rrf(referto: dict, p: List[str]) -> None:
@@ -1465,15 +1585,23 @@ def render_html(referto: dict) -> str:
                 _e(referto.get("discovery")), referto["chunks"],
                 _e(referto["market"]), _e(referto["version"])))
 
+    # Le ancore si calcolano UNA volta e si passano a chi le usa: la
+    # scheda che le emette, il piano e il riquadro in testa che le
+    # linkano. Ricalcolare la condizione in tre posti significherebbe
+    # tre occasioni di divergere, e un link rotto in un referto HTML
+    # non fa alcun rumore.
+    ancore = ancore_dei_rilievi(referto)
+
     p.append(_hero(referto))
+    p.append(_primi_rilievi(referto, ancore))
     p.append(_fascia_quadranti(referto))
     p.append(_legenda())
 
     p.append("<h2>Aree</h2>")
     for area in referto["areas"]:
-        p.append(_scheda_area(area, referto))
+        p.append(_scheda_area(area, referto, ancore))
 
-    _sezione_piano(referto, p)
+    _sezione_piano(referto, p, ancore)
     _sezione_rrf(referto, p)
     _sezione_citabilita(referto, p)
     _sezione_llm(referto, p)

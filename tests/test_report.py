@@ -9,6 +9,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -17,8 +18,8 @@ from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
 import mars_remediation
 import mars_report
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
-                         _correzioni, conteggi_per_gravita,
-                         segnali_derivati,
+                         _ancora, _correzioni, ancore_dei_rilievi,
+                         conteggi_per_gravita, segnali_derivati,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_html, render_json, render_text)
@@ -1455,3 +1456,96 @@ def test_l_hero_riusa_il_quadrante_della_fascia(contesto):
     html = render_html(_referto_complessivo(contesto))
     assert html.count("viewBox='0 0 120 120'") == 3, "hero + due aree"
     assert ".hero .quadrante svg { width:8.5rem" in html
+
+
+# ----------------------------------------------------------------------
+# U5.3: le ancore stabili
+# ----------------------------------------------------------------------
+
+def test_l_ancora_viene_dalla_chiave_e_non_dal_titolo():
+    """E' la ragione per cui non serve normalizzare i numeri.
+
+    UPGRADE.md prevedeva uno slug ricavato dal titolo, coi numeri
+    portati a `n` perche' «2/3 pagine» e «1/3 pagine» non dessero due
+    ancore diverse. La chiave della Fase 1 quel problema non ce l'ha:
+    per contratto non contiene mai un valore variabile.
+    """
+    assert _ancora("tech.robots.ai_blocked") == "r-tech-robots-ai-blocked"
+    assert _ancora("wcag.axe.color_contrast") == "r-wcag-axe-color-contrast"
+
+
+def test_l_ancora_non_cambia_se_cambiano_i_conteggi(contesto):
+    """La proprieta' che rende citabile un link: due esecuzioni dove
+    cambiano solo i numeri devono dare la stessa ancora."""
+    def ancore(titolo):
+        contesto["results"] = {"mars_tech": {
+            "score": 60, "issues": [], "findings": [
+                _rilievo(key="tech.canonical.missing", title=titolo,
+                         fix="Dichiara il canonical.")]}}
+        return ancore_dei_rilievi(build_report(contesto["results"], contesto))
+    assert ancore("2/3 pagine senza canonical") == \
+        ancore("117/400 pagine senza canonical")
+
+
+def test_nessun_link_del_referto_punta_a_un_ancora_che_non_esiste(referto):
+    """L'invariante che conta. Un href verso un id che nessuno emette
+    e' un salto che non succede: la pagina resta valida, il browser non
+    protesta, e nessun test sul contenuto se ne accorge."""
+    html = render_html(referto)
+    emessi = set(re.findall(r"id='(r-[^']+)'", html))
+    puntati = set(re.findall(r"href='#(r-[^']+)'", html))
+    assert not puntati - emessi, "link rotti: %s" % sorted(puntati - emessi)
+
+
+def test_le_ancore_del_referto_sono_uniche(referto):
+    """Due elementi con lo stesso id: il browser salta al primo, e
+    l'altro diventa irraggiungibile senza un errore."""
+    html = render_html(referto)
+    emessi = re.findall(r"id='(r-[^']+)'", html)
+    assert len(emessi) == len(set(emessi))
+
+
+def test_solo_i_rilievi_resi_ricevono_un_ancora(contesto):
+    """Un rilievo senza `fix` ne' `example` la scheda d'area non lo
+    mostra come elemento proprio: dargli un'ancora significherebbe
+    promettere un salto verso il nulla."""
+    # La chiave senza fix e' di una famiglia DINAMICA: quelle che
+    # stanno nel catalogo di mars_fixes il fix se lo vedono riempire
+    # da `vesti_findings`, e l'ancora la otterrebbero comunque.
+    contesto["results"] = {"mars_wcag": {"score": 60, "issues": [], "findings": [
+        _rilievo(area="mars_wcag", key="wcag.axe.image_alt",
+                 fix="Assicurati che le immagini abbiano un alt."),
+        _rilievo(area="mars_wcag", key="wcag.axe.color_contrast",
+                 fix="", example="")]}}
+    referto = build_report(contesto["results"], contesto)
+    assert set(ancore_dei_rilievi(referto)) == {"wcag.axe.image_alt"}
+    html = render_html(referto)
+    assert "href='#r-wcag-axe-color-contrast'" not in html
+
+
+def test_il_piano_linka_le_ancore(contesto):
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
+        _rilievo(key="tech.robots.ai_blocked", fix="Togli il Disallow.",
+                 params={"penalty": 43.0})]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "<a href='#r-tech-robots-ai-blocked'>" in html
+    assert "id='r-tech-robots-ai-blocked'" in html
+
+
+def test_il_riquadro_in_testa_mostra_i_primi_cinque(contesto):
+    html = render_html(_referto_con_piano(contesto, quanti=9))
+    coda = html[html.index("Da dove cominciare"):]
+    elenco = coda[:coda.index("</ol>")]
+    assert elenco.count("<li") == 5
+
+
+def test_senza_piano_il_riquadro_in_testa_non_compare(contesto):
+    contesto["results"] = {"mars_tech": {"score": 100, "issues": []}}
+    assert "Da dove cominciare" not in render_html(
+        build_report(contesto["results"], contesto))
+
+
+def test_il_css_evidenzia_il_rilievo_raggiunto(referto):
+    """Senza `:target` il salto avviene ma non si vede: in una pagina
+    lunga il lettore non sa dove e' atterrato."""
+    assert "li:target" in render_html(referto)

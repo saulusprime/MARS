@@ -192,10 +192,12 @@ dietro una sola voce aperta: **R44**.
         che **escludono i derivati** (seconda casella di R41, chiusa). Il
         donut previsto da UPGRADE.md diventa due numeri: colorarli con la
         scala dei punteggi trasformerebbe in voto una quota che non lo è.
-  - [ ] **U5.3** — ancore stabili (G11): slug `r-{area}-{titolo}` coi numeri
-        normalizzati, permalink sui rilievi e sui controlli, regola `:target`
-        nel CSS, e il piano della Fase 4 che le linka. Qui entra anche il
-        widget «Top rilievi», che UPGRADE.md lega all'hero.
+  - [x] **U5.3** — ancore stabili (G11), ricavate dalla `key` e non dallo
+        slug del titolo: la Fase 1 le ha già rese stabili per costruzione.
+        Permalink sui rilievi e sui controlli, `:target` nel CSS, il piano e
+        il riquadro «Da dove cominciare» che le linkano, e un test che
+        pretende **zero link rotti** — in un referto HTML non farebbero
+        alcun rumore.
 - [ ] **U6 — Formati Markdown e CSV** (G04, Fase 6).
 - [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
       `schema_version`, parametri RRF e soglie nel referto; delta fra due

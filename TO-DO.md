@@ -1,8 +1,7 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
-> R15-R37, I13-I16); **rivisto il 2026-08-24** chiudendo le Fasi 1 e 2 del
-> programma UPGRADE.
+> R15-R37, I13-I16); **rivisto il 2026-08-25**, con la Fase 4 in corso.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
@@ -14,9 +13,10 @@
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`. **U1, U2 e U3 sono chiuse** — le loro tredici voci stanno in
-> [AS-IS.md](AS-IS.md) —, e la prossima è U4. Da U3 in poi vale un vincolo:
-> ogni cambiamento di resa fa fallire i golden di `tests/golden/`, e la
+> `upgrade`, la versione è **2.2.0**. **U1, U2 e U3 sono chiuse** — le loro
+> tredici voci stanno in [AS-IS.md](AS-IS.md) — e **U4 è in corso**: chiusa
+> U4.1, restano quattro sotto-voci. Da U3 in poi vale un vincolo: ogni
+> cambiamento di resa fa fallire i golden di `tests/golden/`, e la
 > rigenerazione va sempre seguita dalla **revisione del diff**.
 
 ---
@@ -89,7 +89,7 @@ non dipende dal codice.
       deboli, quindi è il formato giusto per controllarne l'esito.
 
 ### C12 — voci residue
-La suite esiste — 146 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
+La suite esiste — 659 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 - [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
       oggi si sa quali difetti sono protetti, non quanto codice è toccato.
@@ -125,7 +125,7 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1 e U2 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
+### U1, U2 e U3 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
 **U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
 nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
@@ -137,36 +137,39 @@ alla prima esecuzione stanno in AS-IS, voce per voce.
 la resa dei tre formati su due referti sintetici, uno completo e uno con ogni
 strumento assente.
 
+**U3 — testi `fix` ed `example`** (G03), in tre voci: il catalogo
+`mars_fixes.py`, i testi che vengono dagli strumenti (axe, ZAP, Lighthouse)
+con la regola «la spiegazione in `detail`, la prescrizione in `fix`», e la
+resa nelle schede d'area e nella vista testo. Bump a 2.2.0. Le ha lasciato
+dietro una sola voce aperta: **R44**.
+
 ### Altre fasi
 
-- [x] **U3 — Testi `fix` ed `example` per ogni controllo** (G03, Fase 3).
-      Spezzata in tre come U1, e per la stessa ragione: in un commit solo il
-      diff sarebbe di ~700 righe di cui metà golden, cioè irrivedibile — e la
-      revisione del diff dei golden è tutto il valore di U2.
-  - [x] **U3.1** — il catalogo `mars_fixes.py` e la vestizione in
-        `normalizza_risultato`. Nessun modulo d'area toccato, nessuna resa
-        cambiata: si rivede **la prosa**, e solo i due golden `.json` si
-        muovono.
-  - [x] **U3.2** — i testi che vengono dagli strumenti. Una regola sola,
-        misurata su tutti e tre: **la spiegazione va in `detail`, la
-        prescrizione in `fix`**. Il `fix` italiano di axe dal suo locale
-        (100 descrizioni su 103 sono imperative), la `description` di
-        Lighthouse in `detail` e non in `fix` (nove su undici spiegano
-        invece di prescrivere), i link Markdown ridotti alla loro
-        etichetta con gli URL in `params["references"]`, la `description`
-        di ZAP in `detail`. Si è mosso **un solo golden**, `referto.json`.
-  - [x] **U3.3** — la resa. Il blocco «Come si aggiusta» in `_scheda_area`,
-        la spiegazione di Lighthouse in linea sotto ogni controllo
-        (agganciata per `params["rule"]`, l'unica chiave vera del referto),
-        il CSS (`.correzioni`, `.spiegazione`, `.fix`, `pre.ex`). Il vincolo
-        è rispettato: «Nessun rilievo.» solo quando l'area non ha né
-        findings né issues. In `render_text` fino a **due** correzioni per
-        area, titolo e prescrizione, senza gli `example` — cinque o sette
-        righe di nginx per area triplicherebbero un referto da terminale.
-        Golden mossi: **quattro**, i `.html` e i `.txt`; il JSON no, perché
-        il dato c'era già dalla Fase 1.
 - [ ] **U4 — Piano di remediation ordinato** (G02, Fase 4) — il cuore
-      dell'adeguamento.
+      dell'adeguamento. Spezzata come U1 e U3, e per la stessa ragione: il
+      dato prima, la resa poi, così il diff dei golden resta rivedibile.
+      Il progetto è stato preceduto da una ricognizione di dodici agenti in
+      sola lettura; le due decisioni che i critici hanno demolito e le
+      diciotto obiezioni verificate stanno in [AS-IS.md](AS-IS.md), voce
+      U4.1.
+  - [x] **U4.1** — `mars_remediation.py` come funzione pura: recupero
+        (`R(base − p) − R(base)`, non la penalità), certificato d'area,
+        quattro corsie, guadagno di citabilità come derivata, catalogo dello
+        sforzo. Il piano non è ancora nel referto: si prova la funzione.
+  - [ ] **U4.2** — `build_report` guadagna la chiave `remediation`, con
+        l'import **duro** di `mars_remediation` (il piano è dato canonico:
+        la sua assenza deve rompere, non produrre un referto monco). Si
+        muovono i due golden `.json`, e devono muoversi **solo** per la
+        chiave nuova. L'API la riceve senza altro lavoro.
+  - [ ] **U4.3** — la sezione a testo in `render_text`, fra il ciclo delle
+        aree e la sezione RRF. Condizionata sul **dato** e mai sul nome del
+        modulo — è il difetto R42. Due golden `.txt`.
+  - [ ] **U4.4** — `_sezione_remediation` in `render_html` più il CSS dei
+        badge (sforzo, quick win, corsia), riusando `.ok`/`.warn`/`.bad`.
+        Nessuno script: D1 vale solo dalla Fase 8. Due golden `.html`.
+  - [ ] **U4.5** — chiusura: le due caselle di R41, il bump a 2.3.0, e la
+        voce nuova che U4.1 apre — `params["istanze"]` canonico, che è la
+        condizione perché lo sforzo diventi misurato invece che editoriale.
 - [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).
 - [ ] **U6 — Formati Markdown e CSV** (G04, Fase 6).
 - [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
@@ -602,7 +605,11 @@ una sintesi ma un guasto del nostro strumento, e nessun'altra area lo sta già
 dicendo.
 
 - [ ] Annotare il vincolo su UPGRADE.md, accanto alle Fasi 4, 5 e 7.
-- [ ] Escludere i derivati in `build_remediation` e nei conteggi per gravità.
+- [x] Escluderli in `build_remediation` — fatto in U4.1, con un test che
+      costruisce un derivato **critico** apposta: oggi li terrebbe fuori anche
+      la sola gravità, ed è proprio la protezione incidentale che questa voce
+      denuncia.
+- [ ] Escluderli nei conteggi per gravità (Fase 5).
 
 ### R42 — 🟢 LIEVE: la citabilità sparisce dalla vista testo quando fallisce
 *(trovato censendo i consumatori per U1.8, il 2026-08-24)*

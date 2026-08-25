@@ -3510,6 +3510,112 @@ spiegazione in `detail`, la prescrizione in `fix` — misurata su tutti e tre.
 `mars_citability` non prescriva nulla perché ridirebbe ciò che l'area
 d'origine ha già quantificato.
 
+### U4.1 — ✅ (2026-08-25): il piano di interventi, come funzione pura
+
+**Il problema.** Fra «elenco dei difetti» e «che cosa faccio lunedì mattina»
+non c'era nulla. Le prime tre fasi hanno reso i rilievi un dato con gravità,
+penalità e prescrizione: qui diventano un elenco **ordinato**, e ogni voce
+dichiara quanto si guadagna a chiuderla.
+
+**Il numero che il piano pubblica è il RECUPERO, non la penalità**, ed è il
+difetto più facile dell'intera fase:
+
+    recupero = R(base − penalità) − R(base),  R(P) = max(0, round(100 − P))
+
+`base` è la somma delle penalità dichiarate da **tutti** i rilievi dell'area,
+`info` compresi — nel golden `mars_tech` fa 40 (critico) + 3 (un `info`) = 43,
+e R(43) = 57 = il punteggio pubblicato; sommando i soli candidati verrebbe 60 e
+la ricostruzione si romperebbe in silenzio. Due conseguenze misurate:
+
+- **un'area satura vale meno di quel che sembra**: con base 108 e score 0 un
+  rilievo da 40 ne recupera 32, e uno da 8 non muove niente;
+- **i recuperi non sono additivi**: su `mars_wcag` del golden, 37 + 18 + 7 uno
+  alla volta fanno 62, chiudendoli insieme si guadagnano 63. Ogni voce porta
+  `additive: False` **nel dato** e non solo nella resa, perché il CSV della
+  Fase 6 e il confronto della Fase 7 sommeranno ciò che trovano.
+
+**Il certificato d'area.** U4 è il **primo consumatore** di
+`params["penalty"]`: fino a qui quel campo lo leggevano solo i test, e la
+coerenza fra penalità e punteggio non l'aveva mai verificata nessuno. Ora un
+gate per area lo pretende, e un test lo esercita su tutte e nove le aree con
+penalità dei due golden. Un'area non certificata **tiene le sue voci e perde i
+numeri**: recupero e guadagno spariscono dichiarandolo.
+
+Il gate ha un ramo apposta per le aree sature, e non è un dettaglio: con score
+già a 0 il confronto `round(100 − base) == round(score)` è falso per
+costruzione — 100 − 154 fa −54 — e senza quel ramo un'area satura perderebbe
+tutti i suoi numeri proprio dove servono di più. L'eccedenza si pubblica,
+perché è ciò che spiega perché un rilievo da 40 ne recuperi 32.
+
+**Il guadagno di citabilità è una derivata.** L'indice composito è una media
+pesata di medie pesate, lineare nei segnali: la derivata rispetto al punteggio
+di un'area è un numero solo, e il guadagno è `recupero × k[segnale]`. I `k`
+**non sono costanti** — dipendono dal mercato e da quanti segnali sono stati
+misurati in quella esecuzione: misurato, `tecnica` vale 0,1885 nel referto
+completo (mercato `eu`, 7 segnali) e 0,4045 in quello degradato (`global`, 4).
+Per questo ogni voce porta con sé il mercato, e confrontare due `index_gain` di
+referti diversi non significa niente. Verificato contro il modulo vero: la
+derivata ricostruisce il movimento dell'indice a meno dell'arrotondamento, che
+può valere **due passi** (0,2) perché il modulo arrotonda i profili a 0,1 e poi
+di nuovo l'indice.
+
+**Quattro corsie, perché «non lo so» e «so che vale zero» sono opposti** per
+chi decide lunedì mattina: `misurato`, `bloccato` (area satura), `ignoto`
+(penalità assente), `nullo` (penalità 0,0 dichiarata). La corsia viene **prima
+dei numeri** nella chiave d'ordinamento, così nessun confronto numerico
+incontra un `None` — e senza, due voci in corsia `ignoto` solleverebbero
+`TypeError` su `-None`, cioè dopo che tutte le aree hanno girato.
+
+**Lo sforzo è un catalogo chiuso** sulle 25 chiavi di `mars_fixes`, e un test
+pretende che i due insiemi coincidano: un controllo con un `fix` e senza sforzo
+non potrebbe mai essere un quick win, uno con lo sforzo e senza `fix`
+prometterebbe un intervento che il referto non sa descrivere. Le tre famiglie
+dinamiche restano fuori tutte e tre — un default «ore» sarebbe un'assenza
+travestita da stima, e le loro chiavi non sono nostre.
+
+**Il quick win vuole tre condizioni**, non due: critico, da minuti, **e con un
+recupero che esiste davvero**. Il terzo termine non è pignoleria — nel golden
+completo `wcag.img.alt_missing` e `wcag.form.label_missing` sono critici con
+penalità 0,0, perché in quel ramo il punteggio lo fa axe: senza, il piano
+aprirebbe con due vittorie rapide che lasciano l'area dov'era.
+
+**La ricognizione, e che cosa ha smentito.** Il progetto è stato preceduto da
+dodici agenti in sola lettura — sei letture parallele, tre proposte
+indipendenti, una sintesi, due critici avversariali — per circa 50 minuti e
+1,4 milioni di token. I due critici hanno prodotto **18 obiezioni, tutte
+verificate sul codice**, e due erano bloccanti:
+
+- la sintesi proponeva una chiave pubblica nuova, `citability["sensibilita"]`,
+  giustificandola con «`import mars_citability` non funzionerebbe, perché
+  `load_external_module` sostituisce l'oggetto in `sys.modules`». **Falso**, e
+  riverificato di persona: gli oggetti-modulo sono due, ma `PESI_ASSISTENTE`,
+  `MERCATI` e `SEGNALI` sono uguali. Sono caduti due commit su otto;
+- gli `index_gain` erano dichiarati additivi. Non lo sono: sono `recupero × k`,
+  e se il fattore non è additivo non lo è il prodotto.
+
+**Una cosa che nessun agente aveva visto**, trovata verificando: il referto
+pubblica `citability["signals"]` indicizzato per **etichetta italiana**, non
+per nome interno. `mars_remediation` inverte `SEGNALI` per tornare ai nomi, ed
+è l'unico aggancio fragile del modulo: la Fase 9, traducendo le etichette, lo
+romperebbe. Non in silenzio — su un'etichetta non riconosciuta i coefficienti
+diventano `None`, i guadagni spariscono e l'ordinamento degrada sul recupero.
+
+**Il modulo non è un'area** e non sta in `MODULES_REGISTRY`: non espone
+`audit()`, non misura niente, rilegge il referto quando tutte le aree hanno
+parlato. Il precedente è `mars_fixes`, con una differenza: lì l'import è
+tollerante perché il catalogo è prosa editoriale e la sua assenza degrada un
+referto che resta vero; qui sarà **duro**, perché il piano è dato canonico e la
+sua assenza deve rompere invece di produrre un referto silenziosamente monco.
+
+Quarantasette test, **ventitré mutazioni, nessuna sfuggita**. Due erano
+sfuggite al primo giro, ed erano difetti del banco di prova: la prova
+sull'etichetta ignota le passava *tutte* ignote, dove il codice restituisce
+`None` per un'altra strada, e nessun caso metteva due voci pari-gravità in
+corsie diverse.
+
+- [x] `mars_remediation.py`, `tests/test_remediation.py`. In questo commit il
+      piano non è ancora nel referto: si prova la funzione.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

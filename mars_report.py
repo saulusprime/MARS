@@ -18,9 +18,9 @@ import time
 from typing import Dict, List, Optional
 
 import mars_remediation
-from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_INFO, Finding,
-                       __version__, describe_chunk, normalizza_risultato,
-                       reciprocal_rank_fusion)
+from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL, SEV_INFO,
+                       SEV_WARNING, Finding, __version__, describe_chunk,
+                       normalizza_risultato, reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -305,8 +305,9 @@ def _riga_area(area: dict) -> str:
     return f"{area['label']:<20} : {area['score']:>3.0f}/100"
 
 
-def _correzioni_testo(findings: List[dict], quante: int = 2) -> List[str]:
-    """Le prime correzioni di un'area, per la vista compatta.
+def _correzioni_testo(findings: List[dict], nel_piano: frozenset = frozenset(),
+                      quante: int = 2) -> List[str]:
+    """Le correzioni d'area che il piano NON prende in carico.
 
     Titolo e poi prescrizione, come nel referto HTML, e per la stessa
     ragione: fra `issues` e `findings` non esiste una chiave — per
@@ -315,15 +316,112 @@ def _correzioni_testo(findings: List[dict], quante: int = 2) -> List[str]:
     il lettore a indovinare a quale delle due si riferisce. Col titolo
     non c'e' niente da indovinare, al prezzo di una riga ripetuta.
 
+    `nel_piano` e' arrivato con U4.3, e toglie una duplicazione che si
+    vedeva a occhio nudo: la sezione del piano stampa gli stessi titoli
+    e gli stessi fix, ordinati per valore, quaranta righe piu' sotto.
+    Restano qui le correzioni che il piano non elenca — i rilievi
+    `info`, che il suo filtro esclude — e che altrimenti sparirebbero
+    dalla vista testo pur avendo una prescrizione.
+
     Due, come le issues: questa e' la vista che sta in un terminale.
     L'`example` resta fuori — sono blocchi nginx e JSON-LD di cinque o
     sette righe, e due per area triplicherebbero il referto. Chi li
     vuole ha l'HTML e il JSON, dove ci sono per intero.
     """
     righe: List[str] = []
-    for f in [x for x in findings if x.get("fix")][:quante]:
+    fuori = [x for x in findings
+             if x.get("fix") and x.get("key") not in nel_piano]
+    for f in fuori[:quante]:
         righe.append("  → %s" % f.get("title"))
         righe.append("    %s" % f["fix"])
+    return righe
+
+
+# Quanti interventi mostra la vista compatta. Cinque, come i cinque
+# alert ZAP e le cinque violazioni axe: e' la stessa asimmetria di
+# sempre fra la vista che sta in un terminale e il dato che li porta
+# tutti.
+PIANO_IN_TESTO = 5
+
+_GRAVITA_TESTO = {SEV_CRITICAL: "CRITICO", SEV_WARNING: "AVVERTENZA"}
+
+
+def _voce_piano_testo(voce: dict) -> List[str]:
+    """Una voce del piano: intestazione, numeri, prescrizione."""
+    righe = ["  %d. [%s · %s · %s] %s"
+             % (voce["priority"],
+                _GRAVITA_TESTO.get(voce["severity"], voce["severity"]),
+                voce["area_label"].split(". ", 1)[-1],
+                voce["effort"] or "sforzo non dichiarato",
+                voce["title"])]
+
+    numeri = []
+    if voce["recovery"]:
+        # Punteggio di partenza e di arrivo accanto alla differenza: e'
+        # cio' che permette di rifare il conto leggendo il referto, e in
+        # un'area satura e' anche l'unica spiegazione del perche' una
+        # penalita' di 40 ne renda 32.
+        numeri.append("+%d punti d'area (%d → %d)"
+                      % (voce["recovery"], voce["score_before"],
+                         voce["score_after"]))
+    if voce["index_gain"]:
+        numeri.append("indice +%.2f" % voce["index_gain"])
+    if not numeri:
+        # Mai un silenzio al posto di un numero: la corsia dice perche'
+        # non c'e', e sono tre ragioni diverse.
+        numeri.append(voce["lane_reason"] or "recupero non dichiarato")
+    if voce["quick_win"]:
+        numeri.insert(0, "** QUICK WIN")
+    righe.append("     %s" % " · ".join(numeri))
+
+    if voce["fix"]:
+        righe.append("     %s" % voce["fix"])
+    return righe
+
+
+def _piano_testo(referto: dict) -> List[str]:
+    """La sezione del piano, per la vista compatta.
+
+    **Sempre stampata**, anche vuota, e non e' una svista: le altre tre
+    sezioni spariscono quando manca il dato, e qui sarebbe un errore —
+    un piano che sparisce non si distingue da un piano non calcolato.
+    E' il principio 5 applicato alla sezione invece che al numero.
+
+    Le condizioni guardano il DATO e mai il nome di un modulo: e' il
+    difetto R42, dove `mars_citability` spariva dalla vista testo
+    perche' la si saltava per nome anche quando falliva.
+    """
+    piano = referto.get("remediation") or []
+    riepilogo = mars_remediation.riepilogo(piano, referto)
+    righe = ["-" * 55]
+    if not piano:
+        righe.append("PIANO DI INTERVENTI  : nessun rilievo critico o "
+                     "di avvertenza")
+        return righe
+
+    righe.append("PIANO DI INTERVENTI  : %d interventi (%d critici, "
+                 "%d avvertenze)" % (riepilogo["total"], riepilogo["critical"],
+                                     riepilogo["warning"]))
+    conteggi = ["%d quick win" % riepilogo["quick_wins"]]
+    senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
+    if senza:
+        conteggi.append("%d senza recupero" % senza)
+    if riepilogo["no_effort"]:
+        conteggi.append("%d senza sforzo dichiarato" % riepilogo["no_effort"])
+    righe.append("  %s" % " · ".join(conteggi))
+    # Quante aree lo alimentano, CONTATE e non cablate: al massimo
+    # cinque delle nove, perche' due non producono rilievi e due li
+    # producono tutti `info`. Un numero fisso qui sarebbe falso in una
+    # riga scritta per essere onesta.
+    righe.append("  %d aree su %d; ordinato per gravita', poi per guadagno "
+                 "dell'indice" % (riepilogo["areas_covered"],
+                                  riepilogo["areas_total"]))
+
+    for voce in piano[:PIANO_IN_TESTO]:
+        righe.extend(_voce_piano_testo(voce))
+    if len(piano) > PIANO_IN_TESTO:
+        righe.append("  · ... e altri %d interventi (per intero nel JSON "
+                     "e nell'HTML)" % (len(piano) - PIANO_IN_TESTO))
     return righe
 
 
@@ -331,6 +429,9 @@ def render_text(referto: dict) -> str:
     righe = ["", "=" * 55,
              "           MARS BEACON - REPORT FINALE           ", "=" * 55]
 
+    # Le chiavi che il piano gia' elenca: sotto l'area si stampano solo
+    # le correzioni che lui non prende in carico.
+    nel_piano = frozenset(v["key"] for v in referto.get("remediation") or [])
     for area in referto["areas"]:
         if area["module"] == "mars_citability":
             continue  # ha un blocco tutto suo, in fondo
@@ -343,7 +444,10 @@ def render_text(referto: dict) -> str:
             righe.append("  " + " · ".join(qualifiche))
         for problema in area["issues"][:2]:
             righe.append(f"  ⚠ {problema}")
-        righe.extend(_correzioni_testo(area.get("findings") or []))
+        righe.extend(_correzioni_testo(area.get("findings") or [],
+                                       nel_piano))
+
+    righe.extend(_piano_testo(referto))
 
     aggregato = referto.get("rrf_aggregate")
     if aggregato:

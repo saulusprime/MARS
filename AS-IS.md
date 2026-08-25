@@ -3659,6 +3659,49 @@ tipo di errore compare in un giro.
 - [x] `mars_report.py`, cinque test in `test_report.py`, uno in `test_api.py`,
       i due golden JSON.
 
+### U4.3 — ✅ (2026-08-25): il piano nella vista testo
+
+La sezione sta fra il ciclo delle aree e quella dell'RRF, ed è **sempre
+stampata, anche vuota**. Le altre tre spariscono quando manca il dato; qui
+sarebbe un errore, perché un piano che sparisce non si distingue da un piano
+non calcolato — è il principio 5 applicato alla sezione invece che al numero.
+
+Mostra **cinque** interventi, come i cinque alert ZAP e le cinque violazioni
+axe: è la stessa asimmetria di sempre fra la vista che sta in un terminale e il
+dato che li porta tutti, e la riga di troncamento la dichiara. Ogni voce porta
+gravità, area, sforzo, il recupero con i punteggi di partenza e arrivo — che
+sono ciò che permette di rifare il conto leggendo il referto — il guadagno
+d'indice, e la prescrizione.
+
+Dove un numero non c'è, **al suo posto va il motivo**: «in questa esecuzione il
+controllo non entra nel punteggio dell'area» invece di una riga vuota. Sono tre
+motivi diversi, e la corsia sa quale.
+
+**La duplicazione che si vedeva a occhio nudo.** Rigenerando i golden per la
+prima volta, ogni correzione compariva **due volte in quaranta righe**: una
+sotto la sua area, dalle righe `→` di U3.3, e una dentro il piano. In un
+referto largo 55 colonne è insostenibile. Ora sotto l'area restano solo le
+correzioni che il piano **non prende in carico** — i rilievi `info`, che il suo
+filtro esclude — e che altrimenti sparirebbero dalla vista testo pur avendo una
+prescrizione. Nessuna informazione persa, nessuna ripetuta: nel golden completo
+sono `tech.canonical.missing` e `wcag.link.generic`.
+
+Non è un ripensamento su U3.3: quelle righe erano la risposta giusta finché il
+piano non esisteva. Ora esiste, ed è ordinato per valore.
+
+**R42 rispettato in partenza**: la sezione si condiziona sul dato e mai sul
+nome di un modulo, e un test lo verifica costruendo un rilievo che dichiara
+`area: "un_plugin_di_terzi"`. È il difetto per cui `mars_citability` spariva
+dalla vista testo — la si saltava per nome anche quando falliva.
+
+Sedici mutazioni, nessuna sfuggita. Due erano mal costruite alla prima
+stesura: toglievano il corpo di un `if` lasciando l'intestazione, quindi
+rompevano la sintassi e non dimostravano nulla. Rifatte cambiando la
+**condizione** invece del corpo.
+
+- [x] `_piano_testo()`, `_voce_piano_testo()`, `_correzioni_testo(…,
+      nel_piano)`, otto test, i due golden `.txt`.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

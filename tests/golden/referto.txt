@@ -5,8 +5,6 @@
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
-  → robots.txt BLOCCA 1 crawler IA: GPTBot
-    Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
   → 2/3 pagine senza <link rel="canonical">
     Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               :  27/100
@@ -19,27 +17,38 @@
   proxy char-TFIDF
 5. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
-  → 1 blocchi JSON-LD malformati
-    Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 6. Accessibilità     :  37/100
   axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
-  → Le immagini devono avere un testo alternativo
-    Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
-  → Il contrasto deve essere sufficiente
-    Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
+  → 1 link con testo generico ("clicca qui", "leggi tutto")
+    Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 7. Sicurezza         :  57/100
   ZAP (passiva)
   ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
   ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
-  → Cross Site Scripting (Reflected)
-    Convalida l'input e codifica l'output.
-  → Content Security Policy (CSP) Header Not Set
-    Configura il server per impostare l'header CSP.
 9. Giudizio LLM      :  61/100
   ⚠ Nessun prezzo verificabile
   ⚠ Nessuna fonte citata
+-------------------------------------------------------
+PIANO DI INTERVENTI  : 16 interventi (6 critici, 10 avvertenze)
+  1 quick win · 4 senza recupero · 10 senza sforzo dichiarato
+  5 aree su 9; ordinato per gravita', poi per guadagno dell'indice
+  1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
+     ** QUICK WIN · +40 punti d'area (57 → 97) · indice +7.54
+     Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
+  2. [CRITICO · SEO · sforzo non dichiarato] L'indicizzazione della pagina è bloccata
+     +37 punti d'area (27 → 64) · indice +4.74
+  3. [CRITICO · Accessibilità · sforzo non dichiarato] Le immagini devono avere un testo alternativo
+     +37 punti d'area (37 → 74) · indice +4.65
+     Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
+  4. [CRITICO · Sicurezza · sforzo non dichiarato] Cross Site Scripting (Reflected)
+     +28 punti d'area (57 → 85) · indice +1.76
+     Convalida l'input e codifica l'output.
+  5. [CRITICO · Accessibilità · giorni] 1 campi di modulo senza etichetta
+     in questa esecuzione il controllo non entra nel punteggio dell'area
+     Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
+  · ... e altri 11 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Simulazione RRF      : Consenso Top-3 = 3/3 su 4 chunk
   aggregato su 3 query

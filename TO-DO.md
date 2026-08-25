@@ -163,9 +163,12 @@ dietro una sola voce aperta: **R44**.
         la citabilità hanno appena riempito. Si sono mossi i due golden
         `.json` e solo per la chiave nuova; l'API la riceve senza altro
         lavoro.
-  - [ ] **U4.3** — la sezione a testo in `render_text`, fra il ciclo delle
-        aree e la sezione RRF. Condizionata sul **dato** e mai sul nome del
-        modulo — è il difetto R42. Due golden `.txt`.
+  - [x] **U4.3** — la sezione a testo in `render_text`, fra il ciclo delle
+        aree e la sezione RRF, condizionata sul **dato** e mai sul nome del
+        modulo (R42). Sempre stampata, anche vuota. Cinque interventi come
+        i cinque alert ZAP, con la troncatura dichiarata. E le correzioni
+        d'area ora mostrano **solo ciò che il piano non prende in carico**:
+        senza, ogni fix compariva due volte in quaranta righe.
   - [ ] **U4.4** — `_sezione_remediation` in `render_html` più il CSS dei
         badge (sforzo, quick win, corsia), riusando `.ok`/`.warn`/`.bad`.
         Nessuno script: D1 vale solo dalla Fase 8. Due golden `.html`.

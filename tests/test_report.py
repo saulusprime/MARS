@@ -12,7 +12,8 @@ import json
 
 import pytest
 
-from mars_core import SEV_CRITICAL, SEV_INFO, Finding, load_queries
+from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
+                       load_queries)
 import mars_remediation
 from mars_report import (RENDERERS, _classe, _correzioni,
                          _correzioni_testo, _elenco_controlli,
@@ -808,14 +809,29 @@ def test_testo_lascia_fuori_l_esempio():
     assert not any("riga1" in r for r in righe)
 
 
-def test_testo_mostra_le_correzioni_nel_referto_intero(contesto):
+def test_testo_l_area_mostra_solo_cio_che_il_piano_non_prende(contesto):
+    """La duplicazione che U4.3 ha tolto, e che si vedeva a occhio.
+
+    Il rilievo critico entra nel piano, quindi sotto l'area non si
+    ripete; quello informativo il piano non lo prende — filtra
+    `critical` e `warning` — e resta l'unico posto della vista testo
+    dove la sua correzione compare.
+    """
     contesto["results"] = {
         "mars_tech": {"score": 60, "issues": ["[critico] robots muto"],
-                      "findings": [_rilievo(title="robots muto",
-                                            fix="Pubblica un robots.txt.")]}}
+                      "findings": [
+                          _rilievo(title="robots muto",
+                                   key="tech.robots.missing",
+                                   fix="Pubblica un robots.txt."),
+                          _rilievo(title="canonical assente",
+                                   key="tech.canonical.missing",
+                                   severity=SEV_INFO,
+                                   fix="Dichiara il canonical.")]}}
     testo = render_text(build_report(contesto["results"], contesto))
-    assert "  → robots muto" in testo
-    assert "    Pubblica un robots.txt." in testo
+    assert testo.count("Pubblica un robots.txt.") == 1, "solo nel piano"
+    assert "  → robots muto" not in testo
+    assert "  → canonical assente" in testo
+    assert "    Dichiara il canonical." in testo
 
 
 # ----------------------------------------------------------------------
@@ -888,3 +904,84 @@ def test_un_area_fallita_non_entra_nel_piano(contesto):
     referto = build_report(contesto["results"], contesto)
     assert referto["areas"][0]["findings"], "l'area il rilievo ce l'ha"
     assert referto["remediation"] == []
+
+
+# ----------------------------------------------------------------------
+# U4.3: il piano nella vista testo
+# ----------------------------------------------------------------------
+
+def _referto_con_piano(contesto, quanti=1):
+    rilievi = [_rilievo(key="tech.robots.ai_blocked", title="robots blocca",
+                        fix="Togli il Disallow.", params={"penalty": 43.0})]
+    for n in range(quanti - 1):
+        rilievi.append(_rilievo(key="tech.sitemap.missing",
+                                title="sitemap assente %d" % n,
+                                severity=SEV_WARNING, fix="Pubblicala.",
+                                params={"penalty": 0.0}))
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [],
+                                         "findings": rilievi}}
+    return build_report(contesto["results"], contesto)
+
+
+def test_il_piano_a_testo_dichiara_i_conteggi(contesto):
+    testo = render_text(_referto_con_piano(contesto))
+    assert "PIANO DI INTERVENTI  : 1 interventi (1 critici, 0 avvertenze)" \
+        in testo
+    assert "1. [CRITICO · Tecnica · minuti] robots blocca" in testo
+    assert "+43 punti d'area (57 → 100)" in testo
+    assert "Togli il Disallow." in testo
+
+
+def test_il_piano_a_testo_marca_i_quick_win(contesto):
+    assert "** QUICK WIN" in render_text(_referto_con_piano(contesto))
+
+
+def test_il_piano_a_testo_si_ferma_a_cinque(contesto):
+    """Come i cinque alert ZAP e le cinque violazioni axe: la vista
+    compatta ne mostra cinque, il dato li porta tutti — e la riga di
+    troncamento lo dichiara invece di lasciarlo intuire."""
+    testo = render_text(_referto_con_piano(contesto, quanti=9))
+    assert testo.count("[CRITICO ·") + testo.count("[AVVERTENZA ·") == 5
+    assert "... e altri 4 interventi" in testo
+
+
+def test_il_piano_a_testo_c_e_anche_quando_e_vuoto(contesto):
+    """Le altre tre sezioni spariscono quando manca il dato; qui
+    sarebbe un errore, perche' un piano che sparisce non si distingue
+    da un piano non calcolato."""
+    contesto["results"] = {"mars_tech": {"score": 100, "issues": []}}
+    testo = render_text(build_report(contesto["results"], contesto))
+    assert "PIANO DI INTERVENTI  : nessun rilievo critico o di avvertenza" \
+        in testo
+
+
+def test_il_piano_a_testo_non_tace_dove_manca_un_numero(contesto):
+    """Un rilievo senza recupero non deve lasciare la riga vuota: al
+    posto del numero va il motivo, e sono tre motivi diversi."""
+    contesto["results"] = {"mars_tech": {
+        "score": 100, "issues": [],
+        "findings": [_rilievo(key="tech.robots.ai_blocked",
+                              params={"penalty": 0.0})]}}
+    testo = render_text(build_report(contesto["results"], contesto))
+    assert "non entra nel punteggio dell'area" in testo
+    assert "punti d'area" not in testo
+
+
+def test_il_piano_a_testo_conta_le_aree_e_non_le_cabla(contesto):
+    referto = _referto_con_piano(contesto)
+    assert "1 aree su 1;" in render_text(referto)
+
+
+def test_il_piano_a_testo_non_guarda_il_nome_del_modulo(contesto):
+    """R42: la citabilita' spariva dalla vista testo perche' la si
+    saltava per NOME anche quando falliva. La sezione del piano si
+    condiziona sul dato, quindi un'area che cambia nome o un plugin di
+    terzi non la fanno sparire."""
+    contesto["results"] = {"mars_tech": {
+        "score": 57, "issues": [],
+        "findings": [_rilievo(area="un_plugin_di_terzi",
+                              key="tech.robots.ai_blocked",
+                              title="rilievo di un plugin",
+                              params={"penalty": 43.0})]}}
+    testo = render_text(build_report(contesto["results"], contesto))
+    assert "rilievo di un plugin" in testo

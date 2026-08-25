@@ -31,6 +31,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `sitemap` | statistiche della sitemap: `urls`, `with_lastmod`, `index_files`, `unreadable`… |
 | `delay` | ritardo **effettivo** fra due richieste, in secondi: robots.txt può averlo alzato con `Crawl-delay`. Chi rivisita le pagine (il browser di `mars_wcag`) deve rispettarlo |
 | `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
+| `lang` | lingua del referto, `it` (predefinita) o `en`. **Non e' solo resa**: e' anche la lingua che si chiede agli strumenti esterni, i cui testi nascono al momento della misura — `--locale` di Lighthouse, il file di locale di axe. Un modulo che porta testi di terzi dichiara in `params["text_lang"]` la lingua in cui sono davvero, cosi' il referto puo' dirlo |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
 | `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
 | `robots_ignored` | `True` se è stata dichiarata la proprietà del dominio |

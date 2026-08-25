@@ -2,6 +2,8 @@
 =======================================================
            MARS BEACON - REPORT FINALE           
 =======================================================
+
+I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).
 COMPLESSIVO          :  66/100  (da migliorare)
   media pesata di 7 misure; citabilità e giudizio LLM esclusi
 -------------------------------------------------------

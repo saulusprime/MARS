@@ -1270,23 +1270,63 @@ def _area_di(referto: dict, modulo: str) -> dict:
     return {}
 
 
+def strumenti_in_altra_lingua(referto: dict,
+                              lang: str = LINGUA_CANONICA) -> List[str]:
+    """Gli strumenti i cui testi NON sono nella lingua del referto.
+
+    Non si deduce dal testo — nessuno qui riconosce una lingua — ma si
+    legge da `params["text_lang"]`, che le tre aree con testi di terzi
+    dichiarano rilievo per rilievo. Per REGOLA e non per area: un
+    locale axe copre quasi tutte le regole ma non quelle aggiunte a
+    mano con `axe.configure`, e dire «l'area e' in italiano» con dentro
+    due regole inglesi sarebbe una mezza verita'.
+
+    Vale in OGNI lingua, italiano compreso: ZAP scrive solo in inglese,
+    e un referto italiano che non lo dicesse lascerebbe credere a una
+    dimenticanza cio' che e' un limite dello strumento.
+    """
+    per_strumento: Dict[str, str] = {}
+    for area in referto.get("areas") or []:
+        for rilievo in area.get("findings") or []:
+            altra = str((rilievo.get("params") or {}).get("text_lang") or "")
+            if not altra or altra == lang:
+                continue
+            nome = str(area.get("tool") or area.get("module") or "")
+            if nome:
+                per_strumento.setdefault(nome, altra)
+    return ["%s (%s)" % (nome, lingua)
+            for nome, lingua in sorted(per_strumento.items())]
+
+
 def _nota_lingua(referto: dict,
                  lang: str = LINGUA_CANONICA) -> List[str]:
-    """La nota di onesta' in testa a un referto non italiano.
+    """Le note di onesta' sulla lingua, in testa alle viste di prosa.
 
-    Dice due cose che il lettore non puo' deurre: che le evidenze
-    citate dal sito restano nella lingua del sito — un titolo mancante
-    o un testo di link generico si citano com'erano — e QUALI aree non
-    sono state tradotte, per nome invece che genericamente.
+    Tre cose che il lettore non puo' dedurre: che le evidenze citate
+    dal sito restano nella lingua del sito — un titolo mancante o un
+    testo di link generico si citano com'erano — QUALI aree non sono
+    state tradotte, per nome invece che genericamente, e quali
+    STRUMENTI hanno scritto in un'altra lingua.
+
+    L'ultima compare anche in italiano, le prime due no: fuori
+    dall'italiano il ripiego e' sulla lingua canonica e va detto,
+    mentre in italiano non c'e' alcun ripiego da dichiarare — ma ZAP
+    resta inglese comunque.
     """
-    if lang == LINGUA_CANONICA:
-        return []
-    righe = ["", t("Nota: le evidenze citate dal sito analizzato restano "
-                   "nella lingua del sito.", lang)]
-    rimaste = aree_non_tradotte(referto, lang)
-    if rimaste:
-        righe.append(t("Queste aree si esprimono solo in italiano: %s.",
-                       lang) % ", ".join(rimaste))
+    righe: List[str] = []
+    if lang != LINGUA_CANONICA:
+        righe += ["", t("Nota: le evidenze citate dal sito analizzato "
+                        "restano nella lingua del sito.", lang)]
+        rimaste = aree_non_tradotte(referto, lang)
+        if rimaste:
+            righe.append(t("Queste aree si esprimono solo in italiano: %s.",
+                           lang) % ", ".join(rimaste))
+    strumenti = strumenti_in_altra_lingua(referto, lang)
+    if strumenti:
+        if not righe:
+            righe.append("")
+        righe.append(t("I testi di questi strumenti restano nella loro "
+                       "lingua: %s.", lang) % ", ".join(strumenti))
     return righe
 
 

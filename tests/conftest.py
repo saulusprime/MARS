@@ -206,12 +206,24 @@ def strumenti_esterni_assenti(monkeypatch):
 # Due bastano: quel che i test devono poter distinguere e' la regola
 # TRADOTTA da quella che il locale non conosce, e per la seconda va
 # bene qualunque id che non sia questi.
+#
+# Da U9.3 ogni voce porta ENTRAMBI i testi, come il file vero: `help`
+# diventa il titolo del rilievo e `description` il suo `fix`. Prima qui
+# c'era la sola `description`, e il titolo restava l'inglese che axe
+# manda nella risposta — il difetto R44.
 TESTI_AXE = {
-    "image-alt": "Assicurati che gli elementi <img> abbiano un testo "
-                 "alternativo o un ruolo none o presentation",
-    "color-contrast": "Assicurati che il contrasto tra i colori in primo "
-                      "piano e di sfondo soddisfi le soglie minime del "
-                      "rapporto di contrasto WCAG 2 AA",
+    "image-alt": {
+        "help": "Le immagini devono avere un testo alternativo",
+        "description": "Assicurati che gli elementi <img> abbiano un "
+                       "testo alternativo o un ruolo none o presentation",
+    },
+    "color-contrast": {
+        "help": "Gli elementi devono soddisfare le soglie minime del "
+                "rapporto di contrasto di colore",
+        "description": "Assicurati che il contrasto tra i colori in primo "
+                       "piano e di sfondo soddisfi le soglie minime del "
+                       "rapporto di contrasto WCAG 2 AA",
+    },
 }
 
 
@@ -219,8 +231,8 @@ TESTI_AXE = {
 def locale_axe_fisso(monkeypatch):
     """Nessun test legge `node_modules`, nemmeno per i soli testi.
 
-    Misurato: senza questa fixture, spostando `AXE_LOCALE` su un file
-    inesistente cinque test di mars_wcag diventano rossi. Sono verdi
+    Misurato: senza questa fixture, spostando la directory dei locali
+    su una inesistente cinque test di mars_wcag diventano rossi. Sono verdi
     su questa macchina e rossi su un clone appena fatto — cioe' la
     suite direbbe cose diverse a seconda che qualcuno abbia lanciato
     `npm install`. E' la stessa dipendenza dall'ambiente che
@@ -239,4 +251,13 @@ def locale_axe_fisso(monkeypatch):
     con un `testi_axe` vuoto, e sul lettore vero `_leggi_locale_axe`,
     che questa fixture non tocca.
     """
-    monkeypatch.setattr(mars_wcag, "testi_axe", lambda: dict(TESTI_AXE))
+    def locale_finto(lang: str = "it") -> dict:
+        # Fedele anche nel caso dell'inglese: li' un file di locale non
+        # esiste e non deve esistere, e restituire i testi italiani
+        # renderebbe il finto piu' generoso del vero — cioe' congelerebbe
+        # un comportamento che in produzione non c'e'.
+        if not mars_wcag.percorso_locale_axe(lang):
+            return {}
+        return {k: dict(v) for k, v in TESTI_AXE.items()}
+
+    monkeypatch.setattr(mars_wcag, "testi_axe", locale_finto)

@@ -4615,6 +4615,135 @@ testo del sito, che nessuno può tradurre. È esattamente il perimetro di
       `params` nelle voci di `mars_remediation` e nelle righe di
       `mars_history`, 26 test. Golden mossi: i due JSON, additivamente.
 
+
+### U9.3 — ✅ (2026-08-25): la lingua chiesta agli strumenti, e R44 chiusa
+
+**La lingua entra nel `context`, accanto a `market` e `llm`**, e non resta un
+parametro di resa. È il punto della voce: axe, ZAP e Lighthouse producono i
+propri testi **al momento della misura**, quindi glieli si deve chiedere
+allora — a valle non c'è più nulla da tradurre. Lighthouse riceve `--locale`,
+axe-core sceglie il file di locale del proprio pacchetto npm, ZAP non ha nulla
+da scegliere.
+
+**R44, chiusa.** Il difetto: `wcag.axe.*` portava come titolo il `help`
+**inglese** che axe manda nella risposta, dentro un'interfaccia italiana e
+accanto a un `fix` che italiano lo era, perché quello veniva dal locale. Delle
+due strade che la voce elencava si è presa la **prima** — leggere il locale in
+Python — e la ragione è quella già scritta nella docstring di `testi_axe`:
+`axe.configure({locale})` dentro la pagina farebbe fallire `axe.run` su un
+locale illeggibile, e costerebbe **la misura** invece dei soli testi. Ora
+`_leggi_locale_axe` restituisce entrambi i campi (`help` → titolo,
+`description` → `fix`) e il ripiego è **campo per campo** su ciò che axe ha
+mandato, esattamente come in `mars_i18n.finding_texts`.
+
+Ne discende una cosa che non era ovvia: **per l'inglese un file di locale non
+esiste, e non serve**. `percorso_locale_axe("en")` è vuoto per costruzione —
+cercare un `en.json` inesistente e dichiararne l'assenza segnalerebbe un
+difetto dove non ce n'è uno. E `wcag.status.no_fixes` cambia significato: non
+è più «manca il `fix`», che ora arriva comunque dalla risposta, ma «manca la
+**lingua**», e si accende solo quando una lingua diversa da quella nativa di
+axe è stata chiesta e il suo file non c'è.
+
+**La riga compatta divergeva dal rilievo, e nessuno lo vedeva.** Le `issues`
+di axe leggevano `voce["help"]` grezzo mentre il `Finding` portava il titolo
+tradotto: due implementazioni dello stesso testo, che è la coppia contro cui
+tutto il progetto mette in guardia. Ora il titolo risolto si conserva sulla
+voce e lo leggono entrambe.
+
+**La fixture del golden congelava un'illusione, e R44 lo diceva.**
+`_violazioni_axe()` scriveva `help` in **italiano** — testi che axe non ha mai
+prodotto, né in inglese né in italiano: «Il contrasto deve essere
+sufficiente» non è né il `help` inglese di axe né quello del locale italiano,
+che dice «Gli elementi devono soddisfare le soglie minime del rapporto di
+contrasto di colore». Era **inventato**. Ora la fixture porta i testi inglesi
+verbatim di axe-core 4.13.0, `description` compresa, e `TESTI_AXE` in
+conftest porta i due campi veri del locale italiano — verificati contro il
+file vero dal test che tocca `node_modules`, che è lì per questo.
+
+**Il primo spostamento di prosa dell'intera Fase 9**, ed è tutto in
+`mars_wcag`: `color-contrast` prende il titolo italiano **vero** al posto di
+quello inventato, e `label` — la regola che il locale fissato non conosce, di
+proposito — mostra ora titolo **e** `fix` inglesi, cioè il ripiego dichiarato
+reso visibile, dove prima aveva un titolo italiano inventato e nessun `fix`.
+
+**Il referto dichiara quali strumenti hanno scritto in un'altra lingua**, e
+non lo indovina: nessuno qui riconosce una lingua leggendo un testo. Le tre
+aree con testi di terzi lo scrivono nel dato, **per rilievo e non per area**:
+`params["text_lang"]`. Per rilievo perché un locale axe copre quasi tutte le
+regole ma non quelle aggiunte con `axe.configure`, e dire «l'area è in
+italiano» con dentro due regole inglesi sarebbe una mezza verità. Per
+Lighthouse la lingua si legge da `configSettings.locale` del LHR, cioè da ciò
+che Lighthouse **ha fatto** e non da ciò che gli abbiamo chiesto: davanti a un
+locale che non conosce ripiega sull'inglese, e dichiarare la lingua richiesta
+direbbe una cosa non vera.
+
+**La nota compare anche in italiano**, ed è la parte che vale di più: ZAP
+scrive solo in inglese, e un referto italiano che non lo dicesse lascerebbe
+credere a una dimenticanza ciò che è un limite dello strumento. Nel golden
+completo la riga dice `ZAP (passiva) (en), axe-core (en)` — la seconda perché
+`label` non è nel locale fissato.
+
+**Il JSON smette di essere interamente italiano, e va detto dove si diceva il
+contrario.** È canonico e italiano per tutto ciò che scrive MARS, in ogni
+lingua; i testi di axe, ZAP e Lighthouse nascono nella lingua con cui l'audit
+ha girato. README e `CLAUDE.md` lo dichiarano, e ogni rilievo porta la propria
+`text_lang` perché non serva dedurlo.
+
+**Un secondo test vacuo, trovato guardando l'esito e non il verde.** La
+prova che «le aree non tradotte sono nominate per esteso» cercava «3. Lexical»
+nel referto intero, dove compare comunque nella riga d'area: passava da sola.
+Ora guarda la riga della nota, e verifica anche il verso opposto — un'area che
+non dice **nulla**, come lessicale e semantica nel referto sintetico, non ha
+italiano da dichiarare e non ci deve comparire.
+
+**Tredici mutazioni, una sfuggita alla prima esecuzione**, e non era un test
+mancante di poco conto: togliendo `context.get("lang")` dalla chiamata a
+`score_from_violations` la suite restava **verde**. Il predefinito è
+l'italiano e ogni test del ramo axe gira in italiano, quindi la cucitura fra
+il contesto e lo strumento non era esercitata da nessuno — un audit in inglese
+avrebbe prodotto testi italiani senza che nulla lo dicesse. Rieseguite dopo il
+test nuovo: 13 su 13.
+
+- [x] `lang` in `build_context`, `--locale` di Lighthouse dal contesto,
+      `percorso_locale_axe()` / `testi_axe(lang)` / `_leggi_locale_axe` coi
+      due campi, `params["text_lang"]` nelle tre famiglie,
+      `strumenti_in_altra_lingua()` e la nota nelle viste di prosa, fixture
+      del golden resa fedele, 12 test. Golden mossi: **tutti e cinque** del
+      referto completo — è R44 che si vede.
+
+### U9 — ✅ FASE CHIUSA (2026-08-25): `__version__` a 2.8.0
+
+Tre voci: l'impianto e il catalogo dei rilievi, la cornice col parametro
+`lang` attraverso i renderer, la lingua chiesta agli strumenti. Il referto
+esce ora in italiano e in inglese, e **D4 è ratificata** a due lingue con la
+misura che l'ha motivata scritta in testa a `mars_i18n.py`.
+
+**Il filo che le tiene insieme** è che il ripiego di una traduzione è
+*silenzioso per costruzione* — esce l'italiano, che è un esito valido — quindi
+ogni difetto di questa fase era invisibile e nessuno si è trovato leggendo il
+codice. Li ha trovati tutti la stessa mossa: **rendere il referto in inglese e
+misurare che cosa restava italiano**. Così sono venuti fuori i `params` che
+mancavano alle voci del piano e alle righe dello storico, e così si è visto
+che il residuo finale era esattamente il perimetro degli strumenti, cioè
+U9.3.
+
+**Tre cose che il progetto non aveva prima**: un catalogo di traduzione
+presidiato nei due versi (nulla di scoperto, nulla di orfano) e letto
+dall'**AST** invece che a memoria; la nota che dichiara *quali* aree e *quali*
+strumenti non parlano la lingua del referto, per nome; e un `context["lang"]`
+che arriva fino agli strumenti esterni, che è la ragione per cui la Fase 9 non
+era solo una questione di stringhe.
+
+**Due limiti restano, dichiarati e non nascosti**: le `issues` sono prosa
+senza chiave e non si traducono — fuori dall'italiano le viste compatte
+mostrano i titoli dei rilievi, e dove i rilievi non ci sono (`mars_lexical`,
+`mars_semantic`, il giudizio LLM) resta l'italiano; e ZAP parla inglese e
+basta. Il referto dice l'una e l'altra cosa in testa.
+
+Suite da 889 a 900 test, `flake8` a zero. Golden mossi: i due JSON in U9.1 e
+U9.2 (additivamente, nessuna vista di prosa), tutti e cinque del referto
+completo in U9.3 — che è R44 resa visibile.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

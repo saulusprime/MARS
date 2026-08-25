@@ -105,6 +105,12 @@ def _righe(testo: object) -> List[str]:
     return [riga.strip() for riga in grezzo.split("\n") if riga.strip()]
 
 
+#: La lingua in cui ZAP scrive i propri testi. Non e' una scelta:
+#: `description` e `solution` vengono dai Messages.properties dello
+#: strumento, che non ha traduzioni, e l'API non espone alcun locale.
+LINGUA_ZAP = "en"
+
+
 def _stato(chiave: str, testo: str, **params: object) -> Finding:
     """Un fatto sulla SCANSIONE, non un difetto del sito.
 
@@ -174,6 +180,13 @@ def _rilievo_zap(voce: dict) -> Finding:
             # approssimata invece di lasciarlo credere.
             "soluzioni": len(voce["soluzioni"]),
             "penalty": float(voce["penalty"]),
+            # ZAP parla inglese e basta: i suoi Messages.properties non
+            # hanno una traduzione italiana, e non c'e' un `--locale`
+            # da passargli. Dichiararlo qui permette al referto di
+            # dirlo invece di lasciare che il lettore lo scopra
+            # leggendo. Costante e non calcolata: e' un fatto sullo
+            # strumento, non su questa esecuzione.
+            "text_lang": LINGUA_ZAP,
         })
 
 

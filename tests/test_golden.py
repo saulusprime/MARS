@@ -19,6 +19,7 @@ import pytest
 
 import mars_core
 import mars_report
+import mars_wcag
 from conftest import pagina
 from mars_core import MODULES_REGISTRY, load_external_module
 from mars_report import RENDERERS
@@ -195,17 +196,35 @@ def _contesto(**cambi) -> dict:
 # ======================================================================
 
 def _violazioni_axe() -> list:
+    """Le violazioni COME LE MANDA AXE, cioe' in inglese (R44).
+
+    Prima questa fixture scriveva `help` in italiano e non portava
+    `description`, e il golden congelava un referto piu' bello di
+    quello vero: nel referto reale il titolo era il `help` inglese di
+    axe dentro un'interfaccia italiana. Una fixture non fedele congela
+    un'illusione, e nessun test la vede — e' il motivo per cui R44 e la
+    fixture si chiudono nello stesso commit.
+
+    I testi sono verbatim da axe-core 4.13.0.
+    """
     return [
         {"id": "image-alt", "impact": "critical",
-         "help": "Le immagini devono avere un testo alternativo",
+         "help": "Images must have alternative text",
+         "description": "Ensure <img> elements have alternative text or a "
+                        "role of none or presentation",
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
          "nodes": [{"target": ["img"]}, {"target": ["img:nth-child(2)"]}]},
         {"id": "color-contrast", "impact": "serious",
-         "help": "Il contrasto deve essere sufficiente",
+         "help": "Elements must meet minimum color contrast ratio "
+                 "thresholds",
+         "description": "Ensure the contrast between foreground and "
+                        "background colors meets WCAG 2 AA minimum "
+                        "contrast ratio thresholds",
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
          "nodes": [{"target": ["a"]}]},
         {"id": "label", "impact": "moderate",
-         "help": "I campi di modulo devono avere un'etichetta",
+         "help": "Form elements must have labels",
+         "description": "Ensure every form element has a label",
          "nodes": [{"target": ["input"]}]},
     ]
 
@@ -239,7 +258,7 @@ def _alert_zap() -> list:
     ]
 
 
-def _testi_axe() -> dict:
+def _testi_axe(lang: str = "it") -> dict:
     """Il locale italiano di axe-core, congelato alle tre regole in gioco.
 
     Il golden non puo' leggere `node_modules`: la' axe-core c'e' solo
@@ -251,14 +270,25 @@ def _testi_axe() -> dict:
 
     I testi sono verbatim da axe-core 4.13.0. `label` resta FUORI di
     proposito: e' il ramo della regola che il locale non conosce, e nel
-    referto congelato si vede come `fix` vuoto invece che come niente.
+    referto congelato si vede come titolo e `fix` inglesi — quelli che
+    axe ha mandato con la violazione — invece che come niente.
     """
+    if not mars_wcag.percorso_locale_axe(lang):
+        return {}
     return {
-        "image-alt": "Assicurati che gli elementi <img> abbiano un testo "
-                     "alternativo o un ruolo none o presentation",
-        "color-contrast": "Assicurati che il contrasto tra i colori in "
-                          "primo piano e di sfondo soddisfi le soglie "
-                          "minime del rapporto di contrasto WCAG 2 AA",
+        "image-alt": {
+            "help": "Le immagini devono avere un testo alternativo",
+            "description": "Assicurati che gli elementi <img> abbiano un "
+                           "testo alternativo o un ruolo none o "
+                           "presentation",
+        },
+        "color-contrast": {
+            "help": "Gli elementi devono soddisfare le soglie minime del "
+                    "rapporto di contrasto di colore",
+            "description": "Assicurati che il contrasto tra i colori in "
+                           "primo piano e di sfondo soddisfi le soglie "
+                           "minime del rapporto di contrasto WCAG 2 AA",
+        },
     }
 
 

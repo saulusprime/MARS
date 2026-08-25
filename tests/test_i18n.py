@@ -830,8 +830,18 @@ def test_la_nota_di_onesta_compare_solo_fuori_dall_italiano(monkeypatch):
     assert "evidence quoted from the audited site" in inglese
     assert "evidence quoted" not in italiano
     assert "Nota: le evidenze" not in italiano
-    # Le aree senza rilievi strutturati sono nominate per esteso.
-    assert "3. Lexical" in inglese and "4. Semantic" in inglese
+    # Le aree non tradotte sono nominate per esteso — e la prova si fa
+    # SULLA RIGA della nota, non sul referto intero: «9. LLM Judgement»
+    # compare anche nella riga d'area, quindi cercarlo dappertutto
+    # sarebbe un test che passa da solo.
+    riga = [r for r in inglese.split("\n")
+            if r.startswith("These areas speak Italian only:")]
+    assert len(riga) == 1
+    assert "9. LLM Judgement" in riga[0], riga[0]
+    # E le aree che non dicono NULLA non ci sono: nel referto sintetico
+    # lessicale e semantica non hanno ne' issues ne' rilievi, quindi non
+    # c'e' alcun italiano da dichiarare.
+    assert "Lexical" not in riga[0] and "Semantic" not in riga[0]
 
 
 def test_l_intestazione_del_csv_e_tradotta(monkeypatch):
@@ -852,3 +862,163 @@ def test_le_aree_senza_rilievi_restano_dichiarate(monkeypatch):
         area = [a for a in referto["areas"]
                 if mars_i18n.t(a["label"], "en") == etichetta][0]
         assert area["issues"] and not area.get("findings")
+
+
+# ======================================================================
+# La lingua chiesta agli strumenti (U9.3, e con essa R44)
+# ======================================================================
+
+def test_la_lingua_entra_nel_contesto():
+    """`lang` sta nel contesto accanto a `market` e `llm`, e non e' una
+    scelta di resa: gli strumenti producono i propri testi al momento
+    della misura, e glieli si deve chiedere allora."""
+    import inspect
+    firma = inspect.signature(mars_core.build_context)
+    assert firma.parameters["lang"].default == "it"
+
+
+def test_lighthouse_riceve_il_locale_del_referto(monkeypatch):
+    """`--locale` glielo passiamo noi: senza, Lighthouse scriverebbe
+    nella lingua del sistema su cui gira, che nessuno ha scelto."""
+    import mars_seo
+    visti = {}
+
+    class _Esito:
+        stdout = "{}"
+
+    def finto(cmd, **kwargs):
+        visti["cmd"] = cmd
+        return _Esito()
+
+    monkeypatch.setattr(mars_seo.subprocess, "run", finto)
+    mars_seo.esegui_lighthouse("https://esempio.test/", "/bin/lighthouse",
+                               "en")
+    assert "--locale=en" in visti["cmd"]
+    # E l'URL resta un ARGOMENTO, mai interpolato: e' R3.
+    assert "https://esempio.test/" in visti["cmd"]
+
+
+def test_la_lingua_di_lighthouse_si_legge_dal_referto_non_dalla_richiesta():
+    """Davanti a un locale che non conosce Lighthouse ripiega
+    sull'inglese e lo scrive in `configSettings.locale`.
+
+    Dichiarare la lingua RICHIESTA direbbe una cosa non vera, ed e' il
+    genere di mezza verita' che il referto evita ovunque."""
+    import mars_seo
+    assert mars_seo.lingua_lhr({"configSettings": {"locale": "en-US"}}) == \
+        "en"
+    assert mars_seo.lingua_lhr({"configSettings": {"locale": "it"}}) == "it"
+    # Senza il campo si assume la lingua di ripiego dichiarata.
+    assert mars_seo.lingua_lhr({}) == mars_seo.LOCALE
+
+
+def test_axe_non_cerca_un_locale_inglese():
+    """axe parla inglese di suo: `help` e `description` arrivano nella
+    risposta. Cercare un `en.json` che non esiste e dichiararne
+    l'assenza segnalerebbe un difetto dove non ce n'e' uno."""
+    import mars_wcag
+    assert mars_wcag.percorso_locale_axe("en") == ""
+    assert mars_wcag.percorso_locale_axe("it").endswith("it.json")
+    assert mars_wcag.percorso_locale_axe("") == ""
+
+
+def test_gli_strumenti_dichiarano_la_lingua_dei_propri_testi(monkeypatch):
+    """Le tre famiglie che prendono i testi da terzi lo dicono nei
+    params, rilievo per rilievo: e' cio' su cui il referto costruisce
+    la nota, invece di indovinare una lingua leggendo il testo."""
+    referto = DATASET["referto"](monkeypatch)
+    visti = {}
+    for area in referto["areas"]:
+        for rilievo in area.get("findings") or []:
+            if mars_i18n.dallo_strumento(rilievo.get("key") or ""):
+                visti[rilievo["key"]] = rilievo["params"].get("text_lang")
+    assert visti, "il referto sintetico ha rilievi dalle tre famiglie"
+    assert all(v for v in visti.values()), \
+        "un rilievo da strumento senza `text_lang`: %s" % visti
+    # ZAP parla inglese e basta; Lighthouse ha girato in italiano.
+    assert visti["sec.zap.40012"] == "en"
+    assert visti["seo.lh.document_title"] == "it"
+    # axe: tradotto dove il locale conosce la regola, inglese dove no.
+    assert visti["wcag.axe.image_alt"] == "it"
+    assert visti["wcag.axe.label"] == "en"
+
+
+def test_la_nota_sugli_strumenti_compare_anche_in_italiano(monkeypatch):
+    """ZAP scrive solo in inglese, e un referto italiano che non lo
+    dicesse lascerebbe credere a una dimenticanza cio' che e' un limite
+    dello strumento."""
+    from mars_report import strumenti_in_altra_lingua
+    referto = DATASET["referto"](monkeypatch)
+    italiano = strumenti_in_altra_lingua(referto, "it")
+    assert any(s.startswith("ZAP") for s in italiano)
+    reso = _resa(monkeypatch, "referto", "text", "it")
+    assert "ZAP (passiva) (en)" in reso
+    # In inglese ZAP non compare piu': e' gia' nella lingua giusta.
+    inglese = strumenti_in_altra_lingua(referto, "en")
+    assert not [s for s in inglese if s.startswith("ZAP")]
+
+
+def test_in_inglese_lighthouse_e_axe_finiscono_nella_nota(monkeypatch):
+    """Il referto sintetico gira con Lighthouse e axe in italiano: reso
+    in inglese, sono LORO a non essere nella lingua giusta.
+
+    E' la prova che la nota si legge dal dato e non da una costante:
+    gli stessi strumenti compaiono o no a seconda della lingua."""
+    from mars_report import strumenti_in_altra_lingua
+    referto = DATASET["referto"](monkeypatch)
+    inglese = strumenti_in_altra_lingua(referto, "en")
+    assert any(s.startswith("Lighthouse") for s in inglese)
+    assert any(s.startswith("axe-core") for s in inglese)
+
+
+def test_r44_il_titolo_axe_non_e_piu_inglese_in_un_referto_italiano(
+        monkeypatch):
+    """R44, reso eseguibile sul referto congelato.
+
+    Il difetto: `wcag.axe.*` portava come titolo il `help` inglese che
+    axe manda nella risposta, dentro un'interfaccia italiana e accanto
+    a un `fix` che italiano lo era — perche' quello veniva dal locale.
+    """
+    referto = DATASET["referto"](monkeypatch)
+    area = [a for a in referto["areas"] if a["module"] == "mars_wcag"][0]
+    per_chiave = {f["key"]: f for f in area["findings"]}
+    tradotto = per_chiave["wcag.axe.image_alt"]
+    assert tradotto["title"] == "Le immagini devono avere un testo alternativo"
+    assert tradotto["title"] != tradotto["fix"], \
+        "help e description sono due frasi diverse, ed e' il punto"
+    # E la riga compatta dice la stessa cosa del rilievo: prima
+    # divergevano, perche' leggeva il `help` grezzo.
+    assert any(tradotto["title"] in i for i in area["issues"])
+
+
+def test_la_lingua_dell_audit_arriva_ad_axe(contesto, monkeypatch):
+    """La cucitura fra `context["lang"]` e `score_from_violations`.
+
+    Colta da una mutazione: togliendo il parametro dalla chiamata, la
+    suite restava verde. Il predefinito e' l'italiano, e ogni altro
+    test del ramo axe gira in italiano — quindi la plumbing non era
+    esercitata da nessuno, e un audit in inglese avrebbe prodotto testi
+    italiani senza che nulla lo dicesse.
+    """
+    import mars_wcag
+    from conftest import pagina
+    violazione = {"id": "image-alt", "impact": "critical",
+                  "help": "Images must have alternative text",
+                  "description": "Ensure <img> elements have alt text",
+                  "nodes": [{"target": ["img"]}]}
+    contesto["pages"] = {"https://x/": pagina()}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: ([dict(violazione)], 1))
+
+    contesto["lang"] = "it"
+    italiano = [f for f in mars_wcag.audit(contesto)["findings"]
+                if f["key"] == "wcag.axe.image_alt"][0]
+    contesto["lang"] = "en"
+    inglese = [f for f in mars_wcag.audit(contesto)["findings"]
+               if f["key"] == "wcag.axe.image_alt"][0]
+
+    assert italiano["title"] == "Le immagini devono avere un testo alternativo"
+    assert italiano["params"]["text_lang"] == "it"
+    assert inglese["title"] == "Images must have alternative text"
+    assert inglese["params"]["text_lang"] == "en"

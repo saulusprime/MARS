@@ -571,6 +571,8 @@ _CORNICE_EN: Dict[str, str] = {
         "language of the site.",
     "Queste aree si esprimono solo in italiano: %s.":
         "These areas speak Italian only: %s.",
+    "I testi di questi strumenti restano nella loro lingua: %s.":
+        "The texts of these tools stay in their own language: %s.",
     "sitemap": "sitemap",
     "link interni": "internal links",
 

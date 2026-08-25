@@ -205,6 +205,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </p>
 <p class='meta'>2026-01-01T00:00:00+0000 · 3 pagine trovate via sitemap · 4 chunk · mercato eu · v0.0.0</p>
 </header>
+<p class='disclaimer'>I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).</p>
 <section class='hero'>
 <div class='hero-voto'>
 <div class='quadrante warn'>
@@ -542,8 +543,8 @@ Disallow:</pre>
 <ul class='rilievi'>
 <li>axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali</li>
 <li>[axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)</li>
-<li>[axe:serious] Il contrasto deve essere sufficiente (1 elementi su 1 pagine)</li>
-<li>[axe:moderate] I campi di modulo devono avere un&#x27;etichetta (1 elementi su 1 pagine)</li>
+<li>[axe:serious] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore (1 elementi su 1 pagine)</li>
+<li>[axe:moderate] Form elements must have labels (1 elementi su 1 pagine)</li>
 <li>[1.1.1] 1/2 immagini prive di testo alternativo</li>
 <li>[1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)</li>
 <li>[1.3.1/3.3.2] 1 campi di modulo senza etichetta</li>
@@ -558,9 +559,14 @@ Disallow:</pre>
 <span class='fix'>Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
 </li>
 <li id='r-wcag-axe-color-contrast'>
-<b>Il contrasto deve essere sufficiente</b>
+<b>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</b>
 <a class='ancora' href='#r-wcag-axe-color-contrast' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+</li>
+<li id='r-wcag-axe-label'>
+<b>Form elements must have labels</b>
+<a class='ancora' href='#r-wcag-axe-label' aria-label='Link a questo rilievo'>#</a>
+<span class='fix'>Ensure every form element has a label</span>
 </li>
 <li id='r-wcag-img-alt-missing'>
 <b>1/2 immagini prive di testo alternativo</b>
@@ -829,8 +835,8 @@ Disallow:</pre>
 <li>Gli elementi immagine non hanno attributi `[alt]`</li>
 <li>1 blocchi JSON-LD malformati</li>
 <li>Le immagini devono avere un testo alternativo</li>
-<li>Il contrasto deve essere sufficiente</li>
-<li>I campi di modulo devono avere un&#x27;etichetta</li>
+<li>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</li>
+<li>Form elements must have labels</li>
 <li>1/2 immagini prive di testo alternativo</li>
 <li>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</li>
 <li>1 campi di modulo senza etichetta</li>
@@ -910,7 +916,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>7</span> <a href='#r-wcag-axe-color-contrast'>Il contrasto deve essere sufficiente</a>
+<span class='priorita'>7</span> <a href='#r-wcag-axe-color-contrast'>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -972,11 +978,13 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>13</span> I campi di modulo devono avere un&#x27;etichetta</h3>
+<span class='priorita'>13</span> <a href='#r-wcag-axe-label'>Form elements must have labels</a>
+</h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
 <p class='guadagno'>+7 punti d'area (37 → 44) · indice di citabilità +0.88 (mercato eu, stima)</p>
+<span class='fix'>Ensure every form element has a label</span>
 </div>
 <div class='intervento'>
 <div class='riga'>

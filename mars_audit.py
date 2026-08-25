@@ -43,7 +43,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
-                            llm=llm, queries=queries)
+                            llm=llm, queries=queries, lang=lang)
 
     if context is None:
         print("Nessuna pagina indicizzata.")

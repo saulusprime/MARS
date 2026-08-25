@@ -2,6 +2,8 @@
 
 *2026-01-01T00:00:00+0000 · v0.0.0 · 3 pagine trovate via sitemap · 4 chunk · mercato eu*
 
+*I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).*
+
 ## Complessivo
 
 **66/100** — da migliorare
@@ -58,8 +60,8 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - Gli elementi immagine non hanno attributi `[alt]`
 - 1 blocchi JSON-LD malformati
 - Le immagini devono avere un testo alternativo
-- Il contrasto deve essere sufficiente
-- I campi di modulo devono avere un'etichetta
+- Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore
+- Form elements must have labels
 - 1/2 immagini prive di testo alternativo
 - 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
 - 1 campi di modulo senza etichetta
@@ -82,7 +84,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
 - [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: giorni*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
-- [ ] [AVVISO] Il contrasto deve essere sufficiente — *Accessibilità · sforzo: non dichiarato · +18 punti d'area · indice +2.26*
+- [ ] [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore — *Accessibilità · sforzo: non dichiarato · +18 punti d'area · indice +2.26*
       Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
 - [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: ore · +10 punti d'area · indice +1.58*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
@@ -90,7 +92,8 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
 - [ ] [AVVISO] I link non hanno testo descrittivo — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
 - [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
-- [ ] [AVVISO] I campi di modulo devono avere un'etichetta — *Accessibilità · sforzo: non dichiarato · +7 punti d'area · indice +0.88*
+- [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +7 punti d'area · indice +0.88*
+      Ensure every form element has a label
 - [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +12 punti d'area · indice +0.75*
       Configura il server per impostare l'header CSP.
 - [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: ore*
@@ -165,9 +168,10 @@ Nessun rilievo.
 - [INFO] axe non ha esaminato 1 delle 3 pagine del campione
 - **[CRITICO]** Le immagini devono avere un testo alternativo
   *Correzione:* Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
-- [AVVISO] Il contrasto deve essere sufficiente
+- [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore
   *Correzione:* Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
-- [AVVISO] I campi di modulo devono avere un'etichetta
+- [AVVISO] Form elements must have labels
+  *Correzione:* Ensure every form element has a label
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 

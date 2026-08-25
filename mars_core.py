@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1459,7 +1459,8 @@ def build_context(url: str, max_pages: int = 10,
                   owner_declaration: bool = False,
                   llm: str = "auto",
                   queries: Optional[List[str]] = None,
-                  credentials: Optional[dict] = None) -> Optional[dict]:
+                  credentials: Optional[dict] = None,
+                  lang: str = "it") -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -1487,6 +1488,13 @@ def build_context(url: str, max_pages: int = 10,
         "embeddings_model": embeddings_model,
         "force_proxy": embeddings_model.lower() == "none",
         "market": market,
+        # La lingua NON e' solo una scelta di resa: gli strumenti
+        # esterni producono i propri testi al momento della misura, e
+        # glieli si deve chiedere adesso. Lighthouse ha `--locale`, axe
+        # ha i file di locale del suo pacchetto; ZAP parla inglese e
+        # basta. Il referto dichiara che cosa e' rimasto nella lingua
+        # dello strumento invece di lasciarlo intuire.
+        "lang": lang,
         # Registrati nel contesto perche' finiscano nel referto: chi lo
         # legge deve sapere se e cosa e' stato saltato, e se robots.txt
         # e' stato ignorato per dichiarazione di proprieta'.

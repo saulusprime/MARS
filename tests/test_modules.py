@@ -1158,28 +1158,62 @@ def test_wcag_la_suite_non_legge_il_locale_vero():
     assert mars_wcag.testi_axe() == TESTI_AXE
 
 
-def test_wcag_il_fix_axe_viene_dal_locale():
-    """La prescrizione italiana finisce nel rilievo, verbatim."""
+def test_wcag_i_due_testi_axe_vengono_dal_locale():
+    """Titolo e prescrizione, tutti e due dal locale — e' R44.
+
+    Prima il `fix` veniva dal locale italiano e il titolo restava il
+    `help` inglese che axe manda nella risposta: il referto diceva
+    «Images must have alternative text» dentro un'interfaccia italiana,
+    accanto a un fix che italiano lo era.
+
+    Restano frasi DIVERSE, ed e' il punto della coppia: `help` dice che
+    cosa deve valere, `description` che cosa fare perche' valga."""
     esito = mars_wcag.score_from_violations(
         [{"id": "image-alt", "impact": "critical",
-          "help": "Images must have alternative text", "nodes": [0]}], 1)
+          "help": "Images must have alternative text",
+          "description": "Ensure <img> elements have alternative text",
+          "nodes": [0]}], 1)
     rilievo = esito["findings"][0]
-    assert rilievo["fix"] == TESTI_AXE["image-alt"]
-    # E resta un fix, non un titolo: il titolo e' quello che ha detto
-    # axe girando, che e' un'altra frase e un'altra lingua.
+    assert rilievo["title"] == TESTI_AXE["image-alt"]["help"]
+    assert rilievo["fix"] == TESTI_AXE["image-alt"]["description"]
+    assert rilievo["title"] != rilievo["fix"]
+
+
+def test_wcag_in_inglese_i_testi_axe_vengono_dalla_risposta():
+    """Per l'inglese non c'e' un file di locale, e non serve: axe manda
+    `help` e `description` gia' in inglese dentro la violazione.
+
+    E' la ragione per cui `percorso_locale_axe("en")` e' vuoto: cercare
+    un file che non esiste e dichiararne l'assenza segnalerebbe un
+    difetto dove non ce n'e' uno."""
+    assert mars_wcag.percorso_locale_axe("en") == ""
+    esito = mars_wcag.score_from_violations(
+        [{"id": "image-alt", "impact": "critical",
+          "help": "Images must have alternative text",
+          "description": "Ensure <img> elements have alternative text",
+          "nodes": [0]}], 1, "en")
+    rilievo = esito["findings"][0]
     assert rilievo["title"] == "Images must have alternative text"
+    assert rilievo["fix"] == "Ensure <img> elements have alternative text"
+    # E nessun rilievo di stato: non manca nulla.
+    assert not [f for f in esito["findings"]
+                if f["key"] == "wcag.status.no_fixes"]
 
 
-def test_wcag_regola_che_il_locale_non_conosce_resta_senza_fix():
+def test_wcag_regola_che_il_locale_non_conosce_resta_nella_lingua_di_axe():
     """`axe.configure` permette regole aggiunte a mano: non sono tradotte.
 
-    Meglio un `fix` vuoto che il fix di un'altra regola, ed e' anche
-    perche' `testi_axe` restituisce una mappa e non una lista.
+    Meglio i testi inglesi di axe che quelli di un'altra regola, ed e'
+    anche perche' `testi_axe` restituisce una mappa e non una lista.
+    Il ripiego e' campo per campo, come in `mars_i18n.finding_texts`.
     """
     esito = mars_wcag.score_from_violations(
         [{"id": "regola-di-un-addon", "impact": "serious",
-          "help": "Qualcosa", "nodes": [0]}], 1)
-    assert esito["findings"][0]["fix"] == ""
+          "help": "Something must hold",
+          "description": "Ensure something holds", "nodes": [0]}], 1)
+    rilievo = esito["findings"][0]
+    assert rilievo["title"] == "Something must hold"
+    assert rilievo["fix"] == "Ensure something holds"
 
 
 def test_wcag_senza_locale_lo_dichiara(monkeypatch):
@@ -1190,7 +1224,7 @@ def test_wcag_senza_locale_lo_dichiara(monkeypatch):
     rilievo di stato, un `fix` vuoto sembrerebbe un `fix` che non
     serviva.
     """
-    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    monkeypatch.setattr(mars_wcag, "testi_axe", lambda lang="it": {})
     esito = mars_wcag.score_from_violations(
         [{"id": "image-alt", "impact": "critical", "help": "x", "nodes": [0]},
          {"id": "label", "impact": "moderate", "help": "y", "nodes": [0]}], 1)
@@ -1198,6 +1232,7 @@ def test_wcag_senza_locale_lo_dichiara(monkeypatch):
              if f["key"] == "wcag.status.no_fixes"]
     assert len(stato) == 1, "uno, non uno per regola"
     assert stato[0]["params"]["regole"] == 2
+    assert stato[0]["params"]["lang"] == "it"
     assert stato[0]["severity"] == mars_core.SEV_INFO
     # Sta in testa, come wcag.status.partial: i rilievi sullo stato
     # della scansione precedono quelli sul sito.
@@ -1210,15 +1245,32 @@ def test_wcag_il_locale_assente_non_tocca_il_punteggio(monkeypatch):
     E' la ragione per cui il locale si legge in Python e non lo si
     passa a `axe.configure` dentro la pagina: la' un file rotto farebbe
     fallire `axe.run`, e con lui l'intera area.
+
+    Da U9.3 le `issues` invece CAMBIANO, ed e' voluto: la riga compatta
+    porta il titolo tradotto, quindi senza locale torna quello inglese
+    di axe. Prima non cambiavano perche' erano inglesi in entrambi i
+    casi — cioe' il difetto R44 misurato al contrario.
     """
     violazioni = [{"id": "image-alt", "impact": "critical",
-                   "help": "x", "nodes": [0, 1]}]
+                   "help": "Images must have alternative text",
+                   "description": "Ensure <img> elements have alt text",
+                   "nodes": [0, 1]}]
     con = mars_wcag.score_from_violations(violazioni, 1)
-    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    monkeypatch.setattr(mars_wcag, "testi_axe",
+                        lambda lang="it": {})
     senza = mars_wcag.score_from_violations(violazioni, 1)
     assert con["score"] == senza["score"]
-    assert con["issues"] == senza["issues"]
     assert con["rules_violated"] == senza["rules_violated"]
+
+    def penalita(esito):
+        return [f["params"]["penalty"] for f in esito["findings"]
+                if f["key"].startswith("wcag.axe.")]
+
+    assert penalita(con) == penalita(senza)
+    # I testi sì: e' l'unica cosa che il locale porta.
+    assert con["issues"] != senza["issues"]
+    assert TESTI_AXE["image-alt"]["help"] in con["issues"][0]
+    assert "Images must have alternative text" in senza["issues"][0]
 
 
 def test_wcag_senza_violazioni_non_dichiara_il_locale(monkeypatch):
@@ -1227,7 +1279,8 @@ def test_wcag_senza_violazioni_non_dichiara_il_locale(monkeypatch):
     Nessuna violazione, nessun fix da scrivere: dichiarare la mancanza
     di testi che non servivano sarebbe rumore in un referto pulito.
     """
-    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    monkeypatch.setattr(mars_wcag, "testi_axe",
+                        lambda lang="it": {})
     assert mars_wcag.score_from_violations([], 1)["findings"] == []
 
 
@@ -1237,13 +1290,13 @@ def test_wcag_no_fixes_non_espone_il_percorso_della_macchina(monkeypatch):
     Stessa regola per cui `detail` non porta mai il proxy o la chiave
     di ZAP (test_wapt_nessuna_credenziale_nei_rilievi).
     """
-    monkeypatch.setattr(mars_wcag, "testi_axe", dict)
+    monkeypatch.setattr(mars_wcag, "testi_axe", lambda lang="it": {})
     esito = mars_wcag.score_from_violations(
         [{"id": "image-alt", "impact": "critical", "help": "x",
           "nodes": [0]}], 1)
-    assert mars_wcag.AXE_LOCALE not in json.dumps(esito["findings"])
-    assert os.path.dirname(mars_wcag.AXE_LOCALE) not in json.dumps(
-        esito["findings"])
+    percorso = mars_wcag.percorso_locale_axe("it")
+    assert percorso not in json.dumps(esito["findings"])
+    assert os.path.dirname(percorso) not in json.dumps(esito["findings"])
 
 
 def test_wcag_il_lettore_del_locale_regge_un_file_che_non_c_e():
@@ -1270,13 +1323,20 @@ def test_wcag_il_lettore_del_locale_ignora_le_regole_senza_descrizione(
         "a": {"description": "Assicurati di a", "help": "A"},
         "b": {"help": "B"},
         "c": "non un dict",
+        "d": {},
     }}), encoding="utf-8")
+    # `b` sopravvive col solo `help`: e' un titolo tradotto senza
+    # prescrizione, e il `fix` ripiega su quello che ha detto axe.
+    # `d`, che non ha nulla, non entra affatto — una chiave presente e
+    # vuota spegnerebbe `wcag.status.no_fixes` senza avere nulla da dire.
     assert mars_wcag._leggi_locale_axe(str(parziale)) == {
-        "a": "Assicurati di a"}
+        "a": {"description": "Assicurati di a", "help": "A"},
+        "b": {"help": "B"}}
 
 
-@pytest.mark.skipif(not os.path.exists(mars_wcag.AXE_LOCALE),
-                    reason="axe-core non installato (npm install)")
+@pytest.mark.skipif(
+    not os.path.exists(mars_wcag.percorso_locale_axe("it")),
+    reason="axe-core non installato (npm install)")
 def test_wcag_il_locale_vero_si_legge_e_copre_le_regole():
     """L'unico test che tocca `node_modules`, e per questo puo' saltare.
 
@@ -1285,14 +1345,26 @@ def test_wcag_il_locale_vero_si_legge_e_copre_le_regole():
     altrimenti la fixture congelerebbe un'idea sbagliata del file, e
     nessun test se ne accorgerebbe.
     """
-    testi = mars_wcag._leggi_locale_axe(mars_wcag.AXE_LOCALE)
+    testi = mars_wcag._leggi_locale_axe(mars_wcag.percorso_locale_axe("it"))
     assert len(testi) > 50, "un locale axe elenca un centinaio di regole"
     for regola, atteso in TESTI_AXE.items():
         assert testi[regola] == atteso, (
             "il locale di axe-core e' cambiato: rivedere TESTI_AXE")
-    # Sono prescrizioni, non descrizioni: e' cio' che le rende un `fix`.
-    imperativi = [t for t in testi.values() if t.startswith("Assicurati")]
+    # Le `description` sono prescrizioni: e' cio' che le rende un `fix`.
+    imperativi = [v["description"] for v in testi.values()
+                  if v.get("description", "").startswith("Assicurati")]
     assert len(imperativi) > len(testi) * 0.9
+    # E gli `help` in stragrande maggioranza NON sono prescrizioni:
+    # dicono che cosa deve valere, ed e' la ragione per cui i due campi
+    # non sono intercambiabili. Misurato sul locale 4.13.0: 100
+    # `description` imperative su 103 regole, e 2 `help` — due voci in
+    # cui Deque ha invertito i due campi (`landmark-unique` e
+    # `presentation-role-conflict`). Sono le eccezioni del file vero,
+    # non un difetto nostro, e il test dice "quasi nessuno" invece di
+    # "nessuno" perche' e' quello che si misura.
+    imperativi_sbagliati = [v for v in testi.values()
+                            if v.get("help", "").startswith("Assicurati")]
+    assert len(imperativi_sbagliati) < len(testi) * 0.05
 
 
 # ----------------------------------------------------------------------

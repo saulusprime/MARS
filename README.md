@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.7.0
+Versione 2.8.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -111,8 +111,8 @@ HTTP, testo dei link, link scansionabili, robots.txt, testi alternativi,
 hreflang, canonical e i dati strutturati da verificare a mano — con gli
 elementi incriminati di ciascuno, superati compresi: un punteggio pieno
 deve potersi distinguere da un controllo che non e' stato eseguito. I
-titoli arrivano in italiano da Lighthouse stesso (--locale=it), non da
-una nostra traduzione.
+titoli arrivano da Lighthouse stesso, nella lingua del referto
+(--locale), non da una nostra traduzione.
 
 Il referto dichiara sempre versione di Lighthouse e tipo di dispositivo
 (oggi mobile, il predefinito dello strumento): un referto mobile e uno
@@ -127,6 +127,13 @@ risultati sbagliati, che e' peggio che non darli. Per attivarlo:
     pip install -r requirements-optional.txt
     python -m playwright install chromium
     npm install axe-core     (oppure e' gia' in node_modules)
+
+I testi delle regole axe — il titolo del rilievo e la sua correzione —
+vengono dal file di locale che axe-core porta nel proprio pacchetto npm,
+scelto secondo --lang. Per l'inglese non ce n'e' uno e non serve: axe
+manda i suoi testi in inglese dentro la risposta. Una regola che il
+locale non conosce (axe.configure ne permette di aggiunte a mano) resta
+nella lingua di axe, e il referto lo dichiara.
 
 Il browser e' lento, quindi axe gira sulle prime pagine del campione e
 il referto dichiara quante ne ha viste. Senza Playwright o axe-core si
@@ -338,6 +345,12 @@ Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
                         si vogliono impostare come variabili d'ambiente
                         sul server (vedi sotto).
 
+Nessun campo "lang". Gli endpoint restituiscono tutti il dato canonico e
+nessuno rende prosa, quindi una lingua nel corpo della richiesta sarebbe
+configurazione che non configura nulla. La traduzione la fa chi consuma il
+JSON, che ha `key` e `params` su ogni rilievo. Il giorno che l'API esporra'
+una resa HTML o testuale, il campo nascera' con lei.
+
 Credenziali nella richiesta. Il campo "credentials" accetta:
 
     anthropic_api_key   abilita il giudizio LLM (area 9)
@@ -404,6 +417,8 @@ Uso:
         --format html --output report.html
     python3 mars_audit.py https://example.com --queries q.txt \\
         --embeddings sentence-transformers/all-MiniLM-L6-v2
+    python3 mars_audit.py https://example.com --lang en \\
+        --format html --output report-en.html
 
 Query della simulazione RRF (--queries FILE, una per riga, UTF-8).
 Senza il flag si usano quattro query generiche nella lingua prevalente
@@ -437,6 +452,36 @@ Formati del referto (--format, predefinito text):
     csv       una riga per rilievo, con punto e virgola e BOM UTF-8: si
               apre in Excel o Fogli con gli accenti giusti e le colonne
               separate
+
+Lingua del referto (--lang, predefinito it). Due lingue: **it** ed **en**.
+E' un livello dichiaratamente inferiore al riferimento a cinque lingue, e la
+ragione sta in testa a mars_i18n.py con la misura che l'ha motivata — dei
+cataloghi del progetto di riferimento coincidono 4 chiavi su 49, perche' non
+ha una sola chiave per le aree accessibilita', sicurezza e SEO. Le traduzioni
+si scrivono, e quattro lingue che nessuno qui puo' verificare sarebbero
+quattro lingue di qualita' non misurata.
+
+--lang non e' solo una scelta di resa: e' anche la lingua che si chiede agli
+strumenti esterni, perche' i loro testi nascono al momento della misura.
+Lighthouse la riceve come --locale, axe-core sceglie di conseguenza il file
+di locale del proprio pacchetto npm, ZAP parla inglese e basta. Il referto
+dichiara in testa quali strumenti hanno scritto in un'altra lingua, e lo fa
+anche in italiano: un referto che tacesse l'inglese di ZAP lascerebbe credere
+a una dimenticanza cio' che e' un limite dello strumento.
+
+Cio' che nessuna lingua puo' tradurre resta com'e', e il referto lo dice: le
+evidenze citate dal sito analizzato (un titolo mancante, il testo di un link
+generico), la prosa del giudizio LLM, e le aree lessicale e semantica, che
+non producono rilievi strutturati e parlano solo attraverso le proprie righe
+compatte.
+
+Il JSON e' **canonico e resta in italiano** per tutto cio' che scrive MARS,
+in ogni lingua: e' il dato da cui le altre viste derivano, e due JSON diversi
+per lingua sarebbero due dati canonici. Chi lo consuma da un programma ha
+`key` e `params` su ogni rilievo e traduce da se'. Fanno eccezione — e non
+poteva essere altrimenti — i testi che vengono da axe, ZAP e Lighthouse:
+quelli nascono nella lingua con cui l'audit ha girato, e ogni rilievo la
+dichiara in `params["text_lang"]`.
 
 Il JSON dichiara la versione del proprio schema in `schema_version`, che è
 cosa diversa dalla versione del programma: sale **solo** su un cambiamento

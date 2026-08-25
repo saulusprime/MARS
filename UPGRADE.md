@@ -568,7 +568,34 @@ referenzia origini esterne.
 
 ---
 
-### Fase 9 — i18n del referto (G05)
+### Fase 9 — i18n del referto (G05) — ✅ CHIUSA (2026-08-25)
+
+> **Come è stata fatta davvero, e in che cosa differisce da questo piano.**
+> Le voci U9.1-U9.3 stanno in [AS-IS.md](AS-IS.md); qui restano le due
+> divergenze che chi rilegge il piano deve conoscere.
+>
+> **Le lingue sono due, it ed en, non cinque** (decisione D4). Il piano
+> prevede di riusare i cataloghi di marsbeacon «dove i controlli coincidono»:
+> misurato prima di cominciare, il riferimento ha 145 chiavi, MARS ne emette
+> 49, e **ne coincidono quattro**. Non è una questione di nomi da riallineare
+> — il riferimento copre `tech`/`sem`/`lex`/`sd`/`rrf` e non ha una sola
+> chiave `wcag.`, `sec.` o `seo.`, che sono tre delle nove aree di MARS. Le
+> traduzioni si scrivono, e quattro lingue che nessuno qui può verificare
+> sarebbero quattro lingue di qualità non misurata. È **dichiarato** come
+> livello inferiore, e l'impianto non assume che le lingue siano due.
+>
+> **Il catalogo della cornice è indicizzato sul testo italiano**, non su
+> chiavi simboliche: così l'italiano resta scritto nel renderer e la stessa
+> funzione traduce anche i testi che arrivano dal dato. Il prezzo — due
+> significati che condividono una stringa — si paga col `contesto` di `t()`,
+> che è il `msgctxt` di gettext.
+>
+> **Il JSON resta canonico italiano** come previsto al passo 2, con una
+> eccezione che il piano non poteva prevedere: i testi di axe, ZAP e
+> Lighthouse nascono al momento della misura, quindi nella lingua con cui
+> l'audit ha girato. Ogni rilievo la dichiara in `params["text_lang"]`.
+
+
 
 **Il problema.** Referto solo in italiano cablato (`<html lang='it'>`
 fisso a `mars_report.py:796`, etichette hardcoded tipo `STATO_LEGGIBILE`

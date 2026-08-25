@@ -26,12 +26,26 @@ AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
 AXE_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       "node_modules", "axe-core", "axe.min.js")
 
-# I testi di correzione delle regole axe vengono da axe stesso, non da
-# `mars_fixes`: la regola violata la conosce lui, e le sue sono oltre
-# cento. Il locale italiano viaggia nello stesso pacchetto npm di
-# axe.min.js, quindi dove c'e' l'uno c'e' quasi sempre l'altro.
-AXE_LOCALE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "node_modules", "axe-core", "locales", "it.json")
+# I testi delle regole axe vengono da axe stesso, non da `mars_fixes`:
+# la regola violata la conosce lui, e le sue sono oltre cento. I file di
+# locale viaggiano nello stesso pacchetto npm di axe.min.js, quindi dove
+# c'e' l'uno c'e' quasi sempre l'altro.
+#
+# axe parla **inglese di suo**: `help` e `description` arrivano gia'
+# nella risposta di `axe.run`. Un file di locale serve solo per le altre
+# lingue, e per l'inglese non esiste affatto — cercarlo e non trovarlo
+# non e' un difetto (R44).
+AXE_LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "node_modules", "axe-core", "locales")
+LINGUA_NATIVA_AXE = "en"
+
+
+def percorso_locale_axe(lang: str) -> str:
+    """Il file di locale di axe per una lingua. Vuoto per l'inglese."""
+    if not lang or lang == LINGUA_NATIVA_AXE:
+        return ""
+    return os.path.join(AXE_LOCALE_DIR, "%s.json" % lang)
+
 
 # Browser lento: si controllano le prime pagine, non tutte. Dichiarato
 # nel referto, cosi' nessuno crede che sia stato guardato l'intero sito.
@@ -219,14 +233,21 @@ def axe_disponibile() -> bool:
     return True
 
 
-def _leggi_locale_axe(percorso: str) -> Dict[str, str]:
-    """Il file di locale di axe-core come mappa id -> `description`.
+def _leggi_locale_axe(percorso: str) -> Dict[str, Dict[str, str]]:
+    """Il file di locale di axe-core come mappa id -> {help, description}.
+
+    **Tutti e due i testi, non piu' la sola `description`** (R44): fino
+    a U9.2 il titolo del rilievo era il `help` inglese che axe manda
+    nella risposta, e usciva dentro un referto italiano accanto a un
+    `fix` che italiano lo era — perche' quello veniva di qui.
 
     Separata da `testi_axe` per essere verificabile: quella e'
     memoizzata, e una funzione con una cache non si interroga due volte
     su due file diversi. Qui il percorso e' un argomento, quindi il
     file vero e un file che non esiste si provano tutti e due.
     """
+    if not percorso:
+        return {}
     try:
         with open(percorso, encoding="utf-8") as fh:
             regole = (json.load(fh) or {}).get("rules") or {}
@@ -235,14 +256,24 @@ def _leggi_locale_axe(percorso: str) -> Dict[str, str]:
         # i testi non ci sono. Quale delle tre non cambia nulla per
         # chi legge il referto.
         return {}
-    return {str(chiave): str(voce["description"]).strip()
-            for chiave, voce in regole.items()
-            if isinstance(voce, dict) and voce.get("description")}
+    testi: Dict[str, Dict[str, str]] = {}
+    for chiave, voce in regole.items():
+        if not isinstance(voce, dict):
+            continue
+        # Una voce puo' avere l'uno e non l'altro: si tiene cio' che
+        # c'e', e chi legge ripiega campo per campo sul testo che axe
+        # ha mandato con la violazione.
+        campi = {nome: str(voce[nome]).strip()
+                 for nome in ("help", "description")
+                 if voce.get(nome)}
+        if campi:
+            testi[str(chiave)] = campi
+    return testi
 
 
-@lru_cache(maxsize=1)
-def testi_axe() -> Dict[str, str]:
-    """id della regola -> prescrizione italiana, dal locale di axe-core.
+@lru_cache(maxsize=4)
+def testi_axe(lang: str = "it") -> Dict[str, Dict[str, str]]:
+    """id della regola -> i suoi due testi nella lingua chiesta.
 
     axe descrive ogni regola due volte: `help` dice che cosa **deve**
     valere ("Le immagini devono avere un testo alternativo"),
@@ -253,9 +284,11 @@ def testi_axe() -> Dict[str, str]:
     specifica del titolo, perche' nomina gli elementi e le vie
     d'uscita che il titolo tace.
 
-    E' l'italiano di Deque, non una nostra traduzione: si aggiorna con
-    axe-core invece di invecchiare accanto a lui. Il file di locale sta
-    dentro il pacchetto npm, quindi non e' una dipendenza in piu'.
+    E' la traduzione di Deque, non una nostra: si aggiorna con axe-core
+    invece di invecchiare accanto a lui. Il file di locale sta dentro il
+    pacchetto npm, quindi non e' una dipendenza in piu'. Per l'inglese
+    non c'e' un file e non serve — axe manda i suoi testi nella
+    risposta, e sono gia' quelli.
 
     Il testo lo si legge QUI e non nel browser (axe accetta un
     `axe.configure({locale})`) per due ragioni: cosi'
@@ -268,13 +301,16 @@ def testi_axe() -> Dict[str, str]:
 
     Memoizzata perche' il file e' un centinaio di kilobyte e la lettura
     ricadrebbe su ogni gruppo di violazioni, mentre il contenuto non
-    cambia dentro un'esecuzione.
+    cambia dentro un'esecuzione. La cache tiene piu' di una voce perche'
+    la lingua e' un argomento: con `maxsize=1` due audit in due lingue
+    dentro lo stesso processo — l'API — si sfratterebbero a vicenda.
     """
-    return _leggi_locale_axe(AXE_LOCALE)
+    return _leggi_locale_axe(percorso_locale_axe(lang))
 
 
 def score_from_violations(violations: List[dict],
-                          pagine_testate: int = 1) -> dict:
+                          pagine_testate: int = 1,
+                          lang: str = "it") -> dict:
     """Punteggio dalle violazioni axe, raggruppate per REGOLA.
 
     Raggruppare e' necessario: axe restituisce le violazioni pagina per
@@ -299,7 +335,12 @@ def score_from_violations(violations: List[dict],
             "id": chiave,
             "impact": str(grezzo or "minor").lower(),
             "impact_dichiarato": bool(grezzo),
+            # I due testi COME AXE LI HA MANDATI, cioe' in inglese.
+            # Sono il ripiego quando il locale non conosce la regola:
+            # axe puo' segnalarne di aggiunte a mano con
+            # `axe.configure`, e un add-on non sta dentro axe-core.
             "help": violazione.get("help") or chiave,
+            "description": violazione.get("description") or "",
             "help_url": violazione.get("helpUrl") or "",
             "nodes": 0, "pages": 0,
         })
@@ -317,19 +358,28 @@ def score_from_violations(violations: List[dict],
         conteggio[voce["impact"]] = conteggio.get(voce["impact"], 0) + 1
         voce["penalty"] = costo
 
-    testi = testi_axe()
+    testi = testi_axe(lang)
     ordinate = sorted(per_regola.values(),
                       key=lambda v: -PESI_AXE.get(v["impact"], 2))
     for voce in ordinate:
         severita, peso = normalizza_severita("axe", voce["impact"])
+        tradotti = testi.get(voce["id"]) or {}
+        # Il titolo risolto si conserva sulla voce: lo usa il rilievo e
+        # lo usa la riga compatta qui sotto. Ricalcolarlo la' sarebbe la
+        # solita coppia di implementazioni che diverge in silenzio — ed
+        # era divergente davvero, perche' la riga compatta leggeva
+        # `voce["help"]` e restava in inglese mentre il rilievo era
+        # tradotto.
+        voce["titolo"] = tradotti.get("help") or voce["help"]
         rilievi_dato.append(Finding(
             area="mars_wcag", severity=severita, weight=peso,
             key="wcag.axe.%s" % chiave_esterna(voce["id"]),
-            title=voce["help"],
-            # Vuoto per una regola che il locale non conosce: axe puo'
-            # segnalarne di aggiunte a mano con `axe.configure`, e un
-            # add-on non ha una traduzione dentro axe-core.
-            fix=testi.get(voce["id"], ""),
+            # Il locale se c'e', altrimenti cio' che axe ha mandato.
+            # Prima il titolo era SEMPRE l'inglese della risposta, e
+            # usciva dentro un referto italiano accanto a un `fix` che
+            # italiano lo era: e' il difetto R44.
+            title=voce["titolo"],
+            fix=tradotti.get("description") or voce["description"],
             url=voce["help_url"],
             # Vuoto quando axe NON ha dichiarato l'impact: scrivere
             # "axe:minor" dove axe ha taciuto significherebbe
@@ -337,37 +387,45 @@ def score_from_violations(violations: List[dict],
             source_severity=("axe:%s" % voce["impact"]
                              if voce["impact_dichiarato"] else ""),
             params={"rule": voce["id"], "nodes": voce["nodes"],
-                    "pages": voce["pages"], "penalty": voce["penalty"]}))
+                    "pages": voce["pages"], "penalty": voce["penalty"],
+                    # Per REGOLA e non per area: un locale copre quasi
+                    # tutte le regole ma non quelle aggiunte a mano, e
+                    # dire "l'area e' in italiano" con dentro due
+                    # regole inglesi sarebbe la mezza verita' che il
+                    # referto evita ovunque.
+                    "text_lang": (lang if tradotti
+                                  else LINGUA_NATIVA_AXE)}))
 
-    # Senza il locale i rilievi axe restano senza `fix`, e nessuno se
-    # ne accorgerebbe: un campo vuoto sembra un campo che non serviva.
-    # E' la degradazione non dichiarata che il principio 2 vieta, ed e'
-    # la stessa ragione per cui `mars_fixes` e' un file Python e non un
-    # JSON. Si dichiara SOLO quando costa qualcosa, cioe' quando ci
-    # sono violazioni da vestire.
+    # Senza il file di locale i testi axe restano nella lingua di axe,
+    # cioe' in inglese dentro un referto che inglese non e'. Non e'
+    # piu' un `fix` che manca — quello arriva comunque dalla risposta —
+    # ma una LINGUA che manca, ed e' la degradazione non dichiarata che
+    # il principio 2 vieta. Si dichiara SOLO quando costa qualcosa:
+    # quando ci sono violazioni da vestire e la lingua chiesta non e'
+    # quella nativa di axe.
     #
     # Rilievo e non issue, a differenza di `wcag.status.partial`: la
     # riga compatta elenca cio' che non va nel SITO, e una scansione
     # parziale ci sta perche' cambia come si legge il punteggio.
-    # Questa no — il punteggio e' lo stesso, mancano le istruzioni.
+    # Questa no — il punteggio e' lo stesso, cambia solo la lingua.
     stato: List[Finding] = []
-    if rilievi_dato and not testi:
+    if rilievi_dato and not testi and percorso_locale_axe(lang):
         stato.append(Finding(
             area="mars_wcag", severity=SEV_INFO, key="wcag.status.no_fixes",
-            title="Testi di correzione axe non disponibili: manca il "
-                  "locale italiano di axe-core",
-            # Il percorso RELATIVO, non `AXE_LOCALE`: quello e'
-            # assoluto, e un referto si consegna a un cliente. La
-            # struttura delle directory della macchina che ha fatto
-            # girare la scansione non e' un suo problema, ed e' la
-            # stessa regola per cui `detail` non porta mai il proxy o
-            # la chiave di ZAP.
-            detail="atteso in node_modules/axe-core/locales/it.json",
-            params={"regole": len(rilievi_dato)}))
+            title="Testi axe non tradotti: manca il locale '%s' di "
+                  "axe-core" % lang,
+            # Il percorso RELATIVO, non quello assoluto: un referto si
+            # consegna a un cliente, e la struttura delle directory
+            # della macchina che ha fatto girare la scansione non e' un
+            # suo problema — la stessa regola per cui `detail` non
+            # porta mai il proxy o la chiave di ZAP.
+            detail="atteso in node_modules/axe-core/locales/%s.json"
+                   % lang,
+            params={"regole": len(rilievi_dato), "lang": lang}))
 
     # La vista compatta ne mostra cinque; il dato li porta tutti.
     rilievi = ["[axe:%s] %s (%d elementi su %d pagine)"
-               % (v["impact"], v["help"], v["nodes"], v["pages"])
+               % (v["impact"], v["titolo"], v["nodes"], v["pages"])
                for v in ordinate[:5]]
     return {"score": max(0, round(100 - penalita)),
             "violations_by_impact": conteggio,
@@ -501,7 +559,8 @@ def audit(context: dict) -> dict:
             # La diffusione si misura sulle pagine ANALIZZATE, non su
             # quelle tentate, altrimenti una regola presente su tutte
             # sembrerebbe presente su meno.
-            esito = score_from_violations(violazioni, analizzate)
+            esito = score_from_violations(violazioni, analizzate,
+                                          context.get("lang") or "it")
             rilievi = list(esito["issues"])
             # Il rilievo di stato, se la scansione e' stata parziale.
             parziale: List[dict] = []

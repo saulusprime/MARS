@@ -1057,6 +1057,34 @@ def test_build_context_pubblica_il_delay_effettivo(monkeypatch):
     assert pause and max(pause) > 6, "il crawler stesso deve averlo rispettato"
 
 
+def test_build_context_pubblica_la_lingua(monkeypatch):
+    """U9.3: la lingua sta nel contesto accanto a `market` e `llm`.
+
+    Non e' solo una scelta di resa — Lighthouse e axe producono i
+    propri testi al momento della misura, e glieli si deve chiedere
+    allora. Il predefinito e' la lingua canonica, cosi' un chiamante
+    che non la dichiara ottiene cio' che otteneva prima.
+    """
+    risposte = {
+        "http://esempio.test/robots.txt": ("", "text/plain"),
+        "http://esempio.test/": (PAGINA_UTILE, "text/html"),
+    }
+
+    class CrawlerConAdattatore(Crawler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.session.mount("http://", _AdattatoreFinto(risposte))
+
+    monkeypatch.setattr(mars_core, "Crawler", CrawlerConAdattatore)
+    predefinito = mars_core.build_context("http://esempio.test/",
+                                          max_pages=1)
+    chiesta = mars_core.build_context("http://esempio.test/", max_pages=1,
+                                      lang="en")
+    assert predefinito is not None and chiesta is not None
+    assert predefinito["lang"] == "it"
+    assert chiesta["lang"] == "en"
+
+
 # ----------------------------------------------------------------------
 # Rilievi strutturati — Fase 1 del programma UPGRADE
 # ----------------------------------------------------------------------

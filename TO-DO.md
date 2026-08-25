@@ -6,17 +6,17 @@
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
-> **Correzioni chiuse**: R1-R27, R34, R38, R41, R45. **Aperte**: R28-R33,
-> R35-R37, R39-R40 e R42-R44, R46-R48 — trovate *adeguando* i moduli alle Fasi
+> **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45. **Aperte**:
+> R28-R33, R35-R37, R39-R40 e R42-R43, R46-R48 — trovate *adeguando* i moduli alle Fasi
 > 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o testi
 > dentro un commit che cambiava la forma.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`, la versione è **2.7.0**. **Le prime otto fasi sono chiuse** —
-> le loro voci stanno in [AS-IS.md](AS-IS.md). In corso la **U9**, l'i18n:
-> **D4 è ratificata** (it/en, livello inferiore dichiarato), **U9.1 e U9.2
-> sono chiuse**; resta U9.3, la lingua chiesta agli strumenti (con R44).
+> `upgrade`, la versione è **2.8.0**. **Le prime nove fasi sono chiuse** —
+> le loro voci stanno in [AS-IS.md](AS-IS.md). Con U9 **D4 è ratificata**
+> (it/en, livello inferiore dichiarato) e **R44 è chiusa**. La prossima è
+> U10, il giudizio LLM multi-modello.
 >
 > Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
 > di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
@@ -128,7 +128,7 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1-U8 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
+### U1-U9 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
 **U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
 nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
@@ -144,7 +144,7 @@ strumento assente.
 `mars_fixes.py`, i testi che vengono dagli strumenti (axe, ZAP, Lighthouse)
 con la regola «la spiegazione in `detail`, la prescrizione in `fix`», e la
 resa nelle schede d'area e nella vista testo. Bump a 2.2.0. Le ha lasciato
-dietro una sola voce aperta: **R44**.
+dietro una sola voce aperta, **R44**, chiusa poi da U9.3.
 
 **U4 — piano di interventi** (G02), in cinque voci: `mars_remediation.py` come
 funzione pura, la chiave `remediation` nel referto, e la resa nelle tre viste.
@@ -176,36 +176,19 @@ vincolo del referto passa da «nessuno script» a «nessuna origine esterna», c
 rilievi non dichiarano la pagina che li ha prodotti, quindi la treemap non ha
 colore) e **R48** (il grafo non ha un test di comportamento nella suite).
 
+**U9 — i18n del referto** (G05), in tre voci: `mars_i18n.py` col catalogo dei
+rilievi risolto su `key`+`params` (U9.1), la cornice e `lang` passato per mano
+attraverso i renderer, con `--lang` nella CLI (U9.2), e la lingua **chiesta
+agli strumenti** — `--locale` di Lighthouse, il file di locale di axe — che
+chiude **R44** (U9.3). Bump a 2.8.0. Con U9.1 **D4 è ratificata**: due lingue,
+dichiarate come livello inferiore al riferimento, e la misura che lo motiva —
+dei cataloghi di marsbeacon coincidono 4 chiavi su 49 — sta in testa a
+`mars_i18n.py`. L'API **non** ha preso un campo `lang`: nessuno dei suoi
+handler rende prosa, e un campo inerte sarebbe configurazione che non
+configura.
+
 ### Altre fasi
 
-### U9 — i18n del referto (G05, Fase 9) — *in corso*
-
-**U9.1 e U9.2 sono chiuse**, in [AS-IS.md](AS-IS.md): `mars_i18n.py` col
-catalogo `en` dei rilievi e quello della cornice, `lang` passato per mano
-attraverso i renderer, `--lang` nella CLI. I golden restano congelati in `it`
-e nessuna vista di prosa si è mossa.
-
-Misurato chiudendo U9.2: nel referto inglese resta italiano **solo** ciò che
-viene dagli strumenti, più la prosa del modello e il testo del sito. È il
-perimetro esatto della voce che resta.
-
-- [ ] **U9.3 — la lingua chiesta agli strumenti**, che è ciò che chiude
-      **R44**. `wcag.axe.*`, `sec.zap.*` e `seo.lh.*` prendono i testi da axe,
-      ZAP e Lighthouse: `lang` deve entrare nel `context` — come `market` e
-      `llm` — e di lì governare `--locale` di Lighthouse e
-      `axe.configure({locale})`. Ne discendono tre cose da decidere con
-      intenzione, non da scoprire scrivendo:
-      *(a)* con `--lang it` i titoli axe diventano italiani, quindi **i golden
-      di testo, HTML, Markdown e CSV si muovono** — è R44, ed è il primo
-      spostamento di prosa dell'intera Fase 9;
-      *(b)* `_violazioni_axe()` va resa **fedele** nello stesso commit: oggi
-      scrive `help` in italiano e congela un referto più bello di quello vero;
-      *(c)* il JSON canonico smette di essere interamente italiano, perché i
-      testi degli strumenti nascono nella lingua con cui l'audit ha girato.
-      Va dichiarato dove oggi si dice «il JSON resta italiano»: è italiano per
-      tutto ciò che scrive MARS, e nella lingua dell'audit per ciò che
-      scrivono axe, ZAP e Lighthouse. ZAP parla inglese e basta, e anche
-      questo va detto invece che lasciato intuire.
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
       Kimi accanto a Claude.
 - [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
@@ -635,45 +618,6 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 
 - [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
 - [ ] Dire nel referto quando l'icona non è stata incorporata.
-
-### R44 — 🟡 MEDIO: nel ramo axe il referto parla inglese
-*(trovata chiudendo U3.2, il 2026-08-24)*
-
-`mars_wcag.run_axe` chiama `axe.run` senza configurarne il locale, quindi i
-`help` che diventano il **titolo** dei rilievi e il testo delle issues sono
-quelli di serie, cioè in inglese. Verificato caricando la libreria in node:
-
-```
-$ node -e "…axe.getRules(['wcag2a'])…"
-area-alt :: Active <area> elements must have alternative text
-```
-
-Il referto mostra quindi «Images must have alternative text» dentro
-un'interfaccia italiana (principio 6), e da U3.2 accanto a un `fix` che
-italiano lo è — perché quello viene dal locale.
-
-**La fixture del golden lo nasconde**: i `help` di `_violazioni_axe()` sono
-scritti in italiano, quindi `tests/golden/referto.txt` mostra un referto più
-bello di quello vero. È il caso in cui una fixture non fedele congela
-un'illusione, e va sistemato insieme al difetto, non prima.
-
-Due strade, e non sono equivalenti:
-
-- **tradurre in Python**, come si fa già per i `fix`: il locale è lo stesso
-  file, la traduzione costa una riga. Ma resta legata all'italiano, e la Fase
-  9 (i18n, `--lang` per cinque lingue) dovrebbe rifarla;
-- **passare il locale ad axe** con `axe.configure({locale})` prima di
-  `axe.run`: traduce anche i `failureSummary` dei nodi, ed è il meccanismo che
-  axe stesso prevede. Ma un locale illeggibile farebbe fallire `axe.run`, cioè
-  costerebbe **la misura e non solo i testi** — l'esatto contrario di come
-  U3.2 ha deciso di leggerlo. Servirebbe un `try` nel browser.
-
-Entrambe muovono i golden di testo e HTML: da fare in un commit suo, ed è
-**U9.3**, dove la lingua diventa un parametro invece di una costante e si
-chiede allo strumento invece che a noi.
-
-- [ ] Tradurre i titoli axe, scegliendo fra le due strade.
-- [ ] Rendere fedele `_violazioni_axe()` nello stesso commit.
 
 ### R47 — 🟡 MEDIO: nessun rilievo dichiara la pagina che lo ha prodotto
 *(trovata chiudendo U8.3, il 2026-08-25)*

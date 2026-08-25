@@ -20,9 +20,13 @@ from mars_core import (SEV_INFO, Finding, chiave_esterna,
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
 CATEGORIA = "seo"
 
-# I titoli li traduce Lighthouse, non noi: --locale=it li restituisce
-# gia' in italiano, quindi restano allineati allo strumento invece di
-# essere una nostra traduzione destinata a invecchiare.
+# I titoli li traduce Lighthouse, non noi: `--locale` glieli fa
+# restituire gia' nella lingua chiesta, quindi restano allineati allo
+# strumento invece di essere una nostra traduzione destinata a
+# invecchiare. Dalla Fase 9 il valore arriva dal `context`: e' la lingua
+# dell'audit, non una costante — e Lighthouse ne conosce piu' di quelle
+# che MARS serve, quindi non c'e' nulla da validare qui. Questa resta la
+# lingua di ripiego quando il contesto non la dichiara.
 LOCALE = "it"
 
 # Quanti elementi incriminati riportare per audit fallito. Lighthouse
@@ -162,7 +166,8 @@ def _penalita(voce: dict, totale_pesi: float) -> Optional[float]:
     return voce["weight"] / totale_pesi * 100.0 * (1.0 - voce["score"])
 
 
-def _rilievo_audit(voce: dict, totale_pesi: float) -> dict:
+def _rilievo_audit(voce: dict, totale_pesi: float,
+                   text_lang: str = LOCALE) -> dict:
     """Un controllo Lighthouse non superato, come rilievo strutturato.
 
     `source_severity` resta VUOTO, ed e' il caso piu' netto di tutta la
@@ -205,6 +210,12 @@ def _rilievo_audit(voce: dict, totale_pesi: float) -> dict:
         # divergono in silenzio.
         "lh_weight_total": totale_pesi,
         "items": list(voce["items"]),
+        # La lingua in cui LIGHTHOUSE ha scritto questi testi, letta
+        # dal LHR e non da cio' che gli abbiamo chiesto: se non
+        # conosce la lingua richiesta ripiega sull'inglese e lo scrive
+        # in `configSettings.locale`. Serve al referto per dichiarare
+        # che cosa non e' nella sua lingua invece di lasciarlo intuire.
+        "text_lang": text_lang,
     }
     dettaglio, riferimenti = _senza_link_markdown(str(voce["description"]))
     if riferimenti:
@@ -244,6 +255,23 @@ def _descrivi_item(item: object) -> str:
         if isinstance(item.get(chiave), str):
             return item[chiave]
     return ""
+
+
+def lingua_lhr(lhr: dict) -> str:
+    """La lingua in cui Lighthouse ha scritto i testi di questo LHR.
+
+    Si legge da `configSettings.locale`, cioe' da cio' che Lighthouse
+    ha FATTO, non da cio' che gli abbiamo chiesto: davanti a un locale
+    che non conosce ripiega sull'inglese, e un referto che dichiarasse
+    la lingua richiesta direbbe una cosa non vera.
+
+    Il locale di Lighthouse puo' essere regionale (`en-US`, `pt-BR`):
+    si tiene il solo codice di lingua, che e' cio' che il referto
+    confronta con la propria.
+    """
+    impostazioni = lhr.get("configSettings") or {}
+    locale = str(impostazioni.get("locale") or LOCALE)
+    return locale.split("-")[0].lower()
 
 
 def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
@@ -400,7 +428,8 @@ def riassumi(lhr: dict) -> dict:
     # altrimenti nove voci da fare. Il filtro non e' un'ottimizzazione:
     # `severita_lighthouse` decide su modo e peso e NON guarda lo score,
     # quindi un superato a peso 1 uscirebbe `warning`.
-    rilievi = [_rilievo_audit(c, totale_pesi) for c in falliti + manuali]
+    rilievi = [_rilievo_audit(c, totale_pesi, lingua_lhr(lhr))
+               for c in falliti + manuali]
 
     impostazioni = lhr.get("configSettings") or {}
     return {
@@ -422,7 +451,8 @@ def riassumi(lhr: dict) -> dict:
     }
 
 
-def esegui_lighthouse(url: str, lighthouse: str) -> Optional[dict]:
+def esegui_lighthouse(url: str, lighthouse: str,
+                      locale: str = LOCALE) -> Optional[dict]:
     """L'unica parte con I/O. None se non e' stato possibile misurare.
 
     L'URL arriva dall'utente (via CLI o dal corpo di una richiesta API):
@@ -432,7 +462,7 @@ def esegui_lighthouse(url: str, lighthouse: str) -> Optional[dict]:
     """
     result = subprocess.run(
         [lighthouse, url, "--output=json", "--quiet",
-         "--chrome-flags=--headless", "--locale=%s" % LOCALE],
+         "--chrome-flags=--headless", "--locale=%s" % locale],
         capture_output=True, text=True, check=True,
         timeout=LIGHTHOUSE_TIMEOUT,
     )
@@ -454,7 +484,8 @@ def audit(context: dict) -> dict:
                                     "Lighthouse non trovato nel PATH",
                                     tool="lighthouse")]}
     try:
-        return riassumi(esegui_lighthouse(context["url"], lighthouse))
+        return riassumi(esegui_lighthouse(
+            context["url"], lighthouse, context.get("lang") or LOCALE))
     except subprocess.TimeoutExpired:
         return {"score": None, "status": "unavailable",
                 "issues": ["Lighthouse: timeout dopo %ds"

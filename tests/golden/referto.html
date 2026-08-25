@@ -68,6 +68,23 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
+/* --- hero: il complessivo in testa (Fase 5) --- */
+.hero { display:flex; flex-wrap:wrap; gap:1.5rem; align-items:center;
+        justify-content:center; padding:1.5rem 0 .5rem;
+        border-bottom:1px solid var(--line); }
+.hero-voto { text-align:center; }
+.hero .quadrante { width:12rem; }
+.hero .quadrante svg { width:8.5rem; height:8.5rem; }
+.hero .valore { font-size:38px; }
+.verdetto { font-size:1.05rem; font-weight:600; margin:.2rem 0 .35rem;
+            text-transform:uppercase; letter-spacing:.03em; }
+.tessere { display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; }
+.tessera { background:var(--card); border:1px solid var(--line);
+           border-radius:.6rem; padding:.6rem .9rem; min-width:7rem;
+           text-align:center; box-shadow:var(--ombra); }
+.tessera .grande { display:block; font-size:1.5rem; }
+.tessera .meta { display:block; margin:0; }
+
 /* --- piano di interventi (Fase 4) --- */
 .intervento { background:var(--card); border:1px solid var(--line);
               border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
@@ -132,6 +149,40 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </p>
 <p class='meta'>2026-01-01T00:00:00+0000 · 3 pagine trovate via sitemap · 4 chunk · mercato eu · v0.0.0</p>
 </header>
+<section class='hero'>
+<div class='hero-voto'>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 66 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='233.28 118.58' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>66</text>
+</svg>
+<div class='nome'>Complessivo</div>
+</div>
+<p class='verdetto warn'>da migliorare</p>
+<p class='meta'>media pesata di 7 misure · citabilità e giudizio LLM esclusi</p>
+<p class='meta'>scala dichiarata: critico sotto 50 · da migliorare 50-89 · buono da 90</p>
+</div>
+<div class='tessere'>
+<div class='tessera'>
+<span class='grande bad'>6</span>
+<span class='meta'>critici</span>
+</div>
+<div class='tessera'>
+<span class='grande warn'>10</span>
+<span class='meta'>avvertenze</span>
+</div>
+<div class='tessera'>
+<span class='grande muted'>8</span>
+<span class='meta'>informativi</span>
+</div>
+<div class='tessera'>
+<span class='grande'>3</span>
+<span class='meta'>pagine scansionate</span>
+<span class='meta'>4 URL scartati</span>
+</div>
+</div>
+</section>
 <div class='quadranti'>
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Tecnica: 57 su 100'>

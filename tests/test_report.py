@@ -15,8 +15,10 @@ import pytest
 from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
                        load_queries)
 import mars_remediation
+import mars_report
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
-                         _correzioni, segnali_derivati,
+                         _correzioni, conteggi_per_gravita,
+                         segnali_derivati,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_html, render_json, render_text)
@@ -1367,3 +1369,89 @@ def test_il_verdetto_segue_le_stesse_soglie_del_colore(contesto, valore,
     assert "(%s)" % atteso in testo
     assert _classe(valore) == {"buono": "ok", "da migliorare": "warn",
                                "critico": "bad"}[atteso]
+
+
+# ----------------------------------------------------------------------
+# U5.2: l'hero
+# ----------------------------------------------------------------------
+
+def test_i_conteggi_per_gravita_escludono_i_derivati(contesto):
+    """La seconda casella di R41. I derivati ridicono difetti gia'
+    misurati altrove: contarli riaprirebbe sui CONTEGGI il doppio
+    conteggio che D3 chiude sul punteggio."""
+    contesto["results"] = {
+        "mars_tech": {"score": 60, "issues": [], "findings": [
+            _rilievo(key="tech.robots.missing", severity=SEV_CRITICAL),
+            _rilievo(key="tech.canonical.missing", severity=SEV_INFO)]},
+        "mars_citability": {"score": 60.0, "issues": [], "profiles": {},
+                            "findings": [
+                                _rilievo(area="mars_citability",
+                                         key="cit.seo.weak",
+                                         severity=SEV_INFO,
+                                         params={"derived": True})]},
+    }
+    referto = build_report(contesto["results"], contesto)
+    assert conteggi_per_gravita(referto) == {SEV_CRITICAL: 1, SEV_INFO: 1}
+
+
+def test_un_derivato_grave_resta_comunque_fuori(contesto):
+    """Oggi sono tutti `info`, ma e' una protezione incidentale: il
+    giorno che uno nascesse `warning`, il conteggio si gonfierebbe in
+    silenzio."""
+    contesto["results"] = {
+        "mars_citability": {"score": 60.0, "issues": [], "profiles": {},
+                            "findings": [
+                                _rilievo(area="mars_citability",
+                                         key="cit.seo.weak",
+                                         severity=SEV_CRITICAL,
+                                         params={"derived": True})]}}
+    referto = build_report(contesto["results"], contesto)
+    assert conteggi_per_gravita(referto) == {}
+
+
+def test_le_tre_caselle_coprono_tutte_le_gravita_prodotte(referto):
+    """Presidio: se un giorno un modulo emettesse `ok`, la casella non
+    ci sarebbe e il rilievo sparirebbe dall'hero senza che nulla si
+    rompa. Questo test lo rende rosso invece che invisibile."""
+    conteggi = conteggi_per_gravita(referto)
+    note = {gravita for gravita, _, _ in mars_report.TESSERE_GRAVITA}
+    assert set(conteggi) <= note, "gravità non rappresentata nell'hero: %s" % (
+        set(conteggi) - note)
+
+
+def test_l_hero_mostra_voto_verdetto_e_scala(contesto):
+    html = render_html(_referto_complessivo(contesto))
+    assert "<section class='hero'>" in html
+    assert "aria-label='Complessivo: 80 su 100'" in html
+    # 80 sta sotto la soglia del buono, che e' 90.
+    assert "<p class='verdetto warn'>da migliorare</p>" in html
+    assert "scala dichiarata: critico sotto 50" in html
+    assert "media pesata di 2 misure" in html
+
+
+def test_l_hero_conta_i_rilievi_e_le_pagine(contesto):
+    contesto["skipped"] = ["non HTML: https://x/a.pdf", "altro host"]
+    contesto["results"] = {"mars_tech": {"score": 60, "issues": [],
+                                         "findings": [_rilievo()]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "<span class='grande bad'>1</span>" in html
+    assert "<span class='meta'>2 URL scartati</span>" in html
+
+
+def test_senza_complessivo_l_hero_non_compare(contesto):
+    """Un hero con un trattino al posto del voto non aggiunge niente:
+    la fascia dei quadranti dice gia' che non c'e' nulla di misurato."""
+    contesto["results"] = {"mars_tech": {"score": None,
+                                         "status": "unavailable",
+                                         "issues": []}}
+    assert "class='hero'" not in render_html(
+        build_report(contesto["results"], contesto))
+
+
+def test_l_hero_riusa_il_quadrante_della_fascia(contesto):
+    """Due archi identici da tenere allineati sarebbero due
+    implementazioni della stessa cosa: l'hero usa `_quadrante`, e lo si
+    vede dal fatto che il suo SVG e' quello."""
+    html = render_html(_referto_complessivo(contesto))
+    assert html.count("viewBox='0 0 120 120'") == 3, "hero + due aree"
+    assert ".hero .quadrante svg { width:8.5rem" in html

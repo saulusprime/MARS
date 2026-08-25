@@ -186,10 +186,12 @@ dietro una sola voce aperta: **R44**.
         anche quando falliscono. Chiave `overall` nel dato, con i componenti
         accanto perché il numero sia rifacibile; riga `COMPLESSIVO` in testa
         alla vista testo.
-  - [ ] **U5.2** — l'hero in `render_html`: quadrante grande del complessivo
-        col verdetto, tre riquadri coi conteggi per gravità dai findings
-        (**escludendo i derivati**, seconda casella di R41), donut
-        scansionate/scartate. Due golden `.html`.
+  - [x] **U5.2** — l'hero in `render_html`: lo stesso `_quadrante` della
+        fascia, più grande per CSS; verdetto e **scala dichiarata**; quattro
+        caselle — critici, avvertenze, informativi e pagine — coi conteggi
+        che **escludono i derivati** (seconda casella di R41, chiusa). Il
+        donut previsto da UPGRADE.md diventa due numeri: colorarli con la
+        scala dei punteggi trasformerebbe in voto una quota che non lo è.
   - [ ] **U5.3** — ancore stabili (G11): slug `r-{area}-{titolo}` coi numeri
         normalizzati, permalink sui rilievi e sui controlli, regola `:target`
         nel CSS, e il piano della Fase 4 che le linka. Qui entra anche il
@@ -633,7 +635,8 @@ dicendo.
       costruisce un derivato **critico** apposta: oggi li terrebbe fuori anche
       la sola gravità, ed è proprio la protezione incidentale che questa voce
       denuncia.
-- [ ] Escluderli nei conteggi per gravità (Fase 5).
+- [x] Escluderli nei conteggi per gravità — fatto in U5.2, con lo stesso
+      test costruito sul derivato critico. **R41 è chiusa.**
 
 ### R46 — 🟡 MEDIO: lo sforzo è editoriale perché il conteggio non è canonico
 *(aperta chiudendo U4, il 2026-08-25)*

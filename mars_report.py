@@ -759,6 +759,23 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
+/* --- hero: il complessivo in testa (Fase 5) --- */
+.hero { display:flex; flex-wrap:wrap; gap:1.5rem; align-items:center;
+        justify-content:center; padding:1.5rem 0 .5rem;
+        border-bottom:1px solid var(--line); }
+.hero-voto { text-align:center; }
+.hero .quadrante { width:12rem; }
+.hero .quadrante svg { width:8.5rem; height:8.5rem; }
+.hero .valore { font-size:38px; }
+.verdetto { font-size:1.05rem; font-weight:600; margin:.2rem 0 .35rem;
+            text-transform:uppercase; letter-spacing:.03em; }
+.tessere { display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; }
+.tessera { background:var(--card); border:1px solid var(--line);
+           border-radius:.6rem; padding:.6rem .9rem; min-width:7rem;
+           text-align:center; box-shadow:var(--ombra); }
+.tessera .grande { display:block; font-size:1.5rem; }
+.tessera .meta { display:block; margin:0; }
+
 /* --- piano di interventi (Fase 4) --- */
 .intervento { background:var(--card); border:1px solid var(--line);
               border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
@@ -890,6 +907,91 @@ def _etichetta_area(area: dict) -> str:
 
 def _stato_area(area: dict) -> str:
     return STATO_LEGGIBILE.get(area.get("status"), "non misurato")
+
+
+def conteggi_per_gravita(referto: dict) -> Dict[str, int]:
+    """Quanti rilievi per gravita', in tutto il referto.
+
+    **Esclude i derivati** (R41): i rilievi di `mars_citability`
+    ridicono difetti che le aree d'origine hanno gia' misurato, e
+    contarli qui riaprirebbe sui CONTEGGI il doppio conteggio che D3
+    chiude sul punteggio — sette `unmeasured` e i `weak` gonfierebbero
+    la casella «Info» accanto ai rilievi che ripetono.
+
+    Non basterebbe filtrare per gravita': oggi quei rilievi sono tutti
+    `info`, ma e' una protezione incidentale, e il giorno che uno
+    nascesse `warning` il conteggio si gonfierebbe in silenzio.
+
+    I rilievi di stato restano dentro: dicono qualcosa di vero su
+    questa esecuzione, e la casella «Info» non e' una coda di lavoro —
+    quella e' il piano, che li esclude.
+    """
+    conteggi: Dict[str, int] = {}
+    for area in referto.get("areas") or []:
+        for rilievo in area.get("findings") or []:
+            if (rilievo.get("params") or {}).get("derived"):
+                continue
+            gravita = str(rilievo.get("severity") or "")
+            conteggi[gravita] = conteggi.get(gravita, 0) + 1
+    return conteggi
+
+
+# Le tre caselle, nell'ordine in cui si leggono. `SEV_OK` non c'e'
+# perche' nessun modulo lo emette: il giorno che qualcuno lo facesse,
+# un test lo direbbe invece di lasciarlo sparire da qui.
+TESSERE_GRAVITA = ((SEV_CRITICAL, "critici", "bad"),
+                   (SEV_WARNING, "avvertenze", "warn"),
+                   (SEV_INFO, "informativi", "muted"))
+
+
+def _hero(referto: dict) -> str:
+    """Il riquadro in testa: un numero, un verdetto, quattro caselle.
+
+    Il quadrante e' lo STESSO `_quadrante` della fascia sotto, solo
+    piu' grande per CSS: disegnarne un secondo, anche identico,
+    vorrebbe dire avere due archi da tenere allineati.
+
+    La riga delle soglie e' obbligatoria quanto il numero. Un 66 senza
+    la scala e' un voto di cui non si conosce il metro, e questo
+    referto la scala la dichiara gia' nella legenda dei quadranti: qui
+    si ripete perche' l'hero puo' essere l'unica cosa che qualcuno
+    legge.
+    """
+    complessivo = referto.get("overall")
+    if not complessivo:
+        return ""
+    conteggi = conteggi_per_gravita(referto)
+    voto = complessivo["score"]
+
+    caselle = []
+    for gravita, etichetta, classe in TESSERE_GRAVITA:
+        caselle.append("<div class='tessera'><span class='grande %s'>%d"
+                       "</span><span class='meta'>%s</span></div>"
+                       % (classe, conteggi.get(gravita, 0), etichetta))
+    # Pagine: due numeri e non un anello. Un anello li colorerebbe con
+    # la scala dei punteggi, e la quota di URL scartati NON e' un voto —
+    # un PDF o un altro host sono scarti legittimi. UPGRADE.md prevede
+    # qui un donut «senza rilievi / con rilievi / scartate», che pero'
+    # richiede i `url` valorizzati sui Finding: finche' non ci sono,
+    # questo e' il taglio onesto.
+    saltati = len(referto.get("skipped") or [])
+    caselle.append("<div class='tessera'><span class='grande'>%d</span>"
+                   "<span class='meta'>pagine scansionate</span>"
+                   "<span class='meta'>%d URL scartati</span></div>"
+                   % (referto.get("pages_crawled") or 0, saltati))
+
+    return (
+        "<section class='hero'>"
+        "<div class='hero-voto'>%s"
+        "<p class='verdetto %s'>%s</p>"
+        "<p class='meta'>media pesata di %d misure · citabilità e giudizio "
+        "LLM esclusi</p>"
+        "<p class='meta'>scala dichiarata: critico sotto %d · da migliorare "
+        "%d-%d · buono da %d</p></div>"
+        "<div class='tessere'>%s</div></section>"
+        % (_quadrante(voto, "Complessivo"), _classe(voto), _verdetto(voto),
+           len(complessivo["components"]), SOGLIA_MEDIO, SOGLIA_MEDIO,
+           SOGLIA_BUONO - 1, SOGLIA_BUONO, "".join(caselle)))
 
 
 def _fascia_quadranti(referto: dict) -> str:
@@ -1363,6 +1465,7 @@ def render_html(referto: dict) -> str:
                 _e(referto.get("discovery")), referto["chunks"],
                 _e(referto["market"]), _e(referto["version"])))
 
+    p.append(_hero(referto))
     p.append(_fascia_quadranti(referto))
     p.append(_legenda())
 

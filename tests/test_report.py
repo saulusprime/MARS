@@ -13,6 +13,7 @@ import json
 import pytest
 
 from mars_core import SEV_CRITICAL, SEV_INFO, Finding, load_queries
+import mars_remediation
 from mars_report import (RENDERERS, _classe, _correzioni,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
@@ -61,7 +62,7 @@ def test_referto_ha_i_campi_attesi(referto):
     for chiave in ("tool", "version", "generated_at", "url", "market",
                    "pages_crawled", "discovery", "chunks", "areas",
                    "rrf_simulation", "rrf_aggregate", "citability",
-                   "llm_judgement", "skipped"):
+                   "llm_judgement", "skipped", "remediation"):
         assert chiave in referto, "manca %s" % chiave
 
 
@@ -815,3 +816,75 @@ def test_testo_mostra_le_correzioni_nel_referto_intero(contesto):
     testo = render_text(build_report(contesto["results"], contesto))
     assert "  → robots muto" in testo
     assert "    Pubblica un robots.txt." in testo
+
+
+# ----------------------------------------------------------------------
+# U4.2: il piano nel dato canonico
+# ----------------------------------------------------------------------
+
+def test_il_piano_e_una_lista_anche_quando_e_vuoto(contesto):
+    """Chiave sempre presente, come `findings` in U1.2.
+
+    Una lista vuota si consuma, una chiave assente fa cadere chi la
+    legge — e chi la leggera' sono il CSV della Fase 6 e il confronto
+    della Fase 7, che nascono dopo e non possono verificarla.
+    """
+    contesto["results"] = {"mars_tech": {"score": 100, "issues": []}}
+    referto = build_report(contesto["results"], contesto)
+    assert referto["remediation"] == []
+
+
+def test_il_piano_nasce_dopo_le_aree_e_la_citabilita(contesto):
+    """L'ordine non e' un dettaglio: il piano RILEGGE il referto.
+
+    Gli servono le aree — per le penalita' e i punteggi — e la
+    citabilita', per i coefficienti. Costruito dentro il letterale che
+    le definisce, le troverebbe assenti e uscirebbe senza guadagni,
+    senza un solo errore.
+    """
+    contesto["results"] = {
+        "mars_tech": {"score": 57, "issues": ["[critico] robots muto"],
+                      "findings": [Finding(
+                          area="mars_tech", severity=SEV_CRITICAL,
+                          key="tech.robots.ai_blocked",
+                          title="robots.txt BLOCCA 1 crawler IA",
+                          params={"penalty": 43.0}).as_dict()]},
+        "mars_citability": {"score": 50.0, "market": "global",
+                            "profiles": {"Claude": 50.0},
+                            "signals": {"Accesso e indicizzabilità": 57.0},
+                            "issues": []},
+    }
+    piano = build_report(contesto["results"], contesto)["remediation"]
+    assert len(piano) == 1
+    assert piano[0]["recovery"] == 43, "senza le aree non ci sarebbe"
+    assert piano[0]["index_gain"] is not None, "senza la citabilita' nemmeno"
+    assert piano[0]["market"] == "global"
+
+
+def test_il_piano_e_lo_stesso_che_costruisce_mars_remediation(referto):
+    """Una copia sola: la vista non ricalcola, legge.
+
+    Se un giorno una resa ricostruisse il piano per conto suo, le due
+    copie divergerebbero senza che nulla si rompa — e' lo stesso
+    argomento per cui la sezione citabilita' non ha una `top_actions`
+    duplicata.
+    """
+    assert referto["remediation"] == mars_remediation.build_remediation(
+        referto)
+
+
+def test_il_piano_sopravvive_alla_vista_json(referto):
+    """`render_json` fa `json.dumps` senza `default=`: un valore non
+    serializzabile romperebbe dopo che tutti i moduli sono girati."""
+    reso = json.loads(render_json(referto))
+    assert reso["remediation"] == referto["remediation"]
+
+
+def test_un_area_fallita_non_entra_nel_piano(contesto):
+    """`_finding_errore` sintetizza `*.status.error`, che il piano
+    esclude due volte: e' `info` ed e' un rilievo di stato. Un piano
+    che dicesse "correggi il MemoryError" avrebbe sbagliato lettore."""
+    contesto["results"] = {"mars_tech": {"error": "MemoryError: corpus"}}
+    referto = build_report(contesto["results"], contesto)
+    assert referto["areas"][0]["findings"], "l'area il rilievo ce l'ha"
+    assert referto["remediation"] == []

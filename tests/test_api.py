@@ -248,6 +248,23 @@ def test_queries_arrivano_alla_simulazione(client, auth, crawler_finto):
     assert [v["query"] for v in r.json()["rrf_simulation"]] == ["alfa", "beta"]
 
 
+def test_il_piano_arriva_dall_api(client, auth, crawler_finto):
+    """/audit/full non ha lavoro suo da fare: il piano nasce dentro
+    `build_report`, e `response_model=dict` lo lascia passare intero.
+
+    Vale la pena provarlo comunque: e' l'unica delle tre interfacce che
+    non passa da `render_*`, quindi un piano costruito dentro una vista
+    invece che nel dato canonico sparirebbe proprio qui.
+    """
+    piano = client.post("/audit/full", json=CORPO,
+                        headers=auth).json()["remediation"]
+    assert isinstance(piano, list)
+    for voce in piano:
+        assert voce["severity"] in ("critical", "warning")
+        assert ".status." not in voce["key"]
+        assert voce["priority"] >= 1
+
+
 def test_market_cambia_il_composito(client, auth, crawler_finto):
     def composito(mercato):
         return client.post("/audit/full", json={**CORPO, "market": mercato},

@@ -3616,6 +3616,49 @@ corsie diverse.
 - [x] `mars_remediation.py`, `tests/test_remediation.py`. In questo commit il
       piano non è ancora nel referto: si prova la funzione.
 
+### U4.2 — ✅ (2026-08-25): il piano entra nel dato canonico
+
+`build_report` guadagna la chiave `remediation`, e la costruisce **per
+ultima**: il piano rilegge il referto — gli servono le aree, per le penalità e
+i punteggi, e la citabilità, per i coefficienti — quindi non può stare dentro
+il letterale che le definisce. Costruito lì dentro le troverebbe assenti e
+uscirebbe senza guadagni, **senza un solo errore**: due mutazioni lo
+verificano, una che gli toglie le aree e una che gli toglie la citabilità.
+
+**L'import di `mars_remediation` è duro**, a differenza di quello di
+`mars_fixes` in `normalizza_risultato`. La differenza è il tipo di dato: quello
+è un catalogo di prosa editoriale, e la sua assenza degrada un referto che
+resta vero; questo è dato canonico, e la sua assenza deve rompere invece di
+produrre un referto silenziosamente senza piano.
+
+**La chiave c'è sempre**, anche vuota, per la stessa ragione di `findings` in
+U1.2: una lista vuota si consuma, una chiave assente fa cadere chi la legge —
+e chi la leggerà sono il CSV della Fase 6 e il confronto della Fase 7, che
+nascono dopo e non possono verificarla.
+
+**Nessuna seconda copia.** Un test pretende che `referto["remediation"]` sia
+esattamente ciò che `build_remediation` produce rileggendo quel referto: se un
+giorno una vista lo ricostruisse per conto suo, le due copie divergerebbero
+senza che nulla si rompa. È lo stesso argomento per cui la sezione citabilità
+non avrà una `top_actions` duplicata.
+
+**L'API non ha lavoro suo da fare** — `response_model=dict` lascia passare la
+chiave intera — ma il test c'è lo stesso: `/audit/full` è l'unica delle tre
+interfacce che non passa da `render_*`, quindi un piano costruito dentro una
+vista invece che nel dato canonico sparirebbe proprio lì.
+
+I due golden `.json` si sono mossi **solo** per la chiave nuova: 447 e 235
+righe aggiunte, una sola riga tolta — la parentesi che chiudeva il documento.
+Testo e HTML fermi, come previsto: la resa è U4.3 e U4.4.
+
+Cinque mutazioni, nessuna sfuggita. Una era mal costruita alla prima stesura —
+aggiungeva una chiamata senza spostare l'assegnamento, cioè un no-op
+travestito da mutazione — e va registrata perché è la terza volta che quel
+tipo di errore compare in un giro.
+
+- [x] `mars_report.py`, cinque test in `test_report.py`, uno in `test_api.py`,
+      i due golden JSON.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

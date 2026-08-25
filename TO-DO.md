@@ -156,11 +156,13 @@ dietro una sola voce aperta: **R44**.
         (`R(base − p) − R(base)`, non la penalità), certificato d'area,
         quattro corsie, guadagno di citabilità come derivata, catalogo dello
         sforzo. Il piano non è ancora nel referto: si prova la funzione.
-  - [ ] **U4.2** — `build_report` guadagna la chiave `remediation`, con
+  - [x] **U4.2** — `build_report` guadagna la chiave `remediation`, con
         l'import **duro** di `mars_remediation` (il piano è dato canonico:
-        la sua assenza deve rompere, non produrre un referto monco). Si
-        muovono i due golden `.json`, e devono muoversi **solo** per la
-        chiave nuova. L'API la riceve senza altro lavoro.
+        la sua assenza deve rompere, non produrre un referto monco). Il
+        piano si costruisce **per ultimo**, dalla struttura che le aree e
+        la citabilità hanno appena riempito. Si sono mossi i due golden
+        `.json` e solo per la chiave nuova; l'API la riceve senza altro
+        lavoro.
   - [ ] **U4.3** — la sezione a testo in `render_text`, fra il ciclo delle
         aree e la sezione RRF. Condizionata sul **dato** e mai sul nome del
         modulo — è il difetto R42. Due golden `.txt`.

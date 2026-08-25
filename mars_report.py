@@ -17,6 +17,7 @@ import os
 import time
 from typing import Dict, List, Optional
 
+import mars_remediation
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_INFO, Finding,
                        __version__, describe_chunk, normalizza_risultato,
                        reciprocal_rank_fusion)
@@ -137,6 +138,16 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
                       "answer_shaped_signals", "page_signals", "languages")
         },
     }
+    # Il piano si costruisce per ULTIMO, e da questa stessa struttura:
+    # rilegge le aree e la citabilita' gia' composte, quindi non puo'
+    # stare dentro il letterale che le definisce.
+    #
+    # L'import di `mars_remediation` e' DURO, a differenza di quello di
+    # `mars_fixes` in `normalizza_risultato`: quello e' un catalogo di
+    # prosa, e la sua assenza degrada un referto che resta vero;
+    # questo e' dato canonico, e la sua assenza deve rompere invece di
+    # produrre un referto silenziosamente senza piano.
+    referto["remediation"] = mars_remediation.build_remediation(referto)
     return referto
 
 

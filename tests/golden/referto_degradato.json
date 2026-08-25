@@ -28,6 +28,7 @@
       "depth": null,
       "headings": 3,
       "chunks": 2,
+      "words": 133,
       "json_ld_types": [
         "FAQPage"
       ]
@@ -39,6 +40,7 @@
       "depth": null,
       "headings": 2,
       "chunks": 1,
+      "words": 64,
       "json_ld_types": []
     },
     {
@@ -48,6 +50,7 @@
       "depth": null,
       "headings": 2,
       "chunks": 1,
+      "words": 64,
       "json_ld_types": [
         "FAQPage"
       ]

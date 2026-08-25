@@ -7,7 +7,7 @@
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
 > **Correzioni chiuse**: R1-R27, R34, R38, R41, R45. **Aperte**: R28-R33,
-> R35-R37, R39-R40 e R42-R44, R46 — trovate *adeguando* i moduli alle Fasi
+> R35-R37, R39-R40 e R42-R44, R46-R47 — trovate *adeguando* i moduli alle Fasi
 > 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o testi
 > dentro un commit che cambiava la forma.
 >
@@ -177,8 +177,10 @@ nelle tre viste umane. Bump a 2.6.0.
         umane: distribuzione di profondità a barre e superficie attuale
         contro potenziale, con l'assunzione dichiarata **dentro il dato**
         perché ogni vista la ripeta.
-  - [ ] **U8.3** — treemap della superficie: SVG statico con `role="img"`,
-        `<title>` per rettangolo e tabella di ripiego in `<details>`.
+  - [x] **U8.3** — treemap della superficie: SVG statico con `role="img"`,
+        `<title>` per rettangolo e tabella di ripiego in `<details>`. Senza
+        il colore di gravità che la fase prevedeva, e per una ragione che
+        vale una voce a sé: **R47**.
   - [ ] **U8.4** — grafo dei link interni, e con esso **D1**: il primo
         JavaScript nel referto, inline e in progressive enhancement. Va
         adeguato nello stesso commit il test che oggi pretende «nessuno
@@ -656,6 +658,48 @@ una costante.
 
 - [ ] Tradurre i titoli axe, scegliendo fra le due strade.
 - [ ] Rendere fedele `_violazioni_axe()` nello stesso commit.
+
+### R47 — 🟡 MEDIO: nessun rilievo dichiara la pagina che lo ha prodotto
+*(trovata chiudendo U8.3, il 2026-08-25)*
+
+`Finding.url` esiste dal modello dati di U1 ed è **vuoto in otto aree su
+nove**. Nell'unica che lo valorizza, `mars_wcag`
+([mars_wcag.py:333](mars_wcag.py#L333)), porta `voce["help_url"]`, cioè il
+link alla **documentazione della regola axe** — non l'URL analizzato.
+Verificato sul golden completo: i due soli rilievi con `url` puntano a
+`dequeuniversity.com`, mentre le pagine scansionate sono su
+`esempio.test`. Il campo ha quindi due significati possibili e ne esercita
+uno solo, senza che la docstring di `Finding` dica quale sia — è l'unico
+campo del modello dati che la docstring non spiega.
+
+**Che cosa costa già.** U8.3 doveva colorare ogni rettangolo della treemap
+con la gravità peggiore dei rilievi che citano quella pagina (UPGRADE.md,
+Fase 8, passo 3). Applicata alla lettera, quella regola non trova **mai**
+una corrispondenza e dipinge ogni pagina di «nessun problema»: un via
+libera che nessuno ha misurato, cioè il difetto che R21 ha chiuso altrove.
+La treemap è quindi uscita neutra, e lo dichiara. Il costo lo paga anche il
+CSV, che ha una colonna `url` per rilievo quasi sempre vuota.
+
+**Non è una svista di `mars_wcag`**: axe riporta i nodi per pagina in
+`voce["pages"]`, che finisce in `params`, quindi il dato c'è e non è quello
+che il campo espone. La scelta è fra due strade:
+
+- **separare i due campi** — `url` per la pagina, e un `doc_url` (o
+  `reference`) per il link allo strumento — e valorizzare il primo dove i
+  moduli sanno su quale pagina hanno guardato (`mars_wcag`, `mars_tech`,
+  `mars_seo`, `mars_schema` lo sanno; `mars_wapt` per gli alert ZAP anche);
+- **lasciare un campo solo** e documentarlo come «riferimento», rinunciando
+  ad agganciare i rilievi alle pagine — ma allora la colorazione della
+  treemap va tolta da UPGRADE.md invece di restare un lavoro in sospeso.
+
+La prima è la sola che chiude anche il divario di Fase 8. Muove i golden
+(JSON e CSV) e tocca nove moduli, quindi è una voce a sé e non un
+di più di U8.
+
+- [ ] Scegliere fra le due strade e documentare `url` nella docstring di
+      `Finding`, che oggi lo elenca senza spiegarlo.
+- [ ] Se si separa: colorare la treemap, e togliere da `_treemap_html` la
+      nota «il colore non è un giudizio».
 
 ---
 

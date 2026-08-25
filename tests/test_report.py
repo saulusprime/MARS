@@ -26,7 +26,8 @@ from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          ancore_dei_rilievi,
                          conteggi_per_gravita, depth_distribution,
                          pagine_scansionate, segnali_derivati,
-                         surface_math,
+                         surface_math, treemap_data, _squarify,
+                         _plurale, _coda,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_csv, render_html, render_json,
@@ -1821,7 +1822,7 @@ def test_le_pagine_escono_senza_il_loro_contenuto(referto):
     assert referto["pages"], "il contesto ne ha"
     for pagina in referto["pages"]:
         assert set(pagina) == {"url", "title", "lang", "depth", "headings",
-                               "chunks", "json_ld_types"}
+                               "chunks", "words", "json_ld_types"}
     json.dumps(referto["pages"])
 
 
@@ -1934,3 +1935,180 @@ def test_il_secchiello_delle_ignote_e_giallo_non_rosso(contesto):
     sezione = html[html.index("<h2>Superficie</h2>"):]
     assert "class='bar warn'" in sezione
     assert "class='bar bad'" not in sezione
+
+
+# ----------------------------------------------------------------------
+# U8.3: la treemap della superficie
+# ----------------------------------------------------------------------
+
+def _pagine(*coppie) -> list:
+    """Le pagine come le espone `pages[]`: url e parole, nient'altro."""
+    return [{"url": u, "words": w, "chunks": 1} for u, w in coppie]
+
+
+def test_l_area_di_ogni_rettangolo_e_proporzionale_alle_parole():
+    """È l'unica cosa che la treemap afferma: se le aree non stanno nel
+    rapporto dei valori, il disegno mente su ciò che mostra."""
+    rettangoli = _squarify([50.0, 30.0, 20.0], 0.0, 0.0, 100.0, 100.0)
+    aree = [r["w"] * r["h"] for r in rettangoli]
+    assert [round(a) for a in aree] == [5000, 3000, 2000]
+    # E riempiono lo spazio dato: senza questo le aree sarebbero
+    # proporzionali fra loro ma non alla superficie che si vede.
+    assert round(sum(aree)) == 100 * 100
+
+
+def test_i_rettangoli_non_si_sovrappongono_e_restano_dentro():
+    rettangoli = _squarify([9.0, 7.0, 5.0, 3.0, 1.0], 0.0, 0.0, 200.0, 120.0)
+    for r in rettangoli:
+        assert r["x"] >= -0.001 and r["y"] >= -0.001
+        assert r["x"] + r["w"] <= 200.001 and r["y"] + r["h"] <= 120.001
+    for i, a in enumerate(rettangoli):
+        for b in rettangoli[i + 1:]:
+            sovrapposti = (a["x"] < b["x"] + b["w"] - 0.001
+                           and b["x"] < a["x"] + a["w"] - 0.001
+                           and a["y"] < b["y"] + b["h"] - 0.001
+                           and b["y"] < a["y"] + a["h"] - 0.001)
+            assert not sovrapposti, (a, b)
+
+
+def test_lo_spazio_vuoto_non_fa_rettangoli():
+    assert _squarify([], 0.0, 0.0, 10.0, 10.0) == []
+    assert _squarify([0.0, 0.0], 0.0, 0.0, 10.0, 10.0) == []
+    assert _squarify([1.0], 0.0, 0.0, 0.0, 10.0) == []
+
+
+def test_una_pagina_sola_non_e_una_distribuzione():
+    """Un rettangolo che riempie lo spazio ha la stessa forma qualunque
+    sia il sito: non dice nulla, e disegnarlo suggerirebbe il
+    contrario."""
+    assert treemap_data(_pagine(("https://a/", 500))) is None
+    assert treemap_data([]) is None
+
+
+def test_le_pagine_senza_testo_si_contano_invece_di_sparire():
+    """Sono quelle che interessano di più, e non hanno superficie da
+    disegnare: sparire in silenzio le farebbe sembrare inesistenti
+    invece che vuote."""
+    mappa = treemap_data(_pagine(("https://a/", 300), ("https://b/", 100),
+                                 ("https://c/", 0), ("https://d/", 0)))
+    assert (mappa["total"], mappa["shown"], mappa["empty"]) == (4, 2, 2)
+    assert [v["url"] for v in mappa["items"]] == ["https://a/", "https://b/"]
+
+
+def test_il_tetto_ai_rettangoli_e_dichiarato():
+    """Quaranta rettangoli sono già più di quanti se ne distinguano: il
+    tetto c'è, ma un troncamento taciuto si legge come «è tutto qui»."""
+    mappa = treemap_data(_pagine(*[("https://esempio.test/p%02d" % i, 100 + i)
+                                   for i in range(50)]))
+    assert (mappa["total"], mappa["shown"]) == (50, 40)
+    reso = []
+    mars_report._treemap_html({"pages": _pagine(
+        *[("https://esempio.test/p%02d" % i, 100 + i) for i in range(50)])},
+        reso)
+    assert "Le 40 più estese di 50 pagine." in "".join(reso)
+
+
+def test_il_disegno_e_deterministico():
+    """I golden congelano l'SVG: due esecuzioni sullo stesso sito devono
+    dare gli stessi rettangoli, anche a parità di parole."""
+    pagine = _pagine(("https://b/", 100), ("https://a/", 100),
+                     ("https://c/", 300))
+    primo = treemap_data(pagine)
+    secondo = treemap_data(list(reversed(pagine)))
+    assert primo == secondo
+    assert [v["url"] for v in primo["items"]] == ["https://c/", "https://a/",
+                                                  "https://b/"]
+
+
+def test_le_parole_della_pagina_sono_quelle_dei_suoi_passaggi(contesto):
+    """Due numeri sulla stessa cosa che non tornano sono peggio di uno
+    solo: la somma delle pagine deve dare il totale di `surface_math`."""
+    referto = build_report({}, contesto)
+    assert sum(p["words"] for p in referto["pages"]) == \
+        referto["surface_math"]["words"]
+
+
+def test_la_treemap_non_colora_cio_che_nessuno_ha_misurato(contesto):
+    """`Finding.url` porta il link alla documentazione della regola axe,
+    non l'URL analizzato: colorare con quella regola non troverebbe mai
+    una corrispondenza e dipingerebbe ogni pagina di «nessun problema»."""
+    contesto["pages"]["https://esempio.test/b/"] = dict(
+        contesto["pages"]["https://esempio.test/"],
+        chunks=[{"url": "https://esempio.test/b/", "heading": "",
+                 "text": "una parola " * 40}])
+    contesto["chunks"] = [c for p in contesto["pages"].values()
+                          for c in p["chunks"]]
+    html = render_html(build_report({}, contesto))
+    sezione = html[html.index("<svg class='treemap'"):]
+    sezione = sezione[:sezione.index("</svg>")]
+    for colore in ("var(--bad)", "var(--warn)", "var(--ok)",
+                   "class='bad'", "class='warn'", "class='ok'"):
+        assert colore not in sezione, \
+            "un colore di gravità su una gravità che nessuno ha misurato"
+    assert "Il colore non è un giudizio" in html
+
+
+def test_i_rettangoli_non_sono_fermate_di_tabulazione(contesto):
+    """Senza JavaScript il `<title>` al fuoco non compare: quaranta
+    fermate che non mostrano nulla sono un ostacolo travestito da
+    accessibilità. La lettura accessibile è la tabella."""
+    contesto["pages"]["https://esempio.test/b/"] = dict(
+        contesto["pages"]["https://esempio.test/"],
+        chunks=[{"url": "https://esempio.test/b/", "heading": "",
+                 "text": "una parola " * 40}])
+    contesto["chunks"] = [c for p in contesto["pages"].values()
+                          for c in p["chunks"]]
+    html = render_html(build_report({}, contesto))
+    svg = html[html.index("<svg class='treemap'"):]
+    svg = svg[:svg.index("</svg>")]
+    assert "tabindex" not in svg
+    assert "role='img'" in svg
+    assert "<title>" in svg
+    # La tabella di ripiego porta gli stessi numeri dei rettangoli.
+    dettagli = html[html.index("<details>"):html.index("</details>")]
+    for pagina in ("https://esempio.test/", "https://esempio.test/b/"):
+        assert pagina in dettagli
+
+
+def test_i_rettangoli_restano_confrontabili_a_occhio():
+    """È tutto il senso di «squarified»: due aree si confrontano guardandole
+    solo se hanno forme simili, e una scheggia lunga trecento volte quanto è
+    larga non si confronta con niente. Misurato su questi dieci valori: il
+    layout corretto sta a 2.0 di rapporto peggiore, mentre estendere la riga
+    quando il rapporto peggiora porta a 327 e riempire dal lato lungo a 72.
+    La soglia è larga apposta — non presidia il numero, presidia il metodo."""
+    valori = [300.0, 210.0, 150.0, 90.0, 60.0, 40.0, 25.0, 15.0, 10.0, 5.0]
+    aspetti = [max(r["w"], r["h"]) / min(r["w"], r["h"])
+               for r in _squarify(valori, 0.0, 0.0, 760.0, 420.0)]
+    assert max(aspetti) <= 4.0, "rettangoli troppo allungati per confrontarli"
+
+
+def test_l_accordo_del_singolare():
+    """«1 passaggi» è la prima cosa che si nota in un referto che si
+    consegna, e costa meno scriverlo giusto che spiegarlo."""
+    assert _plurale(1, "passaggio", "passaggi") == "1 passaggio"
+    assert _plurale(2, "passaggio", "passaggi") == "2 passaggi"
+    assert _plurale(0, "pagina", "pagine") == "0 pagine"
+
+
+def test_le_etichette_si_troncano_dalla_testa():
+    """È la testa che le pagine hanno in comune: su un sito vero i
+    percorsi condividono le sezioni, e troncare a destra darebbe dieci
+    etichette identiche. Misurato prima di correggerlo: su cinquanta
+    pagine sotto lo stesso percorso, tutti e quaranta i rettangoli
+    portavano `/sezione-molto-l`."""
+    mappa = treemap_data(_pagine(
+        *[("https://esempio.test/sezione-molto-lunga-comune/p%02d/" % i,
+           400 - i) for i in range(12)]))
+    etichette = [v["label"] for v in mappa["items"]]
+    assert len(set(etichette)) == len(etichette), \
+        "etichette indistinguibili: il troncamento nasconde ciò che varia"
+    assert etichette[0].startswith("…") and etichette[0].endswith("/p00/")
+
+
+def test_un_percorso_corto_non_si_tocca():
+    assert _coda("/servizi/", 30) == "/servizi/"
+    assert _coda("", 30) == ""
+    # Spazio per un carattere solo: meglio niente che il solo segno di
+    # troncamento, che non dice quale pagina sia.
+    assert _coda("/servizi/", 1) == ""

@@ -4213,6 +4213,89 @@ Sedici mutazioni fra U8.1 e U8.2, nessuna sfuggita.
 - [x] `surface_math()`, `_superficie_testo()`, `_sezione_superficie()`, la
       sezione Markdown, sei test, i sei golden.
 
+### U8.3 — ✅ (2026-08-25): la treemap, e il colore che non c'è
+
+**Che cosa aggiunge.** La distribuzione di profondità dice *dove* sta il
+contenuto, la treemap dice *quanto* ce n'è su ciascuna pagina. La forma che
+si legge a colpo d'occhio è quella di un sito che ha tutto il testo in una
+pagina sola: un rettangolo che occupa metà del disegno e una fila di
+schegge accanto.
+
+**Il colore di gravità previsto dalla fase non c'è, e non è una rinuncia
+estetica.** UPGRADE.md (Fase 8, passo 3) prescriveva di colorare ogni
+rettangolo con la gravità peggiore dei rilievi che citano quella pagina, e
+avvertiva che serve `Finding.url` valorizzato. Misurato prima di scrivere:
+`url` è vuoto in otto aree su nove, e nella nona — `mars_wcag` — porta il
+link alla **documentazione della regola axe**, non l'URL analizzato. Sul
+golden completo i due soli rilievi con `url` puntano a `dequeuniversity.com`
+mentre le pagine stanno su `esempio.test`: **zero corrispondenze possibili**.
+
+Applicata alla lettera, quella regola avrebbe dipinto **ogni** pagina di
+«nessun problema». È la forma esatta di R21 — una misura che non c'è resa
+indistinguibile da una misura buona — e sarebbe stata invisibile, perché un
+verde uniforme non ha l'aria di un errore. La treemap è quindi neutra e lo
+**dichiara** in chiaro sotto il disegno: «il colore non è un giudizio». La
+strada per colorarla davvero è in **R47**, che questa voce apre.
+
+**Le pagine senza testo si contano invece di sparire.** Non hanno superficie
+da disegnare, ma sono quelle che interessano di più: escluderle in silenzio
+le farebbe sembrare inesistenti invece che vuote. Escono in `empty`, e la
+vista le nomina. Stesso criterio per il tetto dei quaranta rettangoli, che è
+dichiarato («le 40 più estese di 50») invece di lasciar credere «è tutto qui».
+
+**I rettangoli non sono focalizzabili, e il riferimento lo faceva.**
+`marsbeacon` mette `tabindex="0"` su ogni `<rect>`, ma lì c'è il JavaScript
+che al fuoco scrive nel riquadro di stato. Qui no, e senza JS il `<title>`
+al fuoco **non compare**: sarebbero quaranta fermate di tabulazione che non
+mostrano nulla, cioè un ostacolo travestito da accessibilità. La lettura
+accessibile è la tabella in `<details>`, che porta gli stessi numeri;
+l'SVG è una sola immagine con la sua etichetta. Copiare il riferimento
+senza la sua metà dinamica avrebbe peggiorato la pagina.
+
+**Le parole si contano sui passaggi, non sul testo di pagina.** `pages[]`
+guadagna `words`, e la somma sulle pagine dà esattamente il totale di
+`surface_math` (261 nel golden completo, 133+64+64). Contarle sul testo
+avrebbe dato due numeri sulla stessa cosa che non tornano, ed è il difetto
+che R45 ha già pagato una volta.
+
+**Il giro di mutazioni ha cambiato due test.** Sedici mutazioni, tutte colte
+alla prima esecuzione — ma sull'intera suite, dove il golden HTML fa da rete
+e coglie quasi tutto. Rieseguite contro il **solo** `tests/test_report.py`,
+quattro sfuggivano: i test mirati non dicevano nulla su ciò che rende una
+treemap *squarified*. Misurato: sui dieci valori di prova il layout corretto
+tiene il rapporto d'aspetto peggiore a **2.0**, mentre estendere la riga
+quando il rapporto peggiora porta a **327** e riempire dal lato lungo a
+**72** — schegge che non si confrontano più a occhio, con le aree ancora
+perfettamente proporzionali. Da lì un test sul rapporto d'aspetto e uno su
+`_plurale`, e le sfuggite scendono a una: la soglia oltre la quale il
+rettangolo porta l'etichetta, che è resa pura e sta bene dov'è, nel golden.
+
+Vale la pena registrarlo: **una mutazione colta dal golden non dimostra che
+il test mirato serva**. È l'ordine alfabetico dei file a decidere chi
+fallisce per primo.
+
+**Le etichette si troncano dalla testa, e il golden non poteva dirlo.**
+Reso su un sito sintetico di cinquanta pagine sotto lo stesso percorso,
+tutti e quaranta i rettangoli portavano `/sezione-molto-l`: il troncamento
+a destra taglia via proprio la parte che distingue le pagine, perché la
+testa è quella che i percorsi hanno in comune. Il referto sintetico dei
+golden ha tre pagine con percorsi corti, quindi non ne mostrava traccia —
+è un difetto che si vede solo rendendo un caso realistico, e non deducendolo.
+`_coda()` tiene la fine: `…to-lunga-che-va-troncata/p07/`, e le
+quaranta etichette tornano distinte.
+
+**La geometria non entra nel referto canonico.** 760x420 è lo spazio di
+disegno, non un dato del sito: chi consuma il JSON ha `pages[]` con le
+parole, che è l'ingrediente, mentre coordinate calcolate per una larghezza
+che non usa non gli servirebbero. `schema_version` non si muove: `words` è
+un'aggiunta.
+
+- [x] `_squarify()` (Bruls-Huizing-van Wijk, scritto a mano come gli altri
+      algoritmi core), `treemap_data()`, `_treemap_html()`, `_coda()`,
+      `_plurale()`, `words` in `pagine_scansionate()`, il CSS, quattordici
+      test, i quattro golden mossi (JSON e HTML; testo, Markdown e CSV
+      **non** cambiano, perché la treemap è solo HTML).
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

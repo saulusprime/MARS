@@ -19,6 +19,7 @@ import os
 import re
 import time
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 
 import mars_history
 import mars_remediation
@@ -365,6 +366,14 @@ def pagine_scansionate(context: dict) -> List[Dict[str, object]]:
             "depth": pagina.get("depth"),
             "headings": len(pagina.get("headings") or []),
             "chunks": len(pagina.get("chunks") or []),
+            # Le parole si contano sui CHUNK, non sul testo di pagina:
+            # sono quelle che i due recuperatori possono pescare, ed e'
+            # lo stesso conto che fa `surface_math` sull'intero sito.
+            # Contarle sul testo darebbe due numeri sulla stessa cosa
+            # che non tornano — la somma delle pagine diversa dal
+            # totale — e chi legge non saprebbe quale credere.
+            "words": sum(len((c.get("text") or "").split())
+                         for c in (pagina.get("chunks") or [])),
             "json_ld_types": _tipi_json_ld(pagina.get("json_ld") or []),
         })
     return esito
@@ -446,6 +455,159 @@ def surface_math(context: dict) -> Optional[Dict[str, object]]:
         "multiplier": (round(potenziali / len(chunks), 1)
                        if chunks else None),
         "assumption": ASSUNZIONE_SUPERFICIE,
+    }
+
+
+# La treemap: quanto e' grande ciascuna pagina, viste tutte insieme.
+# 760x420 e' lo spazio di disegno, non un dato del sito: la geometria
+# NON entra nel referto canonico, e non e' una svista — un consumatore
+# del JSON ha `pages[]` con le parole, che e' l'ingrediente, mentre
+# delle coordinate calcolate per una larghezza che lui non usa non
+# saprebbe che farsene. Il tetto esiste perche' quaranta rettangoli
+# sono gia' piu' di quanti se ne distinguano a occhio, ed e' DICHIARATO
+# dai conteggi che escono accanto alle voci.
+TREEMAP_W = 760.0
+TREEMAP_H = 420.0
+TREEMAP_MAX = 40
+
+
+def _coda(testo: str, quanti: int) -> str:
+    """Il testo, o la sua CODA quando non ci sta.
+
+    Si taglia dalla testa e non dalla fine perche' e' la testa che le
+    pagine hanno in comune: su un sito vero i percorsi condividono le
+    sezioni — `/servizi/consulenza/x` e `/servizi/formazione/y` — e
+    troncare a destra darebbe dieci etichette identiche. Misurato su un
+    sito sintetico di cinquanta pagine: `/sezione-molto-l` per tutte e
+    quaranta i rettangoli.
+    """
+    if quanti <= 1:
+        return ""
+    if len(testo) <= quanti:
+        return testo
+    return "…" + testo[-(quanti - 1):]
+
+
+def _squarify(valori: List[float], x: float, y: float, w: float,
+              h: float) -> List[Dict[str, float]]:
+    """Layout squarified deterministico: rettangoli (x, y, w, h).
+
+    Algoritmo di Bruls-Huizing-van Wijk. Si riempie lo spazio a righe
+    lungo il lato **corto** di cio' che resta, allungando la riga
+    finche' il rapporto d'aspetto peggiore migliora: fermarsi quando
+    peggiora e' tutto il metodo, ed e' cio' che distingue una treemap
+    leggibile da una fila di schegge.
+
+    L'ordine d'ingresso si conserva, e i rettangoli riempiono
+    esattamente l'area data: la somma delle aree e' `w * h`, quindi
+    l'area di ciascuno e' davvero proporzionale al suo valore.
+
+    Deterministico, e deve restarlo: i golden congelano l'SVG.
+    """
+    totale = sum(valori)
+    if not valori or totale <= 0 or w <= 0 or h <= 0:
+        return []
+    scala = w * h / totale
+    aree = [v * scala for v in valori]
+    rettangoli: List[Dict[str, float]] = []
+    i = 0
+    while i < len(aree):
+        # Spazio piu' alto che largo: la riga corre in orizzontale.
+        lungo_x = w <= h
+        lato = w if lungo_x else h
+
+        def peggiore(riga: List[float]) -> float:
+            somma = sum(riga)
+            if somma <= 0:
+                return float("inf")
+            spessore2 = (somma / lato) ** 2
+            return max(spessore2 / min(riga), max(riga) / spessore2)
+
+        riga = [aree[i]]
+        j = i + 1
+        while j < len(aree) and peggiore(riga + [aree[j]]) <= peggiore(riga):
+            riga.append(aree[j])
+            j += 1
+        spessore = sum(riga) / lato
+        scorrimento = 0.0
+        for area in riga:
+            estensione = area / spessore
+            if lungo_x:
+                rettangoli.append({"x": x + scorrimento, "y": y,
+                                   "w": estensione, "h": spessore})
+            else:
+                rettangoli.append({"x": x, "y": y + scorrimento,
+                                   "w": spessore, "h": estensione})
+            scorrimento += estensione
+        if lungo_x:
+            y += spessore
+            h -= spessore
+        else:
+            x += spessore
+            w -= spessore
+        i = j
+    return rettangoli
+
+
+def treemap_data(pagine: List[dict], width: float = TREEMAP_W,
+                 height: float = TREEMAP_H,
+                 max_items: int = TREEMAP_MAX
+                 ) -> Optional[Dict[str, object]]:
+    """La superficie pagina per pagina, come rettangoli.
+
+    Ogni rettangolo e' una pagina, l'area e' proporzionale alle parole
+    recuperabili. La distribuzione di profondita' dice DOVE sta il
+    contenuto, questa dice quanto ce n'e' su ciascuna pagina — e la
+    forma che si legge a colpo d'occhio e' quella di un sito che ha
+    tutto il testo in una pagina sola.
+
+    **Nessun colore di gravita', e non e' una rinuncia estetica.**
+    UPGRADE.md prevedeva di colorare ogni pagina con la gravita'
+    peggiore dei rilievi che la citano, ma nessun rilievo cita una
+    pagina: `Finding.url` e' vuoto ovunque tranne in `mars_wcag`, dove
+    porta il link alla documentazione della regola axe, non l'URL
+    analizzato. Applicata alla lettera, quella regola non troverebbe
+    mai una corrispondenza e dipingerebbe **tutte** le pagine di
+    "nessun problema" — un via libera che nessuno ha misurato. Finche'
+    i rilievi non dichiarano la pagina che li ha prodotti, la treemap
+    parla di superficie e tace sulla qualita'.
+
+    None sotto le due pagine con testo: un rettangolo solo non e' una
+    distribuzione, e' un quadrato che riempie lo spazio qualunque sia
+    il sito.
+    """
+    con_testo = [p for p in pagine if int(p.get("words") or 0) > 0]
+    if len(con_testo) < 2:
+        return None
+    # Decrescente e, a parita' di parole, per URL: due esecuzioni sullo
+    # stesso sito devono dare lo stesso disegno.
+    ordinate = sorted(con_testo,
+                      key=lambda p: (-int(p.get("words") or 0),
+                                     str(p.get("url") or "")))
+    mostrate = ordinate[:max_items]
+    rettangoli = _squarify([float(p["words"]) for p in mostrate],
+                           0.0, 0.0, width, height)
+    voci: List[Dict[str, object]] = []
+    for pagina, rettangolo in zip(mostrate, rettangoli):
+        percorso = urlsplit(str(pagina.get("url") or "")).path or "/"
+        voci.append({
+            "url": pagina.get("url"),
+            "label": _coda(percorso, 30),
+            "words": int(pagina.get("words") or 0),
+            "chunks": int(pagina.get("chunks") or 0),
+            "x": round(rettangolo["x"], 1), "y": round(rettangolo["y"], 1),
+            "w": round(rettangolo["w"], 1), "h": round(rettangolo["h"], 1),
+        })
+    return {
+        "width": width, "height": height,
+        "total": len(pagine),
+        "shown": len(voci),
+        # Le pagine senza una parola indicizzabile non hanno superficie
+        # da disegnare, ma sono proprio quelle che interessano di piu':
+        # sparire in silenzio le farebbe sembrare inesistenti invece
+        # che vuote, quindi il conteggio esce e la vista lo dice.
+        "empty": len(pagine) - len(con_testo),
+        "items": voci,
     }
 
 
@@ -955,6 +1117,15 @@ def _e(valore: object) -> str:
     return html.escape(str(valore if valore is not None else ""))
 
 
+def _plurale(quante: int, singolare: str, plurale: str) -> str:
+    """«1 pagina» e «3 pagine», mai «1 pagine».
+
+    Un referto si consegna, e un accordo sbagliato e' la prima cosa che
+    si nota: costa meno scriverlo giusto che spiegare perche' non lo e'.
+    """
+    return "%d %s" % (quante, singolare if quante == 1 else plurale)
+
+
 # Soglie e colori di Lighthouse, adottati perche' il referto gli
 # somigli: chi legge entrambi non deve tradurre due scale diverse.
 # ATTENZIONE: la scala precedente di MARS era 80/50; questa e' 90/50,
@@ -1097,6 +1268,20 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
 .card { background:var(--card); border:1px solid var(--line);
         border-radius:.6rem; padding:1rem; margin:.6rem 0;
         box-shadow:var(--ombra); }
+/* La treemap: un solo colore, e non e' pigrizia — vedi treemap_data.
+   Il bordo e' il fondo pagina, cosi' i rettangoli si separano anche
+   quando due pagine hanno la stessa estensione. Il testo si stampa
+   sopra un contorno del fondo per restare leggibile su qualunque
+   rettangolo, chiaro o scuro che sia il tema. */
+svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
+              display:block; }
+svg.treemap rect { fill:var(--muted); fill-opacity:.35;
+                   stroke:var(--bg); stroke-width:2; }
+svg.treemap text { font-size:11px; fill:var(--fg); stroke:var(--bg);
+                   stroke-width:3; paint-order:stroke;
+                   pointer-events:none; }
+details > summary { cursor:pointer; color:var(--muted);
+                    font-size:.85rem; margin:.4rem 0; }
 .disclaimer { font-size:.83rem; color:var(--muted); font-style:italic; }
 code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
        font-size:.85em; }
@@ -1659,6 +1844,81 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
     return "".join(parti)
 
 
+# Sotto queste misure l'etichetta non ci sta e uscirebbe dal
+# rettangolo, sovrapposta a quella accanto. Il `<title>` e la tabella
+# di ripiego dicono comunque tutto: e' l'etichetta a essere un di piu',
+# non il dato.
+TREEMAP_MIN_W = 90.0
+TREEMAP_MIN_H = 26.0
+
+
+def _treemap_html(referto: dict, p: List[str]) -> None:
+    """La treemap della superficie: SVG statico, e la sua tabella.
+
+    L'SVG e' **una sola immagine** per chi usa un lettore di schermo
+    (`role="img"` con la sua etichetta), e i `<title>` per rettangolo
+    servono il passaggio del mouse. La lettura accessibile e' la
+    tabella in `<details>`, che porta gli stessi numeri: e' per questo
+    che i rettangoli **non** sono focalizzabili: quaranta fermate di
+    tabulazione che al fuoco non mostrano nulla — senza JavaScript il
+    `<title>` non compare — sarebbero un ostacolo travestito da
+    accessibilita'.
+    """
+    mappa = treemap_data(referto.get("pages") or [])
+    if not mappa:
+        return
+    voci = mappa["items"]
+    note = ["Ogni rettangolo è una pagina, l'area è proporzionale alle "
+            "parole recuperabili."]
+    con_testo = int(mappa["total"]) - int(mappa["empty"])
+    if mappa["shown"] < con_testo:
+        note.append("Le %d più estese di %s."
+                    % (mappa["shown"],
+                       _plurale(con_testo, "pagina", "pagine")))
+    if mappa["empty"]:
+        note.append("%s senza testo indicizzabile non %s superficie da "
+                    "disegnare."
+                    % (_plurale(int(mappa["empty"]), "pagina", "pagine"),
+                       "ha" if mappa["empty"] == 1 else "hanno"))
+    # Il colore non dice nulla, e va detto: un grigio uniforme dopo le
+    # barre gialle della distribuzione si legge come «tutto a posto»
+    # invece che come «non misurato», ed e' la confusione che il
+    # referto evita ovunque.
+    note.append("Il colore non è un giudizio: nessun rilievo dichiara "
+                "la pagina che lo ha prodotto, quindi la treemap parla "
+                "di superficie e tace sulla qualità.")
+    p.append("<p class='meta'>%s</p>" % _e(" ".join(note)))
+    p.append("<svg class='treemap' viewBox='0 0 %d %d' role='img' "
+             "aria-label='Treemap della superficie: %s, la più "
+             "estesa è %s con %s. I dati sono nella tabella qui "
+             "sotto.'>"
+             % (int(mappa["width"]), int(mappa["height"]),
+                _plurale(int(mappa["shown"]), "pagina", "pagine"),
+                _e(voci[0]["label"]),
+                _plurale(int(voci[0]["words"]), "parola", "parole")))
+    for voce in voci:
+        p.append("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f'>"
+                 "<title>%s — %s, %s</title></rect>"
+                 % (voce["x"], voce["y"], voce["w"], voce["h"],
+                    _e(voce["label"]),
+                    _plurale(int(voce["words"]), "parola", "parole"),
+                    _plurale(int(voce["chunks"]), "passaggio", "passaggi")))
+        if voce["w"] >= TREEMAP_MIN_W and voce["h"] >= TREEMAP_MIN_H:
+            p.append("<text x='%.1f' y='%.1f'>%s</text>"
+                     % (voce["x"] + 6, voce["y"] + 17,
+                        _e(_coda(str(voce["label"]),
+                                 int((voce["w"] - 12) // 6)))))
+    p.append("</svg>")
+    p.append("<details><summary>La superficie in tabella</summary>"
+             "<table><tr><th>Pagina</th><th>Parole</th>"
+             "<th>Passaggi</th></tr>")
+    for voce in voci:
+        p.append("<tr><td>%s</td><td class='num'>%d</td>"
+                 "<td class='num'>%d</td></tr>"
+                 % (_e(voce["url"]), voce["words"], voce["chunks"]))
+    p.append("</table></details>")
+
+
 def _sezione_superficie(referto: dict, p: List[str]) -> None:
     """Profondita' di crawl e matematica della superficie."""
     profondita = depth_distribution(referto.get("pages") or [])
@@ -1680,6 +1940,7 @@ def _sezione_superficie(referto: dict, p: List[str]) -> None:
                      % (_e(voce["label"]), voce["pages"], classe,
                         100.0 * voce["pages"] / massimo))
         p.append("</table>")
+    _treemap_html(referto, p)
     if matematica:
         p.append("<div class='card'><p>%d pagine, %d passaggi — %.2f per "
                  "pagina, %.0f parole per pagina.</p>"

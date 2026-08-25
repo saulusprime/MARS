@@ -15,7 +15,8 @@ import pytest
 from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
                        load_queries)
 import mars_remediation
-from mars_report import (RENDERERS, _classe, _correzioni,
+from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
+                         _correzioni, segnali_derivati,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_html, render_json, render_text)
@@ -1243,3 +1244,126 @@ def test_le_azioni_di_profilo_neutralizzano_il_markup(contesto):
     }
     html = render_html(build_report(contesto["results"], contesto))
     assert "<script>alert(1)</script>" not in html
+
+
+# ----------------------------------------------------------------------
+# U5.1: il punteggio complessivo
+# ----------------------------------------------------------------------
+
+def _referto_complessivo(contesto, **cambi):
+    risultati = {"mars_tech": {"score": 60, "issues": []},
+                 "mars_schema": {"score": 100, "issues": []}}
+    risultati.update(cambi)
+    contesto["results"] = risultati
+    return build_report(risultati, contesto)
+
+
+def test_il_complessivo_si_ricostruisce_a_mano(contesto):
+    """Due aree a peso 1: (60 + 100) / 2 = 80."""
+    complessivo = _referto_complessivo(contesto)["overall"]
+    assert complessivo["score"] == 80.0
+    assert complessivo["weight_total"] == 2.0
+    assert [c["value"] for c in complessivo["components"]] == [60.0, 100.0]
+
+
+def test_il_complessivo_si_rinormalizza_sulle_aree_misurate(contesto):
+    """Un'area senza strumento non abbassa il complessivo, lo rende meno
+    informato: e' la stessa regola dei segnali di mars_citability."""
+    con_tre = _referto_complessivo(contesto, mars_wapt={
+        "score": None, "status": "unavailable", "issues": []})["overall"]
+    assert con_tre["score"] == 80.0, "l'area non misurata non pesa"
+    assert con_tre["weight_total"] == 2.0
+
+
+def test_il_segnale_derivato_pesa_una_volta_e_mezza(contesto):
+    """(60 + 100 + 1.5*100) / 3.5 = 88.6 — D3."""
+    contesto["results"] = {"mars_tech": {"score": 60, "issues": []},
+                           "mars_schema": {"score": 100, "issues": []},
+                           "mars_semantic": {"status": "ranking",
+                                             "answer_shaped_ratio": 1.0,
+                                             "n_chunks": 4, "rank": [0]}}
+    complessivo = build_report(contesto["results"], contesto)["overall"]
+    assert complessivo["weight_total"] == 3.5
+    assert complessivo["score"] == 88.6
+
+
+def test_citabilita_e_llm_restano_fuori_dal_complessivo(contesto):
+    """D3: una e' la sintesi degli altri punteggi, l'altra e' opzionale e
+    a pagamento — con dentro, lo stesso sito darebbe due complessivi a
+    seconda che si sia speso o no."""
+    complessivo = _referto_complessivo(
+        contesto,
+        mars_citability={"score": 10.0, "profiles": {"Claude": 10.0},
+                         "issues": []},
+        mars_llm_judge={"score": 10, "issues": []})["overall"]
+    assert complessivo["score"] == 80.0
+    assert complessivo["excluded"] == ["mars_citability", "mars_llm_judge"]
+
+
+def test_le_due_aree_escluse_lo_restano_anche_quando_falliscono(contesto):
+    """E' il motivo per cui si escludono per NOME: una regola basata sul
+    dato le lascerebbe rientrare proprio quando il dato non c'e'."""
+    complessivo = _referto_complessivo(
+        contesto, mars_citability={"error": "rotto"},
+        mars_llm_judge={"error": "rotto"})["overall"]
+    assert complessivo["score"] == 80.0
+    assert "mars_citability" in complessivo["excluded"]
+
+
+def test_senza_nulla_da_mediare_il_complessivo_e_none(contesto):
+    """Non zero: e' un "non misurato", e il referto li distingue."""
+    contesto["results"] = {"mars_tech": {"score": None,
+                                         "status": "unavailable",
+                                         "issues": []}}
+    assert build_report(contesto["results"], contesto)["overall"] is None
+
+
+def test_i_segnali_derivati_sono_gli_stessi_per_fascia_e_complessivo(contesto):
+    """Scritti una volta sola: due implementazioni dello stesso numero
+    divergerebbero senza che nulla si rompa (la lezione di R18)."""
+    contesto["results"] = {"mars_tech": {"score": 60, "issues": []},
+                           "mars_semantic": {"status": "ranking",
+                                             "answer_shaped_ratio": 0.5,
+                                             "n_chunks": 4, "rank": [0]}}
+    referto = build_report(contesto["results"], contesto)
+    segnali = segnali_derivati(referto)
+    assert [s["name"] for s in segnali] == ["In forma di risposta"]
+    assert segnali[0]["value"] == 50.0
+    # lo stesso numero compare nella fascia e dentro il complessivo
+    assert "su 4 chunk" in render_html(referto)
+    assert [c["value"] for c in referto["overall"]["components"]
+            if c["name"] == "In forma di risposta"] == [50.0]
+
+
+def test_il_complessivo_e_in_testa_alla_vista_testo(contesto):
+    testo = render_text(_referto_complessivo(contesto))
+    righe = [r for r in testo.split("\n") if r.strip()]
+    # righe[0] e [2] sono i separatori, [1] il titolo del referto.
+    assert righe[3].startswith("COMPLESSIVO")
+    assert "80/100" in righe[3]
+    assert "media pesata di 2 misure" in righe[4]
+
+
+def test_senza_complessivo_la_riga_non_compare(contesto):
+    contesto["results"] = {"mars_tech": {"score": None,
+                                         "status": "unavailable",
+                                         "issues": []}}
+    assert "COMPLESSIVO" not in render_text(
+        build_report(contesto["results"], contesto))
+
+
+@pytest.mark.parametrize("valore,atteso", [
+    (100, "buono"), (SOGLIA_BUONO, "buono"), (SOGLIA_BUONO - 1,
+                                              "da migliorare"),
+    (SOGLIA_MEDIO, "da migliorare"), (SOGLIA_MEDIO - 1, "critico"), (0,
+                                                                     "critico"),
+])
+def test_il_verdetto_segue_le_stesse_soglie_del_colore(contesto, valore,
+                                                       atteso):
+    """Se un giorno le soglie si ritarano, la parola e il pallino non
+    possono divergere: leggono le stesse due costanti."""
+    contesto["results"] = {"mars_tech": {"score": valore, "issues": []}}
+    testo = render_text(build_report(contesto["results"], contesto))
+    assert "(%s)" % atteso in testo
+    assert _classe(valore) == {"buono": "ok", "da migliorare": "warn",
+                               "critico": "bad"}[atteso]

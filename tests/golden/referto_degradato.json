@@ -748,6 +748,36 @@
     "page_signals": null,
     "languages": null
   },
+  "overall": {
+    "score": 65.5,
+    "components": [
+      {
+        "name": "1. Tecnica",
+        "value": 57.0,
+        "weight": 1.0
+      },
+      {
+        "name": "5. Dati Strutturati",
+        "value": 90.0,
+        "weight": 1.0
+      },
+      {
+        "name": "6. Accessibilità",
+        "value": 40.0,
+        "weight": 1.0
+      },
+      {
+        "name": "7. Sicurezza",
+        "value": 75.0,
+        "weight": 1.0
+      }
+    ],
+    "excluded": [
+      "mars_citability",
+      "mars_llm_judge"
+    ],
+    "weight_total": 4.0
+  },
   "remediation": [
     {
       "key": "tech.robots.ai_blocked",

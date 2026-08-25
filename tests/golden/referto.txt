@@ -2,6 +2,9 @@
 =======================================================
            MARS BEACON - REPORT FINALE           
 =======================================================
+COMPLESSIVO          :  66/100  (da migliorare)
+  media pesata di 7 misure; citabilità e giudizio LLM esclusi
+-------------------------------------------------------
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">

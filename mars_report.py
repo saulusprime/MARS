@@ -151,6 +151,9 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
                       "answer_shaped_signals", "page_signals", "languages")
         },
     }
+    # Il complessivo prima del piano: nessuno dei due dipende
+    # dall'altro, ma entrambi rileggono le aree gia' composte.
+    referto["overall"] = overall_score(referto)
     # Il piano si costruisce per ULTIMO, e da questa stessa struttura:
     # rilegge le aree e la citabilita' gia' composte, quindi non puo'
     # stare dentro il letterale che le definisce.
@@ -162,6 +165,101 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     # produrre un referto silenziosamente senza piano.
     referto["remediation"] = mars_remediation.build_remediation(referto)
     return referto
+
+
+# D3: chi entra nel punteggio complessivo, e con quale peso.
+#
+# Le due aree escluse lo sono per NOME e non per una proprieta' del
+# dato, ed e' deliberato. `mars_citability` e' una sintesi dei
+# punteggi altrui: contarla sarebbe contare due volte le stesse
+# misure. `mars_llm_judge` e' opzionale e a pagamento, quindi lo
+# stesso sito darebbe due complessivi diversi a seconda che si sia
+# speso o no. Escluderle per nome le tiene fuori anche quando
+# FALLISCONO, che e' proprio il caso in cui una regola basata sul dato
+# le lascerebbe rientrare.
+AREE_FUORI_DAL_COMPLESSIVO = ("mars_citability", "mars_llm_judge")
+
+# I due segnali derivati pesano una volta e mezza un'area: non vengono
+# da uno strumento esterno ma dal CONFRONTO fra i due recuperatori,
+# che e' la domanda del progetto — un passaggio verrebbe davvero
+# scelto da una ricerca ibrida?
+PESO_AREA = 1.0
+PESO_SEGNALE_DERIVATO = 1.5
+
+
+def segnali_derivati(referto: dict) -> List[Dict[str, object]]:
+    """I due segnali che non vengono da un'area ma dal confronto fra due.
+
+    `mars_lexical` e `mars_semantic` producono una classifica e non un
+    voto, quindi non hanno un punteggio da mediare: al loro posto
+    valgono il consenso RRF aggregato e la quota di contenuto in forma
+    di risposta.
+
+    Scritta una volta sola perche' la leggono in due — la fascia dei
+    quadranti e il punteggio complessivo — e due implementazioni dello
+    stesso numero divergerebbero senza che nulla si rompa. E' lo stesso
+    argomento del `tokenize()` condiviso fra corpus e query (R18).
+    """
+    esito: List[Dict[str, object]] = []
+    aggregato = referto.get("rrf_aggregate")
+    if aggregato and aggregato.get("consensus_out_of"):
+        esito.append({
+            "name": "Recuperabilità",
+            "value": (100.0 * aggregato["consensus_top3"]
+                      / aggregato["consensus_out_of"]),
+            "note": "consenso %d/%d" % (aggregato["consensus_top3"],
+                                        aggregato["consensus_out_of"]),
+        })
+    sem = referto.get("semantic") or {}
+    if sem.get("n_chunks"):
+        esito.append({
+            "name": "In forma di risposta",
+            "value": 100.0 * (sem.get("answer_shaped_ratio") or 0),
+            "note": "su %d chunk" % sem["n_chunks"],
+        })
+    return esito
+
+
+def overall_score(referto: dict) -> Optional[Dict[str, object]]:
+    """Il punteggio complessivo, con gli ingredienti accanto.
+
+    Media pesata delle sole aree MISURATE, rinormalizzata su quelle
+    presenti: un'area senza strumento non abbassa il complessivo, lo
+    rende meno informato — la stessa regola che `mars_citability`
+    applica ai suoi segnali.
+
+    Restituisce anche `components` ed `excluded`, e non e' ornamento:
+    un numero che riassume nove aree in uno vale quanto la possibilita'
+    di rifarne il conto. Senza, «68» sarebbe l'unica cifra del referto
+    che nessuno puo' verificare.
+
+    None quando non c'e' nulla da mediare: e' un "non misurato", non
+    uno zero.
+    """
+    componenti: List[Dict[str, object]] = []
+    escluse: List[str] = []
+    for area in referto.get("areas") or []:
+        nome = area.get("module") or ""
+        if nome in AREE_FUORI_DAL_COMPLESSIVO:
+            escluse.append(nome)
+            continue
+        if not isinstance(area.get("score"), (int, float)):
+            continue
+        componenti.append({"name": area.get("label") or nome,
+                           "value": float(area["score"]),
+                           "weight": PESO_AREA})
+    for segnale in segnali_derivati(referto):
+        componenti.append({"name": segnale["name"],
+                           "value": float(segnale["value"]),
+                           "weight": PESO_SEGNALE_DERIVATO})
+    if not componenti:
+        return None
+    totale = sum(c["weight"] for c in componenti)
+    somma = sum(c["value"] * c["weight"] for c in componenti)
+    return {"score": round(somma / totale, 1),
+            "components": componenti,
+            "excluded": escluse,
+            "weight_total": totale}
 
 
 def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
@@ -320,6 +418,35 @@ def _consenso_leggibile(voce: dict) -> str:
     return "%d/%d" % (voce["consensus_top3"], voce["consensus_out_of"])
 
 
+# Le tre parole della scala, agganciate alle stesse soglie del colore:
+# se un giorno si ritarano, verdetto e pallino non possono divergere.
+def _verdetto(valore: Optional[float]) -> str:
+    if valore is None:
+        return "non misurato"
+    return ("buono" if valore >= SOGLIA_BUONO
+            else "da migliorare" if valore >= SOGLIA_MEDIO else "critico")
+
+
+def _riga_complessivo(referto: dict) -> List[str]:
+    """Il complessivo in testa, con che cosa lo compone.
+
+    Un numero solo per nove aree e' utile quanto e' verificabile: la
+    riga sotto dice quante misure ci sono dentro e quali due non ci
+    sono per decisione, cosi' chi legge 68 sa che non e' la media di
+    tutto.
+    """
+    complessivo = referto.get("overall")
+    if not complessivo:
+        return []
+    righe = ["%-20s : %3.0f/100  (%s)"
+             % ("COMPLESSIVO", complessivo["score"],
+                _verdetto(complessivo["score"]))]
+    righe.append("  media pesata di %d misure; citabilità e giudizio LLM "
+                 "esclusi" % len(complessivo["components"]))
+    righe.append("-" * 55)
+    return righe
+
+
 def _riga_area(area: dict) -> str:
     if area["score"] is None:
         stato = STATO_LEGGIBILE.get(area["status"], "non misurato")
@@ -450,6 +577,8 @@ def _piano_testo(referto: dict) -> List[str]:
 def render_text(referto: dict) -> str:
     righe = ["", "=" * 55,
              "           MARS BEACON - REPORT FINALE           ", "=" * 55]
+
+    righe.extend(_riga_complessivo(referto))
 
     # Le chiavi che il piano gia' elenca: sotto l'area si stampano solo
     # le correzioni che lui non prende in carico.
@@ -792,19 +921,9 @@ def _fascia_quadranti(referto: dict) -> str:
         pezzi.append(_quadrante(area["score"], _etichetta_area(area), nota,
                                 parziale))
 
-    aggregato = referto.get("rrf_aggregate")
-    if aggregato and aggregato.get("consensus_out_of"):
-        consenso = (100.0 * aggregato["consensus_top3"]
-                    / aggregato["consensus_out_of"])
-        pezzi.append(_quadrante(consenso, "Recuperabilità",
-                                "consenso %d/%d"
-                                % (aggregato["consensus_top3"],
-                                   aggregato["consensus_out_of"])))
-    sem = referto.get("semantic") or {}
-    if sem.get("n_chunks"):
-        pezzi.append(_quadrante(100.0 * (sem.get("answer_shaped_ratio") or 0),
-                                "In forma di risposta",
-                                "su %d chunk" % sem["n_chunks"]))
+    for segnale in segnali_derivati(referto):
+        pezzi.append(_quadrante(segnale["value"], segnale["name"],
+                                segnale["note"]))
     if not pezzi:
         return ""
     return "<div class='quadranti'>%s</div>" % "".join(pezzi)

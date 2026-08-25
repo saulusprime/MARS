@@ -180,6 +180,20 @@ dietro una sola voce aperta: **R44**.
         bump a 2.3.0 con il README, e un test che lega le due dichiarazioni
         di versione.
 - [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).
+  - [x] **U5.1** — `overall_score()` secondo D3: media pesata delle sole aree
+        misurate, rinormalizzata, con i due segnali derivati a peso 1,5 e
+        citabilità e giudizio LLM esclusi **per nome**, così restano fuori
+        anche quando falliscono. Chiave `overall` nel dato, con i componenti
+        accanto perché il numero sia rifacibile; riga `COMPLESSIVO` in testa
+        alla vista testo.
+  - [ ] **U5.2** — l'hero in `render_html`: quadrante grande del complessivo
+        col verdetto, tre riquadri coi conteggi per gravità dai findings
+        (**escludendo i derivati**, seconda casella di R41), donut
+        scansionate/scartate. Due golden `.html`.
+  - [ ] **U5.3** — ancore stabili (G11): slug `r-{area}-{titolo}` coi numeri
+        normalizzati, permalink sui rilievi e sui controlli, regola `:target`
+        nel CSS, e il piano della Fase 4 che le linka. Qui entra anche il
+        widget «Top rilievi», che UPGRADE.md lega all'hero.
 - [ ] **U6 — Formati Markdown e CSV** (G04, Fase 6).
 - [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
       `schema_version`, parametri RRF e soglie nel referto; delta fra due

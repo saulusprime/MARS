@@ -1158,6 +1158,51 @@
       "it": 4
     }
   },
+  "overall": {
+    "score": 66.3,
+    "components": [
+      {
+        "name": "1. Tecnica",
+        "value": 57.0,
+        "weight": 1.0
+      },
+      {
+        "name": "2. SEO",
+        "value": 27.0,
+        "weight": 1.0
+      },
+      {
+        "name": "5. Dati Strutturati",
+        "value": 90.0,
+        "weight": 1.0
+      },
+      {
+        "name": "6. Accessibilità",
+        "value": 37.0,
+        "weight": 1.0
+      },
+      {
+        "name": "7. Sicurezza",
+        "value": 57.0,
+        "weight": 1.0
+      },
+      {
+        "name": "Recuperabilità",
+        "value": 100.0,
+        "weight": 1.5
+      },
+      {
+        "name": "In forma di risposta",
+        "value": 75.0,
+        "weight": 1.5
+      }
+    ],
+    "excluded": [
+      "mars_citability",
+      "mars_llm_judge"
+    ],
+    "weight_total": 8.0
+  },
   "remediation": [
     {
       "key": "tech.robots.ai_blocked",

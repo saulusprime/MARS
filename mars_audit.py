@@ -18,6 +18,7 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
 from mars_core import load_queries
 from mars_citability import MERCATI
 import mars_history
+from mars_i18n import LINGUA_CANONICA, LINGUE
 from mars_report import RENDERERS, build_report
 
 
@@ -36,7 +37,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               llm: str = "auto", formato: str = "text",
               output: str | None = None,
               queries: list[str] | None = None,
-              storico: str | None = None) -> int:
+              storico: str | None = None,
+              lang: str = LINGUA_CANONICA) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
@@ -99,7 +101,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
         else:
             print(f"⚠ Impossibile scrivere lo storico in {storico}")
 
-    testo = RENDERERS[formato](referto)
+    testo = RENDERERS[formato](referto, lang)
     if output:
         try:
             with open(output, "w", encoding="utf-8") as handle:
@@ -235,6 +237,14 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "Fogli).")
 
     parser.add_argument(
+        "--lang", choices=LINGUE, default=LINGUA_CANONICA,
+        help="Lingua del referto. Valori: it (default), en. Il JSON "
+             "resta in italiano in ogni caso — e' il dato canonico, e "
+             "porta `key` e `params` su ogni rilievo perche' chi lo "
+             "consuma traduca da se'. Una lingua sconosciuta ricade "
+             "sull'italiano.")
+
+    parser.add_argument(
         "--output", metavar="FILE",
         help="Scrive il referto su file invece che a video. Esempi: "
              "referto.html, referto.json. Uscita 3 se il file non e' "
@@ -293,6 +303,7 @@ if __name__ == "__main__":
                        owner_declaration=args.owner_declaration,
                        llm=args.llm, formato=args.formato,
                        output=args.output, queries=elenco_query,
+                       lang=args.lang,
                        storico=(None if args.senza_storico else
                                 args.storico
                                 or mars_history.percorso_storico(

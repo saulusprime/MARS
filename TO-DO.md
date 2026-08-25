@@ -15,8 +15,8 @@
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
 > `upgrade`, la versione è **2.7.0**. **Le prime otto fasi sono chiuse** —
 > le loro voci stanno in [AS-IS.md](AS-IS.md). In corso la **U9**, l'i18n:
-> **D4 è ratificata** (it/en, livello inferiore dichiarato) e **U9.1 è
-> chiusa**; restano U9.2 e U9.3.
+> **D4 è ratificata** (it/en, livello inferiore dichiarato), **U9.1 e U9.2
+> sono chiuse**; resta U9.3, la lingua chiesta agli strumenti (con R44).
 >
 > Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
 > di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
@@ -180,27 +180,32 @@ colore) e **R48** (il grafo non ha un test di comportamento nella suite).
 
 ### U9 — i18n del referto (G05, Fase 9) — *in corso*
 
-**U9.1 è chiusa**, in [AS-IS.md](AS-IS.md): `mars_i18n.py`, il catalogo `en`
-dei rilievi risolto su `key`+`params`, e il ripiego dichiarato campo per
-campo. Nessuna resa è cambiata — la lingua non arriva ancora ai renderer.
+**U9.1 e U9.2 sono chiuse**, in [AS-IS.md](AS-IS.md): `mars_i18n.py` col
+catalogo `en` dei rilievi e quello della cornice, `lang` passato per mano
+attraverso i renderer, `--lang` nella CLI. I golden restano congelati in `it`
+e nessuna vista di prosa si è mossa.
 
-- [ ] **U9.2 — la cornice e il parametro `lang`.** Catalogo delle stringhe dei
-      renderer (misurate: ~113 distinte, sparse in 35 funzioni di
-      `mars_report.py`), `lang` **passato esplicitamente** attraverso i
-      renderer — non un `ContextVar`, che non attraversa il threadpool su cui
-      FastAPI esegue gli handler sincroni — `--lang` nella CLI e campo `lang`
-      nell'API. I golden restano congelati in `it`, che è la lingua canonica;
-      per l'inglese bastano test funzionali. Da dichiarare in testa ai formati
-      di prosa non italiani: le evidenze citate dal sito restano nella lingua
-      del sito, e il JSON resta canonico italiano con `key`+`params` perché
-      chi lo consuma traduca da sé.
+Misurato chiudendo U9.2: nel referto inglese resta italiano **solo** ciò che
+viene dagli strumenti, più la prosa del modello e il testo del sito. È il
+perimetro esatto della voce che resta.
+
 - [ ] **U9.3 — la lingua chiesta agli strumenti**, che è ciò che chiude
       **R44**. `wcag.axe.*`, `sec.zap.*` e `seo.lh.*` prendono i testi da axe,
-      ZAP e Lighthouse: `--lang` deve governare `--locale` di Lighthouse e il
-      file di locale di axe, e il referto deve dichiarare ciò che lo strumento
-      non sa dire in quella lingua (ZAP parla inglese e basta). Oggi il ramo
-      axe produce titoli inglesi dentro un referto italiano, e la fixture del
-      golden lo nasconde: va resa fedele nello stesso commit.
+      ZAP e Lighthouse: `lang` deve entrare nel `context` — come `market` e
+      `llm` — e di lì governare `--locale` di Lighthouse e
+      `axe.configure({locale})`. Ne discendono tre cose da decidere con
+      intenzione, non da scoprire scrivendo:
+      *(a)* con `--lang it` i titoli axe diventano italiani, quindi **i golden
+      di testo, HTML, Markdown e CSV si muovono** — è R44, ed è il primo
+      spostamento di prosa dell'intera Fase 9;
+      *(b)* `_violazioni_axe()` va resa **fedele** nello stesso commit: oggi
+      scrive `help` in italiano e congela un referto più bello di quello vero;
+      *(c)* il JSON canonico smette di essere interamente italiano, perché i
+      testi degli strumenti nascono nella lingua con cui l'audit ha girato.
+      Va dichiarato dove oggi si dice «il JSON resta italiano»: è italiano per
+      tutto ciò che scrive MARS, e nella lingua dell'audit per ciò che
+      scrivono axe, ZAP e Lighthouse. ZAP parla inglese e basta, e anche
+      questo va detto invece che lasciato intuire.
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
       Kimi accanto a Claude.
 - [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**

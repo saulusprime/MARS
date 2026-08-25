@@ -452,6 +452,14 @@ def build_remediation(referto: dict) -> List[dict]:
                 "fix": rilievo.get("fix") or "",
                 "example": rilievo.get("example") or "",
                 "url": rilievo.get("url") or "",
+                # I `params` viaggiano con la voce come ci viaggiano
+                # titolo e fix, e per la stessa ragione: la voce e' una
+                # COPIA del rilievo, non un rimando. Senza, un titolo
+                # come «%(campi)d campi di modulo senza etichetta» non
+                # si puo' tradurre — `mars_i18n.finding_texts` risolve
+                # il template sui params, non li trova e ripiega
+                # sull'italiano, in silenzio (misurato chiudendo U9.2).
+                "params": dict(rilievo.get("params") or {}),
                 "penalty": penalita,
                 "recovery": guadagno,
                 "score_before": prima,

@@ -8,12 +8,14 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import ast
 import os
 import re
 
 import pytest
 
 import mars_citability
+import mars_core
 import mars_fixes
 import mars_i18n
 import mars_tech
@@ -520,3 +522,333 @@ def test_l_elenco_troncato_dei_crawler_viaggia_nei_params():
     tradotto = finding_texts(rilievo.as_dict(), "en")["title"]
     assert rilievo.params["elenco"] in tradotto, \
         "le due lingue elencano gli stessi crawler"
+
+
+# ======================================================================
+# La cornice: le etichette e le note che il referto scrive di suo (U9.2)
+# ======================================================================
+
+def _costanti_traducibili(nodo: ast.AST) -> set:
+    """Le stringhe che un'espressione passata a `t()` puo' valere.
+
+    Scende in `if/else` e in `or` — le due forme che il renderer usa per
+    scegliere fra due testi — e si ferma davanti a tutto il resto: un
+    `.get(chiave, default)` o un `area["label"]` non sono testi da
+    tradurre ma il modo di andarli a prendere.
+    """
+    if isinstance(nodo, ast.Constant):
+        return {nodo.value} if isinstance(nodo.value, str) and nodo.value \
+            else set()
+    if isinstance(nodo, ast.IfExp):
+        return (_costanti_traducibili(nodo.body)
+                | _costanti_traducibili(nodo.orelse))
+    if isinstance(nodo, ast.BoolOp):
+        return set().union(*(_costanti_traducibili(v) for v in nodo.values))
+    return set()
+
+
+def _letterali_di_t() -> set:
+    """(testo, contesto) di ogni `t("...")` scritto in mars_report.py.
+
+    Letto dall'AST e non con una regex: `t()` compare dentro `%`,
+    concatenazioni e f-string, e una regex su una stringa spezzata su
+    quattro righe non la ricompone.
+    """
+    percorso = os.path.join(RADICE, "mars_report.py")
+    with open(percorso, encoding="utf-8") as f:
+        arbre = ast.parse(f.read())
+    trovati = set()
+    for nodo in ast.walk(arbre):
+        if not (isinstance(nodo, ast.Call)
+                and isinstance(nodo.func, ast.Name)):
+            continue
+        if nodo.func.id == "t" and nodo.args:
+            contesto = ""
+            if len(nodo.args) > 2 and isinstance(nodo.args[2], ast.Constant):
+                contesto = str(nodo.args[2].value)
+            # Il primo argomento puo' essere un letterale, un
+            # condizionale — `t("buono" if ... else "critico")` — o una
+            # catena `or`. Si scende in quelli e non in tutto il
+            # sottoalbero: `ast.walk` prenderebbe anche la "label" di
+            # `t(area["label"], lang)`, che e' la chiave di un dict e
+            # non un testo da tradurre.
+            for testo in _costanti_traducibili(nodo.args[0]):
+                trovati.add((testo, contesto))
+        elif nodo.func.id == "_plurale" and len(nodo.args) >= 3:
+            # Le due forme di `_plurale` finiscono in `t()` una alla
+            # volta, e il contesto glielo mette lui dal numero.
+            for posizione, contesto in ((1, "singolare"), (2, "plurale")):
+                arg = nodo.args[posizione]
+                if isinstance(arg, ast.Constant) \
+                        and isinstance(arg.value, str):
+                    trovati.add((arg.value, contesto))
+    return trovati
+
+
+def _testi_dal_dato() -> set:
+    """I testi che arrivano a `t()` dal DATO invece che dal renderer.
+
+    Non li vede l'AST — la chiamata e' `t(area["label"], lang)` — e i
+    due referti sintetici ne accendono solo una parte: le corsie del
+    piano hanno quattro motivi possibili e i golden ne esercitano uno.
+    Si enumerano quindi dalle costanti che li producono, che e' la
+    stessa fonte da cui li prende il codice vero.
+    """
+    import mars_citability
+    import mars_remediation
+    import mars_report as rp
+
+    testi = set()
+    testi |= {etichetta for _, etichetta in mars_core.MODULES_REGISTRY}
+    testi |= set(rp.STATO_LEGGIBILE.values())
+    testi |= {e for _, _, e in rp.SECCHIELLI_PROFONDITA}
+    testi.add("profondità ignota")
+    testi.add(rp.ASSUNZIONE_SUPERFICIE)
+    testi |= set(mars_remediation.SFORZO.values())
+    testi |= {motivo for penalita in (None, 0.0, 5.0)
+              for guadagno in (None, 0, 3)
+              for certificata in (True, False)
+              for _, motivo in [mars_remediation._corsia(penalita, guadagno,
+                                                         certificata)]
+              if motivo}
+    # Le due discovery del crawler, e i due nomi dei segnali derivati.
+    testi |= {"sitemap", "link interni"}
+    testi |= {"Recuperabilità", "In forma di risposta"}
+    testi.add(mars_citability.DISCLAIMER)
+    testi |= set(rp._MARCATORE.values())
+    testi |= set(rp._GRAVITA_TESTO.values())
+    testi |= {e for _, e in rp._BADGE_GRAVITA.values()}
+    testi |= {e for _, e, _ in rp.TESSERE_GRAVITA}
+    testi |= set(rp.COLONNE_CSV)
+    # I segnali di pagina di mars_semantic, dalla funzione che li emette.
+    import mars_semantic
+    testi |= set(mars_semantic.page_signals(
+        {"html": "<script>faqpage</script>"}))
+    # I nomi di strumento che portano una parola italiana. Quelli che il
+    # modulo COMPONE — «vettoriale <modello>», «BM25 (k1=…)» — nessun
+    # catalogo puo' contenerli, ed e' scritto in `_qualificatori`.
+    testi |= {"HTTP-Headers", "ZAP (attiva)", "ZAP (passiva)", "axe-core",
+              "markup"}
+    return {x for x in testi if x}
+
+
+@pytest.mark.parametrize("lingua", TRADOTTE)
+def test_ogni_letterale_della_cornice_e_a_catalogo(lingua):
+    """Il presidio che regge la scelta di indicizzare sul testo italiano.
+
+    Cambiare una parola in `mars_report.py` scollega la traduzione senza
+    rompere nulla — esce l'italiano, che e' un ripiego valido e quindi
+    invisibile. Qui la riconnessione e' obbligatoria."""
+    catalogo = mars_i18n.CORNICE[lingua]
+    mancanti = sorted(
+        testo for testo, contesto in _letterali_di_t()
+        if testo not in catalogo
+        and (contesto + mars_i18n.SEPARATORE_CONTESTO + testo)
+        not in catalogo)
+    assert not mancanti, "cornice senza traduzione %s: %s" % (lingua,
+                                                              mancanti)
+
+
+@pytest.mark.parametrize("lingua", TRADOTTE)
+def test_ogni_testo_che_viene_dal_dato_e_a_catalogo(lingua):
+    """Le etichette d'area, i secchielli, gli sforzi, le corsie.
+
+    Non stanno nel renderer, quindi il test precedente non li vede: se
+    ne aggiunge uno — un'area nuova, un livello di sforzo, un motivo di
+    corsia — questo diventa rosso."""
+    mancanti = sorted(_testi_dal_dato() - set(mars_i18n.CORNICE[lingua]))
+    assert not mancanti, "dal dato, senza traduzione: %s" % mancanti
+
+
+@pytest.mark.parametrize("lingua", TRADOTTE)
+def test_nessuna_voce_di_cornice_e_orfana(lingua):
+    """Il verso opposto: una traduzione che nessuno chiede piu'.
+
+    Senza, una riscrittura del renderer lascerebbe dietro le voci
+    vecchie, che non rompono nulla e fanno sembrare coperto cio' che
+    non lo e'."""
+    vive = {testo for testo, _ in _letterali_di_t()} | _testi_dal_dato()
+    orfane = []
+    for chiave in mars_i18n.CORNICE[lingua]:
+        nudo = chiave.split(mars_i18n.SEPARATORE_CONTESTO, 1)[-1]
+        if nudo not in vive:
+            orfane.append(chiave)
+    assert not sorted(orfane), "tradotte e mai chieste: %s" % sorted(orfane)
+
+
+def test_il_contesto_disambigua_due_significati():
+    """«da migliorare» e' un verdetto e un'etichetta del giudizio LLM.
+
+    Senza contesto una delle due sarebbe sbagliata, e non lo direbbe
+    nessuno: entrambe sono traduzioni plausibili della stessa stringa."""
+    assert mars_i18n.t("da migliorare", "en") == "needs work"
+    assert mars_i18n.t("da migliorare", "en", "llm") == "to improve"
+    # Un contesto senza voce propria ripiega sulla chiave nuda invece
+    # di sparire.
+    assert mars_i18n.t("da migliorare", "en", "mai_visto") == "needs work"
+
+
+def test_il_plurale_inglese_non_dice_tre_click():
+    """In italiano «click» non cambia al plurale, in inglese sì.
+
+    `_plurale(3, "click", "click")` chiede due volte la stessa parola:
+    senza il contesto del numero il catalogo non puo' distinguerle, e
+    il referto inglese direbbe «3 click»."""
+    from mars_report import _plurale
+    assert _plurale(1, "click", "click", "en") == "1 click"
+    assert _plurale(3, "click", "click", "en") == "3 clicks"
+    assert _plurale(1, "pagina", "pagine", "en") == "1 page"
+    assert _plurale(3, "pagina", "pagine", "en") == "3 pages"
+    # L'italiano non si muove.
+    assert _plurale(3, "click", "click") == "3 click"
+
+
+# ======================================================================
+# Il referto reso in inglese, da un capo all'altro
+# ======================================================================
+
+PROSA = ("text", "html", "markdown", "csv")
+
+
+def _resa(monkeypatch, dataset: str, formato: str, lingua: str) -> str:
+    from mars_report import RENDERERS
+    return RENDERERS[formato](DATASET[dataset](monkeypatch), lingua)
+
+
+@pytest.mark.parametrize("formato", PROSA)
+@pytest.mark.parametrize("dataset", sorted(DATASET))
+def test_il_titolo_italiano_non_sopravvive_dove_la_traduzione_c_e(
+        dataset, formato, monkeypatch):
+    """Il test che ha trovato il difetto delle voci di piano.
+
+    Il ripiego e' silenzioso: un titolo che non si traduce esce in
+    italiano, ed e' indistinguibile da uno che non ha traduzione. Qui si
+    guarda la RESA e si pretende che, per ogni rilievo con una voce a
+    catalogo, ci sia il titolo inglese e non quello italiano.
+
+    Cosi' e' venuto fuori che le voci del piano non portavano i
+    `params`: `%(campi)d campi di modulo senza etichetta` non si poteva
+    risolvere, e il piano — la parte del referto che si consegna —
+    restava in italiano mentre le schede d'area erano tradotte.
+
+    La prova e' NEGATIVA — nessun titolo italiano sopravvive — e non
+    anche positiva, perche' le viste compatte tagliano a due o tre voci
+    e l'elenco dei rilievi non ha lo stesso ordine di quello delle
+    issues: pretendere che un titolo inglese *compaia* significherebbe
+    pretendere che sopravviva al taglio. Il verso positivo lo prova il
+    test sul CSV, che i rilievi li porta tutti."""
+    referto = DATASET[dataset](monkeypatch)
+    from mars_report import RENDERERS
+    reso = RENDERERS[formato](referto, "en")
+    italiano_reso = RENDERERS[formato](referto, "it")
+    controllati = 0
+    for area in referto["areas"]:
+        for rilievo in area.get("findings") or []:
+            voce = RILIEVI["en"].get(rilievo.get("key") or "")
+            if not voce or "title" not in voce:
+                continue
+            italiano = rilievo.get("title") or ""
+            if not italiano or italiano == finding_texts(rilievo,
+                                                         "en")["title"]:
+                continue
+            if italiano not in italiano_reso:
+                continue      # non compare in questa vista: nulla da dire
+            controllati += 1
+            assert italiano not in reso, \
+                "%s: il titolo italiano sopravvive" % rilievo["key"]
+    assert controllati, "il test non ha guardato nulla"
+
+
+@pytest.mark.parametrize("dataset", sorted(DATASET))
+def test_nel_csv_ogni_rilievo_traducibile_e_tradotto(dataset, monkeypatch):
+    """Il verso positivo, dove si puo' fare: il CSV e' l'unica vista che
+    porta TUTTI i rilievi, senza tagli e senza ordinamenti propri."""
+    referto = DATASET[dataset](monkeypatch)
+    from mars_report import RENDERERS
+    # Il CSV si PARSA e non si cerca per sottostringa: un titolo che
+    # contiene una virgoletta — `<link rel="canonical">` — viene
+    # quotato e le virgolette raddoppiate, e un `in` fallirebbe su un
+    # file perfettamente corretto.
+    import csv as modulo_csv
+    import io
+    reso = RENDERERS["csv"](referto, "en").lstrip("\ufeff")
+    titoli = {r[4] for r in modulo_csv.reader(io.StringIO(reso),
+                                              delimiter=";")}
+    controllati = 0
+    for area in referto["areas"]:
+        for rilievo in area.get("findings") or []:
+            voce = RILIEVI["en"].get(rilievo.get("key") or "")
+            if not voce or "title" not in voce:
+                continue
+            controllati += 1
+            assert finding_texts(rilievo, "en")["title"] in titoli, \
+                "%s: il titolo inglese non compare" % rilievo["key"]
+    assert controllati, "il test non ha guardato nulla"
+
+
+@pytest.mark.parametrize("dataset", sorted(DATASET))
+def test_il_piano_e_tradotto_come_le_schede(dataset, monkeypatch):
+    """Le voci del piano sono COPIE dei rilievi, e devono tradursi
+    uguale: e' la parte del referto che si consegna."""
+    referto = DATASET[dataset](monkeypatch)
+    for voce in referto.get("remediation") or []:
+        atteso = RILIEVI["en"].get(voce.get("key") or "")
+        if not atteso or "title" not in atteso:
+            continue
+        assert finding_texts(voce, "en")["title"] == \
+            atteso["title"] % mars_i18n._params_leggibili(voce["params"]), \
+            "%s: la voce di piano ripiega" % voce["key"]
+
+
+@pytest.mark.parametrize("formato", PROSA)
+def test_una_lingua_sconosciuta_rende_come_l_italiano(formato, monkeypatch):
+    """Il ripiego arriva fino alla resa, non solo a `normalizza_lingua`."""
+    assert _resa(monkeypatch, "referto", formato, "pt") == \
+        _resa(monkeypatch, "referto", formato, "it")
+
+
+def test_il_json_resta_italiano_in_ogni_lingua(monkeypatch):
+    """Il dato canonico non ha una lingua per chiamante: chi lo consuma
+    ha `key` e `params` e traduce da se'."""
+    assert _resa(monkeypatch, "referto", "json", "en") == \
+        _resa(monkeypatch, "referto", "json", "it")
+
+
+def test_l_html_dichiara_la_lingua_che_parla(monkeypatch):
+    """`<html lang>` e' il criterio WCAG 3.1.1 che questo referto misura
+    sulle pagine altrui: cablarlo a `it` su un referto inglese sarebbe
+    il difetto che il documento rileva, commesso dal documento."""
+    assert "<html lang='it'>" in _resa(monkeypatch, "referto", "html", "it")
+    assert "<html lang='en'>" in _resa(monkeypatch, "referto", "html", "en")
+
+
+def test_la_nota_di_onesta_compare_solo_fuori_dall_italiano(monkeypatch):
+    """E nomina le aree, invece di dire genericamente che qualcosa non
+    è stato tradotto."""
+    italiano = _resa(monkeypatch, "referto", "text", "it")
+    inglese = _resa(monkeypatch, "referto", "text", "en")
+    assert "evidence quoted from the audited site" in inglese
+    assert "evidence quoted" not in italiano
+    assert "Nota: le evidenze" not in italiano
+    # Le aree senza rilievi strutturati sono nominate per esteso.
+    assert "3. Lexical" in inglese and "4. Semantic" in inglese
+
+
+def test_l_intestazione_del_csv_e_tradotta(monkeypatch):
+    prima = _resa(monkeypatch, "referto", "csv", "en").split("\r\n")[0]
+    assert prima.lstrip("﻿").startswith("site;area;severity;weight")
+
+
+def test_le_aree_senza_rilievi_restano_dichiarate(monkeypatch):
+    """`_righe_compatte` mostra i titoli dei rilievi fuori dall'italiano,
+    ma dove i rilievi non ci sono le issues restano italiane: e' un
+    fatto, e va dichiarato invece che nascosto."""
+    from mars_report import aree_non_tradotte
+    referto = DATASET["referto"](monkeypatch)
+    assert aree_non_tradotte(referto, "it") == []
+    rimaste = aree_non_tradotte(referto, "en")
+    assert rimaste, "il referto sintetico ha aree senza findings"
+    for etichetta in rimaste:
+        area = [a for a in referto["areas"]
+                if mars_i18n.t(a["label"], "en") == etichetta][0]
+        assert area["issues"] and not area.get("findings")

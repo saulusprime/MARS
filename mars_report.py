@@ -23,6 +23,8 @@ from urllib.parse import urlsplit
 
 import mars_history
 import mars_remediation
+from mars_i18n import (LINGUA_CANONICA, finding_texts, normalizza_lingua,
+                       t)
 from mars_core import (AREA_PREFIX, JSON_SCHEMA_VERSION, MODULES_REGISTRY,
                        RRF_FORMULA, RRF_K, SEV_CRITICAL, SEV_INFO, SEV_OK,
                        SEV_WARNING, Finding, __version__, describe_chunk,
@@ -218,7 +220,8 @@ PESO_AREA = 1.0
 PESO_SEGNALE_DERIVATO = 1.5
 
 
-def segnali_derivati(referto: dict) -> List[Dict[str, object]]:
+def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
+                     ) -> List[Dict[str, object]]:
     """I due segnali che non vengono da un'area ma dal confronto fra due.
 
     `mars_lexical` e `mars_semantic` producono una classifica e non un
@@ -230,6 +233,12 @@ def segnali_derivati(referto: dict) -> List[Dict[str, object]]:
     quadranti e il punteggio complessivo — e due implementazioni dello
     stesso numero divergerebbero senza che nulla si rompa. E' lo stesso
     argomento del `tokenize()` condiviso fra corpus e query (R18).
+
+    `lang` governa la sola `note`, che e' prosa e non esce nel JSON —
+    `overall_score` prende `name`, `value` e `weight` e la ignora. La
+    nota si compone QUI e non si traduce a valle, perche' «consenso
+    2/3» e' gia' una frase montata: cercarla in un catalogo vorrebbe
+    dire una voce per ogni coppia di numeri possibile.
     """
     esito: List[Dict[str, object]] = []
     aggregato = referto.get("rrf_aggregate")
@@ -238,15 +247,16 @@ def segnali_derivati(referto: dict) -> List[Dict[str, object]]:
             "name": "Recuperabilità",
             "value": (100.0 * aggregato["consensus_top3"]
                       / aggregato["consensus_out_of"]),
-            "note": "consenso %d/%d" % (aggregato["consensus_top3"],
-                                        aggregato["consensus_out_of"]),
+            "note": t("consenso %d/%d", lang)
+                    % (aggregato["consensus_top3"],
+                       aggregato["consensus_out_of"]),
         })
     sem = referto.get("semantic") or {}
     if sem.get("n_chunks"):
         esito.append({
             "name": "In forma di risposta",
             "value": 100.0 * (sem.get("answer_shaped_ratio") or 0),
-            "note": "su %d chunk" % sem["n_chunks"],
+            "note": t("su %d chunk", lang) % sem["n_chunks"],
         })
     return esito
 
@@ -888,7 +898,15 @@ def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
 # Le viste
 # ======================================================================
 
-def render_json(referto: dict) -> str:
+def render_json(referto: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Il dato canonico, che resta **italiano in ogni lingua**.
+
+    `lang` c'e' per uniformita' di firma e non si usa: il JSON e' cio'
+    da cui le altre viste derivano, e due JSON diversi per lingua
+    sarebbero due dati canonici. Chi lo consuma da un programma ha
+    `key` e `params` su ogni rilievo e traduce da se' — che e' il
+    motivo per cui U1 li ha messi li'.
+    """
     return json.dumps(referto, indent=2, ensure_ascii=False)
 
 
@@ -908,7 +926,7 @@ STATO_LEGGIBILE = {
 }
 
 
-def _qualificatori(area: dict) -> List[str]:
+def _qualificatori(area: dict, lang: str = LINGUA_CANONICA) -> List[str]:
     """Con che cosa e' stato ottenuto il punteggio, e quanto vale.
 
     Un numero senza strumento, profondita' e campione non e' una misura
@@ -920,18 +938,26 @@ def _qualificatori(area: dict) -> List[str]:
     Lo stato si annota solo se convive con un punteggio: quando il
     punteggio manca, "non misurato" e "disattivato" prendono gia' il
     posto del numero e ripeterli sarebbe rumore.
+
+    Il nome dello strumento passa da `t()` per i modi che una parola
+    italiana ce l'hanno — «ZAP (attiva)», «markup» — ma quelli che il
+    modulo COMPONE, come «vettoriale <modello>» o «BM25 (k1=1.5,
+    b=0.75)», nessun catalogo puo' contenerli e restano come lo
+    strumento si e' nominato. `wcag_level` e `form_factor` non ci
+    passano affatto: «WCAG 2.1 AA» e «mobile» sono gli stessi in ogni
+    lingua.
     """
     pezzi: List[str] = []
     if area.get("tool"):
-        pezzi.append(str(area["tool"]))
+        pezzi.append(t(str(area["tool"]), lang))
     if area.get("wcag_level"):
         pezzi.append(str(area["wcag_level"]))
     if area.get("score") is not None and area.get("status") in STATO_LEGGIBILE:
-        pezzi.append(STATO_LEGGIBILE[area["status"]])
+        pezzi.append(t(STATO_LEGGIBILE[area["status"]], lang))
     if area.get("complete") is False:
-        pezzi.append("scansione parziale")
+        pezzi.append(t("scansione parziale", lang))
     if area.get("pages_tested"):
-        pezzi.append("%d pagine esaminate" % area["pages_tested"])
+        pezzi.append(t("%d pagine esaminate", lang) % area["pages_tested"])
     if area.get("form_factor"):
         # Un referto mobile e uno desktop non sono confrontabili.
         pezzi.append(str(area["form_factor"]))
@@ -940,16 +966,17 @@ def _qualificatori(area: dict) -> List[str]:
         # differisce. Senza quella ragione sarebbero due voti in
         # contraddizione; con essa sono due misure con scale diverse,
         # ed e' un'informazione in piu' invece che un dubbio.
-        pezzi.append("%s %.0f/100 (1 pagina, scala diversa: la nostra è "
-                     "più severa)"
-                     % (area.get("reference_tool") or "altro strumento",
+        pezzi.append(t("%s %.0f/100 (1 pagina, scala diversa: la nostra è "
+                       "più severa)", lang)
+                     % (area.get("reference_tool")
+                        or t("altro strumento", lang),
                         area["reference_score"]))
     controlli = area.get("audits") or []
     if controlli:
         superati = sum(1 for c in controlli if c.get("passed"))
         falliti = sum(1 for c in controlli
                       if not c.get("passed") and not c.get("manual"))
-        pezzi.append("%d controlli superati, %d falliti"
+        pezzi.append(t("%d controlli superati, %d falliti", lang)
                      % (superati, falliti))
     return pezzi
 
@@ -961,7 +988,8 @@ def _quota_consenso(voce: dict) -> Optional[float]:
     return 100.0 * voce["consensus_top3"] / voce["consensus_out_of"]
 
 
-def _consenso_leggibile(voce: dict) -> str:
+def _consenso_leggibile(voce: dict,
+                        lang: str = LINGUA_CANONICA) -> str:
     """Il consenso come lo legge una persona.
 
     "nessun riscontro" e "0/3" sono cose diverse: la prima dice che la
@@ -970,20 +998,23 @@ def _consenso_leggibile(voce: dict) -> str:
     caso peggiore — una query a vuoto riportata come consenso pieno.
     """
     if voce.get("consensus_top3") is None:
-        return "nessun riscontro"
+        return t("nessun riscontro", lang)
     return "%d/%d" % (voce["consensus_top3"], voce["consensus_out_of"])
 
 
 # Le tre parole della scala, agganciate alle stesse soglie del colore:
 # se un giorno si ritarano, verdetto e pallino non possono divergere.
-def _verdetto(valore: Optional[float]) -> str:
+def _verdetto(valore: Optional[float],
+              lang: str = LINGUA_CANONICA) -> str:
     if valore is None:
-        return "non misurato"
-    return ("buono" if valore >= SOGLIA_BUONO
-            else "da migliorare" if valore >= SOGLIA_MEDIO else "critico")
+        return t("non misurato", lang)
+    return t("buono" if valore >= SOGLIA_BUONO
+             else "da migliorare" if valore >= SOGLIA_MEDIO
+             else "critico", lang)
 
 
-def _riga_complessivo(referto: dict) -> List[str]:
+def _riga_complessivo(referto: dict,
+                      lang: str = LINGUA_CANONICA) -> List[str]:
     """Il complessivo in testa, con che cosa lo compone.
 
     Un numero solo per nove aree e' utile quanto e' verificabile: la
@@ -995,23 +1026,26 @@ def _riga_complessivo(referto: dict) -> List[str]:
     if not complessivo:
         return []
     righe = ["%-20s : %3.0f/100  (%s)"
-             % ("COMPLESSIVO", complessivo["score"],
-                _verdetto(complessivo["score"]))]
-    righe.append("  media pesata di %d misure; citabilità e giudizio LLM "
-                 "esclusi" % len(complessivo["components"]))
+             % (t("COMPLESSIVO", lang), complessivo["score"],
+                _verdetto(complessivo["score"], lang))]
+    righe.append(t("  media pesata di %d misure; citabilità e giudizio LLM "
+                   "esclusi", lang) % len(complessivo["components"]))
     righe.append("-" * 55)
     return righe
 
 
-def _riga_area(area: dict) -> str:
+def _riga_area(area: dict, lang: str = LINGUA_CANONICA) -> str:
+    etichetta = t(area["label"], lang)
     if area["score"] is None:
-        stato = STATO_LEGGIBILE.get(area["status"], "non misurato")
-        return f"{area['label']:<20} : {stato}"
-    return f"{area['label']:<20} : {area['score']:>3.0f}/100"
+        stato = t(STATO_LEGGIBILE.get(area["status"], "non misurato"), lang)
+        return f"{etichetta:<20} : {stato}"
+    return f"{etichetta:<20} : {area['score']:>3.0f}/100"
 
 
-def _correzioni_testo(findings: List[dict], nel_piano: frozenset = frozenset(),
-                      quante: int = 2) -> List[str]:
+def _correzioni_testo(findings: List[dict],
+                      nel_piano: frozenset = frozenset(),
+                      quante: int = 2,
+                      lang: str = LINGUA_CANONICA) -> List[str]:
     """Le correzioni d'area che il piano NON prende in carico.
 
     Titolo e poi prescrizione, come nel referto HTML, e per la stessa
@@ -1037,8 +1071,9 @@ def _correzioni_testo(findings: List[dict], nel_piano: frozenset = frozenset(),
     fuori = [x for x in findings
              if x.get("fix") and x.get("key") not in nel_piano]
     for f in fuori[:quante]:
-        righe.append("  → %s" % f.get("title"))
-        righe.append("    %s" % f["fix"])
+        testi = finding_texts(f, lang)
+        righe.append("  → %s" % testi["title"])
+        righe.append("    %s" % testi["fix"])
     return righe
 
 
@@ -1051,14 +1086,18 @@ PIANO_IN_TESTO = 5
 _GRAVITA_TESTO = {SEV_CRITICAL: "CRITICO", SEV_WARNING: "AVVERTENZA"}
 
 
-def _voce_piano_testo(voce: dict) -> List[str]:
+def _voce_piano_testo(voce: dict,
+                      lang: str = LINGUA_CANONICA) -> List[str]:
     """Una voce del piano: intestazione, numeri, prescrizione."""
+    testi = finding_texts(voce, lang)
     righe = ["  %d. [%s · %s · %s] %s"
              % (voce["priority"],
-                _GRAVITA_TESTO.get(voce["severity"], voce["severity"]),
-                voce["area_label"].split(". ", 1)[-1],
-                voce["effort"] or "sforzo non dichiarato",
-                voce["title"])]
+                t(_GRAVITA_TESTO.get(voce["severity"], voce["severity"]),
+                  lang),
+                t(voce["area_label"], lang).split(". ", 1)[-1],
+                t(voce["effort"], lang) if voce["effort"]
+                else t("sforzo non dichiarato", lang),
+                testi["title"])]
 
     numeri = []
     if voce["recovery"]:
@@ -1066,21 +1105,22 @@ def _voce_piano_testo(voce: dict) -> List[str]:
         # cio' che permette di rifare il conto leggendo il referto, e in
         # un'area satura e' anche l'unica spiegazione del perche' una
         # penalita' di 40 ne renda 32.
-        numeri.append("+%d punti d'area (%d → %d)"
+        numeri.append(t("+%d punti d'area (%d → %d)", lang)
                       % (voce["recovery"], voce["score_before"],
                          voce["score_after"]))
     if voce["index_gain"]:
-        numeri.append("indice +%.2f" % voce["index_gain"])
+        numeri.append(t("indice +%.2f", lang) % voce["index_gain"])
     if not numeri:
         # Mai un silenzio al posto di un numero: la corsia dice perche'
         # non c'e', e sono tre ragioni diverse.
-        numeri.append(voce["lane_reason"] or "recupero non dichiarato")
+        numeri.append(t(voce["lane_reason"], lang) if voce["lane_reason"]
+                      else t("recupero non dichiarato", lang))
     if voce["quick_win"]:
-        numeri.insert(0, "** QUICK WIN")
+        numeri.insert(0, t("** QUICK WIN", lang))
     righe.append("     %s" % " · ".join(numeri))
 
-    if voce["fix"]:
-        righe.append("     %s" % voce["fix"])
+    if testi["fix"]:
+        righe.append("     %s" % testi["fix"])
     return righe
 
 
@@ -1088,40 +1128,43 @@ def _voce_piano_testo(voce: dict) -> List[str]:
 DELTA_IN_TESTO = 3
 
 
-def _segno(valore: float) -> str:
+def _segno(valore: float, lang: str = LINGUA_CANONICA) -> str:
     """Un numero con il segno sempre visibile: «+3» e «-3», mai «3»."""
-    return "%+.0f" % valore if valore else "invariato"
+    return "%+.0f" % valore if valore else t("invariato", lang)
 
 
-def _superficie_testo(referto: dict) -> List[str]:
+def _superficie_testo(referto: dict,
+                      lang: str = LINGUA_CANONICA) -> List[str]:
     """La superficie: quanto e' profondo il sito e quanto contenuto ha."""
     profondita = depth_distribution(referto.get("pages") or [])
     matematica = referto.get("surface_math")
     if not profondita and not matematica:
         return []
-    righe = ["-" * 55, "SUPERFICIE"]
+    righe = ["-" * 55, t("SUPERFICIE", lang)]
     for voce in profondita:
         # Barra e conteggio, come i profili di citabilita': la forma
         # della distribuzione si legge prima dei numeri.
-        righe.append("  %-20s %3d  %s" % (voce["label"], voce["pages"],
+        righe.append("  %-20s %3d  %s" % (t(voce["label"], lang),
+                                          voce["pages"],
                                           "█" * min(voce["pages"], 30)))
     if matematica:
-        righe.append("  %d pagine, %d passaggi (%.2f per pagina, %.0f "
-                     "parole per pagina)"
+        righe.append(t("  %d pagine, %d passaggi (%.2f per pagina, %.0f "
+                       "parole per pagina)", lang)
                      % (matematica["pages"], matematica["chunks"],
                         matematica["chunks_per_page"],
                         matematica["words_per_page"]))
         if matematica["multiplier"]:
-            righe.append("  Con %d parole per pagina i passaggi sarebbero "
-                         "%d, cioe' x%.1f"
+            righe.append(t("  Con %d parole per pagina i passaggi "
+                           "sarebbero %d, cioe' x%.1f", lang)
                          % (matematica["target_words_per_page"],
                             matematica["potential_chunks"],
                             matematica["multiplier"]))
-        righe.append("  (%s)" % matematica["assumption"])
+        righe.append("  (%s)" % t(matematica["assumption"], lang))
     return righe
 
 
-def _delta_testo(referto: dict) -> List[str]:
+def _delta_testo(referto: dict,
+                 lang: str = LINGUA_CANONICA) -> List[str]:
     """Il confronto con l'esecuzione precedente, se c'e'.
 
     Assente alla prima, e la sezione **non compare**: una sezione
@@ -1134,35 +1177,38 @@ def _delta_testo(referto: dict) -> List[str]:
     if not delta:
         return []
     righe = ["-" * 55,
-             "RISPETTO A PRIMA     : %s" % (delta.get("previous_run") or "?")]
+             t("RISPETTO A PRIMA     : %s", lang)
+             % (delta.get("previous_run") or "?")]
     if delta.get("overall"):
-        righe.append("  Complessivo          %s  (%.0f → %.0f)"
-                     % (_segno(delta["overall"]["change"]),
-                        delta["overall"]["before"], delta["overall"]["after"]))
+        righe.append(t("  Complessivo          %s  (%.0f → %.0f)", lang)
+                     % (_segno(delta["overall"]["change"], lang),
+                        delta["overall"]["before"],
+                        delta["overall"]["after"]))
     for voce in delta["scores"]:
         if not voce["change"]:
             continue
         righe.append("  %-20s %s  (%.0f → %.0f)"
                      % (voce["area"].replace("mars_", ""),
-                        _segno(voce["change"]), voce["before"],
+                        _segno(voce["change"], lang), voce["before"],
                         voce["after"]))
-    for etichetta, elenco in (("risolti", delta["resolved"]),
-                              ("nuovi", delta["new"])):
+    for etichetta, elenco in ((t("risolti", lang), delta["resolved"]),
+                              (t("nuovi", lang), delta["new"])):
         if not elenco:
             continue
         righe.append("  %d %s:" % (len(elenco), etichetta))
         for rilievo in elenco[:DELTA_IN_TESTO]:
-            righe.append("    · %s" % rilievo.get("title"))
+            righe.append("    · %s" % finding_texts(rilievo, lang)["title"])
         if len(elenco) > DELTA_IN_TESTO:
-            righe.append("    · ... e altri %d"
+            righe.append(t("    · ... e altri %d", lang)
                          % (len(elenco) - DELTA_IN_TESTO))
     if delta.get("by_title_fallback"):
-        righe.append("  (qualche rilievo non ha una chiave stabile: "
-                     "confrontato sul titolo)")
+        righe.append(t("  (qualche rilievo non ha una chiave stabile: "
+                       "confrontato sul titolo)", lang))
     return righe
 
 
-def _piano_testo(referto: dict) -> List[str]:
+def _piano_testo(referto: dict,
+                 lang: str = LINGUA_CANONICA) -> List[str]:
     """La sezione del piano, per la vista compatta.
 
     **Sempre stampata**, anche vuota, e non e' una svista: le altre tre
@@ -1178,41 +1224,124 @@ def _piano_testo(referto: dict) -> List[str]:
     riepilogo = mars_remediation.riepilogo(piano, referto)
     righe = ["-" * 55]
     if not piano:
-        righe.append("PIANO DI INTERVENTI  : nessun rilievo critico o "
-                     "di avvertenza")
+        righe.append(t("PIANO DI INTERVENTI  : nessun rilievo critico o "
+                       "di avvertenza", lang))
         return righe
 
-    righe.append("PIANO DI INTERVENTI  : %d interventi (%d critici, "
-                 "%d avvertenze)" % (riepilogo["total"], riepilogo["critical"],
-                                     riepilogo["warning"]))
-    conteggi = ["%d quick win" % riepilogo["quick_wins"]]
+    righe.append(t("PIANO DI INTERVENTI  : %d interventi (%d critici, "
+                   "%d avvertenze)", lang)
+                 % (riepilogo["total"], riepilogo["critical"],
+                    riepilogo["warning"]))
+    conteggi = [t("%d quick win", lang) % riepilogo["quick_wins"]]
     senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
     if senza:
-        conteggi.append("%d senza recupero" % senza)
+        conteggi.append(t("%d senza recupero", lang) % senza)
     if riepilogo["no_effort"]:
-        conteggi.append("%d senza sforzo dichiarato" % riepilogo["no_effort"])
+        conteggi.append(t("%d senza sforzo dichiarato", lang)
+                        % riepilogo["no_effort"])
     righe.append("  %s" % " · ".join(conteggi))
     # Quante aree lo alimentano, CONTATE e non cablate: al massimo
     # cinque delle nove, perche' due non producono rilievi e due li
     # producono tutti `info`. Un numero fisso qui sarebbe falso in una
     # riga scritta per essere onesta.
-    righe.append("  %d aree su %d; ordinato per gravita', poi per guadagno "
-                 "dell'indice" % (riepilogo["areas_covered"],
-                                  riepilogo["areas_total"]))
+    righe.append(t("  %d aree su %d; ordinato per gravita', poi per "
+                   "guadagno dell'indice", lang)
+                 % (riepilogo["areas_covered"], riepilogo["areas_total"]))
 
     for voce in piano[:PIANO_IN_TESTO]:
-        righe.extend(_voce_piano_testo(voce))
+        righe.extend(_voce_piano_testo(voce, lang))
     if len(piano) > PIANO_IN_TESTO:
-        righe.append("  · ... e altri %d interventi (per intero nel JSON "
-                     "e nell'HTML)" % (len(piano) - PIANO_IN_TESTO))
+        righe.append(t("  · ... e altri %d interventi (per intero nel JSON "
+                       "e nell'HTML)", lang)
+                     % (len(piano) - PIANO_IN_TESTO))
     return righe
 
 
-def render_text(referto: dict) -> str:
-    righe = ["", "=" * 55,
-             "           MARS BEACON - REPORT FINALE           ", "=" * 55]
+def _area_di(referto: dict, modulo: str) -> dict:
+    """L'area di un modulo, o un guscio vuoto se non c'e'.
 
-    righe.extend(_riga_complessivo(referto))
+    Guarda il DATO e non l'indice: le aree possono mancare — un modulo
+    non sul filesystem non produce una voce — e indicizzare per
+    posizione e' il difetto che R42 ha chiuso in questa stessa vista.
+    """
+    for area in referto.get("areas") or []:
+        if area.get("module") == modulo:
+            return area
+    return {}
+
+
+def _nota_lingua(referto: dict,
+                 lang: str = LINGUA_CANONICA) -> List[str]:
+    """La nota di onesta' in testa a un referto non italiano.
+
+    Dice due cose che il lettore non puo' deurre: che le evidenze
+    citate dal sito restano nella lingua del sito — un titolo mancante
+    o un testo di link generico si citano com'erano — e QUALI aree non
+    sono state tradotte, per nome invece che genericamente.
+    """
+    if lang == LINGUA_CANONICA:
+        return []
+    righe = ["", t("Nota: le evidenze citate dal sito analizzato restano "
+                   "nella lingua del sito.", lang)]
+    rimaste = aree_non_tradotte(referto, lang)
+    if rimaste:
+        righe.append(t("Queste aree si esprimono solo in italiano: %s.",
+                       lang) % ", ".join(rimaste))
+    return righe
+
+
+def _righe_compatte(area: dict,
+                    lang: str = LINGUA_CANONICA) -> List[str]:
+    """La vista compatta di un'area: le `issues`, o i titoli dei rilievi.
+
+    Le `issues` sono la vista storica, e sono **prosa italiana senza
+    chiave**: U1 le ha lasciate intatte di proposito, quindi non c'e'
+    nulla su cui indicizzare una traduzione. I `findings` dicono le
+    stesse cose e una chiave ce l'hanno, cosi' in una lingua diversa
+    dalla canonica si stampano quelli.
+
+    Non e' un ripiego nascosto: le due viste possono avere cardinalita'
+    diversa — `mars_schema` emette una issue per blocco e un rilievo per
+    controllo — ed e' scritto qui invece che in tre renderer perche'
+    testo, HTML e Markdown non possano divergere.
+
+    Dove i rilievi non ci sono — `mars_lexical` e `mars_semantic`, che
+    non ne producono (U13), e il giudizio LLM, che e' prosa del modello
+    — restano le issues italiane, e il referto lo dichiara in testa.
+    """
+    if lang == LINGUA_CANONICA:
+        return list(area.get("issues") or [])
+    rilievi = area.get("findings") or []
+    if not rilievi:
+        return list(area.get("issues") or [])
+    return [finding_texts(f, lang)["title"] for f in rilievi]
+
+
+def aree_non_tradotte(referto: dict,
+                      lang: str = LINGUA_CANONICA) -> List[str]:
+    """Le aree che in questa lingua restano italiane, per nome.
+
+    Serve alla nota di onesta' in testa alle viste di prosa: dire «le
+    evidenze citate restano nella lingua del sito» e' vero ma generico,
+    dire QUALI aree non sono state tradotte e' verificabile.
+    """
+    if lang == LINGUA_CANONICA:
+        return []
+    rimaste = []
+    for area in referto.get("areas") or []:
+        if area.get("issues") and not area.get("findings"):
+            rimaste.append(t(area["label"], lang))
+    return rimaste
+
+
+def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
+    lang = normalizza_lingua(lang)
+    righe = ["", "=" * 55,
+             t("           MARS BEACON - REPORT FINALE           ", lang),
+             "=" * 55]
+    righe.extend(_nota_lingua(referto, lang))
+
+    righe.extend(_riga_complessivo(referto, lang))
 
     # Le chiavi che il piano gia' elenca: sotto l'area si stampano solo
     # le correzioni che lui non prende in carico.
@@ -1220,84 +1349,91 @@ def render_text(referto: dict) -> str:
     for area in referto["areas"]:
         if area["module"] == "mars_citability":
             continue  # ha un blocco tutto suo, in fondo
-        righe.append(_riga_area(area))
+        righe.append(_riga_area(area, lang))
         # Con che cosa e' stato misurato, per OGNI area e non piu' per
         # la sola accessibilita': senza, 100/100 dai soli header HTTP
         # e 100/100 da un WAPT completo erano due righe identiche.
-        qualifiche = _qualificatori(area)
+        qualifiche = _qualificatori(area, lang)
         if qualifiche:
             righe.append("  " + " · ".join(qualifiche))
-        for problema in area["issues"][:2]:
+        for problema in _righe_compatte(area, lang)[:2]:
             righe.append(f"  ⚠ {problema}")
         righe.extend(_correzioni_testo(area.get("findings") or [],
-                                       nel_piano))
+                                       nel_piano, lang=lang))
 
-    righe.extend(_superficie_testo(referto))
-    righe.extend(_delta_testo(referto))
-    righe.extend(_piano_testo(referto))
+    righe.extend(_superficie_testo(referto, lang))
+    righe.extend(_delta_testo(referto, lang))
+    righe.extend(_piano_testo(referto, lang))
 
     aggregato = referto.get("rrf_aggregate")
     if aggregato:
         righe.append("-" * 55)
-        righe.append("Simulazione RRF      : Consenso Top-3 = %s su %d "
-                     "chunk" % (_consenso_leggibile(aggregato),
-                                referto["chunks"]))
-        righe.append("  aggregato su %d query"
+        righe.append(t("Simulazione RRF      : Consenso Top-3 = %s su %d "
+                       "chunk", lang)
+                     % (_consenso_leggibile(aggregato, lang),
+                        referto["chunks"]))
+        righe.append(t("  aggregato su %d query", lang)
                      % len(referto["rrf_simulation"]))
         if aggregato["top_chunk"]:
-            righe.append(f"Top Chunk Ibrido     : {aggregato['top_chunk']}")
+            righe.append("%s %s" % (t("Top Chunk Ibrido     :", lang),
+                                    aggregato["top_chunk"]))
         for voce in referto["rrf_simulation"]:
             righe.append("  %-34s %s" % (voce["query"][:34],
-                                         _consenso_leggibile(voce)))
+                                         _consenso_leggibile(voce, lang)))
 
     cit = referto.get("citability")
     if cit and cit.get("profiles"):
         righe.append("-" * 55)
-        righe.append("Profili di citabilità IA  (mercato: %s)"
+        righe.append(t("Profili di citabilità IA  (mercato: %s)", lang)
                      % cit.get("market"))
         for assistente, valore in cit["profiles"].items():
             barra = "█" * int((valore or 0) / 5)
             testo = f"{valore:>5.1f}" if valore is not None else "  n/d"
             righe.append(f"  {assistente:<20} {testo}  {barra}")
         if cit.get("score") is not None:
-            righe.append(f"  {'INDICE COMPOSITO':<20} {cit['score']:>5.1f}")
+            composito = t("INDICE COMPOSITO", lang)
+            righe.append(f"  {composito:<20} {cit['score']:>5.1f}")
         # Il disclaimer sta QUI e non in fondo: chi legge il numero
         # deve leggere anche cosa non è.
-        righe.append(f"  ({cit.get('disclaimer', '')})")
-        for nota in (cit.get("issues") or [])[:3]:
+        righe.append("  (%s)" % t(cit.get("disclaimer", ""), lang))
+        for nota in _righe_compatte(_area_di(referto, "mars_citability"),
+                                    lang)[:3]:
             righe.append(f"  · {nota}")
 
     llm = referto.get("llm_judgement") or {}
     if llm.get("motivazione"):
         righe.append("-" * 55)
-        righe.append("Giudizio LLM (%s)  su %s passaggi"
+        righe.append(t("Giudizio LLM (%s)  su %s passaggi", lang)
                      % (llm.get("model"), llm.get("chunk_valutati")))
         if llm.get("score") is not None:
-            righe.append(f"  Citabilità stimata   : {llm['score']}/100")
+            righe.append("%s %s/100" % (t("  Citabilità stimata   :", lang),
+                                        llm["score"]))
         righe.append(f"  {llm['motivazione']}")
         if llm.get("passaggio_migliore"):
-            righe.append("  Passaggio migliore   : %s"
-                         % llm["passaggio_migliore"])
+            righe.append("%s %s" % (t("  Passaggio migliore   :", lang),
+                                    llm["passaggio_migliore"]))
         for punto in (llm.get("punti_deboli") or [])[:2]:
-            righe.append(f"  · da migliorare: {punto}")
+            righe.append("  · %s: %s"
+                         % (t("da migliorare", lang, "llm"), punto))
 
     if referto["robots_ignored"]:
         righe.append("-" * 55)
-        righe.append("⚠ robots.txt IGNORATO per dichiarazione "
-                     "di proprieta'")
+        righe.append(t("⚠ robots.txt IGNORATO per dichiarazione "
+                       "di proprieta'", lang))
     saltati = referto["skipped"]
     if saltati:
         righe.append("-" * 55)
-        righe.append(f"URL saltati          : {len(saltati)}")
+        righe.append("%s %d" % (t("URL saltati          :", lang),
+                                len(saltati)))
         for motivo in saltati[:3]:
             righe.append(f"  · {motivo}")
         if len(saltati) > 3:
-            righe.append(f"  · ... e altri {len(saltati) - 3}")
+            righe.append(t("  · ... e altri %d", lang) % (len(saltati) - 3))
 
     righe.append("-" * 55)
-    righe.append("Pagine trovate via   : %s  (%d pagine, %d chunk)"
-                 % (referto.get("discovery"), referto["pages_crawled"],
-                    referto["chunks"]))
+    righe.append(t("Pagine trovate via   : %s  (%d pagine, %d chunk)", lang)
+                 % (t(referto.get("discovery") or "", lang),
+                    referto["pages_crawled"], referto["chunks"]))
     righe.append("=" * 55)
     righe.append("")
     return "\n".join(righe)
@@ -1324,13 +1460,19 @@ def _e(valore: object) -> str:
     return html.escape(str(valore if valore is not None else ""))
 
 
-def _plurale(quante: int, singolare: str, plurale: str) -> str:
+def _plurale(quante: int, singolare: str, plurale: str,
+             lang: str = LINGUA_CANONICA) -> str:
     """«1 pagina» e «3 pagine», mai «1 pagine».
 
     Un referto si consegna, e un accordo sbagliato e' la prima cosa che
     si nota: costa meno scriverlo giusto che spiegare perche' non lo e'.
     """
-    return "%d %s" % (quante, singolare if quante == 1 else plurale)
+    # Il contesto e' obbligatorio qui e non opzionale: in italiano
+    # «click» non cambia al plurale, quindi le due parole arrivano
+    # identiche e senza contesto il catalogo non potrebbe distinguerle.
+    return "%d %s" % (quante,
+                      t(singolare if quante == 1 else plurale, lang,
+                        "singolare" if quante == 1 else "plurale"))
 
 
 # Soglie e colori di Lighthouse, adottati perche' il referto gli
@@ -1545,7 +1687,8 @@ def _classe(valore: Optional[float]) -> str:
 
 
 def _quadrante(valore: Optional[float], nome: str, nota: str = "",
-               parziale: bool = False) -> str:
+               parziale: bool = False,
+               lang: str = LINGUA_CANONICA) -> str:
     """Un quadrante circolare, come quelli in testa a un referto Lighthouse.
 
     E' SVG inline calcolato qui: l'arco si ottiene con stroke-dasharray
@@ -1593,21 +1736,22 @@ def _quadrante(valore: Optional[float], nome: str, nota: str = "",
         # "superficie" su una scansione soltanto interrotta — sarebbe
         # peggio che ometterla.
         % (classe, _e(nome),
-           "non misurato" if valore is None else "%.0f su 100" % valore,
+           t("non misurato", lang) if valore is None
+           else t("%.0f su 100", lang) % valore,
            arco, testo, _e(nome),
            "<div class='nota%s'>%s</div>"
            % (" parziale" if parziale else "", _e(nota)) if nota else ""))
 
 
-def _etichetta_area(area: dict) -> str:
+def _etichetta_area(area: dict, lang: str = LINGUA_CANONICA) -> str:
     """Nome dell'area senza il numero d'ordine: nel quadrante lo spazio
     e' poco e "1. Tecnica" non aggiunge nulla a "Tecnica"."""
     etichetta = area.get("label") or area.get("module") or "?"
-    return etichetta.split(". ", 1)[-1]
+    return t(etichetta, lang).split(". ", 1)[-1]
 
 
-def _stato_area(area: dict) -> str:
-    return STATO_LEGGIBILE.get(area.get("status"), "non misurato")
+def _stato_area(area: dict, lang: str = LINGUA_CANONICA) -> str:
+    return t(STATO_LEGGIBILE.get(area.get("status"), "non misurato"), lang)
 
 
 def conteggi_per_gravita(referto: dict) -> Dict[str, int]:
@@ -1645,7 +1789,7 @@ TESSERE_GRAVITA = ((SEV_CRITICAL, "critici", "bad"),
                    (SEV_INFO, "informativi", "muted"))
 
 
-def _hero(referto: dict) -> str:
+def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     """Il riquadro in testa: un numero, un verdetto, quattro caselle.
 
     Il quadrante e' lo STESSO `_quadrante` della fascia sotto, solo
@@ -1668,7 +1812,8 @@ def _hero(referto: dict) -> str:
     for gravita, etichetta, classe in TESSERE_GRAVITA:
         caselle.append("<div class='tessera'><span class='grande %s'>%d"
                        "</span><span class='meta'>%s</span></div>"
-                       % (classe, conteggi.get(gravita, 0), etichetta))
+                       % (classe, conteggi.get(gravita, 0),
+                          t(etichetta, lang)))
     # Pagine: due numeri e non un anello. Un anello li colorerebbe con
     # la scala dei punteggi, e la quota di URL scartati NON e' un voto —
     # un PDF o un altro host sono scarti legittimi. UPGRADE.md prevede
@@ -1677,22 +1822,27 @@ def _hero(referto: dict) -> str:
     # questo e' il taglio onesto.
     saltati = len(referto.get("skipped") or [])
     caselle.append("<div class='tessera'><span class='grande'>%d</span>"
-                   "<span class='meta'>pagine scansionate</span>"
-                   "<span class='meta'>%d URL scartati</span></div>"
-                   % (referto.get("pages_crawled") or 0, saltati))
+                   "<span class='meta'>%s</span>"
+                   "<span class='meta'>%s</span></div>"
+                   % (referto.get("pages_crawled") or 0,
+                      t("pagine scansionate", lang),
+                      t("%d URL scartati", lang) % saltati))
 
     return (
         "<section class='hero'>"
         "<div class='hero-voto'>%s"
         "<p class='verdetto %s'>%s</p>"
-        "<p class='meta'>media pesata di %d misure · citabilità e giudizio "
-        "LLM esclusi</p>"
-        "<p class='meta'>scala dichiarata: critico sotto %d · da migliorare "
-        "%d-%d · buono da %d</p></div>"
+        "<p class='meta'>%s</p>"
+        "<p class='meta'>%s</p></div>"
         "<div class='tessere'>%s</div></section>"
-        % (_quadrante(voto, "Complessivo"), _classe(voto), _verdetto(voto),
-           len(complessivo["components"]), SOGLIA_MEDIO, SOGLIA_MEDIO,
-           SOGLIA_BUONO - 1, SOGLIA_BUONO, "".join(caselle)))
+        % (_quadrante(voto, t("Complessivo", lang), lang=lang),
+           _classe(voto), _verdetto(voto, lang),
+           t("media pesata di %d misure · citabilità e giudizio "
+             "LLM esclusi", lang) % len(complessivo["components"]),
+           t("scala dichiarata: critico sotto %d · da migliorare "
+             "%d-%d · buono da %d", lang)
+           % (SOGLIA_MEDIO, SOGLIA_MEDIO, SOGLIA_BUONO - 1, SOGLIA_BUONO),
+           "".join(caselle)))
 
 
 # Quanti rilievi mostra il riquadro in testa. Cinque, come ogni altra
@@ -1700,7 +1850,8 @@ def _hero(referto: dict) -> str:
 PRIMI_RILIEVI = 5
 
 
-def _primi_rilievi(referto: dict, ancore: Dict[str, str]) -> str:
+def _primi_rilievi(referto: dict, ancore: Dict[str, str],
+                   lang: str = LINGUA_CANONICA) -> str:
     """I primi interventi del piano, in testa e cliccabili.
 
     E' la scorciatoia per chi apre il referto e vuole sapere subito da
@@ -1718,16 +1869,18 @@ def _primi_rilievi(referto: dict, ancore: Dict[str, str]) -> str:
     voci = []
     for voce in piano[:PRIMI_RILIEVI]:
         ancora = ancore.get(voce.get("key") or "")
-        titolo = _e(voce["title"])
+        titolo = _e(finding_texts(voce, lang)["title"])
         voci.append("<li class='%s'>%s</li>"
                     % (_BADGE_GRAVITA.get(voce["severity"], ("muted", ""))[0],
                        "<a href='#%s'>%s</a>" % (ancora, titolo)
                        if ancora else titolo))
-    return ("<div class='primi'><p class='meta'>Da dove cominciare</p>"
-            "<ol class='primi-rilievi'>%s</ol></div>" % "".join(voci))
+    return ("<div class='primi'><p class='meta'>%s</p>"
+            "<ol class='primi-rilievi'>%s</ol></div>"
+            % (t("Da dove cominciare", lang), "".join(voci)))
 
 
-def _fascia_quadranti(referto: dict) -> str:
+def _fascia_quadranti(referto: dict,
+                      lang: str = LINGUA_CANONICA) -> str:
     """La fascia in testa, come in Lighthouse: un quadrante per area.
 
     Le aree lessicale e semantica non producono un voto ma una
@@ -1739,7 +1892,7 @@ def _fascia_quadranti(referto: dict) -> str:
     pezzi = []
     for area in referto["areas"]:
         if area["score"] is None:
-            nota, parziale = _stato_area(area), False
+            nota, parziale = _stato_area(area, lang), False
         else:
             # Sotto il quadrante lo spazio e' poco: strumento, e la
             # parola che cambia il senso del numero. Un 100 verde
@@ -1749,22 +1902,22 @@ def _fascia_quadranti(referto: dict) -> str:
             parziale = (area.get("status") == "surface"
                         or area.get("complete") is False)
             if area.get("status") == "surface":
-                breve.append("superficie")
+                breve.append(t("superficie", lang))
             if area.get("complete") is False:
-                breve.append("parziale")
+                breve.append(t("parziale", lang))
             nota = " · ".join(breve)
-        pezzi.append(_quadrante(area["score"], _etichetta_area(area), nota,
-                                parziale))
+        pezzi.append(_quadrante(area["score"], _etichetta_area(area, lang),
+                                nota, parziale, lang))
 
-    for segnale in segnali_derivati(referto):
-        pezzi.append(_quadrante(segnale["value"], segnale["name"],
-                                segnale["note"]))
+    for segnale in segnali_derivati(referto, lang):
+        pezzi.append(_quadrante(segnale["value"], t(segnale["name"], lang),
+                                str(segnale["note"]), lang=lang))
     if not pezzi:
         return ""
     return "<div class='quadranti'>%s</div>" % "".join(pezzi)
 
 
-def _legenda() -> str:
+def _legenda(lang: str = LINGUA_CANONICA) -> str:
     """La scala e' una convenzione: dichiararla evita che il colore
     venga letto come una misura."""
     return (
@@ -1772,8 +1925,8 @@ def _legenda() -> str:
         "<span><i class='pallino bad'></i>0-49</span>"
         "<span><i class='pallino warn'></i>50-89</span>"
         "<span><i class='pallino ok'></i>90-100</span>"
-        "<span><i class='pallino vuoto'></i>non misurato</span>"
-        "</div>"
+        "<span><i class='pallino vuoto'></i>%s</span>"
+        "</div>" % t("non misurato", lang) +
         "<style>.pallino.bad{background:var(--bad)}"
         ".pallino.warn{background:var(--warn)}"
         ".pallino.ok{background:var(--ok)}</style>")
@@ -1831,15 +1984,16 @@ def ancore_dei_rilievi(referto: dict) -> Dict[str, str]:
     return {k: v for k, v in ancore.items() if k and v}
 
 
-def _permalink(ancora: str) -> str:
+def _permalink(ancora: str, lang: str = LINGUA_CANONICA) -> str:
     """Il cancelletto che rende citabile un rilievo."""
-    return ("<a class='ancora' href='#%s' aria-label='Link a questo "
-            "rilievo'>#</a>" % ancora)
+    return ("<a class='ancora' href='#%s' aria-label='%s'>#</a>"
+            % (ancora, t("Link a questo rilievo", lang)))
 
 
 def _elenco_controlli(controlli: List[dict],
                       rilievi: Optional[List[dict]] = None,
-                      ancore: Optional[Dict[str, str]] = None) -> str:
+                      ancore: Optional[Dict[str, str]] = None,
+                      lang: str = LINGUA_CANONICA) -> str:
     """I singoli controlli, nell'ordine in cui Lighthouse li mostra.
 
     Prima i falliti — sono quelli su cui si interviene — poi quelli da
@@ -1881,18 +2035,20 @@ def _elenco_controlli(controlli: List[dict],
             "<span>%s%s%s%s</span></li>"
             % (" id='%s'" % ancora if ancora else "",
                classe, segno, _e(c.get("title")),
-               _permalink(ancora) if ancora else "",
+               _permalink(ancora, lang) if ancora else "",
                "<br><span class='dettaglio'>%s</span>" % _e(dettaglio)
                if dettaglio else "",
                # Nessun <br>: `.spiegazione` e' gia' display:block,
                # e il <br> aggiungerebbe una riga vuota.
                "<span class='spiegazione'>%s</span>"
-               % _e(rilievo["detail"]) if rilievo.get("detail") else ""))
+               % _e(finding_texts(rilievo, lang)["detail"])
+               if rilievo.get("detail") else ""))
     return "<ul class='controlli'>%s</ul>" % "".join(righe)
 
 
 def _correzioni(findings: List[dict],
-                ancore: Optional[Dict[str, str]] = None) -> str:
+                ancore: Optional[Dict[str, str]] = None,
+                lang: str = LINGUA_CANONICA) -> str:
     """Il blocco «Come si aggiusta», dai rilievi che hanno qualcosa da dire.
 
     Sta SOTTO l'elenco dei rilievi invece che dentro, e ne ripete i
@@ -1927,34 +2083,37 @@ def _correzioni(findings: List[dict],
     righe = []
     for f in voci:
         ancora = (ancore or {}).get(f.get("key") or "")
-        pezzi = ["<b>%s</b>%s" % (_e(f.get("title")),
-                                  _permalink(ancora) if ancora else "")]
+        testi = finding_texts(f, lang)
+        pezzi = ["<b>%s</b>%s" % (_e(testi["title"]),
+                                  _permalink(ancora, lang) if ancora else "")]
         # `source_severity` NON si stampa: dove c'e' — "[critico]",
         # "[axe:critical]", "[ZAP:High]" — sta gia' nella riga della
         # vista compatta, due centimetri piu' su.
         if f.get("detail"):
             pezzi.append("<span class='spiegazione'>%s</span>"
-                         % _e(f["detail"]))
+                         % _e(testi["detail"]))
         if f.get("fix"):
-            pezzi.append("<span class='fix'>%s</span>" % _e(f["fix"]))
+            pezzi.append("<span class='fix'>%s</span>" % _e(testi["fix"]))
         # L'esempio e' codice: <pre> perche' gli a-capo e
         # l'indentazione di un blocco nginx o JSON-LD sono il suo
         # contenuto, non la sua impaginazione.
         if f.get("example"):
-            pezzi.append("<pre class='ex'>%s</pre>" % _e(f["example"]))
+            pezzi.append("<pre class='ex'>%s</pre>" % _e(testi["example"]))
         righe.append("<li%s>%s</li>"
                      % (" id='%s'" % ancora if ancora else "",
                         "".join(pezzi)))
-    return ("<p class='titolo-correzioni'>Come si aggiusta</p>"
-            "<ul class='correzioni'>%s</ul>" % "".join(righe))
+    return ("<p class='titolo-correzioni'>%s</p>"
+            "<ul class='correzioni'>%s</ul>"
+            % (t("Come si aggiusta", lang), "".join(righe)))
 
 
 def _scheda_area(area: dict, referto: dict,
-                 ancore: Optional[Dict[str, str]] = None) -> str:
+                 ancore: Optional[Dict[str, str]] = None,
+                 lang: str = LINGUA_CANONICA) -> str:
     """Una scheda per area, con i rilievi sotto — come le categorie di
     Lighthouse elencano i propri audit."""
     if area["score"] is None:
-        voto = "<span class='muted'>%s</span>" % _stato_area(area)
+        voto = "<span class='muted'>%s</span>" % _stato_area(area, lang)
     else:
         voto = ("<span class='%s'>%.0f<span class='muted'>/100</span></span>"
                 % (_classe(area["score"]), area["score"]))
@@ -1970,23 +2129,25 @@ def _scheda_area(area: dict, referto: dict,
         # veniva sovrascritto con "classifica" anche quando l'area era
         # in errore, nascondendo il fallimento dietro un'etichetta
         # normale. Ora lo stato arriva dal dato, come per le altre.
-        corpo.append("<p class='strumento'>Passaggio in testa: "
-                     "<code>%s</code></p>"
-                     % _e((referto.get("lexical") or {}).get("top_chunk")
-                          or "—"))
+        corpo.append("<p class='strumento'>%s <code>%s</code></p>"
+                     % (t("Passaggio in testa:", lang),
+                        _e((referto.get("lexical") or {}).get("top_chunk")
+                           or "—")))
     elif ordina and area["module"] == "mars_semantic":
         sem = referto.get("semantic") or {}
-        corpo.append("<p class='strumento'>%.0f%% di %s chunk in forma "
-                     "di risposta.</p>"
-                     % (100 * (sem.get("answer_shaped_ratio") or 0),
-                        sem.get("n_chunks") or 0))
+        corpo.append("<p class='strumento'>%s</p>"
+                     % (t("%.0f%% di %s chunk in forma di risposta.", lang)
+                        % (100 * (sem.get("answer_shaped_ratio") or 0),
+                           sem.get("n_chunks") or 0)))
         # Segnali di PAGINA, tenuti fuori dal rapporto ma non nascosti:
         # dicono qualcosa di vero sul sito (vedi R19).
         for nome, quante in (sem.get("page_signals") or {}).items():
-            corpo.append("<p class='strumento'>%s: %d pagine su %d.</p>"
-                         % (_e(nome), quante, referto["pages_crawled"]))
+            corpo.append("<p class='strumento'>%s</p>"
+                         % (t("%s: %d pagine su %d.", lang)
+                            % (_e(t(nome, lang)), quante,
+                               referto["pages_crawled"])))
 
-    qualifiche = _qualificatori(area)
+    qualifiche = _qualificatori(area, lang)
     if qualifiche:
         # Marcato quando il punteggio non e' una misura piena: e' la
         # differenza fra "sicuro" e "non abbiamo guardato a fondo".
@@ -2000,13 +2161,14 @@ def _scheda_area(area: dict, referto: dict,
         # L'elenco dei controlli sostituisce quello dei rilievi: li
         # contiene gia' tutti, e in piu' dice che cosa e' stato
         # guardato e superato — che e' l'informazione che mancava.
-        corpo.append(_elenco_controlli(area["audits"], rilievi, ancore))
+        corpo.append(_elenco_controlli(area["audits"], rilievi, ancore,
+                                       lang))
     else:
-        if area["issues"]:
+        compatte = _righe_compatte(area, lang)
+        if compatte:
             corpo.append("<ul class='rilievi'>%s</ul>"
-                         % "".join("<li>%s</li>" % _e(i)
-                                   for i in area["issues"]))
-        corpo.append(_correzioni(rilievi, ancore))
+                         % "".join("<li>%s</li>" % _e(i) for i in compatte))
+        corpo.append(_correzioni(rilievi, ancore, lang))
         # "Nessun rilievo." vale solo quando l'area non ha NE' issues
         # NE' findings. Guardare i soli findings direbbe che il
         # giudizio LLM riuscito non ha rilevato nulla — ne elenca tre,
@@ -2014,19 +2176,20 @@ def _scheda_area(area: dict, referto: dict,
         # sole issues farebbe lo stesso con un'area che avesse solo
         # rilievi strutturati.
         if not area["issues"] and not rilievi and area["score"] is not None:
-            corpo.append("<p class='nessun-rilievo'>Nessun rilievo.</p>")
+            corpo.append("<p class='nessun-rilievo'>%s</p>"
+                         % t("Nessun rilievo.", lang))
 
     return ("<div class='area'><div class='riga'><h3>%s</h3>"
             "<span class='punteggio'>%s</span></div>%s</div>"
-            % (_e(area["label"]), voto, "".join(corpo)))
+            % (_e(t(area["label"], lang)), voto, "".join(corpo)))
 
 
 _BADGE_GRAVITA = {SEV_CRITICAL: ("bad", "CRITICO"),
                   SEV_WARNING: ("warn", "AVVERTENZA")}
 
 
-def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
-                     ) -> str:
+def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None,
+                     lang: str = LINGUA_CANONICA) -> str:
     """Un intervento come scheda.
 
     Porta cio' che la scheda d'area non ha — priorita', sforzo,
@@ -2043,41 +2206,49 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
     priorita' lo renderebbero illeggibile proprio come elenco.
     """
     classe, etichetta = _BADGE_GRAVITA.get(voce["severity"], ("muted", "?"))
+    etichetta = t(etichetta, lang)
+    testi = finding_texts(voce, lang)
     ancora = (ancore or {}).get(voce.get("key") or "")
     # Il titolo diventa un link SOLO se l'ancora esiste davvero: un
     # href verso un id che nessuno emette e' un salto che non succede,
     # e la pagina resta valida — cioe' un difetto invisibile.
-    titolo = ("<a href='#%s'>%s</a>" % (ancora, _e(voce["title"]))
-              if ancora else _e(voce["title"]))
+    titolo = ("<a href='#%s'>%s</a>" % (ancora, _e(testi["title"]))
+              if ancora else _e(testi["title"]))
     parti = ["<div class='intervento'><div class='riga'>",
              "<h3><span class='priorita'>%d</span> %s</h3>"
              % (voce["priority"], titolo),
              "<span class='badge %s'>%s</span></div>" % (classe, etichetta)]
 
-    contesto = [_e(voce["area_label"].split(". ", 1)[-1])]
-    contesto.append("sforzo: %s" % _e(voce["effort"] or "non dichiarato"))
+    contesto = [_e(t(voce["area_label"], lang).split(". ", 1)[-1])]
+    contesto.append(t("sforzo: %s", lang)
+                    % _e(t(voce["effort"], lang) if voce["effort"]
+                         else t("non dichiarato", lang)))
     if voce["quick_win"]:
-        contesto.append("<span class='qw'>QUICK WIN</span>")
+        contesto.append("<span class='qw'>%s</span>"
+                        % t("QUICK WIN", lang))
     parti.append("<p class='meta'>%s</p>" % " · ".join(contesto))
 
     if voce["recovery"]:
-        numeri = ["+%d punti d'area (%d → %d)"
+        numeri = [t("+%d punti d'area (%d → %d)", lang)
                   % (voce["recovery"], voce["score_before"],
                      voce["score_after"])]
         if voce["index_gain"]:
             # Il mercato viaggia col numero: i coefficienti si
             # rinormalizzano sui segnali misurati, quindi lo stesso
             # rilievo vale diversamente in due esecuzioni diverse.
-            numeri.append("indice di citabilità +%.2f (mercato %s, stima)"
-                          % (voce["index_gain"], _e(voce["market"] or "?")))
+            numeri.append(
+                t("indice di citabilità +%.2f (mercato %s, stima)", lang)
+                % (voce["index_gain"], _e(voce["market"] or "?")))
         parti.append("<p class='guadagno'>%s</p>" % " · ".join(numeri))
     else:
         # Mai un silenzio al posto di un numero: la corsia dice perche'.
         parti.append("<p class='meta'>%s</p>"
-                     % _e(voce["lane_reason"] or "recupero non dichiarato"))
+                     % _e(t(voce["lane_reason"], lang)
+                          if voce["lane_reason"]
+                          else t("recupero non dichiarato", lang)))
 
-    if voce["fix"]:
-        parti.append("<span class='fix'>%s</span>" % _e(voce["fix"]))
+    if testi["fix"]:
+        parti.append("<span class='fix'>%s</span>" % _e(testi["fix"]))
     parti.append("</div>")
     return "".join(parti)
 
@@ -2090,7 +2261,8 @@ TREEMAP_MIN_W = 90.0
 TREEMAP_MIN_H = 26.0
 
 
-def _treemap_html(referto: dict, p: List[str]) -> None:
+def _treemap_html(referto: dict, p: List[str],
+                  lang: str = LINGUA_CANONICA) -> None:
     """La treemap della superficie: SVG statico, e la sua tabella.
 
     L'SVG e' **una sola immagine** per chi usa un lettore di schermo
@@ -2106,50 +2278,55 @@ def _treemap_html(referto: dict, p: List[str]) -> None:
     if not mappa:
         return
     voci = mappa["items"]
-    note = ["Ogni rettangolo è una pagina, l'area è proporzionale alle "
-            "parole recuperabili."]
+    note = [t("Ogni rettangolo è una pagina, l'area è proporzionale alle "
+              "parole recuperabili.", lang)]
     con_testo = int(mappa["total"]) - int(mappa["empty"])
     if mappa["shown"] < con_testo:
-        note.append("Le %d più estese di %s."
+        note.append(t("Le %d più estese di %s.", lang)
                     % (mappa["shown"],
-                       _plurale(con_testo, "pagina", "pagine")))
+                       _plurale(con_testo, "pagina", "pagine", lang)))
     if mappa["empty"]:
-        note.append("%s senza testo indicizzabile non %s superficie da "
-                    "disegnare."
-                    % (_plurale(int(mappa["empty"]), "pagina", "pagine"),
-                       "ha" if mappa["empty"] == 1 else "hanno"))
+        note.append(t("%s senza testo indicizzabile non %s superficie da "
+                      "disegnare.", lang)
+                    % (_plurale(int(mappa["empty"]), "pagina", "pagine",
+                                lang),
+                       t("ha" if mappa["empty"] == 1 else "hanno", lang)))
     # Il colore non dice nulla, e va detto: un grigio uniforme dopo le
     # barre gialle della distribuzione si legge come «tutto a posto»
     # invece che come «non misurato», ed e' la confusione che il
     # referto evita ovunque.
-    note.append("Il colore non è un giudizio: nessun rilievo dichiara "
-                "la pagina che lo ha prodotto, quindi la treemap parla "
-                "di superficie e tace sulla qualità.")
+    note.append(t("Il colore non è un giudizio: nessun rilievo dichiara "
+                  "la pagina che lo ha prodotto, quindi la treemap parla "
+                  "di superficie e tace sulla qualità.", lang))
     p.append("<p class='meta'>%s</p>" % _e(" ".join(note)))
     p.append("<svg class='treemap' viewBox='0 0 %d %d' role='img' "
-             "aria-label='Treemap della superficie: %s, la più "
-             "estesa è %s con %s. I dati sono nella tabella qui "
-             "sotto.'>"
+             "aria-label='%s'>"
              % (int(mappa["width"]), int(mappa["height"]),
-                _plurale(int(mappa["shown"]), "pagina", "pagine"),
-                _e(voci[0]["label"]),
-                _plurale(int(voci[0]["words"]), "parola", "parole")))
+                t("Treemap della superficie: %s, la più estesa è %s con "
+                  "%s. I dati sono nella tabella qui sotto.", lang)
+                % (_plurale(int(mappa["shown"]), "pagina", "pagine", lang),
+                   _e(voci[0]["label"]),
+                   _plurale(int(voci[0]["words"]), "parola", "parole",
+                            lang))))
     for voce in voci:
         p.append("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f'>"
                  "<title>%s — %s, %s</title></rect>"
                  % (voce["x"], voce["y"], voce["w"], voce["h"],
                     _e(voce["label"]),
-                    _plurale(int(voce["words"]), "parola", "parole"),
-                    _plurale(int(voce["chunks"]), "passaggio", "passaggi")))
+                    _plurale(int(voce["words"]), "parola", "parole", lang),
+                    _plurale(int(voce["chunks"]), "passaggio", "passaggi",
+                             lang)))
         if voce["w"] >= TREEMAP_MIN_W and voce["h"] >= TREEMAP_MIN_H:
             p.append("<text x='%.1f' y='%.1f'>%s</text>"
                      % (voce["x"] + 6, voce["y"] + 17,
                         _e(_coda(str(voce["label"]),
                                  int((voce["w"] - 12) // 6)))))
     p.append("</svg>")
-    p.append("<details><summary>La superficie in tabella</summary>"
-             "<table><tr><th>Pagina</th><th>Parole</th>"
-             "<th>Passaggi</th></tr>")
+    p.append("<details><summary>%s</summary>"
+             "<table><tr><th>%s</th><th>%s</th>"
+             "<th>%s</th></tr>"
+             % (t("La superficie in tabella", lang), t("Pagina", lang),
+                t("Parole", lang), t("Passaggi", lang)))
     for voce in voci:
         p.append("<tr><td>%s</td><td class='num'>%d</td>"
                  "<td class='num'>%d</td></tr>"
@@ -2164,7 +2341,8 @@ GRAFO_ETICHETTA_TUTTI = 20
 GRAFO_ETICHETTA_QUANTI = 12
 
 
-def _grafo_html(referto: dict, p: List[str]) -> None:
+def _grafo_html(referto: dict, p: List[str],
+                lang: str = LINGUA_CANONICA) -> None:
     """Il grafo dei link interni: SVG statico, e i comandi che il JS accende.
 
     Il disegno **e' completo senza JavaScript**: nodi, archi, frecce,
@@ -2184,36 +2362,40 @@ def _grafo_html(referto: dict, p: List[str]) -> None:
     if not grafo:
         return
     nodi = grafo["nodes"]
-    p.append("<h3>Architettura dei link</h3>")
-    note = ["%s e %s fra le pagine scansionate."
-            % (_plurale(int(grafo["shown"]), "nodo", "nodi"),
+    p.append("<h3>%s</h3>" % t("Architettura dei link", lang))
+    note = [t("%s e %s fra le pagine scansionate.", lang)
+            % (_plurale(int(grafo["shown"]), "nodo", "nodi", lang),
                _plurale(int(grafo["edges"]), "collegamento",
-                        "collegamenti"))]
+                        "collegamenti", lang))]
     if grafo["shown"] < grafo["total"]:
-        note.append("I %d più linkati di %d." % (grafo["shown"],
-                                                 grafo["total"]))
+        note.append(t("I %d più linkati di %d.", lang)
+                    % (grafo["shown"], grafo["total"]))
     if not grafo["has_home"]:
-        note.append("L'URL di partenza non è fra le pagine scansionate, "
-                    "quindi «raggiungibile» qui non vuol dire nulla.")
+        note.append(t("L'URL di partenza non è fra le pagine scansionate, "
+                      "quindi «raggiungibile» qui non vuol dire nulla.",
+                      lang))
     elif grafo["orphans"]:
-        note.append("%s non si raggiunge dalla home seguendo i link."
-                    % _plurale(int(grafo["orphans"]), "pagina", "pagine"))
+        note.append(t("%s non si raggiunge dalla home seguendo i link.",
+                      lang)
+                    % _plurale(int(grafo["orphans"]), "pagina", "pagine",
+                               lang))
     # La riserva che rende onesto il giallo: dentro un campione di
     # dieci pagine «orfana» puo' voler dire solo che chi la linka non
     # e' stato scaricato. Quando invece nessun link esce dal campione
     # il conto e' chiuso, e lo si puo' dire senza riserve.
     if not grafo["closed"]:
-        note.append("Il campione è parziale: una pagina può risultare "
-                    "orfana solo perché chi la linka non è stato "
-                    "scansionato.")
+        note.append(t("Il campione è parziale: una pagina può risultare "
+                      "orfana solo perché chi la linka non è stato "
+                      "scansionato.", lang))
     p.append("<p class='meta'>%s</p>" % _e(" ".join(note)))
     p.append("<svg id='grafo' class='grafo' viewBox='0 0 %d %d' role='img' "
-             "aria-label='Grafo dei link interni: %s e %s. I dati sono "
-             "nella tabella qui sotto.'>"
+             "aria-label='%s'>"
              % (int(grafo["width"]), int(grafo["height"]),
-                _plurale(int(grafo["shown"]), "nodo", "nodi"),
-                _plurale(int(grafo["edges"]), "collegamento",
-                         "collegamenti")))
+                t("Grafo dei link interni: %s e %s. I dati sono nella "
+                  "tabella qui sotto.", lang)
+                % (_plurale(int(grafo["shown"]), "nodo", "nodi", lang),
+                   _plurale(int(grafo["edges"]), "collegamento",
+                            "collegamenti", lang))))
     p.append("<defs><marker id='grafo-freccia' viewBox='0 0 8 8' refX='7' "
              "refY='4' markerWidth='5' markerHeight='5' "
              "orient='auto-start-reverse'>"
@@ -2241,22 +2423,25 @@ def _grafo_html(referto: dict, p: List[str]) -> None:
             [:GRAFO_ETICHETTA_QUANTI]}
     for i, nodo in enumerate(nodi):
         if nodo["home"]:
-            classe, dove = "casa", "punto di partenza"
+            classe, dove = "casa", t("punto di partenza", lang)
         elif nodo["clicks"] is None:
-            classe, dove = "orfana", "non raggiunta dalla home per link"
+            classe = "orfana"
+            dove = t("non raggiunta dalla home per link", lang)
         else:
             classe = "raggiunta"
-            dove = _plurale(int(nodo["clicks"]), "click", "click") \
-                + " dalla home"
+            dove = t("%s dalla home", lang) % _plurale(
+                int(nodo["clicks"]), "click", "click", lang)
         p.append("<circle class='grafo-nodo %s' data-i='%d' data-r='%.1f' "
                  "data-c='%s' cx='%.1f' cy='%.1f' r='%.1f'>"
-                 "<title>%s — %s in entrata, %s in uscita, %s</title>"
+                 "<title>%s — %s, %s, %s</title>"
                  "</circle>"
                  % (classe, i, nodo["r"],
                     "" if nodo["clicks"] is None else nodo["clicks"],
                     nodo["x"], nodo["y"], nodo["r"], _e(nodo["label"]),
-                    _plurale(int(nodo["incoming"]), "link", "link"),
-                    _plurale(int(nodo["outgoing"]), "link", "link"),
+                    t("%s in entrata", lang) % _plurale(
+                        int(nodo["incoming"]), "link", "link", lang),
+                    t("%s in uscita", lang) % _plurale(
+                        int(nodo["outgoing"]), "link", "link", lang),
                     _e(dove)))
         if i in etichettati:
             p.append("<text class='grafo-etichetta' data-i='%d' x='%.1f' "
@@ -2266,36 +2451,44 @@ def _grafo_html(referto: dict, p: List[str]) -> None:
     p.append("</svg>")
     p.append("<p class='grafo-comandi' id='grafo-comandi' hidden>"
              "<button type='button' id='grafo-forze' aria-pressed='true'>"
-             "Per collegamenti</button> "
+             "%s</button> "
              "<button type='button' id='grafo-anelli' aria-pressed='false'>"
-             "Per distanza</button> · "
-             "<button type='button' id='grafo-piu'>Ingrandisci</button> "
-             "<button type='button' id='grafo-meno'>Riduci</button> "
-             "<button type='button' id='grafo-zero'>Reimposta</button></p>")
+             "%s</button> · "
+             "<button type='button' id='grafo-piu'>%s</button> "
+             "<button type='button' id='grafo-meno'>%s</button> "
+             "<button type='button' id='grafo-zero'>%s</button></p>"
+             % (t("Per collegamenti", lang), t("Per distanza", lang),
+                t("Ingrandisci", lang), t("Riduci", lang),
+                t("Reimposta", lang)))
     p.append("<p id='grafo-stato' class='meta' role='status'></p>")
-    p.append("<details><summary>L'architettura in tabella</summary>"
-             "<table><tr><th>Pagina</th><th>Link in entrata</th>"
-             "<th>Link in uscita</th><th>Distanza dalla home</th></tr>")
+    p.append("<details><summary>%s</summary>"
+             "<table><tr><th>%s</th><th>%s</th>"
+             "<th>%s</th><th>%s</th></tr>"
+             % (t("L'architettura in tabella", lang), t("Pagina", lang),
+                t("Link in entrata", lang), t("Link in uscita", lang),
+                t("Distanza dalla home", lang)))
     for nodo in nodi:
         p.append("<tr><td>%s</td><td class='num'>%d</td>"
                  "<td class='num'>%d</td><td class='num'>%s</td></tr>"
                  % (_e(nodo["url"]), nodo["incoming"], nodo["outgoing"],
-                    "non raggiunta" if nodo["clicks"] is None
-                    else "%d click" % nodo["clicks"]))
+                    t("non raggiunta", lang) if nodo["clicks"] is None
+                    else t("%d click", lang) % nodo["clicks"]))
     p.append("</table></details>")
 
 
-def _sezione_superficie(referto: dict, p: List[str]) -> None:
+def _sezione_superficie(referto: dict, p: List[str],
+                        lang: str = LINGUA_CANONICA) -> None:
     """Profondita' di crawl e matematica della superficie."""
     profondita = depth_distribution(referto.get("pages") or [])
     matematica = referto.get("surface_math")
     if not profondita and not matematica:
         return
-    p.append("<h2>Superficie</h2>")
+    p.append("<h2>%s</h2>" % t("Superficie", lang))
     if profondita:
         massimo = max(v["pages"] for v in profondita) or 1
-        p.append("<table><tr><th>Distanza dalla home</th><th>Pagine</th>"
-                 "<th></th></tr>")
+        p.append("<table><tr><th>%s</th><th>%s</th>"
+                 "<th></th></tr>"
+                 % (t("Distanza dalla home", lang), t("Pagine", lang)))
         for voce in profondita:
             # Il secchiello delle ignote e' giallo: non e' un livello
             # peggiore degli altri, e' un livello che non sappiamo.
@@ -2303,47 +2496,54 @@ def _sezione_superficie(referto: dict, p: List[str]) -> None:
             p.append("<tr><td>%s</td><td class='num'>%d</td>"
                      "<td style='width:60%%'><span class='bar %s' "
                      "style='width:%.0f%%'></span></td></tr>"
-                     % (_e(voce["label"]), voce["pages"], classe,
+                     % (_e(t(voce["label"], lang)), voce["pages"], classe,
                         100.0 * voce["pages"] / massimo))
         p.append("</table>")
-    _treemap_html(referto, p)
-    _grafo_html(referto, p)
+    _treemap_html(referto, p, lang)
+    _grafo_html(referto, p, lang)
     if matematica:
-        p.append("<div class='card'><p>%d pagine, %d passaggi — %.2f per "
-                 "pagina, %.0f parole per pagina.</p>"
-                 % (matematica["pages"], matematica["chunks"],
-                    matematica["chunks_per_page"],
-                    matematica["words_per_page"]))
+        p.append("<div class='card'><p>%s</p>"
+                 % (t("%d pagine, %d passaggi — %.2f per pagina, %.0f "
+                      "parole per pagina.", lang)
+                    % (matematica["pages"], matematica["chunks"],
+                       matematica["chunks_per_page"],
+                       matematica["words_per_page"])))
         if matematica["multiplier"]:
             p.append("<p class='grande'>x%.1f</p>"
-                     "<p class='meta'>passaggi recuperabili con %d parole "
-                     "per pagina: %d invece di %d. Ogni passaggio è "
-                     "un'occasione in più di essere recuperato.</p>"
+                     "<p class='meta'>%s</p>"
                      % (matematica["multiplier"],
-                        matematica["target_words_per_page"],
-                        matematica["potential_chunks"],
-                        matematica["chunks"]))
+                        t("passaggi recuperabili con %d parole per "
+                          "pagina: %d invece di %d. Ogni passaggio è "
+                          "un'occasione in più di essere recuperato.",
+                          lang)
+                        % (matematica["target_words_per_page"],
+                           matematica["potential_chunks"],
+                           matematica["chunks"])))
         p.append("<p class='disclaimer'>%s</p></div>"
-                 % _e(matematica["assumption"]))
+                 % _e(t(matematica["assumption"], lang)))
 
 
-def _sezione_delta(referto: dict, p: List[str]) -> None:
+def _sezione_delta(referto: dict, p: List[str],
+                   lang: str = LINGUA_CANONICA) -> None:
     """«Rispetto all'esecuzione precedente», con risolti e nuovi."""
     delta = referto.get("delta")
     if not delta:
         return
-    p.append("<h2>Rispetto all'esecuzione precedente</h2>")
-    p.append("<p class='meta'>Confronto con il %s (v%s).</p>"
-             % (_e(delta.get("previous_run")),
-                _e(delta.get("previous_version"))))
+    p.append("<h2>%s</h2>" % t("Rispetto all'esecuzione precedente", lang))
+    p.append("<p class='meta'>%s</p>"
+             % (t("Confronto con il %s (v%s).", lang)
+                % (_e(delta.get("previous_run")),
+                   _e(delta.get("previous_version")))))
     righe = []
     if delta.get("overall"):
-        righe.append(("Complessivo", delta["overall"]))
+        righe.append((t("Complessivo", lang), delta["overall"]))
     righe += [(v["area"].replace("mars_", ""), v)
               for v in delta["scores"] if v["change"]]
     if righe:
-        p.append("<table><tr><th>Area</th><th>Prima</th><th>Dopo</th>"
-                 "<th>Variazione</th></tr>")
+        p.append("<table><tr><th>%s</th><th>%s</th><th>%s</th>"
+                 "<th>%s</th></tr>"
+                 % (t("Area", lang), t("Prima", lang), t("Dopo", lang),
+                    t("Variazione", lang)))
         for nome, voce in righe:
             # Il colore segue il SEGNO e non la scala dei punteggi: qui
             # non si giudica quanto vale l'area, si dice se e' salita.
@@ -2352,25 +2552,28 @@ def _sezione_delta(referto: dict, p: List[str]) -> None:
                      "<td class='num'>%.0f</td>"
                      "<td class='num %s'>%s</td></tr>"
                      % (_e(nome), voce["before"], voce["after"], classe,
-                        _segno(voce["change"])))
+                        _segno(voce["change"], lang)))
         p.append("</table>")
-    for titolo, elenco, classe in (("Risolti", delta["resolved"], "ok"),
-                                   ("Nuovi", delta["new"], "bad")):
+    for titolo, elenco, classe in (
+            (t("Risolti", lang), delta["resolved"], "ok"),
+            (t("Nuovi", lang), delta["new"], "bad")):
         if not elenco:
             continue
         p.append("<h3 class='%s'>%s (%d)</h3>" % (classe, titolo,
                                                   len(elenco)))
         p.append("<ul class='rilievi'>%s</ul>"
-                 % "".join("<li>%s</li>" % _e(r.get("title"))
+                 % "".join("<li>%s</li>"
+                           % _e(finding_texts(r, lang)["title"])
                            for r in elenco))
     if delta.get("by_title_fallback"):
-        p.append("<p class='meta'>Qualche rilievo non ha una chiave "
-                 "stabile: il confronto usa il titolo, ed è più "
-                 "debole.</p>")
+        p.append("<p class='meta'>%s</p>"
+                 % t("Qualche rilievo non ha una chiave stabile: il "
+                     "confronto usa il titolo, ed è più debole.", lang))
 
 
 def _sezione_piano(referto: dict, p: List[str],
-                   ancore: Optional[Dict[str, str]] = None) -> None:
+                   ancore: Optional[Dict[str, str]] = None,
+                   lang: str = LINGUA_CANONICA) -> None:
     """Il piano di interventi, ordinato.
 
     **Sempre presente**, anche vuoto, a differenza delle tre sezioni
@@ -2382,90 +2585,104 @@ def _sezione_piano(referto: dict, p: List[str],
     """
     piano = referto.get("remediation") or []
     riepilogo = mars_remediation.riepilogo(piano, referto)
-    p.append("<h2>Piano di interventi</h2>")
+    p.append("<h2>%s</h2>" % t("Piano di interventi", lang))
     if not piano:
-        p.append("<p class='meta'>Nessun rilievo critico o di avvertenza: "
-                 "non c'è nulla da mettere in ordine di priorità.</p>")
+        p.append("<p class='meta'>%s</p>"
+                 % t("Nessun rilievo critico o di avvertenza: non c'è "
+                     "nulla da mettere in ordine di priorità.", lang))
         return
 
-    conteggi = ["%d interventi (%d critici, %d avvertenze)"
+    conteggi = [t("%d interventi (%d critici, %d avvertenze)", lang)
                 % (riepilogo["total"], riepilogo["critical"],
                    riepilogo["warning"]),
-                "%d quick win" % riepilogo["quick_wins"]]
+                t("%d quick win", lang) % riepilogo["quick_wins"]]
     senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
     if senza:
-        conteggi.append("%d senza recupero dichiarato" % senza)
+        conteggi.append(t("%d senza recupero dichiarato", lang) % senza)
     if riepilogo["no_effort"]:
-        conteggi.append("%d senza sforzo dichiarato" % riepilogo["no_effort"])
+        conteggi.append(t("%d senza sforzo dichiarato", lang)
+                        % riepilogo["no_effort"])
     p.append("<p class='meta'>%s</p>" % _e(" · ".join(conteggi)))
     # Le aree si CONTANO: al massimo cinque delle nove alimentano il
     # piano, perche' due non producono rilievi e due li producono tutti
     # `info`. Un numero fisso qui sarebbe falso.
-    p.append("<p class='meta'>Ordinato per gravità, poi per guadagno "
-             "dell'indice di citabilità. Lo alimentano %d aree su %d; "
-             "i punti d'area sono la stessa aritmetica che ha prodotto i "
-             "punteggi, il guadagno d'indice è una stima derivata dai "
-             "pesi per assistente.</p>"
-             % (riepilogo["areas_covered"], riepilogo["areas_total"]))
+    p.append("<p class='meta'>%s</p>"
+             % (t("Ordinato per gravità, poi per guadagno dell'indice di "
+                  "citabilità. Lo alimentano %d aree su %d; i punti "
+                  "d'area sono la stessa aritmetica che ha prodotto i "
+                  "punteggi, il guadagno d'indice è una stima derivata "
+                  "dai pesi per assistente.", lang)
+                % (riepilogo["areas_covered"], riepilogo["areas_total"])))
     for voce in piano:
-        p.append(_voce_piano_html(voce, ancore))
+        p.append(_voce_piano_html(voce, ancore, lang))
 
 
-def _sezione_rrf(referto: dict, p: List[str]) -> None:
+def _sezione_rrf(referto: dict, p: List[str],
+                 lang: str = LINGUA_CANONICA) -> None:
     aggregato = referto.get("rrf_aggregate")
     simulazione = referto.get("rrf_simulation") or []
     if not aggregato and not simulazione:
         return
-    p.append("<h2>Simulazione RRF</h2>")
+    p.append("<h2>%s</h2>" % t("Simulazione RRF", lang))
     if aggregato:
-        p.append("<div class='card'><p class='meta'>Consenso fra il "
-                 "recuperatore lessicale e quello vettoriale, aggregato su "
-                 "%d query — la misura più solida, perché un accordo su "
-                 "una sola domanda può essere un caso.</p>"
+        p.append("<div class='card'><p class='meta'>%s</p>"
                  "<p class='grande %s'>%s</p>"
-                 % (len(simulazione), _classe(_quota_consenso(aggregato)),
-                    _e(_consenso_leggibile(aggregato))))
+                 % (t("Consenso fra il recuperatore lessicale e quello "
+                      "vettoriale, aggregato su %d query — la misura più "
+                      "solida, perché un accordo su una sola domanda può "
+                      "essere un caso.", lang) % len(simulazione),
+                    _classe(_quota_consenso(aggregato)),
+                    _e(_consenso_leggibile(aggregato, lang))))
         if aggregato.get("top_chunk"):
-            p.append("<p class='meta'>Passaggio più recuperabile:<br>"
-                     "<code>%s</code></p>" % _e(aggregato["top_chunk"]))
+            p.append("<p class='meta'>%s<br><code>%s</code></p>"
+                     % (t("Passaggio più recuperabile:", lang),
+                        _e(aggregato["top_chunk"])))
         p.append("</div>")
     if simulazione:
-        p.append("<table><tr><th>Query</th><th>Consenso</th>"
-                 "<th>Passaggio migliore</th></tr>")
+        p.append("<table><tr><th>%s</th><th>%s</th>"
+                 "<th>%s</th></tr>"
+                 % (t("Query", lang), t("Consenso", lang),
+                    t("Passaggio migliore", lang)))
         for voce in simulazione:
             p.append("<tr><td><code>%s</code></td>"
                      "<td class='num %s'>%s</td><td>%s</td></tr>"
                      % (_e(voce["query"]), _classe(_quota_consenso(voce)),
-                        _e(_consenso_leggibile(voce)),
+                        _e(_consenso_leggibile(voce, lang)),
                         _e(voce["top_chunk"] or "—")))
         p.append("</table>")
 
 
-def _sezione_citabilita(referto: dict, p: List[str]) -> None:
+def _sezione_citabilita(referto: dict, p: List[str],
+                        lang: str = LINGUA_CANONICA) -> None:
     cit = referto.get("citability")
     if not cit or not cit.get("profiles"):
         return
-    p.append("<h2>Profili di citabilità IA</h2>")
-    p.append("<p class='meta'>Mercato: %s</p><table>" % _e(cit.get("market")))
+    p.append("<h2>%s</h2>" % t("Profili di citabilità IA", lang))
+    p.append("<p class='meta'>%s</p><table>"
+             % (t("Mercato: %s", lang) % _e(cit.get("market"))))
     for assistente, valore in cit["profiles"].items():
         barra = ("<span class='bar %s' style='width:%.0f%%'></span>"
                  % (_classe(valore), (valore or 0)))
-        testo = ("%.1f" % valore) if valore is not None else "n/d"
+        testo = ("%.1f" % valore) if valore is not None \
+            else t("n/d", lang)
         p.append("<tr><td>%s</td><td class='num %s'>%s</td>"
                  "<td style='width:55%%'>%s</td></tr>"
                  % (_e(assistente), _classe(valore), testo, barra))
     if cit.get("score") is not None:
-        p.append("<tr><td><strong>Indice composito</strong></td>"
+        p.append("<tr><td><strong>%s</strong></td>"
                  "<td class='num %s'><strong>%.1f</strong></td><td></td></tr>"
-                 % (_classe(cit["score"]), cit["score"]))
+                 % (t("Indice composito", lang), _classe(cit["score"]),
+                    cit["score"]))
     p.append("</table>")
     # Il disclaimer sta subito sotto i numeri, non in fondo alla pagina:
     # chi legge il punteggio deve leggere anche cosa non è.
-    p.append("<p class='disclaimer'>%s</p>" % _e(cit.get("disclaimer")))
-    if cit.get("issues"):
+    p.append("<p class='disclaimer'>%s</p>"
+             % _e(t(cit.get("disclaimer") or "", lang)))
+    compatte = _righe_compatte(_area_di(referto, "mars_citability"), lang)
+    if compatte:
         p.append("<ul class='rilievi'>%s</ul>"
-                 % "".join("<li>%s</li>" % _e(i) for i in cit["issues"]))
-    _azioni_di_profilo(referto, p)
+                 % "".join("<li>%s</li>" % _e(i) for i in compatte))
+    _azioni_di_profilo(referto, p, lang)
 
 
 # Quante azioni mostrare sotto i profili di citabilita'. Tre: e' una
@@ -2473,7 +2690,8 @@ def _sezione_citabilita(referto: dict, p: List[str]) -> None:
 AZIONI_DI_PROFILO = 3
 
 
-def _azioni_di_profilo(referto: dict, p: List[str]) -> None:
+def _azioni_di_profilo(referto: dict, p: List[str],
+                       lang: str = LINGUA_CANONICA) -> None:
     """Gli interventi che spostano di piu' l'indice di citabilita'.
 
     Legge il piano canonico e lo riordina per solo guadagno: non e' lo
@@ -2497,35 +2715,42 @@ def _azioni_di_profilo(referto: dict, p: List[str]) -> None:
     if not con_guadagno:
         return
     ordinate = sorted(con_guadagno, key=lambda v: -v["index_gain"])
-    p.append("<p class='meta'>Azioni con maggior guadagno di profilo:</p>")
+    p.append("<p class='meta'>%s</p>"
+             % t("Azioni con maggior guadagno di profilo:", lang))
     p.append("<ul class='rilievi'>")
     for voce in ordinate[:AZIONI_DI_PROFILO]:
         profili = voce.get("profile_gains") or {}
         migliore = ""
         if profili:
             nome, guadagno = max(profili.items(), key=lambda c: c[1])
-            migliore = " — soprattutto %s (+%.2f)" % (_e(nome), guadagno)
-        p.append("<li>%s <strong>+%.2f</strong> sull'indice%s</li>"
-                 % (_e(voce["title"]), voce["index_gain"], migliore))
+            migliore = (t(" — soprattutto %s (+%.2f)", lang)
+                        % (_e(nome), guadagno))
+        p.append("<li>%s <strong>+%.2f</strong>%s%s</li>"
+                 % (_e(finding_texts(voce, lang)["title"]),
+                    voce["index_gain"], t(" sull'indice", lang), migliore))
     p.append("</ul>")
 
 
-def _sezione_llm(referto: dict, p: List[str]) -> None:
+def _sezione_llm(referto: dict, p: List[str],
+                 lang: str = LINGUA_CANONICA) -> None:
     llm = referto.get("llm_judgement") or {}
     if not llm.get("motivazione"):
         return
-    p.append("<h2>Giudizio LLM</h2><div class='card'>")
-    p.append("<p class='meta'>%s · %s passaggi valutati</p>"
-             % (_e(llm.get("model")), _e(llm.get("chunk_valutati"))))
+    p.append("<h2>%s</h2><div class='card'>" % t("Giudizio LLM", lang))
+    p.append("<p class='meta'>%s · %s</p>"
+             % (_e(llm.get("model")),
+                t("%s passaggi valutati", lang)
+                % _e(llm.get("chunk_valutati"))))
     if llm.get("score") is not None:
         p.append("<p class='grande %s'>%s<span class='muted'>/100</span></p>"
                  % (_classe(llm["score"]), _e(llm["score"])))
     p.append("<p>%s</p>" % _e(llm["motivazione"]))
     if llm.get("passaggio_migliore"):
-        p.append("<p class='meta'>Passaggio migliore: <code>%s</code></p>"
-                 % _e(llm["passaggio_migliore"]))
-    for titolo, chiave in (("Punti di forza", "punti_forti"),
-                           ("Da migliorare", "punti_deboli")):
+        p.append("<p class='meta'>%s <code>%s</code></p>"
+                 % (t("Passaggio migliore:", lang),
+                    _e(llm["passaggio_migliore"])))
+    for titolo, chiave in ((t("Punti di forza", lang), "punti_forti"),
+                           (t("Da migliorare", lang), "punti_deboli")):
         voci = llm.get(chiave) or []
         if voci:
             p.append("<p class='strumento'><strong>%s</strong></p>"
@@ -2726,7 +2951,7 @@ REFERTO_JS = """
 """
 
 
-def render_html(referto: dict) -> str:
+def render_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     """Referto HTML nello stile di Lighthouse, esteso alle nostre aree.
 
     Autoconsistente per costruzione: CSS incorporato, favicon come data
@@ -2741,9 +2966,15 @@ def render_html(referto: dict) -> str:
     aggiunge — evidenziare, disporre per distanza, ingrandire — e' in
     piu' rispetto a un disegno gia' completo: vedi `REFERTO_JS`.
     """
+    lang = normalizza_lingua(lang)
     p: List[str] = []
     icona = _favicon_data_uri()
-    p.append("<!doctype html><html lang='it'><head><meta charset='utf-8'>")
+    # L'attributo `lang` NON e' cosmesi: e' il criterio WCAG 3.1.1 che
+    # quest'referto stesso misura sulle pagine altrui (`wcag.lang.missing`).
+    # Cablarlo a "it" su un referto inglese sarebbe il difetto che il
+    # documento rileva, commesso dal documento.
+    p.append("<!doctype html><html lang='%s'><head><meta charset='utf-8'>"
+             % lang)
     p.append("<meta name='viewport' content='width=device-width,"
              "initial-scale=1'>")
     p.append("<title>MARS Beacon — %s</title>" % _e(referto["url"]))
@@ -2753,11 +2984,16 @@ def render_html(referto: dict) -> str:
 
     p.append("<header class='testata'><h1>MARS Beacon</h1>")
     p.append("<p class='meta'><code>%s</code></p>" % _e(referto["url"]))
-    p.append("<p class='meta'>%s · %s pagine trovate via %s · %s chunk · "
-             "mercato %s · v%s</p></header>"
-             % (_e(referto["generated_at"]), referto["pages_crawled"],
-                _e(referto.get("discovery")), referto["chunks"],
-                _e(referto["market"]), _e(referto["version"])))
+    p.append("<p class='meta'>%s</p></header>"
+             % (t("%s · %s pagine trovate via %s · %s chunk · "
+                  "mercato %s · v%s", lang)
+                % (_e(referto["generated_at"]), referto["pages_crawled"],
+                   _e(t(referto.get("discovery") or "", lang)),
+                   referto["chunks"], _e(referto["market"]),
+                   _e(referto["version"]))))
+    for nota in _nota_lingua(referto, lang):
+        if nota:
+            p.append("<p class='disclaimer'>%s</p>" % _e(nota))
 
     # Le ancore si calcolano UNA volta e si passano a chi le usa: la
     # scheda che le emette, il piano e il riquadro in testa che le
@@ -2766,31 +3002,33 @@ def render_html(referto: dict) -> str:
     # non fa alcun rumore.
     ancore = ancore_dei_rilievi(referto)
 
-    p.append(_hero(referto))
-    p.append(_primi_rilievi(referto, ancore))
-    p.append(_fascia_quadranti(referto))
-    p.append(_legenda())
+    p.append(_hero(referto, lang))
+    p.append(_primi_rilievi(referto, ancore, lang))
+    p.append(_fascia_quadranti(referto, lang))
+    p.append(_legenda(lang))
 
-    p.append("<h2>Aree</h2>")
+    p.append("<h2>%s</h2>" % t("Aree", lang))
     for area in referto["areas"]:
-        p.append(_scheda_area(area, referto, ancore))
+        p.append(_scheda_area(area, referto, ancore, lang))
 
-    _sezione_superficie(referto, p)
-    _sezione_delta(referto, p)
-    _sezione_piano(referto, p, ancore)
-    _sezione_rrf(referto, p)
-    _sezione_citabilita(referto, p)
-    _sezione_llm(referto, p)
+    _sezione_superficie(referto, p, lang)
+    _sezione_delta(referto, p, lang)
+    _sezione_piano(referto, p, ancore, lang)
+    _sezione_rrf(referto, p, lang)
+    _sezione_citabilita(referto, p, lang)
+    _sezione_llm(referto, p, lang)
 
     if referto["robots_ignored"] or referto["skipped"]:
-        p.append("<h2>Cosa non è stato guardato</h2>")
+        p.append("<h2>%s</h2>" % t("Cosa non è stato guardato", lang))
         if referto["robots_ignored"]:
-            p.append("<p class='bad'>robots.txt ignorato per dichiarazione "
-                     "di proprietà del dominio.</p>")
+            p.append("<p class='bad'>%s</p>"
+                     % t("robots.txt ignorato per dichiarazione di "
+                         "proprietà del dominio.", lang))
         if referto["skipped"]:
-            p.append("<div class='card'><p class='meta'>%d URL saltati:</p>"
+            p.append("<div class='card'><p class='meta'>%s</p>"
                      "<ul class='rilievi'>%s</ul></div>"
-                     % (len(referto["skipped"]),
+                     % (t("%d URL saltati:", lang)
+                        % len(referto["skipped"]),
                         "".join("<li>%s</li>" % _e(m)
                                 for m in referto["skipped"])))
 
@@ -2831,25 +3069,28 @@ def _md_cella(valore: object) -> str:
     return testo.replace("|", "\\|").replace("\n", " ").strip()
 
 
-def _md_rilievo(rilievo: dict) -> List[str]:
+def _md_rilievo(rilievo: dict,
+                lang: str = LINGUA_CANONICA) -> List[str]:
     """Un rilievo come voce di elenco, con la correzione sotto."""
-    righe = ["- %s %s" % (_MARCATORE.get(rilievo.get("severity"), "[?]"),
-                          rilievo.get("title") or "")]
-    if rilievo.get("detail"):
-        righe.append("  %s" % rilievo["detail"])
-    if rilievo.get("fix"):
-        righe.append("  *Correzione:* %s" % rilievo["fix"])
-    if rilievo.get("example"):
+    testi = finding_texts(rilievo, lang)
+    righe = ["- %s %s" % (t(_MARCATORE.get(rilievo.get("severity"), "[?]"),
+                            lang), testi["title"])]
+    if testi["detail"]:
+        righe.append("  %s" % testi["detail"])
+    if testi["fix"]:
+        righe.append("  *%s* %s" % (t("Correzione:", lang), testi["fix"]))
+    if testi["example"]:
         # Recintato: un esempio nginx o JSON-LD dentro un elenco
         # perderebbe indentazione e a-capo, che sono il suo contenuto.
         righe.append("")
         righe.append("  ```")
-        righe.extend("  %s" % r for r in rilievo["example"].split("\n"))
+        righe.extend("  %s" % r for r in testi["example"].split("\n"))
         righe.append("  ```")
     return righe
 
 
-def render_markdown(referto: dict) -> str:
+def render_markdown(referto: dict,
+                    lang: str = LINGUA_CANONICA) -> str:
     """Il referto in Markdown, con il piano come task list.
 
     Non e' una traduzione dell'HTML: e' la stessa struttura resa dove
@@ -2857,88 +3098,104 @@ def render_markdown(referto: dict) -> str:
     `remediation`, `findings` — quindi non puo' raccontare un referto
     diverso dalle altre viste.
     """
+    lang = normalizza_lingua(lang)
     r: List[str] = ["# MARS Beacon — %s" % (referto.get("url") or "")]
     r.append("")
-    r.append("*%s · v%s · %s pagine trovate via %s · %s chunk · mercato %s*"
+    r.append(t("*%s · v%s · %s pagine trovate via %s · %s chunk · "
+               "mercato %s*", lang)
              % (referto.get("generated_at"), referto.get("version"),
-                referto.get("pages_crawled"), referto.get("discovery"),
+                referto.get("pages_crawled"),
+                t(referto.get("discovery") or "", lang),
                 referto.get("chunks"), referto.get("market")))
+    for nota in _nota_lingua(referto, lang):
+        if nota:
+            r += ["", "*%s*" % _md_cella(nota)]
 
     complessivo = referto.get("overall")
     if complessivo:
-        r += ["", "## Complessivo", "",
+        r += ["", "## %s" % t("Complessivo", lang), "",
               "**%.0f/100** — %s" % (complessivo["score"],
-                                     _verdetto(complessivo["score"])),
+                                     _verdetto(complessivo["score"], lang)),
               "",
-              "Media pesata di %d misure; citabilità e giudizio LLM esclusi. "
-              "Scala dichiarata: critico sotto %d, da migliorare %d-%d, "
-              "buono da %d."
+              t("Media pesata di %d misure; citabilità e giudizio LLM "
+                "esclusi. Scala dichiarata: critico sotto %d, da "
+                "migliorare %d-%d, buono da %d.", lang)
               % (len(complessivo["components"]), SOGLIA_MEDIO, SOGLIA_MEDIO,
                  SOGLIA_BUONO - 1, SOGLIA_BUONO)]
 
-    r += ["", "## Punteggi per area", "",
-          "| Area | Punteggio | Con che cosa |", "|---|---|---|"]
+    r += ["", "## %s" % t("Punteggi per area", lang), "",
+          "| %s | %s | %s |" % (t("Area", lang), t("Punteggio", lang),
+                                t("Con che cosa", lang)),
+          "|---|---|---|"]
     for area in referto.get("areas") or []:
         voto = ("%.0f/100" % area["score"] if area["score"] is not None
-                else STATO_LEGGIBILE.get(area.get("status"), "non misurato"))
+                else t(STATO_LEGGIBILE.get(area.get("status"),
+                                           "non misurato"), lang))
         r.append("| %s | %s | %s |"
-                 % (_md_cella(area.get("label")), voto,
-                    _md_cella(" · ".join(_qualificatori(area)))))
+                 % (_md_cella(t(area.get("label") or "", lang)), voto,
+                    _md_cella(" · ".join(_qualificatori(area, lang)))))
 
     profondita = depth_distribution(referto.get("pages") or [])
     matematica = referto.get("surface_math")
     if profondita or matematica:
-        r += ["", "## Superficie", ""]
+        r += ["", "## %s" % t("Superficie", lang), ""]
         if profondita:
-            r += ["| Distanza dalla home | Pagine |", "|---|---|"]
-            r += ["| %s | %d |" % (_md_cella(v["label"]), v["pages"])
+            r += ["| %s | %s |" % (t("Distanza dalla home", lang),
+                                   t("Pagine", lang)), "|---|---|"]
+            r += ["| %s | %d |" % (_md_cella(t(v["label"], lang)),
+                                   v["pages"])
                   for v in profondita]
         if matematica:
-            r += ["", "%d pagine, %d passaggi — %.2f per pagina, %.0f parole "
-                      "per pagina."
+            r += ["", t("%d pagine, %d passaggi — %.2f per pagina, %.0f "
+                        "parole per pagina.", lang)
                   % (matematica["pages"], matematica["chunks"],
                      matematica["chunks_per_page"],
                      matematica["words_per_page"])]
             if matematica["multiplier"]:
-                r.append("Con %d parole per pagina i passaggi sarebbero "
-                         "**%d**, cioè **x%.1f**."
+                r.append(t("Con %d parole per pagina i passaggi sarebbero "
+                           "**%d**, cioè **x%.1f**.", lang)
                          % (matematica["target_words_per_page"],
                             matematica["potential_chunks"],
                             matematica["multiplier"]))
-            r += ["", "*%s*" % _md_cella(matematica["assumption"])]
+            r += ["", "*%s*" % _md_cella(t(matematica["assumption"], lang))]
 
     delta = referto.get("delta")
     if delta:
-        r += ["", "## Rispetto all'esecuzione precedente", "",
-              "Confronto con il %s (v%s)." % (delta.get("previous_run"),
-                                              delta.get("previous_version"))]
-        movimenti = ([("Complessivo", delta["overall"])]
+        r += ["", "## %s" % t("Rispetto all'esecuzione precedente", lang),
+              "", t("Confronto con il %s (v%s).", lang)
+              % (delta.get("previous_run"), delta.get("previous_version"))]
+        movimenti = ([(t("Complessivo", lang), delta["overall"])]
                      if delta.get("overall") else [])
         movimenti += [(v["area"].replace("mars_", ""), v)
                       for v in delta["scores"] if v["change"]]
         if movimenti:
-            r += ["", "| Area | Prima | Dopo | Variazione |", "|---|---|---|---|"]
+            r += ["", "| %s | %s | %s | %s |"
+                  % (t("Area", lang), t("Prima", lang), t("Dopo", lang),
+                     t("Variazione", lang)), "|---|---|---|---|"]
             for nome, voce in movimenti:
                 r.append("| %s | %.0f | %.0f | %s |"
                          % (_md_cella(nome), voce["before"], voce["after"],
-                            _segno(voce["change"])))
-        for titolo, elenco in (("Risolti", delta["resolved"]),
-                               ("Nuovi", delta["new"])):
+                            _segno(voce["change"], lang)))
+        for titolo, elenco in ((t("Risolti", lang), delta["resolved"]),
+                               (t("Nuovi", lang), delta["new"])):
             if not elenco:
                 continue
             r += ["", "**%s (%d)**" % (titolo, len(elenco)), ""]
-            r += ["- %s" % _md_cella(x.get("title")) for x in elenco]
+            r += ["- %s" % _md_cella(finding_texts(x, lang)["title"])
+                  for x in elenco]
         if delta.get("by_title_fallback"):
-            r += ["", "*Qualche rilievo non ha una chiave stabile: il "
-                      "confronto usa il titolo, ed è più debole.*"]
+            r += ["", "*%s*"
+                  % t("Qualche rilievo non ha una chiave stabile: il "
+                      "confronto usa il titolo, ed è più debole.", lang)]
 
     piano = referto.get("remediation") or []
     riepilogo = mars_remediation.riepilogo(piano, referto)
-    r += ["", "## Piano di interventi", ""]
+    r += ["", "## %s" % t("Piano di interventi", lang), ""]
     if not piano:
-        r.append("Nessun rilievo critico o di avvertenza.")
+        r.append(t("Nessun rilievo critico o di avvertenza.", lang))
     else:
-        r.append("%d interventi (%d critici, %d avvertenze) · %d quick win."
+        r.append(t("%d interventi (%d critici, %d avvertenze) · "
+                   "%d quick win.", lang)
                  % (riepilogo["total"], riepilogo["critical"],
                     riepilogo["warning"], riepilogo["quick_wins"]))
         r.append("")
@@ -2946,69 +3203,80 @@ def render_markdown(referto: dict) -> str:
             # Task list GFM: incollata in una issue diventa una
             # checklist spuntabile, ed e' il motivo per cui questo
             # formato esiste.
-            note = [voce["area_label"].split(". ", 1)[-1],
-                    "sforzo: %s" % (voce["effort"] or "non dichiarato")]
+            testi = finding_texts(voce, lang)
+            note = [t(voce["area_label"], lang).split(". ", 1)[-1],
+                    t("sforzo: %s", lang)
+                    % (t(voce["effort"], lang) if voce["effort"]
+                       else t("non dichiarato", lang))]
             if voce["recovery"]:
-                note.append("+%d punti d'area" % voce["recovery"])
+                note.append(t("+%d punti d'area", lang) % voce["recovery"])
             if voce["index_gain"]:
-                note.append("indice +%.2f" % voce["index_gain"])
+                note.append(t("indice +%.2f", lang) % voce["index_gain"])
             # Il grassetto del quick win sta FUORI dal corsivo delle
             # note: annidati darebbero `**QUICK WIN***`, e la terza
             # asterisco chiude il corsivo invece del grassetto.
             r.append("- [ ] %s %s — *%s*%s"
-                     % (_MARCATORE.get(voce["severity"], "[?]"),
-                        voce["title"], " · ".join(note),
-                        " · **QUICK WIN**" if voce["quick_win"] else ""))
-            if voce["fix"]:
-                r.append("      %s" % voce["fix"])
+                     % (t(_MARCATORE.get(voce["severity"], "[?]"), lang),
+                        testi["title"], " · ".join(note),
+                        t(" · **QUICK WIN**", lang) if voce["quick_win"]
+                        else ""))
+            if testi["fix"]:
+                r.append("      %s" % testi["fix"])
 
-    r += ["", "## Rilievi per area"]
+    r += ["", "## %s" % t("Rilievi per area", lang)]
     for area in referto.get("areas") or []:
-        r += ["", "### %s" % (area.get("label") or area.get("module")), ""]
+        r += ["", "### %s" % t(area.get("label") or area.get("module") or "",
+                               lang), ""]
         rilievi = area.get("findings") or []
         if rilievi:
             for rilievo in rilievi:
-                r += _md_rilievo(rilievo)
+                r += _md_rilievo(rilievo, lang)
         elif area.get("issues"):
-            r += ["- %s" % i for i in area["issues"]]
+            r += ["- %s" % i for i in _righe_compatte(area, lang)]
         else:
-            r.append("Nessun rilievo.")
+            r.append(t("Nessun rilievo.", lang))
 
     cit = referto.get("citability") or {}
     if cit.get("profiles"):
-        r += ["", "## Profili di citabilità IA", "",
-              "Mercato: %s" % _md_cella(cit.get("market")), "",
-              "| Assistente | Indice |", "|---|---|"]
+        r += ["", "## %s" % t("Profili di citabilità IA", lang), "",
+              t("Mercato: %s", lang) % _md_cella(cit.get("market")), "",
+              "| %s | %s |" % (t("Assistente", lang), t("Indice", lang)),
+              "|---|---|"]
         for assistente, valore in cit["profiles"].items():
             r.append("| %s | %s |"
                      % (_md_cella(assistente),
-                        "%.1f" % valore if valore is not None else "n/d"))
+                        "%.1f" % valore if valore is not None
+                        else t("n/d", lang)))
         if cit.get("score") is not None:
-            r.append("| **Indice composito** | **%.1f** |" % cit["score"])
-        r += ["", "*%s*" % _md_cella(cit.get("disclaimer"))]
+            r.append("| **%s** | **%.1f** |" % (t("Indice composito", lang),
+                                                cit["score"]))
+        r += ["", "*%s*" % _md_cella(t(cit.get("disclaimer") or "", lang))]
 
     llm = referto.get("llm_judgement") or {}
     if llm.get("motivazione"):
-        r += ["", "## Giudizio LLM", "",
-              "Modello: %s, su %s passaggi." % (_md_cella(llm.get("model")),
-                                                llm.get("chunk_valutati"))]
+        r += ["", "## %s" % t("Giudizio LLM", lang), "",
+              t("Modello: %s, su %s passaggi.", lang)
+              % (_md_cella(llm.get("model")), llm.get("chunk_valutati"))]
         if llm.get("score") is not None:
             r.append("")
-            r.append("Citabilità stimata: **%s/100**" % llm["score"])
+            r.append(t("Citabilità stimata: **%s/100**", lang)
+                     % llm["score"])
         r += ["", llm["motivazione"]]
 
     simulazione = referto.get("rrf_simulation") or []
     if simulazione:
-        r += ["", "## Simulazione RRF", "",
-              "| Query | Consenso | Passaggio migliore |", "|---|---|---|"]
+        r += ["", "## %s" % t("Simulazione RRF", lang), "",
+              "| %s | %s | %s |" % (t("Query", lang), t("Consenso", lang),
+                                    t("Passaggio migliore", lang)),
+              "|---|---|---|"]
         for voce in simulazione:
             r.append("| %s | %s | %s |"
                      % (_md_cella(voce["query"]),
-                        _md_cella(_consenso_leggibile(voce)),
+                        _md_cella(_consenso_leggibile(voce, lang)),
                         _md_cella(voce.get("top_chunk") or "—")))
 
     if referto.get("skipped"):
-        r += ["", "## Cosa non è stato guardato", ""]
+        r += ["", "## %s" % t("Cosa non è stato guardato", lang), ""]
         r += ["- %s" % _md_cella(m) for m in referto["skipped"]]
 
     r.append("")
@@ -3022,6 +3290,11 @@ def render_markdown(referto: dict) -> str:
 COLONNE_CSV = ("sito", "area", "gravita", "peso", "titolo", "dettaglio",
                "correzione", "url", "sforzo", "quick_win")
 
+# L'intestazione e il «sì» si traducono come tutto il resto: passano da
+# `t()`, quindi stanno nel catalogo della cornice e non in una tabella
+# loro. Il resto della riga sono dati del rilievo, che li traduce
+# `finding_texts`.
+
 # Il BOM non e' un vezzo: senza, Excel apre un CSV UTF-8 leggendolo
 # nella codepage di sistema, e "Accessibilità" diventa "AccessibilitÃ ".
 # E' il motivo per cui questa resa esiste — chi vuole i byte puliti ha
@@ -3034,7 +3307,7 @@ BOM_UTF8 = "\ufeff"
 DELIMITATORE_CSV = ";"
 
 
-def render_csv(referto: dict) -> str:
+def render_csv(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     """Una riga per rilievo, con lo sforzo dove il piano lo dichiara.
 
     Comprende i rilievi **derivati** di `mars_citability`: R41 esclude
@@ -3048,6 +3321,7 @@ def render_csv(referto: dict) -> str:
     Vuoto, non «no»: un `quick_win` a «no» su un rilievo informativo
     sembrerebbe una valutazione che nessuno ha fatto.
     """
+    lang = normalizza_lingua(lang)
     per_chiave = {v["key"]: v for v in referto.get("remediation") or []}
     buffer = io.StringIO()
     # `QUOTE_MINIMAL` e le regole di `csv` fanno il resto: una cella
@@ -3056,22 +3330,24 @@ def render_csv(referto: dict) -> str:
     # punto in cui un fix di ZAP pieno di `"` spezza il file.
     scrittore = csv.writer(buffer, delimiter=DELIMITATORE_CSV,
                            quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
-    scrittore.writerow(COLONNE_CSV)
+    scrittore.writerow([t(c, lang) for c in COLONNE_CSV])
     for area in referto.get("areas") or []:
         for rilievo in area.get("findings") or []:
             voce = per_chiave.get(rilievo.get("key") or "")
+            testi = finding_texts(rilievo, lang)
+            sforzo = (voce or {}).get("effort") or ""
             scrittore.writerow([
                 referto.get("url") or "",
-                area.get("label") or area.get("module") or "",
+                t(area.get("label") or area.get("module") or "", lang),
                 rilievo.get("severity") or "",
                 rilievo.get("weight") if rilievo.get("weight") is not None
                 else "",
-                rilievo.get("title") or "",
-                rilievo.get("detail") or "",
-                rilievo.get("fix") or "",
+                testi["title"],
+                testi["detail"],
+                testi["fix"],
                 rilievo.get("url") or "",
-                (voce or {}).get("effort") or "",
-                "sì" if voce and voce.get("quick_win") else "",
+                t(sforzo, lang) if sforzo else "",
+                t("sì", lang) if voce and voce.get("quick_win") else "",
             ])
     return BOM_UTF8 + buffer.getvalue()
 

@@ -518,6 +518,448 @@ RILIEVI: Dict[str, Dict[str, Dict[str, str]]] = {"en": _RILIEVI_EN}
 CAMPI_TRADOTTI: Tuple[str, ...] = ("title", "detail", "fix", "example")
 
 
+# ======================================================================
+# La cornice del referto
+# ----------------------------------------------------------------------
+# Le etichette, i titoli di sezione e le note che il referto scrive di
+# suo — tutto cio' che non e' un rilievo. Il catalogo e' indicizzato
+# **sul testo italiano** e non su una chiave simbolica, per due ragioni
+# che si tengono:
+#
+# 1. l'italiano resta scritto per esteso nel renderer, dove lo si legge
+#    in mezzo al codice che lo usa. Con chiavi simboliche servirebbe un
+#    catalogo `it` accanto a questo, e la vista italiana — che e' la
+#    canonica, quella congelata nei golden — dipenderebbe da una
+#    ricerca che puo' mancare il bersaglio;
+# 2. la stessa funzione traduce cosi' anche i testi che arrivano dal
+#    DATO e non dal renderer: l'etichetta di un'area, il secchiello di
+#    profondita', l'assunzione della superficie. Con chiavi simboliche
+#    quelli sarebbero rimasti italiani, perche' nel dato una chiave non
+#    c'e'.
+#
+# Il prezzo e' doppio, e si paga con lo stesso strumento in due modi.
+#
+# Il primo: cambiare una parola italiana scollega la traduzione in
+# silenzio. Lo presidia un test che rilegge i sorgenti — ogni letterale
+# passato a `t()` dev'essere a catalogo.
+#
+# Il secondo: **due significati possono condividere una stringa**, e
+# allora una chiave sola non basta. E' successo subito, e per due volte:
+# «da migliorare» e' il verdetto di un punteggio fra 50 e 89 («needs
+# work») ed e' anche l'etichetta dei punti deboli del giudizio LLM («to
+# improve»); e «click» in italiano non cambia al plurale, quindi
+# `_plurale(3, "click", "click")` chiederebbe due volte la stessa parola
+# e in inglese uscirebbe «3 click». Da qui il `contesto` di `t()`, che e'
+# il `msgctxt` di gettext: si aggiunge SOLO dove la collisione c'e', e in
+# mancanza si ripiega sulla chiave nuda.
+# ======================================================================
+
+_CORNICE_EN: Dict[str, str] = {
+
+    # --- Testata e cornice generale ------------------------------------
+    "           MARS BEACON - REPORT FINALE           ":
+        "            MARS BEACON - FINAL REPORT           ",
+    "%s · %s pagine trovate via %s · %s chunk · mercato %s · v%s":
+        "%s · %s pages found via %s · %s chunks · market %s · v%s",
+    "*%s · v%s · %s pagine trovate via %s · %s chunk · mercato %s*":
+        "*%s · v%s · %s pages found via %s · %s chunks · market %s*",
+    "Pagine trovate via   : %s  (%d pagine, %d chunk)":
+        "Pages found via      : %s  (%d pages, %d chunks)",
+    "Nota: le evidenze citate dal sito analizzato restano nella lingua "
+    "del sito.":
+        "Note: evidence quoted from the audited site stays in the "
+        "language of the site.",
+    "Queste aree si esprimono solo in italiano: %s.":
+        "These areas speak Italian only: %s.",
+    "sitemap": "sitemap",
+    "link interni": "internal links",
+
+    # --- Complessivo e verdetti ----------------------------------------
+    "COMPLESSIVO": "OVERALL",
+    "Complessivo": "Overall",
+    "  media pesata di %d misure; citabilità e giudizio LLM esclusi":
+        "  weighted mean of %d measures; citability and LLM judgement "
+        "excluded",
+    "media pesata di %d misure · citabilità e giudizio LLM esclusi":
+        "weighted mean of %d measures · citability and LLM judgement "
+        "excluded",
+    "Media pesata di %d misure; citabilità e giudizio LLM esclusi. "
+    "Scala dichiarata: critico sotto %d, da migliorare %d-%d, buono "
+    "da %d.":
+        "Weighted mean of %d measures; citability and LLM judgement "
+        "excluded. Declared scale: critical below %d, needs work %d-%d, "
+        "good from %d.",
+    "scala dichiarata: critico sotto %d · da migliorare %d-%d · buono "
+    "da %d":
+        "declared scale: critical below %d · needs work %d-%d · good "
+        "from %d",
+    "buono": "good",
+    "da migliorare": "needs work",
+    "critico": "critical",
+    "non misurato": "not measured",
+    "%.0f su 100": "%.0f out of 100",
+
+    # --- Aree e qualificatori ------------------------------------------
+    "Aree": "Areas",
+    "Area": "Area",
+    "1. Tecnica": "1. Technical",
+    "2. SEO": "2. SEO",
+    "3. Lessicale": "3. Lexical",
+    "4. Semantica": "4. Semantic",
+    "5. Dati Strutturati": "5. Structured Data",
+    "6. Accessibilità": "6. Accessibility",
+    "7. Sicurezza": "7. Security",
+    "8. Citabilità IA": "8. AI Citability",
+    "9. Giudizio LLM": "9. LLM Judgement",
+    "controllo di superficie": "surface check",
+    "classifica, non un voto": "a ranking, not a score",
+    "disattivato": "disabled",
+    "errore del modulo": "module error",
+    "scansione parziale": "partial scan",
+    "parziale": "partial",
+    "superficie": "surface",
+    "%d pagine esaminate": "%d pages examined",
+    "%d controlli superati, %d falliti": "%d checks passed, %d failed",
+    "%s %.0f/100 (1 pagina, scala diversa: la nostra è più severa)":
+        "%s %.0f/100 (1 page, different scale: ours is stricter)",
+    "altro strumento": "other tool",
+    "Nessun rilievo.": "No findings.",
+    "Come si aggiusta": "How to fix it",
+    "Link a questo rilievo": "Link to this finding",
+    "Punteggi per area": "Scores by area",
+    "Punteggio": "Score",
+    "Con che cosa": "Measured with",
+    "Rilievi per area": "Findings by area",
+    "Passaggio in testa:": "Top passage:",
+    "%.0f%% di %s chunk in forma di risposta.":
+        "%.0f%% of %s chunks are answer-shaped.",
+    "%s: %d pagine su %d.": "%s: %d pages out of %d.",
+    "FAQPage JSON-LD": "FAQPage JSON-LD",
+
+    # --- Nomi degli strumenti che portano una parola italiana ----------
+    "HTTP-Headers": "HTTP-Headers",
+    "ZAP (attiva)": "ZAP (active)",
+    "ZAP (passiva)": "ZAP (passive)",
+    "axe-core": "axe-core",
+    "markup": "markup",
+
+    # --- Gravità e conteggi --------------------------------------------
+    "CRITICO": "CRITICAL",
+    "AVVERTENZA": "WARNING",
+    "critici": "critical",
+    "avvertenze": "warnings",
+    "informativi": "informational",
+    "**[CRITICO]**": "**[CRITICAL]**",
+    "[AVVISO]": "[WARNING]",
+    "[INFO]": "[INFO]",
+    "[OK]": "[OK]",
+    "pagine scansionate": "pages crawled",
+    "%d URL scartati": "%d URLs discarded",
+    "Da dove cominciare": "Where to start",
+
+    # --- Superficie -----------------------------------------------------
+    "SUPERFICIE": "SURFACE",
+    "Superficie": "Surface",
+    "Distanza dalla home": "Distance from the home page",
+    "home": "home",
+    "1 click": "1 click",
+    "2 click": "2 clicks",
+    "3 click": "3 clicks",
+    "4+ click": "4+ clicks",
+    "profondità ignota": "unknown depth",
+    "Pagine": "Pages",
+    "Pagina": "Page",
+    "Parole": "Words",
+    "Passaggi": "Passages",
+    "  %d pagine, %d passaggi (%.2f per pagina, %.0f parole per pagina)":
+        "  %d pages, %d passages (%.2f per page, %.0f words per page)",
+    "%d pagine, %d passaggi — %.2f per pagina, %.0f parole per pagina.":
+        "%d pages, %d passages — %.2f per page, %.0f words per page.",
+    "  Con %d parole per pagina i passaggi sarebbero %d, cioe' x%.1f":
+        "  With %d words per page there would be %d passages, i.e. x%.1f",
+    "Con %d parole per pagina i passaggi sarebbero **%d**, cioè "
+    "**x%.1f**.":
+        "With %d words per page there would be **%d** passages, i.e. "
+        "**x%.1f**.",
+    "passaggi recuperabili con %d parole per pagina: %d invece di %d. "
+    "Ogni passaggio è un'occasione in più di essere recuperato.":
+        "retrievable passages with %d words per page: %d instead of %d. "
+        "Every passage is one more chance of being retrieved.",
+    "proiezione, non misura: si assume una pagina di contenuto "
+    "sostanziale intorno alle 900 parole, da cui il chunker ricava "
+    "circa 4 passaggi":
+        "a projection, not a measurement: it assumes a page of "
+        "substantial content of around 900 words, from which the "
+        "chunker gets about 4 passages",
+
+    # --- Treemap --------------------------------------------------------
+    "Ogni rettangolo è una pagina, l'area è proporzionale alle parole "
+    "recuperabili.":
+        "Each rectangle is a page; its area is proportional to the "
+        "retrievable words.",
+    "Le %d più estese di %s.": "The %d largest out of %s.",
+    "%s senza testo indicizzabile non %s superficie da disegnare.":
+        "%s with no indexable text %s no surface to draw.",
+    "ha": "has",
+    "hanno": "have",
+    "Il colore non è un giudizio: nessun rilievo dichiara la pagina che "
+    "lo ha prodotto, quindi la treemap parla di superficie e tace "
+    "sulla qualità.":
+        "Colour is not a judgement: no finding declares the page that "
+        "produced it, so the treemap speaks of surface and says nothing "
+        "about quality.",
+    "Treemap della superficie: %s, la più estesa è %s con %s. I dati "
+    "sono nella tabella qui sotto.":
+        "Surface treemap: %s, the largest is %s with %s. The figures "
+        "are in the table below.",
+    "La superficie in tabella": "The surface as a table",
+    "pagina": "page",
+    "pagine": "pages",
+    "parola": "word",
+    "parole": "words",
+    "passaggio": "passage",
+    "passaggi": "passages",
+
+    # --- Grafo dei link -------------------------------------------------
+    "Architettura dei link": "Link architecture",
+    "%s e %s fra le pagine scansionate.":
+        "%s and %s among the crawled pages.",
+    "I %d più linkati di %d.": "The %d most linked out of %d.",
+    "L'URL di partenza non è fra le pagine scansionate, quindi "
+    "«raggiungibile» qui non vuol dire nulla.":
+        "The starting URL is not among the crawled pages, so "
+        "“reachable” means nothing here.",
+    "%s non si raggiunge dalla home seguendo i link.":
+        "%s cannot be reached from the home page by following links.",
+    "Il campione è parziale: una pagina può risultare orfana solo "
+    "perché chi la linka non è stato scansionato.":
+        "The sample is partial: a page may look orphaned only because "
+        "whatever links to it was not crawled.",
+    "Grafo dei link interni: %s e %s. I dati sono nella tabella qui "
+    "sotto.":
+        "Internal link graph: %s and %s. The figures are in the table "
+        "below.",
+    "nodo": "node",
+    "nodi": "nodes",
+    "collegamento": "link",
+    "collegamenti": "links",
+    "link": "link",
+    "%s in entrata": "%s inbound",
+    "%s in uscita": "%s outbound",
+    "punto di partenza": "starting point",
+    "non raggiunta dalla home per link":
+        "not reached from the home page by links",
+    "%s dalla home": "%s from the home page",
+    "click": "click",
+    "plurale|click": "clicks",
+    "plurale|link": "links",
+    "%d click": "%d clicks",
+    "non raggiunta": "not reached",
+    "Per collegamenti": "By links",
+    "Per distanza": "By distance",
+    "Ingrandisci": "Zoom in",
+    "Riduci": "Zoom out",
+    "Reimposta": "Reset",
+    "L'architettura in tabella": "The architecture as a table",
+    "Link in entrata": "Inbound links",
+    "Link in uscita": "Outbound links",
+
+    # --- Confronto con l'esecuzione precedente --------------------------
+    "RISPETTO A PRIMA     : %s": "SINCE LAST RUN       : %s",
+    "Rispetto all'esecuzione precedente": "Since the previous run",
+    "Confronto con il %s (v%s).": "Compared with %s (v%s).",
+    "  Complessivo          %s  (%.0f → %.0f)":
+        "  Overall              %s  (%.0f → %.0f)",
+    "Prima": "Before",
+    "Dopo": "After",
+    "Variazione": "Change",
+    "invariato": "unchanged",
+    "Risolti": "Resolved",
+    "Nuovi": "New",
+    "risolti": "resolved",
+    "nuovi": "new",
+    "    · ... e altri %d": "    · ... and %d more",
+    "  · ... e altri %d": "  · ... and %d more",
+    "  (qualche rilievo non ha una chiave stabile: confrontato sul "
+    "titolo)":
+        "  (some findings have no stable key: compared by title)",
+    "Qualche rilievo non ha una chiave stabile: il confronto usa il "
+    "titolo, ed è più debole.":
+        "Some findings have no stable key: the comparison falls back on "
+        "the title, and is weaker.",
+
+    # --- Piano di interventi --------------------------------------------
+    "Piano di interventi": "Remediation plan",
+    "PIANO DI INTERVENTI  : nessun rilievo critico o di avvertenza":
+        "REMEDIATION PLAN     : no critical or warning findings",
+    "PIANO DI INTERVENTI  : %d interventi (%d critici, %d avvertenze)":
+        "REMEDIATION PLAN     : %d actions (%d critical, %d warnings)",
+    "Nessun rilievo critico o di avvertenza.":
+        "No critical or warning findings.",
+    "Nessun rilievo critico o di avvertenza: non c'è nulla da mettere "
+    "in ordine di priorità.":
+        "No critical or warning findings: there is nothing to put in "
+        "priority order.",
+    "%d interventi (%d critici, %d avvertenze)":
+        "%d actions (%d critical, %d warnings)",
+    "%d interventi (%d critici, %d avvertenze) · %d quick win.":
+        "%d actions (%d critical, %d warnings) · %d quick wins.",
+    "%d quick win": "%d quick wins",
+    "%d senza recupero": "%d with no recovery",
+    "%d senza recupero dichiarato": "%d with no declared recovery",
+    "%d senza sforzo dichiarato": "%d with no declared effort",
+    "  %d aree su %d; ordinato per gravita', poi per guadagno "
+    "dell'indice":
+        "  %d areas out of %d; ordered by severity, then by index gain",
+    "Ordinato per gravità, poi per guadagno dell'indice di citabilità. "
+    "Lo alimentano %d aree su %d; i punti d'area sono la stessa "
+    "aritmetica che ha prodotto i punteggi, il guadagno d'indice è una "
+    "stima derivata dai pesi per assistente.":
+        "Ordered by severity, then by citability index gain. It is fed "
+        "by %d areas out of %d; the area points are the same arithmetic "
+        "that produced the scores, the index gain is an estimate "
+        "derived from the per-assistant weights.",
+    "  · ... e altri %d interventi (per intero nel JSON e nell'HTML)":
+        "  · ... and %d more actions (in full in the JSON and the HTML)",
+    "sforzo: %s": "effort: %s",
+    "sforzo non dichiarato": "effort not declared",
+    "non dichiarato": "not declared",
+    "minuti": "minutes",
+    "ore": "hours",
+    "giorni": "days",
+    "** QUICK WIN": "** QUICK WIN",
+    "QUICK WIN": "QUICK WIN",
+    " · **QUICK WIN**": " · **QUICK WIN**",
+    "+%d punti d'area (%d → %d)": "+%d area points (%d → %d)",
+    "+%d punti d'area": "+%d area points",
+    "indice +%.2f": "index +%.2f",
+    "indice di citabilità +%.2f (mercato %s, stima)":
+        "citability index +%.2f (market %s, estimate)",
+    "recupero non dichiarato": "recovery not declared",
+    "recupero non dichiarato: la penalita' non e' calcolabile per "
+    "questo controllo":
+        "recovery not declared: the penalty cannot be computed for "
+        "this check",
+    "recupero non dichiarato: il punteggio dell'area non si "
+    "ricostruisce":
+        "recovery not declared: the area score cannot be reconstructed",
+    "in questa esecuzione il controllo non entra nel punteggio "
+    "dell'area":
+        "in this run the check does not enter the area score",
+    "il punteggio dell'area e' gia' a zero: questa penalita' non lo "
+    "muove":
+        "the area score is already zero: this penalty does not move it",
+    "Correzione:": "Fix:",
+
+    # --- Simulazione RRF ------------------------------------------------
+    "Simulazione RRF": "RRF simulation",
+    "Simulazione RRF      : Consenso Top-3 = %s su %d chunk":
+        "RRF simulation       : Top-3 consensus = %s over %d chunks",
+    "  aggregato su %d query": "  aggregated over %d queries",
+    "Consenso fra il recuperatore lessicale e quello vettoriale, "
+    "aggregato su %d query — la misura più solida, perché un accordo "
+    "su una sola domanda può essere un caso.":
+        "Consensus between the lexical and the vector retriever, "
+        "aggregated over %d queries — the most solid measure, because "
+        "agreement on a single question can be chance.",
+    "Top Chunk Ibrido     :": "Top hybrid chunk     :",
+    "Passaggio più recuperabile:": "Most retrievable passage:",
+    "Query": "Query",
+    "Consenso": "Consensus",
+    "Passaggio migliore": "Best passage",
+    "nessun riscontro": "no match",
+    "consenso %d/%d": "consensus %d/%d",
+    "su %d chunk": "over %d chunks",
+    "Recuperabilità": "Retrievability",
+    "In forma di risposta": "Answer-shaped",
+
+    # --- Citabilità -----------------------------------------------------
+    "Profili di citabilità IA": "AI citability profiles",
+    "Profili di citabilità IA  (mercato: %s)":
+        "AI citability profiles  (market: %s)",
+    "Mercato: %s": "Market: %s",
+    "Assistente": "Assistant",
+    "Indice": "Index",
+    "Indice composito": "Composite index",
+    "INDICE COMPOSITO": "COMPOSITE INDEX",
+    "n/d": "n/a",
+    "stime euristiche dichiarate, non comportamento documentato dai "
+    "vendor":
+        "declared heuristic estimates, not behaviour documented by the "
+        "vendors",
+    "Azioni con maggior guadagno di profilo:":
+        "Actions with the largest profile gain:",
+    " sull'indice": " on the index",
+    " — soprattutto %s (+%.2f)": " — above all %s (+%.2f)",
+
+    # --- Giudizio LLM ---------------------------------------------------
+    "Giudizio LLM": "LLM judgement",
+    "Giudizio LLM (%s)  su %s passaggi":
+        "LLM judgement (%s)  on %s passages",
+    "%s passaggi valutati": "%s passages evaluated",
+    "Modello: %s, su %s passaggi.": "Model: %s, on %s passages.",
+    "  Citabilità stimata   :": "  Estimated citability :",
+    "Citabilità stimata: **%s/100**": "Estimated citability: **%s/100**",
+    "  Passaggio migliore   :": "  Best passage         :",
+    "Passaggio migliore:": "Best passage:",
+    "Punti di forza": "Strengths",
+    "Da migliorare": "To improve",
+    "llm|da migliorare": "to improve",
+
+    # --- Cosa non è stato guardato --------------------------------------
+    "Cosa non è stato guardato": "What was not looked at",
+    "⚠ robots.txt IGNORATO per dichiarazione di proprieta'":
+        "⚠ robots.txt IGNORED under a declaration of ownership",
+    "robots.txt ignorato per dichiarazione di proprietà del dominio.":
+        "robots.txt ignored under a declaration of domain ownership.",
+    "URL saltati          :": "Skipped URLs         :",
+    "%d URL saltati:": "%d skipped URLs:",
+
+    # --- Intestazioni del CSV -------------------------------------------
+    "sito": "site",
+    "area": "area",
+    "gravita": "severity",
+    "peso": "weight",
+    "titolo": "title",
+    "dettaglio": "detail",
+    "correzione": "fix",
+    "url": "url",
+    "sforzo": "effort",
+    "quick_win": "quick_win",
+    "sì": "yes",
+}
+
+CORNICE: Dict[str, Dict[str, str]] = {"en": _CORNICE_EN}
+
+
+#: Separatore fra contesto e testo dentro una chiave di cornice. Una
+#: barra verticale non compare in nessuna stringa dell'interfaccia, e a
+#: differenza di uno `\x00` resta leggibile in un diff.
+SEPARATORE_CONTESTO = "|"
+
+
+def t(testo: str, lang: str = LINGUA_CANONICA, contesto: str = "") -> str:
+    """Un testo di cornice nella lingua del referto.
+
+    In mancanza torna l'italiano: e' la stessa regola dei rilievi, e
+    vale anche per i testi che vengono dal dato canonico invece che dal
+    renderer.
+
+    `contesto` disambigua due significati che in italiano condividono la
+    stessa stringa. Si cerca prima la voce con contesto e poi quella
+    nuda, cosi' aggiungere un contesto in un punto non obbliga a
+    riscrivere il catalogo per tutti gli altri.
+    """
+    if lang == LINGUA_CANONICA:
+        return testo
+    catalogo = CORNICE.get(lang, {})
+    if contesto:
+        con_contesto = catalogo.get(contesto + SEPARATORE_CONTESTO + testo)
+        if con_contesto is not None:
+            return con_contesto
+    return catalogo.get(testo, testo)
+
+
 def _params_leggibili(params: Mapping[str, object]) -> Dict[str, object]:
     """I params come li vuole un template: le liste gia' unite.
 

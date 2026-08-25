@@ -851,6 +851,14 @@
       "fix": "Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.",
       "example": "# robots.txt — il gruppo va CORRETTO, non aggiunto\n# prima:\n#   User-agent: GPTBot\n#   Disallow: /\n# dopo:\nUser-agent: GPTBot\nDisallow:",
       "url": "",
+      "params": {
+        "bloccati": [
+          "GPTBot"
+        ],
+        "n": 1,
+        "elenco": "GPTBot",
+        "penalty": 40.0
+      },
       "penalty": 40.0,
       "recovery": 40,
       "score_before": 57,
@@ -880,6 +888,12 @@
       "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
       "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
       "url": "",
+      "params": {
+        "campi": 1,
+        "criterio": "1.3.1/3.3.2",
+        "penalty": 12.0,
+        "surface": true
+      },
       "penalty": 12.0,
       "recovery": 12,
       "score_before": 40,
@@ -909,6 +923,13 @@
       "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
       "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
       "url": "",
+      "params": {
+        "immagini": 1,
+        "totale": 2,
+        "criterio": "1.1.1",
+        "penalty": 12.0,
+        "surface": true
+      },
       "penalty": 12.0,
       "recovery": 12,
       "score_before": 40,
@@ -938,6 +959,13 @@
       "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
       "example": "// prima — la virgola finale rende il blocco invalido\n{\"@type\": \"Service\",}\n// dopo\n{\"@type\": \"Service\"}",
       "url": "",
+      "params": {
+        "urls": [
+          "https://esempio.test/servizi/"
+        ],
+        "n": 1,
+        "penalty": 10.0
+      },
       "penalty": 10.0,
       "recovery": 10,
       "score_before": 90,
@@ -967,6 +995,11 @@
       "fix": "Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.",
       "example": "# nginx — prima si osserva\nadd_header Content-Security-Policy-Report-Only \"default-src 'self'\" always;\n# poi, quando le violazioni sono a zero\nadd_header Content-Security-Policy \"default-src 'self'\" always;",
       "url": "",
+      "params": {
+        "header": "Content-Security-Policy",
+        "penalty": 15.0,
+        "surface": true
+      },
       "penalty": 15.0,
       "recovery": 15,
       "score_before": 75,
@@ -996,6 +1029,12 @@
       "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
       "example": "",
       "url": "",
+      "params": {
+        "salti": 1,
+        "criterio": "1.3.1",
+        "penalty": 12.0,
+        "surface": true
+      },
       "penalty": 12.0,
       "recovery": 12,
       "score_before": 40,
@@ -1025,6 +1064,12 @@
       "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
       "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
       "url": "",
+      "params": {
+        "tabelle": 1,
+        "criterio": "1.3.1",
+        "penalty": 12.0,
+        "surface": true
+      },
       "penalty": 12.0,
       "recovery": 12,
       "score_before": 40,
@@ -1054,6 +1099,11 @@
       "fix": "Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.",
       "example": "# nginx\nadd_header X-Frame-Options \"SAMEORIGIN\" always;",
       "url": "",
+      "params": {
+        "header": "X-Frame-Options",
+        "penalty": 10.0,
+        "surface": true
+      },
       "penalty": 10.0,
       "recovery": 10,
       "score_before": 75,

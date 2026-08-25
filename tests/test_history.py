@@ -48,10 +48,15 @@ def test_la_riga_tiene_solo_cio_che_serve_al_confronto():
                          "scores", "overall", "findings"}
     assert riga["scores"] == {"mars_tech": 57}
     assert riga["overall"] == 70.0
+    # `params` accanto a `title` da U9.2: il delta si RENDE, e un
+    # rilievo si rende da chiave e params. Senza, la sezione «rispetto
+    # a prima» non sarebbe traducibile — nemmeno per i rilievi risolti,
+    # che in questa esecuzione non esistono piu' e vivono solo qui.
     assert riga["findings"] == [{"area": "mars_tech",
                                  "key": "tech.robots.ai_blocked",
                                  "title": "Titolo",
-                                 "severity": SEV_CRITICAL}]
+                                 "severity": SEV_CRITICAL,
+                                 "params": {}}]
 
 
 def test_la_riga_lascia_fuori_gli_info():

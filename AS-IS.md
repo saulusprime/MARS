@@ -4523,6 +4523,98 @@ i template.
       i due golden JSON. **Nessuna resa cambia**: testo, HTML, Markdown e CSV
       restano identici, perché la lingua non arriva ancora ai renderer (U9.2).
 
+
+### U9.2 — ✅ (2026-08-25): la cornice, e la lingua che attraversa i renderer
+
+**`lang` si passa a mano, e non è pigrizia.** L'alternativa era un
+`ContextVar` letto da `t()`, che avrebbe risparmiato un parametro in
+quarantatré funzioni. Non attraversa il threadpool: FastAPI esegue gli
+handler sincroni su thread di un pool, e un `ContextVar` in un thread nuovo
+parte dal proprio default invece che dal valore del chiamante — il referto
+sarebbe uscito in italiano via API e in inglese via CLI, senza un errore.
+
+**Il catalogo è indicizzato sul testo italiano**, non su chiavi simboliche.
+Due ragioni che si tengono: l'italiano resta scritto per esteso nel renderer,
+dove lo si legge accanto al codice che lo usa, e la vista canonica — quella
+congelata nei golden — non dipende da una ricerca che può mancare il
+bersaglio; e la stessa funzione traduce così anche i testi che arrivano dal
+**dato** (l'etichetta di un'area, il secchiello di profondità, l'assunzione
+della superficie), che con chiavi simboliche sarebbero rimasti italiani.
+
+**Il prezzo si è presentato subito, due volte.** Una stringa italiana può
+portare due significati: «da migliorare» è il verdetto di un punteggio fra 50
+e 89 (*needs work*) ed è l'etichetta dei punti deboli del giudizio LLM (*to
+improve*); e «click» in italiano non cambia al plurale, quindi
+`_plurale(3, "click", "click")` chiede due volte la stessa parola e l'inglese
+sarebbe uscito «3 click». Da qui il `contesto` di `t()`, che è il `msgctxt`
+di gettext: si aggiunge **solo** dove la collisione c'è, e in mancanza si
+ripiega sulla chiave nuda. La prima l'ha colta `flake8` (`F601`, chiave di
+dizionario ripetuta); la seconda no, e sarebbe passata — le due parole sono
+identiche, quindi per il dizionario non c'era nessun duplicato.
+
+**Due difetti veri, trovati misurando invece che leggendo.** Reso il referto
+sintetico in inglese e cercate le righe rimaste italiane, sono comparse voci
+che il catalogo *conteneva*:
+
+- **le voci del piano non portavano i `params`.** `finding_texts` risolve il
+  template sui params, non li trovava, e ripiegava sull'italiano — in
+  silenzio, perché il ripiego è un comportamento valido. Il risultato era un
+  referto con le schede d'area tradotte e il piano — la parte che si consegna
+  — in italiano. Ora la voce li copia come già copiava titolo e `fix`: è una
+  copia del rilievo, non un rimando;
+- **lo storico non li portava**, quindi la sezione «rispetto a prima» non
+  sarebbe stata traducibile in nessuna lingua e in nessun momento futuro —
+  nemmeno per i rilievi **risolti**, che in questa esecuzione non esistono più
+  e vivono solo lì. Misurato prima di decidere: la riga passa da 2,4 a 4,8 KB
+  sul referto completo. Le righe scritte prima di U9.2 non li hanno e
+  ripiegano sul titolo registrato.
+
+Entrambi muovono i golden **solo nel JSON**, in modo additivo: nessuna vista
+di prosa cambia di un carattere.
+
+**Le `issues` non si possono tradurre, e il referto lo dice.** Sono la vista
+storica che ogni modulo compone per sé — prosa italiana senza chiave, che U1
+ha lasciato intatta di proposito — quindi non c'è nulla su cui indicizzare
+una traduzione. Fuori dall'italiano le viste compatte mostrano i **titoli dei
+rilievi**, che una chiave ce l'hanno; dove i rilievi non ci sono
+(`mars_lexical` e `mars_semantic`, che non ne producono — è **U13** — e il
+giudizio LLM, che è prosa del modello) restano le issues italiane, e
+`_nota_lingua` lo dichiara in testa nominando le aree **per nome** invece di
+dirlo genericamente.
+
+**L'API non prende `lang`, ed è una constatazione e non una dimenticanza.**
+Tutti e dodici gli handler restituiscono il dato canonico: nessuno rende
+prosa. Un campo `lang` nella richiesta sarebbe stato inerte — configurazione
+che non configura nulla, cioè la cosa che il principio 5 vieta al referto e
+che non ha senso permettere all'interfaccia. Il giorno che l'API esporrà una
+resa HTML o testo, il campo nascerà con lei.
+
+**Il presidio è a tre versi**, perché il ripiego non fa rumore: ogni letterale
+passato a `t()` dev'essere a catalogo (letto dall'**AST**, non con una regex —
+`t()` compare dentro `%`, concatenazioni e condizionali, e una stringa spezzata
+su quattro righe una regex non la ricompone); ogni testo che arriva dal dato
+dev'essere a catalogo, enumerato dalle costanti che lo producono e non dai due
+referti sintetici, che delle quattro corsie del piano ne accendono una; e
+nessuna voce dev'essere **orfana**. Quest'ultimo ha fatto il suo mestiere
+subito: ha mostrato che l'estrattore AST era troppo stretto — non scendeva nei
+condizionali né nelle due forme di `_plurale` — e le venticinque voci che
+segnalava erano vive. Allargato l'estrattore ai rami di `if/else` e `or`, e
+spostate dentro `t()` quattro etichette che stavano in una tupla di ciclo:
+lì il codice si legge meglio, e il presidio arriva.
+
+**Quindici mutazioni, quindici colte.** Suite da 863 a 889 test.
+
+Misurato alla fine: nel referto inglese resta italiano **solo** ciò che viene
+dagli strumenti — `seo.lh.*` da Lighthouse (`--locale=it`), `wcag.axe.*` dal
+locale italiano di axe, `sec.zap.*` da ZAP — più la prosa del modello e il
+testo del sito, che nessuno può tradurre. È esattamente il perimetro di
+**U9.3**.
+
+- [x] `mars_i18n.t()` col `contesto`, `CORNICE` (231 voci), `lang` in
+      quarantatré funzioni di `mars_report.py`, `--lang` in `mars_audit.py`,
+      `params` nelle voci di `mars_remediation` e nelle righe di
+      `mars_history`, 26 test. Golden mossi: i due JSON, additivamente.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

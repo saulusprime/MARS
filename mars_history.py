@@ -97,7 +97,20 @@ def riga_storico(referto: dict) -> dict:
             rilievi.append({"area": area.get("module") or "",
                             "key": rilievo.get("key") or "",
                             "title": rilievo.get("title") or "",
-                            "severity": rilievo.get("severity")})
+                            "severity": rilievo.get("severity"),
+                            # I `params` stanno qui per la stessa
+                            # ragione del `title`: il delta si RENDE, e
+                            # un rilievo si rende da chiave e params.
+                            # Senza, la sezione «rispetto a prima» non
+                            # sarebbe traducibile in nessuna lingua e in
+                            # nessun momento futuro — nemmeno per i
+                            # rilievi risolti, che in questa esecuzione
+                            # non esistono piu' e vivono solo qui.
+                            # Misurato: la riga raddoppia, da 2,4 a 4,8
+                            # KB sul referto sintetico completo. Le
+                            # righe scritte prima di U9.2 non li hanno,
+                            # e ripiegano sul titolo registrato.
+                            "params": dict(rilievo.get("params") or {})})
     complessivo = referto.get("overall") or {}
     return {
         "generated_at": referto.get("generated_at"),

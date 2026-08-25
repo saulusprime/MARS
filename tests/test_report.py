@@ -27,7 +27,8 @@ from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          conteggi_per_gravita, depth_distribution,
                          pagine_scansionate, segnali_derivati,
                          surface_math, treemap_data, _squarify,
-                         _plurale, _coda,
+                         _plurale, _coda, link_graph_data,
+                         _force_layout,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_csv, render_html, render_json,
@@ -161,13 +162,19 @@ def test_testo_mostra_il_disclaimer_sotto_i_numeri(referto):
 
 
 def test_html_autoconsistente(referto):
-    """Nessuna CDN, nessuno script: il referto deve restare un file
-    solo, apribile senza rete."""
+    """Nessuna origine esterna: il referto deve restare un file solo,
+    apribile fra due anni da un archivio senza rete.
+
+    Fino alla Fase 8 questo test diceva «nessuno script», e D1 lo ha
+    ristretto a ciò che davvero garantisce l'autoconsistenza. Non è un
+    allentamento: uno `<script src>` esce dal file, uno `<script>`
+    inline no — e il vincolo vero era sempre stato il primo. Il
+    presidio sul contenuto dello script sta nei due test qui sotto.
+    """
     import re
     uscita = render_html(referto)
     esterni = re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:)([^\'"]+)', uscita)
     assert esterni == []
-    assert "<script" not in uscita
     assert "data:image/x-icon;base64," in uscita
 
 
@@ -209,11 +216,13 @@ def test_referto_vuoto_non_esplode(contesto):
 
 def test_html_ha_un_quadrante_per_area_con_punteggio(referto):
     """La fascia di quadranti e' la firma visiva di Lighthouse: deve
-    esserci, e i quadranti si disegnano in SVG perche' il referto non
-    puo' contenere script."""
+    esserci, e i quadranti si disegnano in SVG **calcolato in Python**,
+    non da uno script — cosi' restano identici anche dove il JavaScript
+    non gira, come nella stampa o in un lettore che lo disabilita."""
     uscita = render_html(referto)
     assert uscita.count("<svg viewBox='0 0 120 120'") >= 5
-    assert "<script" not in uscita
+    assert "<script" not in uscita, \
+        "senza grafo dei link non c'e' nulla da animare"
 
 
 @pytest.mark.parametrize("valore, arco, tratteggio, centro", [
@@ -1822,7 +1831,8 @@ def test_le_pagine_escono_senza_il_loro_contenuto(referto):
     assert referto["pages"], "il contesto ne ha"
     for pagina in referto["pages"]:
         assert set(pagina) == {"url", "title", "lang", "depth", "headings",
-                               "chunks", "words", "json_ld_types"}
+                               "chunks", "words", "links_to",
+                               "links_internal", "json_ld_types"}
     json.dumps(referto["pages"])
 
 
@@ -2112,3 +2122,216 @@ def test_un_percorso_corto_non_si_tocca():
     # Spazio per un carattere solo: meglio niente che il solo segno di
     # troncamento, che non dice quale pagina sia.
     assert _coda("/servizi/", 1) == ""
+
+
+# ----------------------------------------------------------------------
+# U8.4: il grafo dei link, e il primo JavaScript del referto (D1)
+# ----------------------------------------------------------------------
+
+def _contesto_collegato(contesto, collegamenti=None) -> dict:
+    """Un sito di quattro pagine con dei link fra loro.
+
+    Il `contesto` di serie ne ha una sola, e un grafo di una pagina non
+    esiste: quasi tutto ciò che riguarda l'architettura ha bisogno di
+    un sito, non di una pagina.
+    """
+    collegamenti = collegamenti if collegamenti is not None else {
+        "https://esempio.test/": ["https://esempio.test/a/",
+                                  "https://esempio.test/b/"],
+        "https://esempio.test/a/": ["https://esempio.test/b/"],
+        "https://esempio.test/b/": ["https://esempio.test/"],
+        "https://esempio.test/orfana/": [],
+    }
+    modello = contesto["pages"]["https://esempio.test/"]
+    contesto["pages"] = {
+        url: dict(modello, link_targets=list(uscenti),
+                  chunks=[{"url": url, "heading": "", "text": "parola " * 30}])
+        for url, uscenti in collegamenti.items()}
+    contesto["urls"] = list(contesto["pages"])
+    contesto["chunks"] = [c for p in contesto["pages"].values()
+                          for c in p["chunks"]]
+    return contesto
+
+
+def test_il_layout_del_grafo_e_deterministico():
+    """I golden lo congelano, e due esecuzioni sullo stesso sito devono
+    dare lo stesso disegno: l'inizializzazione è su un cerchio, non a
+    caso, ed è ciò che rende il grafo verificabile."""
+    archi = [(0, 1), (1, 2), (2, 0), (0, 3)]
+    assert _force_layout(4, archi) == _force_layout(4, archi)
+
+
+def test_la_home_resta_al_centro_e_nessuno_esce_dal_riquadro():
+    posizioni = _force_layout(6, [(0, 1), (0, 2), (1, 3), (4, 5)])
+    assert posizioni[0] == (390.0, 270.0), "la home è ancorata al centro"
+    for x, y in posizioni:
+        assert 0 <= x <= 780 and 0 <= y <= 540
+
+
+def test_un_grafo_senza_archi_non_e_un_architettura(contesto):
+    """Punti senza linee non dicono «il sito non ha link»: dicono che
+    fra QUESTE pagine non ne abbiamo visti, ed è un'altra cosa."""
+    referto = build_report({}, _contesto_collegato(contesto, {
+        "https://esempio.test/": [], "https://esempio.test/a/": []}))
+    assert link_graph_data(referto["pages"], referto["url"]) is None
+    assert "id='grafo'" not in render_html(referto)
+
+
+def test_le_pagine_non_raggiunte_dalla_home_sono_orfane(contesto):
+    """È la scoperta più utile del grafo: un assistente che segue i
+    collegamenti non le incontra mai."""
+    referto = build_report({}, _contesto_collegato(contesto))
+    grafo = link_graph_data(referto["pages"], referto["url"])
+    per_url = {n["url"]: n for n in grafo["nodes"]}
+    assert per_url["https://esempio.test/orfana/"]["clicks"] is None
+    assert per_url["https://esempio.test/a/"]["clicks"] == 1
+    assert per_url["https://esempio.test/"]["clicks"] == 0
+    assert grafo["orphans"] == 1
+
+
+def test_la_home_viene_per_prima_anche_se_nessuno_la_linka(contesto):
+    """L'ordine e\' home, poi i piu\' linkati: se il tetto taglia, taglia
+    le pagine che il sito stesso richiama di meno — mai il punto di
+    partenza. Ed essendo la radice del BFS la sua distanza e\' 0, non
+    ignota: non puo\' risultare orfana."""
+    referto = build_report({}, _contesto_collegato(contesto, {
+        "https://esempio.test/": ["https://esempio.test/a/"],
+        "https://esempio.test/a/": []}))
+    grafo = link_graph_data(referto["pages"], referto["url"])
+    assert grafo["nodes"][0]["home"] and grafo["nodes"][0]["incoming"] == 0
+    assert grafo["nodes"][0]["clicks"] == 0
+    assert grafo["orphans"] == 0
+
+
+def test_senza_un_punto_di_partenza_gli_orfani_non_si_contano(contesto):
+    """Ogni pagina risulterebbe irraggiungibile, e il numero direbbe
+    qualcosa sul sito quando invece dice solo che non sappiamo da dove
+    si parte. `None` e non zero, come per i punteggi non misurati."""
+    referto = build_report({}, _contesto_collegato(contesto))
+    grafo = link_graph_data(referto["pages"], "https://mai-scansionata.test/")
+    assert grafo["has_home"] is False
+    assert grafo["orphans"] is None
+    html = render_html(referto)
+    assert "non si raggiunge dalla home" in html
+
+
+def test_il_tetto_ai_nodi_taglia_i_meno_linkati(contesto):
+    """Sessanta nodi sono gia\' oltre quanti se ne seguano a occhio. Chi
+    esce non deve lasciare archi appesi: un arco verso un nodo che non
+    c\'e\' e\' un capo nel vuoto."""
+    collegamenti = {"https://esempio.test/":
+                    ["https://esempio.test/p%02d/" % i for i in range(70)]}
+    for i in range(70):
+        collegamenti["https://esempio.test/p%02d/" % i] = []
+    referto = build_report({}, _contesto_collegato(contesto, collegamenti))
+    grafo = link_graph_data(referto["pages"], referto["url"])
+    assert (grafo["total"], grafo["shown"]) == (71, 60)
+    for arco in grafo["links"]:
+        assert arco["source"] < 60 and arco["target"] < 60
+    assert "I 60 più linkati di 71." in render_html(referto)
+
+
+def test_la_distanza_nel_grafo_non_e_la_profondita_di_crawl(contesto):
+    """Due misure diverse che convivono: `depth` dice come il crawler
+    ci è arrivato ed è ignota per le pagine da sitemap, `clicks` è il
+    cammino più breve dentro il campione. Su un sito con sitemap la
+    prima è ignota ovunque e la seconda si misura — confonderle
+    farebbe sembrare risolto un problema che resta."""
+    referto = build_report({}, _contesto_collegato(contesto))
+    assert all(p["depth"] is None for p in referto["pages"]), \
+        "il contesto dichiara discovery: sitemap"
+    grafo = link_graph_data(referto["pages"], referto["url"])
+    assert any(n["clicks"] is not None for n in grafo["nodes"])
+
+
+def test_gli_archi_verso_pagine_mai_guardate_non_si_disegnano(contesto):
+    """Inventarne il capo dall'altra parte direbbe che quella pagina è
+    stata guardata. Quanti link restino fuori lo dice `links_internal`."""
+    contesto = _contesto_collegato(contesto, {
+        "https://esempio.test/": ["https://esempio.test/a/",
+                                  "https://esempio.test/mai-scaricata/"],
+        "https://esempio.test/a/": []})
+    referto = build_report({}, contesto)
+    home = referto["pages"][0]
+    assert home["links_to"] == ["https://esempio.test/a/"]
+    assert home["links_internal"] == 2
+    grafo = link_graph_data(referto["pages"], referto["url"])
+    assert grafo["edges"] == 1
+    assert grafo["closed"] is False
+
+
+def test_un_campione_parziale_lo_dichiara(contesto):
+    """Dentro dieci pagine «orfana» può voler dire solo che chi la
+    linka non è stato scaricato: dirlo dopo, a lavoro fatto, costa."""
+    contesto = _contesto_collegato(contesto, {
+        "https://esempio.test/": ["https://esempio.test/a/",
+                                  "https://esempio.test/fuori/"],
+        "https://esempio.test/a/": []})
+    html = render_html(build_report({}, contesto))
+    assert "Il campione è parziale" in html
+
+
+def test_il_grafo_e_completo_senza_javascript(contesto):
+    """Progressive enhancement: lo script non crea nodi, né archi, né
+    etichette. Senza JavaScript resta lo stesso disegno, senza comandi."""
+    html = render_html(build_report({}, _contesto_collegato(contesto)))
+    statico = html[html.index("<svg id='grafo'"):html.index("</svg>",
+                                                            html.index(
+                                                                "<svg id='grafo'"))]
+    assert statico.count("<circle") == 4
+    assert statico.count("<line") >= 3
+    assert statico.count("<text") == 4
+    assert statico.count("<title>") == 4
+
+
+def test_i_comandi_nascono_spenti_e_li_accende_lo_script(contesto):
+    """Un bottone che non fa nulla è peggio di un bottone assente,
+    perché promette qualcosa."""
+    html = render_html(build_report({}, _contesto_collegato(contesto)))
+    comandi = html[html.index("<p class='grafo-comandi'"):]
+    comandi = comandi[:comandi.index("</p>")]
+    assert "hidden" in comandi
+    assert 'removeAttribute("hidden")' in html
+
+
+def test_i_nodi_non_sono_focalizzabili_nell_html_statico(contesto):
+    """Stessa regola della treemap, applicata al contrario: qui il
+    fuoco ha qualcosa da mostrare, ma solo se lo script gira, quindi è
+    lo script a creare le fermate di tabulazione."""
+    html = render_html(build_report({}, _contesto_collegato(contesto)))
+    svg = html[html.index("<svg id='grafo'"):html.index("</svg>",
+                                                        html.index(
+                                                            "<svg id='grafo'"))]
+    assert "tabindex" not in svg
+    assert 'setAttribute("tabindex", "0")' in html
+
+
+def test_lo_script_non_ha_origini_esterne(contesto):
+    """D1: inline sì, da fuori no. Il referto deve restare un file solo,
+    e nulla qui dentro deve poter fare una richiesta di rete."""
+    html = render_html(build_report({}, _contesto_collegato(contesto)))
+    script = html[html.index("<script>") + 8:html.index("</script>")]
+    assert script.strip(), "il grafo c'è, lo script deve esserci"
+    for vietato in ("src=", "http://", "https://", "//cdn", "fetch(",
+                    "XMLHttpRequest", "import(", "eval(", "new Function"):
+        assert vietato not in script, vietato
+
+
+def test_nel_codice_non_finisce_un_solo_dato_del_sito(contesto):
+    """Lo script legge tutto dagli attributi `data-*` del DOM.
+    Interpolare il referto in una stringa JavaScript sarebbe un secondo
+    percorso di escaping accanto a `_e()`, ed è così che nasce una XSS
+    in un file che contiene testo preso dal sito analizzato."""
+    contesto = _contesto_collegato(contesto, {
+        "https://esempio.test/": ["https://esempio.test/</script>ostile/"],
+        "https://esempio.test/</script>ostile/": ["https://esempio.test/"]})
+    html = render_html(build_report({}, contesto))
+    script = html[html.index("<script>") + 8:html.index("</script>")]
+    assert "ostile" not in script
+    assert "esempio.test" not in script
+
+
+def test_lo_script_non_c_e_dove_non_ha_nulla_da_fare(referto):
+    """Un referto di una pagina sola non ha architettura da mostrare:
+    non deve portarsi dietro codice inerte."""
+    assert "<script" not in render_html(referto)

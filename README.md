@@ -2,14 +2,17 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.6.0 — Fase 7 del programma UPGRADE: il referto dichiara la
-versione del proprio schema e i parametri con cui e' stato prodotto, e
-sa confrontarsi con l'esecuzione precedente dello stesso sito — che
-cosa e' salito, che cosa e' stato risolto, che cosa e' comparso. Le
-fasi precedenti hanno reso strutturati i rilievi (1), congelato la
-resa in `tests/golden/` (2), scritto come si aggiusta ogni controllo
-(3), ordinato gli interventi per quanto rendono (4), messo in testa il
-complessivo con le ancore stabili (5) e aggiunto Markdown e CSV (6).
+Versione 2.7.0 — Fase 8 del programma UPGRADE: il referto guarda la
+**superficie** del sito. Quante pagine ci sono e a che distanza dalla
+home, quanto contenuto recuperabile porta ciascuna (treemap), come
+sono collegate fra loro (grafo dei link interni) e di quanto si
+moltiplicherebbero i passaggi recuperabili se le pagine avessero il
+contenuto che ci si da' per obiettivo. Le fasi precedenti hanno reso
+strutturati i rilievi (1), congelato la resa in `tests/golden/` (2),
+scritto come si aggiusta ogni controllo (3), ordinato gli interventi
+per quanto rendono (4), messo in testa il complessivo con le ancore
+stabili (5), aggiunto Markdown e CSV (6) e reso il referto
+riproducibile e confrontabile con l'esecuzione precedente (7).
 Il piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
@@ -42,6 +45,48 @@ Il referto dichiara con quale delle due il campione e' stato costruito.
 5. Dati strutturati (mars_schema)   JSON-LD / Schema.org
 6. Accessibilità    (mars_wcag)     compatibilità WCAG
 7. Sicurezza        (mars_wapt)     test WAPT di superficie
+
+La sezione **Superficie** guarda il sito invece delle sue singole
+aree, e risponde a una domanda che nessuna delle sette pone: quanto
+c'e' da recuperare, e come ci si arriva.
+
+  - la **distribuzione di profondita'**, cioe' quanti click dalla home
+    servono per raggiungere ogni pagina. Le pagine che vengono dalla
+    sola sitemap hanno profondita' IGNOTA e un secchiello loro: sono
+    dichiarate dal sito ma nessuno le ha raggiunte seguendo i link;
+  - la **treemap della superficie**: un rettangolo per pagina, area
+    proporzionale alle parole recuperabili. Si legge a colpo d'occhio
+    un sito che ha tutto il testo in una pagina sola. Il colore NON e'
+    un giudizio, e il referto lo dice: nessun rilievo dichiara oggi la
+    pagina che lo ha prodotto;
+  - il **grafo dei link interni**: chi linka chi fra le pagine viste,
+    con i nodi grandi quanto i link che ricevono e le pagine che dalla
+    home non si raggiungono per link marcate come tali. Gli archi sono
+    solo quelli fra pagine scansionate — un capo verso una pagina mai
+    guardata direbbe che e' stata guardata — e quando il campione e'
+    parziale il referto avverte che «orfana» puo' voler dire soltanto
+    che chi la linka non e' stato scaricato;
+  - la **matematica della superficie**: quanti passaggi recuperabili
+    ci sono e quanti ce ne sarebbero con pagine di contenuto
+    sostanziale. E' una PROIEZIONE dichiarata, non una misura, e
+    l'assunzione (circa 900 parole per pagina, da cui il chunker
+    ricava quattro passaggi) viaggia dentro il dato perche' ogni vista
+    la ripeta.
+
+Treemap e grafo stanno nel solo referto HTML, ciascuno con la propria
+tabella di ripiego in `<details>`: e' quella la lettura accessibile, e
+porta gli stessi numeri del disegno.
+
+Il grafo e' l'unica parte del referto con del **JavaScript**, inline e
+in progressive enhancement (decisione D1 del programma UPGRADE): il
+disegno e' gia' completo nell'HTML — nodi, archi, frecce, etichette,
+posizionati da un layout a forze calcolato in Python — e lo script
+aggiunge solo la lettura: evidenziare un nodo con i suoi collegamenti,
+disporre le pagine ad anelli per distanza dalla home, ingrandire.
+Senza JavaScript restano il disegno e la tabella, e i comandi non
+compaiono affatto. Nessuna origine esterna, nessuna richiesta di rete,
+nessun dato del referto dentro il codice: lo script legge tutto dagli
+attributi del DOM.
 
 In piu' esegue una **simulazione RRF**: costruisce due recuperatori
 indipendenti (uno lessicale Okapi BM25, uno vettoriale) sui chunk del
@@ -77,7 +122,10 @@ mars_citations.py.
 
 Implementato nativamente le parti algoritmiche più complesse
 (il crawler, il retriever lessicale BM25, il proxy vettoriale TF-IDF
-sui caratteri e la fusione RRF)
+sui caratteri, la fusione RRF, e i due layout del referto: squarified
+alla Bruls-Huizing-van Wijk per la treemap, a forze alla
+Fruchterman-Reingold per il grafo dei link — entrambi deterministici,
+cosi' che lo stesso sito dia sempre lo stesso disegno)
 
 Lighthouse (SEO): Lo script cerca il comando lighthouse nel PATH.
 Per attivarlo devi avere Node.js e Lighthouse installati globalmente
@@ -410,7 +458,7 @@ Formati del referto (--format, predefinito text):
     json      la struttura canonica: le altre viste ne sono derivate, e
               l'API restituisce gli stessi campi su POST /audit/full
     html      pagina autoconsistente — CSS incorporato, favicon inclusa,
-              nessuna CDN e nessuno script — con tema chiaro e scuro
+              nessuna origine esterna — con tema chiaro e scuro
     markdown  da incollare in una issue o in un wiki: il piano di
               interventi e' una task list GFM, quindi si spunta, e la
               gravita' e' un marcatore testuale e non un colore

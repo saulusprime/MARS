@@ -1299,3 +1299,34 @@ def test_dalla_sitemap_la_profondita_resta_ignota():
     risultato = crawler.crawl()
     assert crawler.discovery == "sitemap"
     assert [p["depth"] for p in risultato.values()] == [None, None]
+
+
+def test_i_link_in_uscita_si_registrano_anche_venendo_dalla_sitemap():
+    """Il grafo dei link e' un dato della PAGINA, non della strategia
+    di scoperta: prima venivano estratti solo nel ramo che li segue, e
+    un sito con sitemap — cioe' quasi tutti — sarebbe rimasto senza
+    architettura da mostrare."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/x", "http://esempio.test/y"],
+        **{"http://esempio.test/x":
+           '<html><body><a href="/y">y</a><a href="/y">y ancora</a>'
+           '<a href="https://altro.test/z">fuori</a></body></html>',
+           "http://esempio.test/y": "<html><body>y</body></html>"})
+    risultato = crawler.crawl()
+    assert crawler.discovery == "sitemap"
+    # Deduplicati (la stessa voce di menu e' un arco solo) e senza
+    # l'host esterno, che non fa parte di questo sito.
+    assert risultato["http://esempio.test/x"]["link_targets"] == [
+        "http://esempio.test/y"]
+    assert risultato["http://esempio.test/y"]["link_targets"] == []
+
+
+def test_un_link_a_se_stessa_non_e_un_arco():
+    """Un cerchio che punta a se' non dice nulla dell'architettura, e
+    falserebbe il conteggio dei link in entrata."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/x"],
+        **{"http://esempio.test/x":
+           '<html><body><a href="/x">io</a><a href="/x#top">io col '
+           'frammento</a></body></html>'})
+    assert crawler.crawl()["http://esempio.test/x"]["link_targets"] == []

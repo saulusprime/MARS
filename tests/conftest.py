@@ -73,6 +73,14 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
                                 in ("robots", "googlebot")),
         "canonical": (canonical.get("href") or "").strip() if canonical else "",
         "x_robots_tag": "",
+        # Dalla funzione del crawler, come `estrai_struttura` qui
+        # sotto: una fixture che riscrivesse l'estrazione dei link
+        # congelerebbe nei golden un grafo che in produzione non
+        # esiste.
+        "link_targets": sorted({
+            u for u in mars_core.link_interni(soup, url,
+                                              mars_core.norm_host(url))
+            if u != url}),
         # Dalla stessa funzione del crawler, non riscritta: se le due
         # divergessero i controlli statici di mars_wcag girerebbero nei
         # test su una struttura che in produzione non esiste.

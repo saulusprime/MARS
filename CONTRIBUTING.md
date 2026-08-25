@@ -48,6 +48,19 @@ uno misurava la seconda difesa invece della prima, uno guardava un campo che
 il modulo non legge piu' da R10, e uno verificava separatamente due meccanismi
 senza mai provarne l'innesto.
 
+**Il JavaScript del referto si prova a mano.** `mars_report.REFERTO_JS` —
+il grafo dei link, l'unico script del referto — la suite lo verifica come
+testo (nessuna origine esterna, nessun dato del sito dentro il codice) ma
+non lo esegue: servirebbe `node`, e una suite che gira su una macchina e
+non su un clone appena fatto è la trappola già pagata con
+`node_modules/axe-core`. Chi tocca quel codice lancia
+
+    python3 tools/banco_grafo.py
+
+che fa girare lo script su un DOM finto e controlla nove comportamenti.
+Esce 0 se sono tutti verdi, 2 se `node` non c'è. La voce **R48** del
+TO-DO tiene aperta la scelta di come portarlo dentro `pytest`.
+
 **`flake8 .` deve restare a zero avvisi.** La configurazione è in
 `setup.cfg`, non servono flag. `flake8 --select=F` è il minimo prima di
 ogni commit: è il controllo che ha rivelato il difetto più grave del

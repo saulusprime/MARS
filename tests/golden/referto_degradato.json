@@ -29,6 +29,10 @@
       "headings": 3,
       "chunks": 2,
       "words": 133,
+      "links_to": [
+        "https://esempio.test/servizi/"
+      ],
+      "links_internal": 1,
       "json_ld_types": [
         "FAQPage"
       ]
@@ -41,6 +45,8 @@
       "headings": 2,
       "chunks": 1,
       "words": 64,
+      "links_to": [],
+      "links_internal": 0,
       "json_ld_types": []
     },
     {
@@ -51,6 +57,8 @@
       "headings": 2,
       "chunks": 1,
       "words": 64,
+      "links_to": [],
+      "links_internal": 0,
       "json_ld_types": [
         "FAQPage"
       ]

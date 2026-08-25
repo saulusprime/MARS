@@ -4296,6 +4296,147 @@ un'aggiunta.
       test, i quattro golden mossi (JSON e HTML; testo, Markdown e CSV
       **non** cambiano, perché la treemap è solo HTML).
 
+### U8.4 — ✅ (2026-08-25): il grafo dei link, e il primo JavaScript
+
+**Che cosa aggiunge.** La treemap dice quanto contenuto c'è su ogni pagina,
+il grafo dice come ci si arriva: un nodo per pagina, grande quanto i link che
+riceve, un arco per collegamento, e in giallo le pagine che dalla home non si
+raggiungono seguendo i link. Un assistente che naviga per collegamenti non le
+incontra mai.
+
+**Il dato non c'era, e UPGRADE.md diceva di sì.** Il piano dava per fatto che
+«il crawler estrae già `links` per pagina». È vero solo a metà: `links` porta
+il **testo** delle ancore e l'`aria-label`, serve a `mars_wcag` per i link
+generici, e non contiene un solo href. Gli href esistevano in `estrai_link`,
+ma erano **consumati e buttati** — usati per la coda del BFS e mai
+conservati — e per di più solo nel ramo che segue i link, cioè quando la
+sitemap manca. Un sito con sitemap, cioè quasi tutti, sarebbe rimasto senza
+architettura da mostrare. Il crawler registra ora `link_targets` su ogni
+pagina, deduplicati, senza gli auto-link e ordinati perché il disegno sia
+stabile.
+
+**La fixture usa la stessa funzione del crawler.** `estrai_link` è diventata
+un involucro su `mars_core.link_interni()`, che `tests/conftest.py` chiama a
+sua volta. Non è pignoleria: una fixture che riscrivesse l'estrazione dei
+link congelerebbe nei golden un grafo che in produzione non esiste, ed è
+esattamente il difetto che R44 ha pagato sui titoli axe. La stessa ragione
+per cui `estrai_struttura` è già condivisa.
+
+**Due misure di profondità che convivono, e non si confondono.**
+`pages[].depth` dice come il crawler è arrivato a una pagina, ed è **ignota**
+per quelle che vengono dalla sitemap (U8.1). `clicks` del grafo è il cammino
+più breve dalla home **dentro il campione** di pagine scaricate. Su un sito
+con sitemap la prima è ignota ovunque e la seconda si misura: sono vere
+insieme, hanno nomi diversi e un test lo presidia. Riusarne uno solo avrebbe
+fatto sembrare risolto un problema che resta.
+
+**«Orfana» ha una riserva, e il referto la dichiara.** Dentro un campione di
+dieci pagine, una pagina può risultare orfana solo perché chi la linka non è
+stato scaricato. Quando invece **nessun** link interno esce dal campione il
+conto è chiuso, e allora si può dire senza riserve: `closed` misura proprio
+questo, confrontando `links_internal` con `links_to`. Senza quel confronto il
+giallo sarebbe stato un'accusa fondata su un artefatto di `--max-pages`.
+
+E senza un punto di partenza nel campione `orphans` è **`None`, non zero**:
+lì ogni pagina risulterebbe irraggiungibile, e il numero direbbe qualcosa sul
+sito quando dice soltanto che non sappiamo da dove si parte.
+
+**D1 applicata: il vincolo passa da «nessuno script» a «nessuna origine
+esterna».** È il vincolo vero, e lo era da sempre: uno `<script src>` fa
+uscire il referto dal file, uno inline no. I due test che dicevano `"<script"
+not in uscita` sono stati riscritti — uno guarda le origini esterne, l'altro
+dice che i quadranti sono SVG calcolato in Python e non disegnato da uno
+script. Erano entrambi **verdi per caso**: la loro fixture ha una pagina
+sola, quindi nessun grafo e nessuno script, e avrebbero continuato a passare
+mentre il vincolo si allentava sotto.
+
+Tre proprietà dello script, ciascuna con il suo test: nessuna origine esterna
+(niente `src`, `fetch`, `import`, `eval`); **nessun dato del referto dentro
+il codice**, perché interpolarlo sarebbe un secondo percorso di escaping
+accanto a `_e()` ed è così che nasce una XSS in un file che contiene testo
+preso dal sito analizzato — verificato con un URL che contiene `</script>`;
+e lo script **non c'è** dove non c'è un grafo.
+
+**Progressive enhancement fino in fondo.** Il disegno è completo nell'HTML —
+nodi, archi, frecce, etichette, posizionati dal layout a forze calcolato in
+Python. Lo script non crea nulla: aggiunge evidenziazione, vista ad anelli
+per distanza, zoom. Da cui due scelte che il riferimento non fa:
+
+- i **comandi nascono `hidden`** e li accende lo script, per ultimo. Un
+  bottone che non fa nulla è peggio di un bottone assente, perché promette
+  qualcosa;
+- i nodi **non hanno `tabindex` nell'HTML**: glielo mette lo script, che al
+  fuoco ha qualcosa da mostrare. È la regola di U8.3 applicata al contrario —
+  lì il JS non c'è e le fermate di tabulazione non si creano mai.
+
+**Il layout è deterministico, e deve esserlo.** Fruchterman-Reingold scritto
+a mano, inizializzato su un cerchio invece che a caso: lo stesso sito dà lo
+stesso disegno, ed è ciò che permette di congelarlo in un golden. Un layout
+seminato a caso sarebbe più vario e inverificabile. La home resta ancorata al
+centro.
+
+**Della simulazione a forze viva del riferimento non si è portato nulla.**
+`marsbeacon` ha ~400 righe di JavaScript con fisica dal vivo e trascinamento
+dei nodi. Qui il layout è già calcolato e fermo: la vista ad anelli è
+aritmetica, l'evidenziazione è una classe CSS. Meno codice da presidiare in
+un file che si consegna, e il disegno statico resta esattamente ciò che si
+vede senza JavaScript. È una **riduzione consapevole** rispetto a UPGRADE.md
+passo 5, non una dimenticanza.
+
+**Diciotto mutazioni, due sfuggite alla prima esecuzione**, entrambe contro i
+soli test mirati come insegna U8.3. Nessuna delle due era un test debole:
+
+- il tetto ai sessanta nodi non aveva **alcun** test — la treemap sì, il
+  grafo no, e con esso non era presidiato che un arco verso un nodo tagliato
+  non resti un capo nel vuoto;
+- l'altra ha rivelato **codice irraggiungibile**: `orphans` escludeva la home
+  con `and not n["home"]`, ma la home è la radice del BFS e ha sempre
+  distanza 0, quindi quel ramo non poteva scattare. Sembrava una garanzia ed
+  era decorazione. Sostituito con la distinzione che serve davvero, `None`
+  senza punto di partenza. Una mutazione che non fa fallire nulla non è
+  sempre un test mancante: a volte è codice che non fa nulla.
+
+Rieseguite: diciotto su diciotto.
+
+**Il JavaScript, invece, la suite lo verifica come testo e non lo esegue** —
+vedi **R48**. Il comportamento è stato provato con `tools/banco_grafo.py`,
+che fa girare lo script su un DOM finto in `node`, sul vero SVG prodotto da
+`mars_report`: comandi accesi, nodi focalizzabili, evidenziazione dei soli
+vicini, ripulitura, anelli con la home al centro e l'orfana più fuori, archi
+agganciati ai nodi, ritorno esatto al layout Python, zoom e reimposta. Nove
+verdi, e quattro mutazioni del JavaScript su quattro lo fanno diventare
+rosso. Non è in `pytest` perché servirebbe `node`, ed è la trappola di
+`node_modules/axe-core` in un'altra forma: R48 tiene aperta la scelta.
+
+- [x] `mars_core.link_interni()` e `link_targets` sul dict pagina,
+      `links_to`/`links_internal` in `pages[]`, `_force_layout()`,
+      `_distanze_in_click()`, `link_graph_data()`, `_grafo_html()`,
+      `REFERTO_JS`, il CSS, `tools/banco_grafo.py`, diciotto test, i quattro
+      golden (JSON e HTML), i due test no-script riscritti.
+
+### U8 — ✅ FASE CHIUSA (2026-08-25): `__version__` a 2.7.0
+
+Quattro voci: `pages[]` e la profondità di crawl, `surface_math` e la sezione
+«Superficie», la treemap, il grafo dei link. Il referto guarda ora il sito
+oltre che le sue nove aree.
+
+**Il filo che le tiene insieme** non è il disegno, è che tre volte su quattro
+la fase ha dovuto dire *non lo sappiamo* invece di riempire un buco: lo
+status HTTP che non c'è e non si inventa (U8.1), il moltiplicatore `None`
+invece di «x1» (U8.2), il colore della treemap che sarebbe stato un via
+libera mai misurato (U8.3), la riserva sul campione parziale e gli `orphans`
+a `None` senza un punto di partenza (U8.4). Il piano prevedeva quattro
+disegni; quello che è costato di più è stato decidere che cosa **non**
+potevano dire.
+
+**Due voci restano aperte e vengono da qui**: R47 (nessun rilievo dichiara la
+pagina che lo ha prodotto — è ciò che tiene la treemap senza colore) e R48
+(del JavaScript la suite verifica il testo, non il gesto).
+
+Suite da 794 a 826 test, `flake8` a zero. Golden mossi: JSON e HTML in tutte
+e quattro le voci; testo, Markdown e CSV solo in U8.2, perché treemap e grafo
+stanno nel solo referto HTML.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

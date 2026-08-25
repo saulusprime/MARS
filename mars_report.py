@@ -18,7 +18,7 @@ import io
 import os
 import re
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 import mars_history
@@ -355,8 +355,10 @@ def pagine_scansionate(context: dict) -> List[Dict[str, object]]:
     finisce in `skipped`. Metterci un 200 fisso vorrebbe dire scrivere
     una misura che nessuno ha fatto.
     """
+    scansionate = set(context.get("pages") or {})
     esito = []
     for url, pagina in (context.get("pages") or {}).items():
+        uscenti = list(pagina.get("link_targets") or [])
         esito.append({
             "url": url,
             "title": pagina.get("title") or "",
@@ -374,6 +376,14 @@ def pagine_scansionate(context: dict) -> List[Dict[str, object]]:
             # totale — e chi legge non saprebbe quale credere.
             "words": sum(len((c.get("text") or "").split())
                          for c in (pagina.get("chunks") or [])),
+            # Due numeri diversi, e non e' una ridondanza: `links_to`
+            # sono gli archi che si possono DISEGNARE, cioe' quelli
+            # verso pagine che l'audit ha guardato; `links_internal` e'
+            # quanti link interni la pagina ha davvero. Il secondo dice
+            # quanto del sito resta fuori dal campione, e senza di lui
+            # un grafo con tre archi sembrerebbe un sito con tre link.
+            "links_to": sorted(u for u in uscenti if u in scansionate),
+            "links_internal": len(uscenti),
             "json_ld_types": _tipi_json_ld(pagina.get("json_ld") or []),
         })
     return esito
@@ -608,6 +618,203 @@ def treemap_data(pagine: List[dict], width: float = TREEMAP_W,
         # che vuote, quindi il conteggio esce e la vista lo dice.
         "empty": len(pagine) - len(con_testo),
         "items": voci,
+    }
+
+
+# Il grafo dei link: spazio di disegno e tetto ai nodi. Come per la
+# treemap, la geometria non entra nel referto canonico. Sessanta nodi
+# sono gia' oltre quanti se ne seguano a occhio, e il tetto e'
+# dichiarato accanto al disegno.
+GRAFO_W = 780.0
+GRAFO_H = 540.0
+GRAFO_MAX = 60
+GRAFO_ITERAZIONI = 150
+
+
+def _force_layout(quanti: int, archi: List[Tuple[int, int]],
+                  width: float = GRAFO_W, height: float = GRAFO_H,
+                  iterazioni: int = GRAFO_ITERAZIONI
+                  ) -> List[Tuple[float, float]]:
+    """Layout a forze deterministico (Fruchterman-Reingold, 1991).
+
+    Repulsione `k^2/d` fra tutte le coppie, attrazione `d^2/k` lungo
+    gli archi, raffreddamento geometrico. Il nodo 0 — la home — resta
+    ancorato al centro, cosi' il disegno ha sempre lo stesso fuoco.
+
+    **Nessuna casualita'**: l'inizializzazione e' su un cerchio invece
+    che a caso, quindi lo stesso sito da' lo stesso disegno. E' cio'
+    che permette di congelarlo in un golden e di confrontare due
+    esecuzioni; un layout seminato a caso sarebbe piu' vario e
+    inverificabile.
+
+    Scritto a mano come gli altri algoritmi del progetto: e' una
+    ventina di righe, e networkx trascinerebbe numpy per questo solo
+    uso.
+    """
+    if quanti <= 0:
+        return []
+    cx, cy = width / 2.0, height / 2.0
+    if quanti == 1:
+        return [(round(cx, 1), round(cy, 1))]
+    raggio = min(width, height) / 3.0
+    pos = [[cx + raggio * math.cos(2 * math.pi * i / quanti),
+            cy + raggio * math.sin(2 * math.pi * i / quanti)]
+           for i in range(quanti)]
+    pos[0] = [cx, cy]
+    k = (width * height / quanti) ** 0.5
+    temperatura = width / 8.0
+    for _ in range(iterazioni):
+        spostamento = [[0.0, 0.0] for _ in range(quanti)]
+        for i in range(quanti):
+            for j in range(i + 1, quanti):
+                dx = pos[i][0] - pos[j][0]
+                dy = pos[i][1] - pos[j][1]
+                dist = max(0.01, (dx * dx + dy * dy) ** 0.5)
+                forza = k * k / dist
+                spostamento[i][0] += dx / dist * forza
+                spostamento[i][1] += dy / dist * forza
+                spostamento[j][0] -= dx / dist * forza
+                spostamento[j][1] -= dy / dist * forza
+        for a, b in archi:
+            dx = pos[a][0] - pos[b][0]
+            dy = pos[a][1] - pos[b][1]
+            dist = max(0.01, (dx * dx + dy * dy) ** 0.5)
+            forza = dist * dist / k
+            spostamento[a][0] -= dx / dist * forza
+            spostamento[a][1] -= dy / dist * forza
+            spostamento[b][0] += dx / dist * forza
+            spostamento[b][1] += dy / dist * forza
+        # Dal nodo 1: la home resta dove sta.
+        for i in range(1, quanti):
+            dx, dy = spostamento[i]
+            dist = max(0.01, (dx * dx + dy * dy) ** 0.5)
+            passo = min(dist, temperatura)
+            pos[i][0] = min(width - 20.0,
+                            max(20.0, pos[i][0] + dx / dist * passo))
+            pos[i][1] = min(height - 16.0,
+                            max(16.0, pos[i][1] + dy / dist * passo))
+        temperatura *= 0.95
+    return [(round(x, 1), round(y, 1)) for x, y in pos]
+
+
+def _distanze_in_click(archi: Dict[str, List[str]],
+                       home: str) -> Dict[str, int]:
+    """Quanti click dalla home, seguendo i soli link osservati.
+
+    **Non e' `pages[].depth`**, ed e' importante che i due non si
+    confondano: quello dice come il crawler ci e' arrivato ed e'
+    ignoto per le pagine che vengono dalla sitemap; questo e' il
+    cammino piu' breve dentro il CAMPIONE di pagine scaricate.
+    Un sito con sitemap ha `depth` ignota ovunque e distanze qui
+    misurabili, e le due cose restano vere insieme.
+
+    Chi non compare nel risultato non e' raggiungibile dalla home
+    seguendo i link visti: e' l'informazione piu' utile del grafo.
+    """
+    if home not in archi:
+        return {}
+    distanza = {home: 0}
+    coda = [home]
+    while coda:
+        nodo = coda.pop(0)
+        for arrivo in archi.get(nodo, ()):
+            if arrivo not in distanza:
+                distanza[arrivo] = distanza[nodo] + 1
+                coda.append(arrivo)
+    return distanza
+
+
+def link_graph_data(pagine: List[dict], base: str,
+                    max_nodes: int = GRAFO_MAX
+                    ) -> Optional[Dict[str, object]]:
+    """L'architettura del sito: chi linka chi, fra le pagine viste.
+
+    La treemap dice quanto contenuto c'e' su ogni pagina, questa dice
+    come ci si arriva. Il nodo e' grande quanto i link che riceve, e
+    quelli che dalla home non si raggiungono per link sono **orfani**:
+    un assistente che segue i collegamenti non li incontra mai.
+
+    Gli archi sono solo quelli fra pagine **scansionate**: un link
+    verso una pagina fuori dal campione non e' un arco che si possa
+    disegnare, e inventarne il capo dall'altra parte direbbe che quella
+    pagina e' stata guardata. Quanti link restino fuori lo dice
+    `links_internal` di ciascuna pagina, che il referto porta.
+
+    None senza archi: un grafo di punti senza linee non e'
+    un'architettura, e disegnarlo suggerirebbe che il sito non ha link
+    invece che «non ne abbiamo visti fra queste pagine».
+    """
+    if len(pagine) < 2:
+        return None
+    archi_per_url = {str(p.get("url") or ""): list(p.get("links_to") or [])
+                     for p in pagine}
+    entranti: Dict[str, int] = {u: 0 for u in archi_per_url}
+    for uscenti in archi_per_url.values():
+        for arrivo in uscenti:
+            if arrivo in entranti:
+                entranti[arrivo] += 1
+    home = base if base in archi_per_url else ""
+    # Home per prima, poi i piu' linkati: se il tetto taglia, taglia
+    # le pagine che il sito stesso richiama di meno.
+    urls = sorted(archi_per_url,
+                  key=lambda u: (u != home, -entranti[u], u))[:max_nodes]
+    indice = {u: i for i, u in enumerate(urls)}
+    collegamenti = sorted(
+        {(indice[u], indice[a]) for u in urls
+         for a in archi_per_url[u] if a in indice})
+    if not collegamenti:
+        return None
+    distanze = _distanze_in_click(
+        {u: archi_per_url[u] for u in urls}, home)
+    posizioni = _force_layout(len(urls), collegamenti)
+    uscenti_per_indice = [0] * len(urls)
+    for partenza, _arrivo in collegamenti:
+        uscenti_per_indice[partenza] += 1
+    nodi = []
+    for i, url in enumerate(urls):
+        nodi.append({
+            "url": url,
+            "label": _coda(urlsplit(url).path or "/", 30),
+            "incoming": entranti[url],
+            "outgoing": uscenti_per_indice[i],
+            # None = non raggiungibile dalla home seguendo i link.
+            "clicks": distanze.get(url),
+            "home": url == home,
+            "x": posizioni[i][0], "y": posizioni[i][1],
+            # Il raggio cresce con la RADICE dei link entranti: una
+            # pagina linkata cento volte non puo' essere dieci volte
+            # piu' larga di una linkata dieci, o coprirebbe il resto.
+            "r": round(min(15.0, 5.0 + 1.8 * entranti[url] ** 0.5), 1),
+        })
+    return {
+        "width": GRAFO_W, "height": GRAFO_H,
+        "total": len(pagine),
+        "shown": len(nodi),
+        "edges": len(collegamenti),
+        # Le pagine che dalla home non si raggiungono per link.
+        # `None` — non zero — senza un punto di partenza nel campione:
+        # li' ogni pagina risulterebbe irraggiungibile, ma il numero
+        # direbbe qualcosa sul sito quando invece dice solo che non
+        # sappiamo da dove si parte. La home, quando c'e', ha sempre
+        # distanza 0 perche' e' la radice del BFS: escluderla di nuovo
+        # qui sarebbe un ramo che non puo' scattare.
+        "orphans": (sum(1 for n in nodi if n["clicks"] is None)
+                    if home else None),
+        # `False` quando l'URL di partenza non e' fra le pagine
+        # scansionate: senza un punto di partenza «raggiungibile» non
+        # significa nulla, e il referto deve dirlo invece di mostrare
+        # tutte le pagine come orfane.
+        "has_home": bool(home),
+        # `True` quando NESSUN link interno esce dal campione: allora
+        # «orfana» e' una misura chiusa. Quando invece il campione e'
+        # parziale — dieci pagine di un sito da cinquecento — una
+        # pagina puo' risultare orfana solo perche' chi la linka non e'
+        # stato scaricato, e il referto deve dirlo prima che qualcuno
+        # ci lavori sopra.
+        "closed": all(int(p.get("links_internal") or 0)
+                      == len(p.get("links_to") or []) for p in pagine),
+        "nodes": nodi,
+        "links": [{"source": a, "target": b} for a, b in collegamenti],
     }
 
 
@@ -1282,6 +1489,37 @@ svg.treemap text { font-size:11px; fill:var(--fg); stroke:var(--bg);
                    pointer-events:none; }
 details > summary { cursor:pointer; color:var(--muted);
                     font-size:.85rem; margin:.4rem 0; }
+/* Il grafo dei link. Il colore dice una cosa misurata: la home, le
+   pagine raggiunte seguendo i link, e quelle che non lo sono — giallo
+   come il secchiello «profondita' ignota», perche' e' un livello che
+   non sappiamo e non un livello peggiore. */
+svg.grafo { width:100%; max-width:780px; height:auto; margin:.6rem 0;
+            display:block; }
+svg.grafo marker path { fill:var(--line); }
+svg.grafo .grafo-arco { stroke:var(--line); stroke-width:.8; }
+svg.grafo .grafo-nodo { fill-opacity:.75; fill:var(--muted);
+                        stroke:var(--muted); }
+svg.grafo .grafo-nodo.casa { fill:var(--fg); stroke:var(--fg); }
+svg.grafo .grafo-nodo.orfana { fill:var(--warn); stroke:var(--warn); }
+svg.grafo .grafo-nodo:focus { outline:2px solid var(--fg);
+                              outline-offset:2px; }
+svg.grafo .grafo-etichetta { font-size:11px; fill:var(--fg);
+                             stroke:var(--bg); stroke-width:3;
+                             paint-order:stroke; pointer-events:none; }
+/* Le due classi che lo script accende. Senza script non compaiono
+   mai, e il disegno resta quello di partenza. */
+svg.grafo .spento { opacity:.15; }
+svg.grafo .grafo-arco.acceso { stroke:var(--fg); stroke-width:1.6; }
+.grafo-comandi button { font:inherit; font-size:.8rem; cursor:pointer;
+                        color:var(--fg); background:var(--card);
+                        border:1px solid var(--line); border-radius:.4rem;
+                        padding:.25rem .6rem; }
+.grafo-comandi button[aria-pressed="true"] { border-color:var(--fg); }
+@media (prefers-reduced-motion: no-preference) {
+  svg.grafo .grafo-nodo, svg.grafo .grafo-arco,
+  svg.grafo .grafo-etichetta { transition:opacity .15s, cx .3s, cy .3s,
+                               x1 .3s, y1 .3s, x2 .3s, y2 .3s,
+                               x .3s, y .3s; } }
 .disclaimer { font-size:.83rem; color:var(--muted); font-style:italic; }
 code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
        font-size:.85em; }
@@ -1919,6 +2157,134 @@ def _treemap_html(referto: dict, p: List[str]) -> None:
     p.append("</table></details>")
 
 
+# Oltre questo numero di nodi si etichettano solo i piu' linkati:
+# sessanta etichette sovrapposte non si leggono, e l'etichetta di un
+# nodo periferico vale meno di quella dell'hub accanto.
+GRAFO_ETICHETTA_TUTTI = 20
+GRAFO_ETICHETTA_QUANTI = 12
+
+
+def _grafo_html(referto: dict, p: List[str]) -> None:
+    """Il grafo dei link interni: SVG statico, e i comandi che il JS accende.
+
+    Il disegno **e' completo senza JavaScript**: nodi, archi, frecce,
+    etichette e titoli sono nell'HTML, posizionati dal layout a forze
+    calcolato in Python. Lo script aggiunge la lettura — evidenziare
+    un nodo, disporre per distanza, ingrandire — e per questo i
+    comandi nascono `hidden`: un bottone che non fa nulla e' peggio di
+    un bottone assente, perche' promette qualcosa.
+
+    Per la stessa ragione i nodi **non** hanno `tabindex` nell'HTML:
+    glielo mette lo script, che al fuoco ha qualcosa da mostrare. E'
+    la stessa scelta della treemap, applicata al contrario — li' il JS
+    non c'e' e le fermate non si creano mai.
+    """
+    grafo = link_graph_data(referto.get("pages") or [],
+                            str(referto.get("url") or ""))
+    if not grafo:
+        return
+    nodi = grafo["nodes"]
+    p.append("<h3>Architettura dei link</h3>")
+    note = ["%s e %s fra le pagine scansionate."
+            % (_plurale(int(grafo["shown"]), "nodo", "nodi"),
+               _plurale(int(grafo["edges"]), "collegamento",
+                        "collegamenti"))]
+    if grafo["shown"] < grafo["total"]:
+        note.append("I %d più linkati di %d." % (grafo["shown"],
+                                                 grafo["total"]))
+    if not grafo["has_home"]:
+        note.append("L'URL di partenza non è fra le pagine scansionate, "
+                    "quindi «raggiungibile» qui non vuol dire nulla.")
+    elif grafo["orphans"]:
+        note.append("%s non si raggiunge dalla home seguendo i link."
+                    % _plurale(int(grafo["orphans"]), "pagina", "pagine"))
+    # La riserva che rende onesto il giallo: dentro un campione di
+    # dieci pagine «orfana» puo' voler dire solo che chi la linka non
+    # e' stato scaricato. Quando invece nessun link esce dal campione
+    # il conto e' chiuso, e lo si puo' dire senza riserve.
+    if not grafo["closed"]:
+        note.append("Il campione è parziale: una pagina può risultare "
+                    "orfana solo perché chi la linka non è stato "
+                    "scansionato.")
+    p.append("<p class='meta'>%s</p>" % _e(" ".join(note)))
+    p.append("<svg id='grafo' class='grafo' viewBox='0 0 %d %d' role='img' "
+             "aria-label='Grafo dei link interni: %s e %s. I dati sono "
+             "nella tabella qui sotto.'>"
+             % (int(grafo["width"]), int(grafo["height"]),
+                _plurale(int(grafo["shown"]), "nodo", "nodi"),
+                _plurale(int(grafo["edges"]), "collegamento",
+                         "collegamenti")))
+    p.append("<defs><marker id='grafo-freccia' viewBox='0 0 8 8' refX='7' "
+             "refY='4' markerWidth='5' markerHeight='5' "
+             "orient='auto-start-reverse'>"
+             "<path d='M0 0L8 4L0 8z'/></marker></defs>")
+    for arco in grafo["links"]:
+        partenza, arrivo = nodi[arco["source"]], nodi[arco["target"]]
+        dx = arrivo["x"] - partenza["x"]
+        dy = arrivo["y"] - partenza["y"]
+        lunghezza = (dx * dx + dy * dy) ** 0.5 or 1.0
+        # L'arco si ferma sul bordo del nodo d'arrivo, non al centro,
+        # altrimenti la freccia finisce nascosta sotto il cerchio.
+        arretra = (arrivo["r"] + 3.0) / lunghezza
+        p.append("<line class='grafo-arco' data-s='%d' data-t='%d' "
+                 "x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' "
+                 "marker-end='url(#grafo-freccia)'/>"
+                 % (arco["source"], arco["target"], partenza["x"],
+                    partenza["y"], arrivo["x"] - dx * arretra,
+                    arrivo["y"] - dy * arretra))
+    if len(nodi) <= GRAFO_ETICHETTA_TUTTI:
+        etichettati = set(range(len(nodi)))
+    else:
+        etichettati = {i for i, _ in sorted(
+            enumerate(nodi),
+            key=lambda v: (not v[1]["home"], -v[1]["incoming"]))
+            [:GRAFO_ETICHETTA_QUANTI]}
+    for i, nodo in enumerate(nodi):
+        if nodo["home"]:
+            classe, dove = "casa", "punto di partenza"
+        elif nodo["clicks"] is None:
+            classe, dove = "orfana", "non raggiunta dalla home per link"
+        else:
+            classe = "raggiunta"
+            dove = _plurale(int(nodo["clicks"]), "click", "click") \
+                + " dalla home"
+        p.append("<circle class='grafo-nodo %s' data-i='%d' data-r='%.1f' "
+                 "data-c='%s' cx='%.1f' cy='%.1f' r='%.1f'>"
+                 "<title>%s — %s in entrata, %s in uscita, %s</title>"
+                 "</circle>"
+                 % (classe, i, nodo["r"],
+                    "" if nodo["clicks"] is None else nodo["clicks"],
+                    nodo["x"], nodo["y"], nodo["r"], _e(nodo["label"]),
+                    _plurale(int(nodo["incoming"]), "link", "link"),
+                    _plurale(int(nodo["outgoing"]), "link", "link"),
+                    _e(dove)))
+        if i in etichettati:
+            p.append("<text class='grafo-etichetta' data-i='%d' x='%.1f' "
+                     "y='%.1f'>%s</text>"
+                     % (i, nodo["x"] + nodo["r"] + 3, nodo["y"] + 4,
+                        _e(nodo["label"])))
+    p.append("</svg>")
+    p.append("<p class='grafo-comandi' id='grafo-comandi' hidden>"
+             "<button type='button' id='grafo-forze' aria-pressed='true'>"
+             "Per collegamenti</button> "
+             "<button type='button' id='grafo-anelli' aria-pressed='false'>"
+             "Per distanza</button> · "
+             "<button type='button' id='grafo-piu'>Ingrandisci</button> "
+             "<button type='button' id='grafo-meno'>Riduci</button> "
+             "<button type='button' id='grafo-zero'>Reimposta</button></p>")
+    p.append("<p id='grafo-stato' class='meta' role='status'></p>")
+    p.append("<details><summary>L'architettura in tabella</summary>"
+             "<table><tr><th>Pagina</th><th>Link in entrata</th>"
+             "<th>Link in uscita</th><th>Distanza dalla home</th></tr>")
+    for nodo in nodi:
+        p.append("<tr><td>%s</td><td class='num'>%d</td>"
+                 "<td class='num'>%d</td><td class='num'>%s</td></tr>"
+                 % (_e(nodo["url"]), nodo["incoming"], nodo["outgoing"],
+                    "non raggiunta" if nodo["clicks"] is None
+                    else "%d click" % nodo["clicks"]))
+    p.append("</table></details>")
+
+
 def _sezione_superficie(referto: dict, p: List[str]) -> None:
     """Profondita' di crawl e matematica della superficie."""
     profondita = depth_distribution(referto.get("pages") or [])
@@ -1941,6 +2307,7 @@ def _sezione_superficie(referto: dict, p: List[str]) -> None:
                         100.0 * voce["pages"] / massimo))
         p.append("</table>")
     _treemap_html(referto, p)
+    _grafo_html(referto, p)
     if matematica:
         p.append("<div class='card'><p>%d pagine, %d passaggi — %.2f per "
                  "pagina, %.0f parole per pagina.</p>"
@@ -2168,13 +2535,211 @@ def _sezione_llm(referto: dict, p: List[str]) -> None:
     p.append("</div>")
 
 
+# ======================================================================
+# Il solo JavaScript del referto (D1, Fase 8)
+# ======================================================================
+#
+# Ratificato con D1 il 2026-08-21, e adottato qui per la prima volta.
+# Tre vincoli, che i test presidiano:
+#
+# 1. **Inline e senza origini esterne.** Nessun `src`, nessuna CDN,
+#    nessuna `fetch`: il referto resta un file solo, apribile fra due
+#    anni da un archivio senza rete. Il vincolo che cambia rispetto a
+#    prima non e' «niente script», e' «niente che venga da fuori».
+# 2. **Progressive enhancement.** Il disegno e' completo nell'HTML: lo
+#    script non crea nodi, ne' archi, ne' etichette. Se non gira — un
+#    lettore che lo disabilita, un PDF di stampa — resta il grafo
+#    statico, che e' la stessa informazione senza i comandi.
+# 3. **Nessun dato dentro il codice.** Posizioni, raggi e distanze si
+#    leggono dagli attributi `data-*` del DOM. Interpolare il referto
+#    dentro una stringa JavaScript significherebbe un secondo percorso
+#    di escaping accanto a `_e()`, ed e' esattamente il modo in cui
+#    nasce una XSS in un file che contiene testo preso dal sito
+#    analizzato.
+#
+# `prefers-reduced-motion` non ha bisogno di essere letto qui: le sole
+# transizioni stanno nel CSS, e li' la media query le spegne.
+REFERTO_JS = """
+(function () {
+  "use strict";
+  var svg = document.getElementById("grafo");
+  if (!svg) { return; }
+  var nodi = [].slice.call(svg.querySelectorAll(".grafo-nodo"));
+  var archi = [].slice.call(svg.querySelectorAll(".grafo-arco"));
+  if (!nodi.length) { return; }
+  var comandi = document.getElementById("grafo-comandi");
+  var stato = document.getElementById("grafo-stato");
+  var etichette = {};
+  [].forEach.call(svg.querySelectorAll(".grafo-etichetta"), function (t) {
+    etichette[t.getAttribute("data-i")] = t;
+  });
+  var vbase = svg.getAttribute("viewBox").split(" ").map(Number);
+  var raggi = nodi.map(function (n) { return +n.getAttribute("data-r") || 6; });
+  var lati = archi.map(function (l) {
+    return [+l.getAttribute("data-s"), +l.getAttribute("data-t")];
+  });
+  /* Il layout calcolato in Python e' la posizione di partenza, e ci si
+     torna con "Reimposta": la vista ad anelli non lo distrugge. */
+  var partenza = nodi.map(function (n) {
+    return [+n.getAttribute("cx"), +n.getAttribute("cy")];
+  });
+  var pos = partenza.map(function (c) { return c.slice(); });
+
+  function ridisegna() {
+    var i, k, s, t, dx, dy, lung, arretra;
+    for (i = 0; i < nodi.length; i += 1) {
+      nodi[i].setAttribute("cx", pos[i][0].toFixed(1));
+      nodi[i].setAttribute("cy", pos[i][1].toFixed(1));
+      var e = etichette[String(i)];
+      if (e) {
+        e.setAttribute("x", (pos[i][0] + raggi[i] + 3).toFixed(1));
+        e.setAttribute("y", (pos[i][1] + 4).toFixed(1));
+      }
+    }
+    for (k = 0; k < archi.length; k += 1) {
+      s = lati[k][0];
+      t = lati[k][1];
+      dx = pos[t][0] - pos[s][0];
+      dy = pos[t][1] - pos[s][1];
+      lung = Math.sqrt(dx * dx + dy * dy) || 1;
+      arretra = (raggi[t] + 3) / lung;
+      archi[k].setAttribute("x1", pos[s][0].toFixed(1));
+      archi[k].setAttribute("y1", pos[s][1].toFixed(1));
+      archi[k].setAttribute("x2", (pos[t][0] - dx * arretra).toFixed(1));
+      archi[k].setAttribute("y2", (pos[t][1] - dy * arretra).toFixed(1));
+    }
+  }
+
+  /* Vista per distanza: un anello per click dalla home, gli orfani
+     sul cerchio piu' esterno. Dice a colpo d'occhio quanto e'
+     profondo il sito, che il layout a forze non mostra. */
+  function anelli() {
+    var cx = vbase[2] / 2, cy = vbase[3] / 2;
+    var massimo = 0, gruppi = {}, chiavi = [];
+    nodi.forEach(function (n, i) {
+      var c = n.getAttribute("data-c");
+      var liv = c === "" ? -1 : +c;
+      if (liv > massimo) { massimo = liv; }
+      if (!gruppi[liv]) { gruppi[liv] = []; chiavi.push(liv); }
+      gruppi[liv].push(i);
+    });
+    var esterno = Math.min(cx, cy) - 24;
+    chiavi.forEach(function (liv) {
+      var gruppo = gruppi[liv];
+      /* Gli orfani (-1) vanno fuori da tutti: non stanno "prima"
+         della home, stanno fuori dal percorso. */
+      var quota = liv < 0 ? massimo + 1 : liv;
+      var r = massimo <= 0 ? (liv < 0 ? esterno : 0)
+        : esterno * quota / (massimo + 1);
+      gruppo.forEach(function (i, k) {
+        if (r === 0) { pos[i] = [cx, cy]; return; }
+        var a = 2 * Math.PI * k / gruppo.length - Math.PI / 2;
+        pos[i] = [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+      });
+    });
+    ridisegna();
+  }
+
+  function forze() {
+    pos = partenza.map(function (c) { return c.slice(); });
+    ridisegna();
+  }
+
+  /* Evidenziazione: il nodo, i suoi archi e i suoi vicini restano
+     accesi, il resto si spegne. Su un grafo di sessanta nodi e' la
+     sola cosa che rende leggibile un groviglio. */
+  function evidenzia(i) {
+    var vicini = {};
+    vicini[i] = true;
+    lati.forEach(function (st, k) {
+      var acceso = st[0] === i || st[1] === i;
+      archi[k].classList.toggle("acceso", acceso);
+      archi[k].classList.toggle("spento", !acceso);
+      if (acceso) { vicini[st[0]] = true; vicini[st[1]] = true; }
+    });
+    nodi.forEach(function (n, k) {
+      n.classList.toggle("spento", !vicini[k]);
+    });
+    if (stato) {
+      var t = nodi[i].querySelector("title");
+      stato.textContent = t ? t.textContent : "";
+    }
+  }
+
+  function pulisci() {
+    nodi.forEach(function (n) { n.classList.remove("spento"); });
+    archi.forEach(function (a) {
+      a.classList.remove("spento");
+      a.classList.remove("acceso");
+    });
+    if (stato) { stato.textContent = ""; }
+  }
+
+  /* I nodi diventano raggiungibili da tastiera SOLO ora che il fuoco
+     ha qualcosa da mostrare: nell'HTML statico sarebbero fermate di
+     tabulazione vuote. */
+  nodi.forEach(function (n, i) {
+    n.setAttribute("tabindex", "0");
+    n.addEventListener("pointerenter", function () { evidenzia(i); });
+    n.addEventListener("focus", function () { evidenzia(i); });
+    n.addEventListener("pointerleave", pulisci);
+    n.addEventListener("blur", pulisci);
+  });
+  svg.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") { pulisci(); }
+  });
+
+  function zoom(fattore) {
+    var cx = vista[0] + vista[2] / 2, cy = vista[1] + vista[3] / 2;
+    vista[2] *= fattore;
+    vista[3] *= fattore;
+    vista[0] = cx - vista[2] / 2;
+    vista[1] = cy - vista[3] / 2;
+    svg.setAttribute("viewBox", vista.join(" "));
+  }
+  var vista = vbase.slice();
+
+  function bottone(id, azione) {
+    var b = document.getElementById(id);
+    if (b) { b.addEventListener("click", azione); }
+    return b;
+  }
+  var bForze = bottone("grafo-forze", function () { premuto(true); });
+  var bAnelli = bottone("grafo-anelli", function () { premuto(false); });
+  function premuto(perForze) {
+    if (bForze) { bForze.setAttribute("aria-pressed", String(perForze)); }
+    if (bAnelli) { bAnelli.setAttribute("aria-pressed", String(!perForze)); }
+    pulisci();
+    if (perForze) { forze(); } else { anelli(); }
+  }
+  bottone("grafo-piu", function () { zoom(0.8); });
+  bottone("grafo-meno", function () { zoom(1.25); });
+  bottone("grafo-zero", function () {
+    vista = vbase.slice();
+    svg.setAttribute("viewBox", vista.join(" "));
+    premuto(true);
+  });
+  /* I comandi si accendono per ultimi: se qualcosa qui sopra fosse
+     esploso, resterebbero nascosti invece che inerti. */
+  if (comandi) { comandi.removeAttribute("hidden"); }
+}());
+"""
+
+
 def render_html(referto: dict) -> str:
     """Referto HTML nello stile di Lighthouse, esteso alle nostre aree.
 
     Autoconsistente per costruzione: CSS incorporato, favicon come data
-    URI, quadranti in SVG calcolato qui. Nessuna CDN e NESSUNO SCRIPT —
-    un referto deve potersi aprire fra due anni, da un archivio, senza
-    rete.
+    URI, quadranti in SVG calcolato qui. **Nessuna origine esterna** —
+    niente CDN, niente `src`, niente richieste di rete: un referto deve
+    potersi aprire fra due anni, da un archivio, senza rete.
+
+    Fino alla Fase 8 il vincolo era piu' stretto, «nessuno script», e
+    D1 lo ha ristretto a cio' che davvero lo garantisce. Un `<script>`
+    inline non fa uscire il referto dal file: e' `src` che lo farebbe.
+    Lo script c'e' solo dove il grafo dei link c'e', e cio' che
+    aggiunge — evidenziare, disporre per distanza, ingrandire — e' in
+    piu' rispetto a un disegno gia' completo: vedi `REFERTO_JS`.
     """
     p: List[str] = []
     icona = _favicon_data_uri()
@@ -2229,6 +2794,10 @@ def render_html(referto: dict) -> str:
                         "".join("<li>%s</li>" % _e(m)
                                 for m in referto["skipped"])))
 
+    # Lo script SOLO se il grafo c'e': un referto senza architettura da
+    # mostrare non porta codice che non ha nulla da fare.
+    if "id='grafo'" in "".join(p):
+        p.append("<script>%s</script>" % REFERTO_JS)
     p.append("</main></body></html>")
     return "".join(p)
 

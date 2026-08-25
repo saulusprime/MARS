@@ -1,20 +1,21 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
-> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4-7.
+> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4-8.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
 > **Correzioni chiuse**: R1-R27, R34, R38, R41, R45. **Aperte**: R28-R33,
-> R35-R37, R39-R40 e R42-R44, R46-R47 — trovate *adeguando* i moduli alle Fasi
+> R35-R37, R39-R40 e R42-R44, R46-R48 — trovate *adeguando* i moduli alle Fasi
 > 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o testi
 > dentro un commit che cambiava la forma.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`, la versione è **2.6.0**. **Le prime cinque fasi sono chiuse** —
-> le loro voci stanno in [AS-IS.md](AS-IS.md). La prossima è U8.
+> `upgrade`, la versione è **2.7.0**. **Le prime otto fasi sono chiuse** —
+> le loro voci stanno in [AS-IS.md](AS-IS.md). La prossima è U9, l'i18n,
+> rinviata a suo tempo da D4.
 >
 > Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
 > di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
@@ -90,7 +91,7 @@ non dipende dal codice.
       deboli, quindi è il formato giusto per controllarne l'esito.
 
 ### C12 — voci residue
-La suite esiste — 659 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
+La suite esiste — 826 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 - [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
       oggi si sa quali difetti sono protetti, non quanto codice è toccato.
@@ -119,14 +120,14 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 | | decisione | esito |
 |---|---|---|
-| **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni. Adottata **solo dalla Fase 8**; fino ad allora ogni sezione nuova è statica. Ribalta il vincolo "NESSUNO SCRIPT" di `mars_report.py` e il test che lo presidia |
+| **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni. **Applicata in U8.4** (2026-08-25): `REFERTO_JS`, il grafo dei link. Il vincolo "NESSUNO SCRIPT" di `mars_report.py` è diventato "nessuna origine esterna", e i due test che lo presidiavano sono stati riscritti |
 | **D2** | Scala di severità canonica | **Sì**, quattro livelli `critical`/`warning`/`info`/`ok`. La granularità in più delle tre scale esistenti si conserva nel **peso**, non in livelli extra |
 | **D3** | Pesi del punteggio complessivo | **Sì**: aree misurate a peso 1.0, Recuperabilità-RRF e "In forma di risposta" a 1.5; **esclusi** Citabilità (sintesi derivata: conterebbe due volte) e Giudizio LLM (opzionale e a pagamento). Rinormalizzazione sulle aree presenti |
 | **D4** | Lingue | **Rinviata**: la i18n esce dal piano delle fasi e diventa la voce U9 qui sotto. Il referto resta in italiano finché non la si affronta |
 
 ### Fasi
 
-### U1-U7 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
+### U1-U8 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
 **U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
 nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
@@ -165,26 +166,17 @@ dell'RRF e le soglie nel dato; `mars_history.py` con lo storico JSONL
 append-only e il confronto per **chiave stabile** fra due esecuzioni, reso
 nelle tre viste umane. Bump a 2.6.0.
 
+**U8 — analisi della superficie** (G12), in quattro voci: `pages[]` e la
+profondità di crawl (U8.1), `surface_math` e la sezione «Superficie» nelle
+tre viste (U8.2), la treemap (U8.3) e il grafo dei link interni con il primo
+JavaScript del referto (U8.4). Bump a 2.7.0. Con U8.4 **D1 è applicata**: il
+vincolo del referto passa da «nessuno script» a «nessuna origine esterna», che
+è ciò che davvero garantisce l'autoconsistenza. Ha lasciato aperta **R47** (i
+rilievi non dichiarano la pagina che li ha prodotti, quindi la treemap non ha
+colore) e **R48** (il grafo non ha un test di comportamento nella suite).
+
 ### Altre fasi
 
-- [ ] **U8 — Analisi della superficie** (G12, Fase 8).
-  - [x] **U8.1** — `pages[]` nel dato canonico (url, titolo, lingua,
-        profondità, quanti heading e chunk, tipi Schema.org) e la
-        profondità di crawl registrata dal crawler: nota quando si seguono
-        i link, **ignota** per le pagine che vengono dalla sola sitemap.
-        Lo status HTTP non c'è e non si inventa.
-  - [x] **U8.2** — `surface_math` e la sezione «Superficie» nelle tre viste
-        umane: distribuzione di profondità a barre e superficie attuale
-        contro potenziale, con l'assunzione dichiarata **dentro il dato**
-        perché ogni vista la ripeta.
-  - [x] **U8.3** — treemap della superficie: SVG statico con `role="img"`,
-        `<title>` per rettangolo e tabella di ripiego in `<details>`. Senza
-        il colore di gravità che la fase prevedeva, e per una ragione che
-        vale una voce a sé: **R47**.
-  - [ ] **U8.4** — grafo dei link interni, e con esso **D1**: il primo
-        JavaScript nel referto, inline e in progressive enhancement. Va
-        adeguato nello stesso commit il test che oggi pretende «nessuno
-        script», da riscrivere come «nessuna origine esterna».
 - [ ] **U9 — i18n del referto** (G05, Fase 9) — *rinviata da D4*. Cataloghi e
       `--lang` per it/en/fr/de/es, riusando i cataloghi già scritti in
       marsbeacon dove i controlli coincidono. Ridurre a it/en è legittimo ma
@@ -700,6 +692,47 @@ di più di U8.
       `Finding`, che oggi lo elenca senza spiegarlo.
 - [ ] Se si separa: colorare la treemap, e togliere da `_treemap_html` la
       nota «il colore non è un giudizio».
+
+### R48 — ⚪ LIEVE: del JavaScript la suite verifica il testo, non il gesto
+*(trovata chiudendo U8.4, il 2026-08-25)*
+
+`REFERTO_JS` è presidiato da quattro test, e tutti guardano la **stringa**:
+che non contenga origini esterne, che non contenga dati del sito, che
+compaia solo dove c'è un grafo, che chiami `removeAttribute("hidden")` e
+`setAttribute("tabindex", "0")`. Nessuno lo **esegue**. Una mutazione che
+sposti i nodi nel punto sbagliato, o che evidenzi i vicini di un altro nodo,
+passerebbe tutti e quattro.
+
+Il comportamento si verifica con `tools/banco_grafo.py`, che fa girare lo
+script su un DOM finto in `node` — sul vero SVG prodotto da `mars_report`,
+non su uno scritto a mano — e controlla nove comportamenti. È un presidio
+reale (quattro mutazioni del JavaScript su quattro lo fanno diventare rosso)
+ma **non automatico**: nessuno lo lancia al posto di chi modifica il codice.
+
+Perché non è già nella suite: servirebbe `node` — e con esso, per farlo
+bene, `jsdom`. È la trappola di `node_modules/axe-core` in un'altra forma:
+un test che gira qui e non su un clone appena fatto rende la suite
+**dipendente dalla macchina**, e la regola del progetto è che `pytest` non
+esca dal proprio ambiente. Un `pytest.mark.skipif` su `node` assente sarebbe
+onesto, ma un test che sulla macchina di chi non ha node è sempre verde
+perché sempre saltato è un presidio che non presidia.
+
+Tre strade, in ordine di costo:
+
+- ~~conservare il banco di prova nel repo e documentarlo in CONTRIBUTING~~
+  — **fatto** con `tools/banco_grafo.py`: non è automatico, ma non è più
+  un'esecuzione persa. È il minimo, non la soluzione;
+- **portare le funzioni pure in Python** — la disposizione ad anelli è
+  aritmetica, e calcolarla in `mars_report` la renderebbe testabile con la
+  suite di sempre, lasciando al JS il solo compito di applicarla;
+- **`jsdom` in `requirements-dev`** e un test marcato, accettando che la
+  suite dipenda da npm.
+
+La seconda è la sola che porti il comportamento dentro `pytest` senza
+allargare l'ambiente, ed è anche quella che riduce il JavaScript.
+
+- [ ] Scegliere fra le due rimaste, e nel frattempo non toccare
+      `REFERTO_JS` senza rilanciare `tools/banco_grafo.py`.
 
 ---
 

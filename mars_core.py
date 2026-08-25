@@ -18,7 +18,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from types import ModuleType
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -826,26 +826,15 @@ class Crawler:
     # -- scoperta dei link ----------------------------------------
 
     def estrai_link(self, soup: BeautifulSoup, base: str) -> List[str]:
-        """Link interni della pagina, normalizzati e filtrati.
+        """Link interni della pagina: `link_interni` con i dati del crawler.
 
         Il filtro same-host e la normalizzazione sono gli stessi usati
         per gli URL della sitemap: la scoperta per link non e' una
         seconda strada che aggira le regole, e' la stessa strada con
         una sorgente diversa.
         """
-        trovati = []
-        for ancora in soup.find_all("a", href=True):
-            href = (ancora.get("href") or "").strip()
-            if not href or href.lower().startswith(SCHEMI_NON_HTTP):
-                continue
-            url = safe_normalize_url(href, base)
-            if url is None:
-                self._scarta_illeggibile(href)
-                continue
-            if url.startswith(("http://", "https://")) \
-                    and host_matches(url, self.base_host):
-                trovati.append(url)
-        return trovati
+        return link_interni(soup, base, self.base_host,
+                            self._scarta_illeggibile)
 
     # -- scansione ------------------------------------------------
 
@@ -925,6 +914,12 @@ class Crawler:
             title = soup.title.get_text(strip=True) if soup.title else ""
             html_tag = soup.find("html")
             lingua = (html_tag.get("lang") or "") if html_tag else ""
+            # SEMPRE, non solo quando si seguono i link: il grafo dei
+            # link interni e' un dato della pagina, e un sito con
+            # sitemap — cioe' quasi tutti — resterebbe altrimenti senza
+            # architettura da mostrare. Costa un attraversamento del
+            # DOM gia' in memoria.
+            uscenti = self.estrai_link(soup, url)
             self.pages[url] = {
                 "title": title,
                 # Distanza in click dalla home, o None se la pagina
@@ -959,6 +954,11 @@ class Crawler:
                 # interrogativi giusti.
                 "lang": lingua.strip().lower()[:2],
                 "text": soup.get_text(separator=" ", strip=True),
+                # I link in USCITA, deduplicati e ordinati: la stessa
+                # voce di menu su ogni pagina e' un arco solo, e
+                # l'ordine dev'essere stabile perche' il disegno del
+                # grafo non cambi fra due esecuzioni identiche.
+                "link_targets": sorted({u for u in uscenti if u != url}),
                 "headings": [h.get_text(strip=True)
                              for h in soup.find_all(["h1", "h2", "h3"])],
                 "html": testo_html,
@@ -971,13 +971,48 @@ class Crawler:
                 # urljoin sull'URL di ARRIVO, non su quello richiesto:
                 # dopo un redirect i link relativi si risolvono
                 # rispetto a dove si e' finiti.
-                for link in self.estrai_link(soup, url):
+                for link in uscenti:
                     if link not in visti:
                         # In questo ramo la profondita' e' sempre nota:
                         # ci si arriva solo partendo dalla home, che
                         # entra in coda a 0.
                         coda.append((link, (profondita or 0) + 1))
         return self.pages
+
+
+def link_interni(soup: BeautifulSoup, base: str, base_host: str,
+                 scarta: Optional[Callable[[str], None]] = None
+                 ) -> List[str]:
+    """I link della pagina che restano dentro il sito, normalizzati.
+
+    Sta qui, a livello di modulo, e non dentro il `Crawler` per la
+    stessa ragione di `estrai_struttura`: la fixture dei test deve
+    poter costruire una pagina **con la stessa funzione** che gira in
+    produzione. Una fixture che riscriva a mano l'estrazione dei link
+    congelerebbe nei golden un grafo che il crawler vero non produce —
+    e' il difetto che R44 ha pagato sui titoli axe.
+
+    `scarta` riceve gli href non analizzabili. E' un parametro e non
+    un `raise` perche' chi chiama decide se sono un dato da dichiarare
+    (il crawler li mette in `skipped`) o rumore da ignorare.
+
+    Duplicati conservati: chi costruisce il grafo li riduce, ma la
+    coda del crawler li vuole nell'ordine del documento.
+    """
+    trovati = []
+    for ancora in soup.find_all("a", href=True):
+        href = (ancora.get("href") or "").strip()
+        if not href or href.lower().startswith(SCHEMI_NON_HTTP):
+            continue
+        url = safe_normalize_url(href, base)
+        if url is None:
+            if scarta is not None:
+                scarta(href)
+            continue
+        if url.startswith(("http://", "https://")) \
+                and host_matches(url, base_host):
+            trovati.append(url)
+    return trovati
 
 
 def estrai_struttura(soup: BeautifulSoup) -> dict:

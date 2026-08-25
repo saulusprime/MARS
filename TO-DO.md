@@ -123,6 +123,9 @@ La suite esiste — 900 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 Il piano completo sta in [UPGRADE.md](UPGRADE.md): 15 divari individuati
 confrontando sul codice `MARS/` (la versione definitiva) e `marsbeacon/` (il
 riferimento per la reportistica), ciascuno verificato in modo avversariale.
+**Undici sono colmati**, e il documento dichiara in testa quali fasi sono
+eseguite: resta il piano, non diventa un registro — è il termine di paragone
+rispetto a cui si legge una divergenza.
 
 Le **decisioni D1-D4**, il **quadro delle nove fasi chiuse** — che cosa ha
 fatto ciascuna, con quale versione, e che cosa ha lasciato aperto — e le

@@ -21,6 +21,43 @@
 
 ---
 
+## Stato del programma (aggiornato il 2026-08-25)
+
+**Nove fasi su dodici sono eseguite.** `__version__` è a **2.8.0**, il lavoro
+sta sul ramo `upgrade`, e ogni fase chiusa ha la propria voce in
+[AS-IS.md](AS-IS.md) con misure, decisioni editoriali e mutazioni. Restano
+**U10** (giudizio LLM multi-modello), **U11** (deliverable rifinito) e **U12**
+(ancore esterne, opzionale); le voci aperte stanno in [TO-DO.md](TO-DO.md).
+
+**Questo documento resta il PIANO, e non diventa un registro**: la differenza
+conta, perché il piano è ciò rispetto a cui si misura una divergenza. Il testo
+delle nove fasi chiuse **non è stato potato** proprio per questo — trentacinque
+punti fra codice, test e AS-IS citano ciò che il piano *prevedeva* per dire che
+si è fatto diversamente, e perché. Tre esempi, che sono anche il modo in cui
+questo documento va letto oggi:
+
+- l'ancora di un rilievo doveva essere uno slug ricavato dal **titolo**, coi
+  numeri normalizzati perché «2/3 pagine» e «1/3 pagine» non producessero due
+  ancore diverse. Non è servito: dalla Fase 1 ogni rilievo ha una `key` stabile
+  per costruzione, che è esattamente il problema che quello slug risolveva a
+  valle. Il riferimento non aveva chiavi, noi sì
+  ([mars_report.py:1859](mars_report.py#L1859));
+- la Fase 8 prevedeva di **colorare ogni pagina della treemap** con la gravità
+  peggiore dei rilievi che la citano. Applicata alla lettera, quella regola non
+  trova mai una corrispondenza e dipinge tutto di «nessun problema» — un via
+  libera che nessuno ha misurato. La treemap è uscita neutra e lo dichiara; il
+  divario è **R47** ([mars_report.py:585](mars_report.py#L585));
+- la Fase 4 prevedeva una chiave `top_actions` accanto ai profili di
+  citabilità. Non è stata aggiunta: sarebbe stata una seconda copia del piano,
+  che diverge in silenzio dalla prima
+  ([AS-IS.md:3856](AS-IS.md#L3856)).
+
+Da qui la regola per chi riprende in mano il documento: **le fasi 1-9 si
+leggono insieme alla loro voce in AS-IS**, che dice che cosa è stato fatto
+davvero. Dove le due divergono, ha ragione AS-IS.
+
+---
+
 ## 1. Le due versioni in breve
 
 | Aspetto | MARS/ (definitiva) | marsbeacon/ (riferimento report) |
@@ -68,7 +105,19 @@ novità entrano **prima nel dato, poi nelle viste** — mai il contrario.
 
 ---
 
-## 3. Decisioni da ratificare prima di iniziare
+## 3. Decisioni da ratificare prima di iniziare — ✅ tutte ratificate
+
+> **Aggiornamento 2026-08-25.** Tutte e quattro sono ratificate e
+> **applicate**: D2 dalla Fase 1, D3 dalla Fase 5, D1 dalla Fase 8.4, D4 dalla
+> Fase 9.1. L'esito di ciascuna, con la fase che l'ha applicata, sta in
+> [AS-IS.md](AS-IS.md).
+>
+> Il testo qui sotto **resta**, e non è un doppione: è la *proposta* com'era
+> scritta prima di decidere, con la risposta data allora. AS-IS registra
+> l'esito, non la domanda — e su D4 le due cose divergono, il che è
+> esattamente ciò che si vuole poter rileggere: la proposta era cinque lingue
+> «riusando i cataloghi già scritti», e misurando prima di eseguire si è visto
+> che dei cataloghi del riferimento coincidono **4 chiavi su 49**.
 
 Quattro punti in cui l'adeguamento tocca un invariante o richiede una
 scelta di progetto. Vanno decisi (e registrati in AS-IS/TO-DO) prima
@@ -113,6 +162,13 @@ della fase che li incontra, per non deciderli "di fatto" scrivendo codice.
 
 ## 4. Ordine dei lavori e dipendenze
 
+> **Aggiornamento 2026-08-25.** L'ordine è stato seguito ed è **speso per le
+> prime nove**: G01 per primo, i golden subito dopo, e da lì ogni fase con la
+> rete sotto. Resta valido per le tre che mancano, che non hanno dipendenze
+> fra loro — U11 e U12 si possono fare in qualunque ordine, U10 porta con sé
+> **U10.1** (i punti deboli del giudizio come rilievi strutturati), che senza
+> il multi-modello non ha la misura che le serve.
+
 Il divario G01 (modello dati dei rilievi) è il **prerequisito** di quasi
 tutto: G02, G03, G05, G06, G07 (tile e donut), G11. Va chiuso per primo.
 I golden (G10) arrivano subito dopo, così ogni fase successiva ha una
@@ -146,7 +202,9 @@ e diff rivisto a ogni modifica di resa intenzionale.
 
 ## 5. Le fasi in dettaglio
 
-### Fase 1 — Il modello dati dei rilievi (G01) — PREREQUISITO
+### Fase 1 — Il modello dati dei rilievi (G01) — ✅ CHIUSA (2026-08-24)
+
+> **Fatta.** `__version__` a 2.1.0, nove sotto-voci. Ha lasciato aperte **R39**, **R40**, **R42** e **U13**: adeguare la forma ha fatto leggere sei moduli riga per riga, e ogni difetto trovato lì è rimasto aperto invece di essere corretto dentro un commit che non doveva spostare punteggi né testi. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 **Il problema.** In MARS/ i rilievi sono stringhe piatte con la gravità
 codificata in prefissi testuali **diversi per modulo**: `[critico]`…
@@ -219,7 +277,9 @@ vedere il test fallire, come da metodo del progetto.
 
 ---
 
-### Fase 2 — Golden test dei formati (G10)
+### Fase 2 — Golden test dei formati (G10) — ✅ CHIUSA (2026-08-24)
+
+> **Fatta.** Sei file in `tests/golden/`. Congelano la **pipeline**, non i soli renderer: anche un punteggio che cambia li fa fallire. Ha lasciato aperta **R43**. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 **Il problema.** `MARS/tests/test_report.py:54-59` e `132-141` fanno solo
 asserzioni puntuali: una modifica di resa non intenzionale che non tocca
@@ -256,7 +316,9 @@ nel CSS fa fallire il golden HTML con diff leggibile.
 
 ---
 
-### Fase 3 — I testi di correzione: `fix` ed `example` (G03)
+### Fase 3 — I testi di correzione: `fix` ed `example` (G03) — ✅ CHIUSA (2026-08-24)
+
+> **Fatta.** `__version__` a 2.2.0, il catalogo `mars_fixes.py`. Ha lasciato aperta **R44**, chiusa poi dalla Fase 9.3. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 **Il problema.** I moduli di MARS/ descrivono il difetto ("CSP mancante",
 "[grave] 2/100 pagine con noindex") ma non dicono mai **come** risolvere
@@ -302,7 +364,9 @@ analizzato: passare tutto da `_e()`, `mars_report.py:373-375`).
 
 ---
 
-### Fase 4 — Il piano di remediation (G02) — il cuore dell'adeguamento
+### Fase 4 — Il piano di remediation (G02) — ✅ CHIUSA (2026-08-25)
+
+> **Fatta.** `__version__` a 2.3.0. Ogni intervento dichiara il **recupero**, non la penalità. La `top_actions` prevista qui **non** è stata aggiunta: sarebbe stata una seconda copia del piano. Ha lasciato aperta **R46**. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 > **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
 > rilievi — piano di interventi, conteggi per gravità, confronto fra due
@@ -375,7 +439,9 @@ mars_citability su un caso costruito a mano.
 
 ---
 
-### Fase 5 — Punteggio complessivo, hero e ancore (G07, G11)
+### Fase 5 — Punteggio complessivo, hero e ancore (G07, G11) — ✅ CHIUSA (2026-08-25)
+
+> **Fatta.** `__version__` a 2.4.0. Le ancore vengono dalla `key` e non dallo slug del titolo previsto qui — il riferimento non aveva chiavi, MARS sì. Chiude **R41**. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 > **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
 > rilievi — piano di interventi, conteggi per gravità, confronto fra due
@@ -433,7 +499,9 @@ titolo; hero presente e conteggi coerenti coi findings.
 
 ---
 
-### Fase 6 — Formati Markdown e CSV (G04)
+### Fase 6 — Formati Markdown e CSV (G04) — ✅ CHIUSA (2026-08-25)
+
+> **Fatta.** `__version__` a 2.5.0. Registrati in `RENDERERS`, quindi la CLI e i golden li acquisiscono da soli. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 **Passi.**
 
@@ -464,7 +532,9 @@ col piano.
 
 ---
 
-### Fase 7 — Riproducibilità e storia (G09, G06)
+### Fase 7 — Riproducibilità e storia (G09, G06) — ✅ CHIUSA (2026-08-25)
+
+> **Fatta.** `__version__` a 2.6.0. Il confronto è per **chiave stabile** e non per titolo. Realizza anche l'idea **I1** del TO-DO, in una forma diversa da quella proposta lì. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 > **Vincolo dei rilievi derivati (R41).** Ogni consumatore che **aggrega**
 > rilievi — piano di interventi, conteggi per gravità, confronto fra due
@@ -519,7 +589,9 @@ riga di storico ben formata e append-only.
 
 ---
 
-### Fase 8 — Le analisi della superficie (G12)
+### Fase 8 — Le analisi della superficie (G12) — ✅ CHIUSA (2026-08-25)
+
+> **Fatta.** `__version__` a 2.7.0, e con U8.4 **D1 è applicata**. La colorazione della treemap prevista qui è rimasta **non fatta**, e non per dimenticanza: applicata alla lettera non trova mai una corrispondenza. Ha lasciato aperte **R47** e **R48**. Il dettaglio — misure, decisioni editoriali, mutazioni — sta in [AS-IS.md](AS-IS.md). Il piano qui sotto resta com'era scritto: è il termine di paragone delle divergenze.
 
 **Passi.**
 
@@ -635,7 +707,7 @@ sintetico completo in `en` (ogni rilievo emesso ha la sua traduzione).
 
 ---
 
-### Fase 10 — Giudizio LLM multi-modello (G08)
+### Fase 10 — Giudizio LLM multi-modello (G08) — ⬜ DA FARE
 
 **Il problema.** MARS/ ha il solo giudice Anthropic
 (`mars_llm_judge.py:18`, client a `184-192`) con esito aggregato;
@@ -684,7 +756,7 @@ altri dal referto; scarti calcolati giusti su numeri costruiti.
 
 ---
 
-### Fase 11 — Il deliverable rifinito: stampa, tabelle, brand (G14, G15)
+### Fase 11 — Il deliverable rifinito: stampa, tabelle, brand (G14, G15) — ⬜ DA FARE
 
 **Passi (G14 — stampa e accessibilità).**
 
@@ -726,7 +798,7 @@ altri dal referto; scarti calcolati giusti su numeri costruiti.
 
 ---
 
-### Fase 12 — Ancore esterne alla simulazione (G13) — OPZIONALE
+### Fase 12 — Ancore esterne alla simulazione (G13) — ⬜ DA FARE, OPZIONALE
 
 Due sezioni di marsbeacon confrontano la simulazione col mondo reale.
 Richiedono prima il **motore**, poi la resa; sono l'ultima fase perché
@@ -756,6 +828,15 @@ il valore è alto ma non dipende da nulla e nulla vi dipende.
 ---
 
 ## 6. La scheda definitiva del referto di MARS/ dopo l'adeguamento
+
+> **Aggiornamento 2026-08-25.** È la scheda **a lavori conclusi**, quindi
+> descrive in parte il presente e in parte l'obiettivo. Ciò che manca viene
+> tutto dalle tre fasi che restano: i giudizi multi-modello con gli scarti
+> (Fase 10), il CSS di stampa, l'accessibilità delle tabelle e il brand nel
+> footer (Fase 11), le ancore esterne (Fase 12). Il resto è in piedi, e la
+> forma esatta del dato canonico prodotto oggi si legge senza fidarsi di
+> questa scheda: sta congelata in `tests/golden/referto.json`, che è
+> aggiornato per costruzione.
 
 Questa è la fotografia del referto a lavori conclusi: il contratto che
 le fasi devono realizzare e che i golden congelano.
@@ -978,25 +1059,44 @@ opzionali, tutte con degradazione dichiarata.
 
 ## 7. Tracciabilità divario → fase
 
-| Divario | Titolo breve | Fase | Verificato |
-|---|---|---|---|
-| G01 | Finding tipizzato e severità unificata | 1 | ✔ |
-| G02 | Piano di remediation ordinato | 4 | ✔ |
-| G03 | Fix ed esempi per ogni controllo | 3 | ✔ |
-| G04 | Formati Markdown e CSV | 6 | ✔ |
-| G05 | i18n a 5 lingue con `--lang` | 9 | ✔ |
-| G06 | Delta e storico JSONL | 7 | ✔ |
-| G07 | Complessivo + hero | 5 | ✔ |
-| G08 | Judges multi-modello con scarti | 10 | ✔ |
-| G09 | schema_version, RRF, soglie | 7 | ✔ |
-| G10 | Golden test | 2 | ✔ |
-| G11 | Ancore stabili e permalink | 5 | ✔ |
-| G12 | Profondità, treemap, grafo, matematica, pages[] | 8 | ✔ |
-| G13 | Brave Search e competitivo | 12 (opz.) | ✔ |
-| G14 | Stampa e a11y tabelle | 11 | ✔ |
-| G15 | Brand nel footer con fallback | 11 | ✔ |
+La colonna **Verificato** dice che il divario è stato accertato sul codice
+il 2026-08-21; **Colmato** dice che la fase che lo chiude è stata eseguita.
+
+| Divario | Titolo breve | Fase | Verificato | Colmato |
+|---|---|---|---|---|
+| G01 | Finding tipizzato e severità unificata | 1 | ✔ | ✅ |
+| G02 | Piano di remediation ordinato | 4 | ✔ | ✅ |
+| G03 | Fix ed esempi per ogni controllo | 3 | ✔ | ✅ |
+| G04 | Formati Markdown e CSV | 6 | ✔ | ✅ |
+| G05 | i18n con `--lang` | 9 | ✔ | ✅ **it/en**, non cinque lingue: D4 |
+| G06 | Delta e storico JSONL | 7 | ✔ | ✅ |
+| G07 | Complessivo + hero | 5 | ✔ | ✅ |
+| G08 | Judges multi-modello con scarti | 10 | ✔ | ⬜ |
+| G09 | schema_version, RRF, soglie | 7 | ✔ | ✅ |
+| G10 | Golden test | 2 | ✔ | ✅ |
+| G11 | Ancore stabili e permalink | 5 | ✔ | ✅ dalla `key`, non dallo slug |
+| G12 | Profondità, treemap, grafo, matematica, pages[] | 8 | ✔ | ✅ senza il colore della treemap: **R47** |
+| G13 | Brave Search e competitivo | 12 (opz.) | ✔ | ⬜ |
+| G14 | Stampa e a11y tabelle | 11 | ✔ | ⬜ |
+| G15 | Brand nel footer con fallback | 11 | ✔ | ⬜ |
 
 Tutti i riferimenti `file:riga` di questo documento sono stati
 verificati sul codice il 2026-08-21; se il codice evolve prima
 dell'esecuzione di una fase, rifare il controllo delle righe citate
 prima di intervenire.
+
+> **E il codice è evoluto.** Misurato il 2026-08-25 su un campione: dei
+> `file:riga` scritti nel piano nessuno punta più a ciò che nomina —
+> `mars_core.py:102` cade su un `return value`, `mars_report.py:30` su una riga
+> di import, `tests/test_report.py:132` su una riga vuota.
+>
+> **Non sono stati rinfrescati, ed è deliberato**, a differenza di quelli del
+> TO-DO, che indicano lavoro *da fare* e sono stati riverificati uno per uno.
+> Qui indicano il codice **com'era il 2026-08-21**: sono la fotografia su cui
+> il divario è stato accertato, e aggiornarli la cancellerebbe senza aggiungere
+> nulla, perché il piano delle nove fasi chiuse non si esegue più. Fanno
+> eccezione i riferimenti nello **Stato del programma** in testa, che sono di
+> oggi perché servono a leggere il presente.
+>
+> Chi apre la Fase 10, 11 o 12 rifaccia il controllo prima di intervenire, come
+> questa nota chiedeva già.

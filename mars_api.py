@@ -30,10 +30,6 @@ from mars_report import build_report
 # CONFIGURAZIONE API & SICUREZZA
 # ==============================================================================
 
-# La chiave NON sta nel sorgente: chiunque legga il repository potrebbe
-# firmare token validi. Senza MARS_SECRET_KEY se ne genera una effimera,
-# che invalida i token a ogni riavvio — inutilizzabile in produzione, ed
-# e' esattamente il punto: il messaggio lo dice.
 SECRET_KEY = os.environ.get("MARS_SECRET_KEY", "")
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_hex(32)
@@ -88,8 +84,6 @@ class Token(BaseModel):
 
 
 class User(BaseModel):
-    """Utente come esce dall'API: senza credenziali."""
-
     username: str
     email: str | None = None
     full_name: str | None = None
@@ -101,8 +95,6 @@ class User(BaseModel):
 
 
 class UserInDB(User):
-    """Utente come sta nel DB: aggiunge l'hash, non esce mai di qui."""
-
     hashed_password: str
 
 

@@ -2,29 +2,21 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.7.0 — Fase 8 del programma UPGRADE: il referto guarda la
-**superficie** del sito. Quante pagine ci sono e a che distanza dalla
-home, quanto contenuto recuperabile porta ciascuna (treemap), come
-sono collegate fra loro (grafo dei link interni) e di quanto si
-moltiplicherebbero i passaggi recuperabili se le pagine avessero il
-contenuto che ci si da' per obiettivo. Le fasi precedenti hanno reso
-strutturati i rilievi (1), congelato la resa in `tests/golden/` (2),
-scritto come si aggiusta ogni controllo (3), ordinato gli interventi
-per quanto rendono (4), messo in testa il complessivo con le ancore
-stabili (5), aggiunto Markdown e CSV (6) e reso il referto
-riproducibile e confrontabile con l'esecuzione precedente (7).
-Il piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
+Versione 2.7.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
-interno), ne estrae la struttura, e valuta sette aree strategiche:
-
+interno), ne estrae la struttura, e valuta sette aree strategiche.
 La sitemap, quando c'e', e' autoritativa: e' la dichiarazione del sito
-su cosa vuole far indicizzare, e viene rispettata. Si cercano prima le
-direttive Sitemap: di robots.txt, poi /sitemap.xml, seguendo gli indici
+su cosa vuole far indicizzare, e viene rispettata, salvo l'utente
+non si dichiari proprietario e si assume la responsabilita' di non
+rispettare robots.txt oppure llms.txt. Si cercano prima le direttive
+Sitemap di robots.txt, poi /sitemap.xml, seguendo gli indici
 annidati e le sitemap compresse. Senza sitemap si scoprono le pagine
-seguendo i link interni in ampiezza, con le stesse regole: robots.txt
-rispettato, solo stesso host, URL normalizzati, e stop a --max-pages.
-Il referto dichiara con quale delle due il campione e' stato costruito.
+seguendo i link interni sempre con la stessa regola di prima e ci si
+ferma dopo aver raggiunto --max-pages. Il referto dichiara con quale
+delle due il campione e' stato costruito (sitemap o crawling interno).
+Queste sono le aree tematiche su cui il programma effettua l'analisi
+e crea il referto:
 
 1. Tecnica          (mars_tech)     indicizzabilita', robots.txt, 
                                     sitemap, crawler IA
@@ -46,47 +38,27 @@ Il referto dichiara con quale delle due il campione e' stato costruito.
 6. Accessibilità    (mars_wcag)     compatibilità WCAG
 7. Sicurezza        (mars_wapt)     test WAPT di superficie
 
-La sezione **Superficie** guarda il sito invece delle sue singole
-aree, e risponde a una domanda che nessuna delle sette pone: quanto
-c'e' da recuperare, e come ci si arriva.
-
+Vi è poi una analisi generale di "superficie" che guarda al sito
+analizzato concentrandosi su tutte le singole aree specifiche e cerca
+di rispondere ad una domanda che nessuna area specifica pone: quanto
+c'e' da recuperare, e come ci si arriva, ovvero la fotografia attuale
+con la valutazione e la remediation con esempi per aiutare a migliorare
+il punteggio. L'analisi generale di superficie guarda anche:
   - la **distribuzione di profondita'**, cioe' quanti click dalla home
     servono per raggiungere ogni pagina. Le pagine che vengono dalla
-    sola sitemap hanno profondita' IGNOTA e un secchiello loro: sono
-    dichiarate dal sito ma nessuno le ha raggiunte seguendo i link;
+    sola sitemap hanno profondita' IGNOTA: sono dichiarate dal sito 
+    ma nessuno le ha raggiunte seguendo i link;
   - la **treemap della superficie**: un rettangolo per pagina, area
     proporzionale alle parole recuperabili. Si legge a colpo d'occhio
-    un sito che ha tutto il testo in una pagina sola. Il colore NON e'
-    un giudizio, e il referto lo dice: nessun rilievo dichiara oggi la
-    pagina che lo ha prodotto;
+    un sito che ha tutto il testo in una pagina sola;
   - il **grafo dei link interni**: chi linka chi fra le pagine viste,
     con i nodi grandi quanto i link che ricevono e le pagine che dalla
-    home non si raggiungono per link marcate come tali. Gli archi sono
-    solo quelli fra pagine scansionate — un capo verso una pagina mai
-    guardata direbbe che e' stata guardata — e quando il campione e'
-    parziale il referto avverte che «orfana» puo' voler dire soltanto
-    che chi la linka non e' stato scaricato;
+    home non si raggiungono per link marcate come tali;
   - la **matematica della superficie**: quanti passaggi recuperabili
     ci sono e quanti ce ne sarebbero con pagine di contenuto
     sostanziale. E' una PROIEZIONE dichiarata, non una misura, e
     l'assunzione (circa 900 parole per pagina, da cui il chunker
-    ricava quattro passaggi) viaggia dentro il dato perche' ogni vista
-    la ripeta.
-
-Treemap e grafo stanno nel solo referto HTML, ciascuno con la propria
-tabella di ripiego in `<details>`: e' quella la lettura accessibile, e
-porta gli stessi numeri del disegno.
-
-Il grafo e' l'unica parte del referto con del **JavaScript**, inline e
-in progressive enhancement (decisione D1 del programma UPGRADE): il
-disegno e' gia' completo nell'HTML — nodi, archi, frecce, etichette,
-posizionati da un layout a forze calcolato in Python — e lo script
-aggiunge solo la lettura: evidenziare un nodo con i suoi collegamenti,
-disporre le pagine ad anelli per distanza dalla home, ingrandire.
-Senza JavaScript restano il disegno e la tabella, e i comandi non
-compaiono affatto. Nessuna origine esterna, nessuna richiesta di rete,
-nessun dato del referto dentro il codice: lo script legge tutto dagli
-attributi del DOM.
+    ricava quattro passaggi);
 
 In piu' esegue una **simulazione RRF**: costruisce due recuperatori
 indipendenti (uno lessicale Okapi BM25, uno vettoriale) sui chunk del

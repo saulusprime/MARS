@@ -66,6 +66,7 @@
 | U7 | Riproducibilità e storia; `__version__` a 2.6.0 | 2026-08-25 |
 | U8 | Analisi della superficie; `__version__` a 2.7.0 | 2026-08-25 |
 | U9 | i18n del referto (it/en); `__version__` a 2.8.0 | 2026-08-25 |
+| R44 | Nel ramo axe il referto parlava inglese | 2026-08-25 |
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 
@@ -4830,6 +4831,91 @@ voce sul codice.
 
 - [x] `_AdattatoreFinto` in `tests/test_core.py` e le regressioni di R15-R24;
       la fedeltà dell'adattatore è a sua volta presidiata.
+
+
+### Programma UPGRADE — ✅ le quattro decisioni e il quadro delle nove fasi
+
+*(spostato qui dal TO-DO il 2026-08-25: erano centoquattro righe di lavoro
+**concluso** dentro un file che dichiara di contenere «solo ciò che resta da
+fare». Le decisioni D1 e D4 non erano registrate altrove, quindi non sono state
+cancellate ma trasferite.)*
+
+**Le quattro decisioni**, ratificate il 2026-08-21 e registrate perché non
+venissero prese «di fatto» scrivendo codice. Tutte e quattro sono ora
+**applicate**, e la colonna dice da quale fase.
+
+| | decisione | esito | applicata da |
+|---|---|---|---|
+| **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni | **U8.4**: `REFERTO_JS`, il grafo dei link. Il vincolo «NESSUNO SCRIPT» di `mars_report.py` è diventato «nessuna origine esterna» — che è il vincolo vero, perché un `<script src>` fa uscire il referto dal file e uno inline no — e i due test che lo presidiavano, **verdi per caso**, sono stati riscritti |
+| **D2** | Scala di severità canonica | **Sì**, quattro livelli `critical`/`warning`/`info`/`ok`. La granularità in più delle tre scale esistenti si conserva nel **peso**, non in livelli extra | **U1**, in tutte e nove le aree |
+| **D3** | Pesi del punteggio complessivo | **Sì**: aree misurate a peso 1.0, Recuperabilità-RRF e «In forma di risposta» a 1.5; **esclusi** Citabilità (sintesi derivata: conterebbe due volte) e Giudizio LLM (opzionale e a pagamento). Rinormalizzazione sulle aree presenti | **U5**, `overall_score()` |
+| **D4** | Lingue | **it ed en**, ed è un livello **inferiore** al riferimento a cinque lingue, dichiarato come tale. Il riuso previsto dal piano è stato **misurato prima di decidere**: dei cataloghi di marsbeacon coincidono 4 chiavi su 49, perché il riferimento non ha una sola chiave `wcag.`, `sec.` o `seo.`. Le traduzioni si scrivono, e quattro lingue che nessuno qui può verificare sarebbero qualità **non misurata** (principio 5) | **U9.1**, ratificata il 2026-08-25. L'impianto non assume che le lingue siano due |
+
+**Il quadro delle nove fasi.** Il dettaglio di ciascuna sta nella sua voce; qui
+c'è ciò che nessuna voce singola dice — che cosa ogni fase ha **lasciato
+aperto**, che è il filo per cui il TO-DO le teneva elencate.
+
+| fase | che cosa | versione | ha lasciato aperto |
+|---|---|---|---|
+| **U1** | modello dati dei rilievi (`Finding`), nove sotto-voci: tutte le aree emettono `findings` accanto alle `issues`, che non cambiano di una parola | 2.1.0 | **R39** (U1.6), **R40** (U1.7), **R42** (U1.8), **U13** — adeguare la *forma* ha fatto leggere sei moduli riga per riga, e ogni difetto trovato lì è stato lasciato aperto invece che corretto dentro un commit che non doveva spostare punteggi né testi |
+| **U2** | i golden: sei file che congelano tre formati su due referti sintetici, uno completo e uno con ogni strumento assente | — | **R43** |
+| **U3** | i testi `fix` ed `example`: il catalogo `mars_fixes.py`, e la regola «la spiegazione in `detail`, la prescrizione in `fix`» | 2.2.0 | **R44** (chiusa da U9.3) |
+| **U4** | il piano di interventi: quanto risale il punteggio se lo si chiude — il **recupero**, non la penalità — quanto ne guadagna l'indice e su quale assistente | 2.3.0 | **R46** |
+| **U5** | complessivo, hero e ancore stabili ricavate dalla `key` invece che dallo slug del titolo | 2.4.0 | chiude **R41** |
+| **U6** | Markdown e CSV, registrati in `RENDERERS` — la CLI e i golden li acquisiscono da soli | 2.5.0 | — |
+| **U7** | riproducibilità e storia: `schema_version`, i parametri dell'RRF, e il confronto per **chiave stabile** fra due esecuzioni | 2.6.0 | realizza **I1** |
+| **U8** | l'analisi della superficie: profondità di crawl, `surface_math`, treemap, grafo dei link | 2.7.0 | **R47**, **R48** |
+| **U9** | i18n del referto (it/en), fino alla lingua **chiesta agli strumenti** | 2.8.0 | chiude **R44** |
+
+**Le convenzioni della lavorazione**, dal documento di piano: un commit per
+fase, bump di `__version__` (minor per fase), `pytest` verde senza rete e
+`flake8 .` a zero prima del commit, golden rigenerati **intenzionalmente**
+dalla Fase 2 in poi. Il lavoro sul ramo `upgrade`.
+
+
+### R44 — ✅ RISOLTO (2026-08-25, da U9.3): nel ramo axe il referto parlava inglese
+
+*(la voce è stata scritta il 2026-08-25 verificando che ogni correzione
+dichiarata chiusa avesse una sezione qui: R44 era stata chiusa **dentro** la
+voce U9.3 e non ne aveva una propria — chi l'avesse cercata non avrebbe
+trovato nulla, che è lo stesso difetto di R46 al contrario)*
+
+**Il difetto.** `mars_wcag` prendeva il titolo del rilievo dal campo `help`
+della violazione, cioè da ciò che axe manda **in inglese**, mentre il `fix`
+veniva dal file di locale italiano del pacchetto npm. Il referto mostrava
+quindi «Images must have alternative text» dentro un'interfaccia italiana,
+accanto a una prescrizione che italiana lo era. E la riga compatta divergeva
+per di più dal rilievo, perché leggeva `voce["help"]` grezzo mentre il
+`Finding` — dopo la correzione — porta il titolo tradotto.
+
+**La fixture nascondeva il difetto, e la voce lo sospettava.** `_violazioni_axe()`
+scriveva `help` in italiano, quindi `tests/golden/referto.txt` mostrava un
+referto più bello di quello vero. Verificato: i testi che la fixture usava non
+erano né l'inglese di axe né l'italiano del locale — «Il contrasto deve essere
+sufficiente» contro il vero «Gli elementi devono soddisfare le soglie minime
+del rapporto di contrasto di colore». Erano **inventati**.
+
+**La soluzione.** Delle due strade che la voce elencava si è presa la prima —
+leggere il locale in Python — per la ragione già scritta nella docstring di
+`testi_axe`: `axe.configure({locale})` dentro la pagina farebbe fallire
+`axe.run` su un locale illeggibile, e costerebbe **la misura** invece dei soli
+testi. `_leggi_locale_axe` restituisce ora entrambi i campi (`help` → titolo,
+`description` → `fix`) e il ripiego è **campo per campo** su ciò che axe ha
+mandato.
+
+**Verificato**: nel golden completo `wcag.axe.image_alt` porta «Le immagini
+devono avere un testo alternativo» e un `fix` che è un'altra frase; la riga
+compatta dice la stessa cosa del rilievo; e `wcag.axe.label` — la regola che il
+locale fissato non conosce, di proposito — mostra titolo **e** `fix` inglesi,
+cioè il ripiego dichiarato reso visibile. Una mutazione che riporti
+`title=voce["help"]` fa fallire la suite.
+
+Il dettaglio della fase, con la lingua chiesta anche a Lighthouse e la nota che
+dichiara quali strumenti hanno scritto in un'altra lingua, sta nella voce
+**U9.3**.
+
+- [x] Tradurre i titoli axe, scegliendo fra le due strade.
+- [x] Rendere fedele `_violazioni_axe()` nello stesso commit.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

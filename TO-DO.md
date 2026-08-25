@@ -13,6 +13,12 @@
 > rinfrescati, perché dopo sei fasi puntavano quasi tutti altrove. Un puntatore
 > che atterra sulla riga sbagliata è peggio di nessun puntatore.
 >
+> Nella stessa pulizia sono uscite **centoquattro righe che descrivevano
+> lavoro concluso**: il riassunto delle nove fasi, le decisioni D1-D4 e la
+> recita delle correzioni chiuse. Stanno in [AS-IS.md](AS-IS.md), dove c'era
+> già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
+> per conto suo.
+>
 > **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45. **Aperte**:
 > R28-R33, R35-R37, R39-R40, R42-R43 e R46-R48 — trovate *adeguando* i moduli
 > alle Fasi 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o
@@ -80,7 +86,9 @@ Prima di ogni intervento, questi sono i principi che il codice attuale esprime.
    Questo **non** annulla i principi 1-7: `mars_citations.py` li rispetta
    tutti (nessuna dipendenza nuova, provider opzionali che degradano con un
    messaggio chiaro, messaggi in italiano). Lo stile cambia, la filosofia no.
-   L'allineamento dei moduli esistenti è graduale — vedi **R13**.
+   L'allineamento dei moduli esistenti era previsto graduale ed è invece
+   **completato** (R13, in [AS-IS.md](AS-IS.md)): vale quindi per il codice
+   nuovo, non c'è un arretrato da smaltire.
 
 ---
 
@@ -99,7 +107,7 @@ non dipende dal codice.
       deboli, quindi è il formato giusto per controllarne l'esito.
 
 ### C12 — voci residue
-La suite esiste — 826 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
+La suite esiste — 900 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 - [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
       oggi si sa quali difetti sono protetti, non quanto codice è toccato.
@@ -115,86 +123,13 @@ La suite esiste — 826 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 Il piano completo sta in [UPGRADE.md](UPGRADE.md): 15 divari individuati
 confrontando sul codice `MARS/` (la versione definitiva) e `marsbeacon/` (il
 riferimento per la reportistica), ciascuno verificato in modo avversariale.
-Qui restano solo le **voci aperte**, una per fase; il dettaglio non si duplica.
 
-Convenzioni della lavorazione, dal documento: un commit per fase, bump di
-`__version__` (minor per fase), `pytest` verde senza rete e `flake8 .` a zero
-prima del commit, golden rigenerati **intenzionalmente** dalla Fase 2 in poi.
-Il lavoro sta sul ramo **`upgrade`**.
+Le **decisioni D1-D4**, il **quadro delle nove fasi chiuse** — che cosa ha
+fatto ciascuna, con quale versione, e che cosa ha lasciato aperto — e le
+convenzioni della lavorazione stanno in [AS-IS.md](AS-IS.md). Qui restano solo
+le fasi che non sono state fatte.
 
-### Decisioni ratificate (2026-08-21)
-
-Registrate qui perché non vengano prese "di fatto" scrivendo codice.
-
-| | decisione | esito |
-|---|---|---|
-| **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni. **Applicata in U8.4** (2026-08-25): `REFERTO_JS`, il grafo dei link. Il vincolo "NESSUNO SCRIPT" di `mars_report.py` è diventato "nessuna origine esterna", e i due test che lo presidiavano sono stati riscritti |
-| **D2** | Scala di severità canonica | **Sì**, quattro livelli `critical`/`warning`/`info`/`ok`. La granularità in più delle tre scale esistenti si conserva nel **peso**, non in livelli extra |
-| **D3** | Pesi del punteggio complessivo | **Sì**: aree misurate a peso 1.0, Recuperabilità-RRF e "In forma di risposta" a 1.5; **esclusi** Citabilità (sintesi derivata: conterebbe due volte) e Giudizio LLM (opzionale e a pagamento). Rinormalizzazione sulle aree presenti |
-| **D4** | Lingue | **it ed en**, ratificata il 2026-08-25 aprendo U9.1, ed è un livello **inferiore** al riferimento a cinque lingue, dichiarato come tale. Il riuso previsto dal piano è stato misurato prima di decidere: dei cataloghi di marsbeacon coincidono **4 chiavi su 49**, perché il riferimento non ha una sola chiave `wcag.`, `sec.` o `seo.` — le traduzioni si scrivono, e quattro lingue non verificabili sarebbero qualità non misurata (principio 5). L'impianto non assume che siano due |
-
-### Fasi
-
-### U1-U9 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
-
-**U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
-nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
-emettono `findings` accanto alle `issues`, che non sono cambiate di una
-parola. Le misure, le decisioni editoriali e le tredici mutazioni sfuggite
-alla prima esecuzione stanno in AS-IS, voce per voce.
-
-**U2 — golden del referto** (G10): sei file in `tests/golden/` che congelano
-la resa dei tre formati su due referti sintetici, uno completo e uno con ogni
-strumento assente.
-
-**U3 — testi `fix` ed `example`** (G03), in tre voci: il catalogo
-`mars_fixes.py`, i testi che vengono dagli strumenti (axe, ZAP, Lighthouse)
-con la regola «la spiegazione in `detail`, la prescrizione in `fix`», e la
-resa nelle schede d'area e nella vista testo. Bump a 2.2.0. Le ha lasciato
-dietro una sola voce aperta, **R44**, chiusa poi da U9.3.
-
-**U4 — piano di interventi** (G02), in cinque voci: `mars_remediation.py` come
-funzione pura, la chiave `remediation` nel referto, e la resa nelle tre viste.
-Ogni intervento dichiara di quanto risale il punteggio dell'area se lo si
-chiude — il **recupero**, non la penalità — quanto ne guadagna l'indice di
-citabilità e su quale assistente, e quanto costa in ordine di grandezza. Bump
-a 2.3.0. Ha lasciato aperta **R46**.
-
-**U5 — complessivo, hero e ancore** (G07, G11), in tre voci: `overall_score()`
-secondo D3, il riquadro in testa coi conteggi per gravità, e le ancore stabili
-ricavate dalla `key` invece che dallo slug del titolo. Bump a 2.4.0. Con i
-conteggi si chiude **R41**.
-
-**U6 — Markdown e CSV** (G04): il piano come task list GFM da incollare in una
-issue, e una riga per rilievo con `;` e BOM UTF-8 per Excel. Registrati in
-`RENDERERS`, quindi la CLI e i golden li acquisiscono da soli. Bump a 2.5.0.
-
-**U7 — riproducibilità e storia** (G09, G06): `schema_version`, i parametri
-dell'RRF e le soglie nel dato; `mars_history.py` con lo storico JSONL
-append-only e il confronto per **chiave stabile** fra due esecuzioni, reso
-nelle tre viste umane. Bump a 2.6.0.
-
-**U8 — analisi della superficie** (G12), in quattro voci: `pages[]` e la
-profondità di crawl (U8.1), `surface_math` e la sezione «Superficie» nelle
-tre viste (U8.2), la treemap (U8.3) e il grafo dei link interni con il primo
-JavaScript del referto (U8.4). Bump a 2.7.0. Con U8.4 **D1 è applicata**: il
-vincolo del referto passa da «nessuno script» a «nessuna origine esterna», che
-è ciò che davvero garantisce l'autoconsistenza. Ha lasciato aperta **R47** (i
-rilievi non dichiarano la pagina che li ha prodotti, quindi la treemap non ha
-colore) e **R48** (il grafo non ha un test di comportamento nella suite).
-
-**U9 — i18n del referto** (G05), in tre voci: `mars_i18n.py` col catalogo dei
-rilievi risolto su `key`+`params` (U9.1), la cornice e `lang` passato per mano
-attraverso i renderer, con `--lang` nella CLI (U9.2), e la lingua **chiesta
-agli strumenti** — `--locale` di Lighthouse, il file di locale di axe — che
-chiude **R44** (U9.3). Bump a 2.8.0. Con U9.1 **D4 è ratificata**: due lingue,
-dichiarate come livello inferiore al riferimento, e la misura che lo motiva —
-dei cataloghi di marsbeacon coincidono 4 chiavi su 49 — sta in testa a
-`mars_i18n.py`. L'API **non** ha preso un campo `lang`: nessuno dei suoi
-handler rende prosa, e un campo inerte sarebbe configurazione che non
-configura.
-
-### Altre fasi
+### Fasi aperte
 
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
       Kimi accanto a Claude.
@@ -250,18 +185,9 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le R1-R14 sono chiuse, e con esse **R15** (URL malformato che faceva cadere
-l'audit), **R16** (mojibake sui siti UTF-8 senza charset), **R17** (redirect
-mai rivalidati), **R18** (punteggiatura che escludeva le parole da BM25) e
-**R19** (segnali di pagina che gonfiavano `answer_shaped_ratio`), **R20** (axe
-che fabbricava un 100/100) e **R21** (referto che non distingueva un controllo
-di superficie da una misura piena) e **R22** (esecutore di moduli non robusto
-ai plugin che rompono) e **R23** (query che non sopravvivevano a un retriever
-caduto, e ranghi a informazione zero) e **R24** (casi limite del crawler sugli
-URL) e **R25** (la direttiva robots `none` mai vista) e **R26** (`alt=""`
-contato come violazione, `delay` mai passato ad axe, riparsing dell'HTML),
-tutte il 2026-08-20: difetto, soluzione e verifiche in
-[AS-IS.md](AS-IS.md). **Nessuna voce GRAVE resta aperta.**
+Le voci chiuse — R1-R27, R34, R38, R41, R44, R45 — stanno in
+[AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
+qui: **nessuna voce GRAVE resta aperta.**
 
 Le voci **R28-R33** qui sotto vengono da una **revisione sistematica del
 2026-08-20** (lettura integrale di codice e documentazione, con verifica

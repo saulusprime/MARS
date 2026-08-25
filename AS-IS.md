@@ -57,6 +57,17 @@
 | C3 | Monitoraggio delle citazioni IA (`mars_citations.py`) | 2026-08-19 |
 | — | Manutenzione: caricatore di moduli e import pigro | 2026-08-19 |
 | — | Decisione: stile di riferimento del progetto | 2026-08-19 |
+| U1 | Modello dati dei rilievi (`Finding`); `__version__` a 2.1.0 | 2026-08-24 |
+| U2 | Golden del referto: tre formati, due referti sintetici | 2026-08-24 |
+| U3 | Testi `fix` ed `example`; `__version__` a 2.2.0 | 2026-08-24 |
+| U4 | Piano di interventi; `__version__` a 2.3.0 | 2026-08-25 |
+| U5 | Complessivo, hero e ancore; `__version__` a 2.4.0 | 2026-08-25 |
+| U6 | Markdown e CSV; `__version__` a 2.5.0 | 2026-08-25 |
+| U7 | Riproducibilità e storia; `__version__` a 2.6.0 | 2026-08-25 |
+| U8 | Analisi della superficie; `__version__` a 2.7.0 | 2026-08-25 |
+| U9 | i18n del referto (it/en); `__version__` a 2.8.0 | 2026-08-25 |
+| I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
+| I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 
 ---
 
@@ -4743,6 +4754,82 @@ basta. Il referto dice l'una e l'altra cosa in testa.
 Suite da 889 a 900 test, `flake8` a zero. Golden mossi: i due JSON in U9.1 e
 U9.2 (additivamente, nessuna vista di prosa), tutti e cinque del referto
 completo in U9.3 — che è R44 resa visibile.
+
+
+### I1 — ✅ REALIZZATA (2026-08-25, da U7): audit differenziale
+
+**Che cosa chiedeva.** «Salvare il report JSON e confrontare due esecuzioni:
+`mars_audit.py <url> --baseline report-precedente.json`, con output "+12 SEO,
+−5 WCAG, 2 nuovi problemi". Trasforma MARS da fotografia in strumento di
+monitoraggio.»
+
+**Che cosa c'è.** La capacità c'è tutta, da **U7**: `--history` scrive una riga
+per esecuzione in un JSONL append-only, e il referto guadagna la sezione
+«rispetto all'esecuzione precedente» — variazione del complessivo e di ogni
+area con prima/dopo, e l'elenco dei rilievi risolti e nuovi. Nelle tre viste
+umane.
+
+**La forma proposta non è stata adottata, e la differenza conta**, perché è il
+motivo per cui la voce si chiude *diversamente* da come era scritta:
+
+- **JSONL append-only invece di un `--baseline <file>`.** Un file per
+  esecuzione richiede a chi lo lancia di ricordarsi quale sia il precedente;
+  uno storico lo sa da sé, e `leggi_ultima_esecuzione` filtra per URL perché un
+  solo file possa raccogliere più siti — confrontarne due diversi darebbe un
+  delta pieno di «risolti» che nessuno ha toccato. E una riga corrotta non
+  invalida le altre, che è il vantaggio del JSONL sul JSON.
+- **Il confronto è per `key` stabile, non per titolo.** La voce non lo
+  chiedeva, e senza sarebbe stata una funzione che mente: «1 blocchi JSON-LD
+  malformati» → «2 blocchi JSON-LD malformati» avrebbe mostrato un difetto
+  risolto e uno nuovo, quando è lo stesso difetto peggiorato. Dove una chiave
+  manca il confronto ripiega sul titolo **e lo dichiara**
+  (`by_title_fallback`).
+- **La riga dello storico non porta il referto intero**, solo ciò che serve a
+  confrontarlo col prossimo. Da U9.2 porta anche i `params`, perché il delta si
+  *rende* e un rilievo si rende da chiave e params.
+
+**Quel che resta e non è questa voce**: la sezione non compare alla prima
+esecuzione — «tutto invariato» e «non c'è un prima» sono cose diverse.
+
+- [x] `mars_history.py`, `--history` / `--no-history`, la chiave `delta` nel
+      dato canonico e la resa nelle tre viste (U7, in [AS-IS.md](AS-IS.md)).
+
+### I13 — ✅ REALIZZATA (2026-08-25): test diretti del `Crawler`
+
+**Che cosa diceva, il 2026-08-20.** «Nessun test esercita `robots()`,
+`can_fetch()`, `fetch_sitemap()`, `estrai_link()` o `crawl()`: `conftest.py`
+azzera `Crawler` e `test_api` usa doppi. Le trappole documentate in CLAUDE.md e
+diverse voci R15-R24 sono **senza regressione**.»
+
+**La premessa è falsa oggi, e verificato con un conteggio invece che a
+occhio**: in `tests/test_core.py` — 89 test — `crawl()` è chiamato **17**
+volte, `estrai_link()` 3, `robots()` 3, `can_fetch()` 2. Le sitemap si
+esercitano attraverso `crawl()` (`test_sitemap_con_loc_relativi`,
+`test_sitemap_con_loc_assoluti_invariata`), e `Crawl-delay` in
+`test_build_context_pubblica_il_delay_effettivo`.
+
+**Il modo è esattamente quello che l'idea proponeva**, ed è la ragione per cui
+si chiude senza aver fatto nulla apposta: un `requests.adapters.BaseAdapter`
+finto montato sulla `session` del crawler. La fixture `niente_rete` copre
+`requests.get` ma non `Session.get`, quindi l'adattatore non è una scorciatoia
+ma l'unico modo di esercitare il crawler senza rete — sta scritto fra le
+trappole di [CLAUDE.md](CLAUDE.md), insieme al vincolo che ne discende:
+l'adattatore deve restare **fedele** a `HTTPAdapter.build_response`, perché
+quando fissava `resp.encoding` tre mutazioni di R16 su cinque passavano
+inosservate e finché non impostava `resp.request` il difetto R17 non si
+manifestava affatto.
+
+Le voci che l'idea dava «senza regressione» ce l'hanno tutte: R15 (href
+malformato), R16 (mojibake), R17 (redirect rivalidati), R24 (IPv6, `<loc>`
+relativi, robots vuoto).
+
+**Non è stata chiusa da un commit suo**: si è chiusa da sé, chiudendo R15-R24 e
+U8.1. È il motivo per cui è rimasta aperta nel TO-DO per cinque giorni dopo
+essere diventata vera — nessuno l'ha riletta finché non si è riverificata ogni
+voce sul codice.
+
+- [x] `_AdattatoreFinto` in `tests/test_core.py` e le regressioni di R15-R24;
+      la fedeltà dell'adattatore è a sua volta presidiata.
 
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che

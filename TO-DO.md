@@ -1,15 +1,22 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
-> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4-8.
+> R15-R37, I13-I16); **ripulito il 2026-08-25**, chiudendo le Fasi 4-9.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
+> Nella pulizia del 2026-08-25 **ogni voce aperta è stata riverificata sul
+> codice**, non riletta: sono uscite **I1** e **I13**, realizzate; **R46** ha
+> avuto la sezione che non aveva mai avuto — era dichiarata aperta e non c'era
+> nulla da leggere; e **quarantasei riferimenti di riga** sono stati
+> rinfrescati, perché dopo sei fasi puntavano quasi tutti altrove. Un puntatore
+> che atterra sulla riga sbagliata è peggio di nessun puntatore.
+>
 > **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45. **Aperte**:
-> R28-R33, R35-R37, R39-R40 e R42-R43, R46-R48 — trovate *adeguando* i moduli alle Fasi
-> 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o testi
-> dentro un commit che cambiava la forma.
+> R28-R33, R35-R37, R39-R40, R42-R43 e R46-R48 — trovate *adeguando* i moduli
+> alle Fasi 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o
+> testi dentro un commit che cambiava la forma.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -284,46 +291,44 @@ dedurre*). Ordinate per gravità.
 ### R29 — 🟡 MEDIO: gli endpoint `async` bloccano l'event loop
 Tutti gli handler REST sono `async def` (12 in [mars_api.py](mars_api.py)) ma
 fanno lavoro **sincrono bloccante**: `crawler.crawl()` con `session.get()` e
-`time.sleep()` per il rate-limit ([mars_core.py:227](mars_core.py#L227)),
-`subprocess.run(timeout=120)` ([mars_seo.py:339](mars_seo.py#L339)), il polling
-ZAP fino a 900 s ([mars_wapt.py:445](mars_wapt.py#L445)). In FastAPI un handler
+`time.sleep()` per il rate-limit ([mars_core.py:626](mars_core.py#L626)),
+`subprocess.run(timeout=120)` ([mars_seo.py:467](mars_seo.py#L467)), il polling
+ZAP fino a 900 s ([mars_wapt.py:471](mars_wapt.py#L471)). In FastAPI un handler
 `async` gira **sull'event loop**: un audit blocca l'intero server per tutti gli
 altri client fino a fine scansione.
 
 - [ ] Rendere `def` (non `async def`) gli handler bloccanti — FastAPI li sposta
       su un threadpool — oppure delegare l'esecuzione a `run_in_threadpool`.
 
-### R30 — 🟡 MEDIO: dipendenze non dichiarate e un caso limite del retriever
-- **`httpx` non dichiarato.** [tests/test_api.py](tests/test_api.py) usa
-  `TestClient`, che richiede `httpx`/`httpx2`: nessun `requirements*.txt` lo
-  dichiara (verificato). Oggi la suite passa solo perché `httpx` arriva come
-  dipendenza transitiva di `anthropic`/`sentence-transformers`
-  (requirements-optional): chi installa solo core+dev non può far girare i test.
-- **`VectorRetriever` con corpus vuoto.** Nel ramo embeddings reali
-  ([mars_core.py:575](mars_core.py#L575)) `model.encode([])` + `cosine_similarity`
-  sollevano `ValueError`, mentre il proxy restituisce `[]`: la promessa che «il
-  chiamante non deve sapere quale dei due sia attivo» si rompe con chunk vuoti, e
-  `mars_semantic` muore invece di risultare non misurato.
+### R30 — 🟡 MEDIO: `VectorRetriever` con corpus vuoto
+> La prima metà della voce — `httpx` non dichiarato — è **chiusa con U1.9**:
+> `requirements-dev.txt` lo dichiara, e la fixture `nessuna_spesa` lo importa
+> esplicitamente per bloccare il transport HTTP, quindi non è più una
+> dipendenza transitiva. Resta la seconda.
 
-- [x] Dichiarare `httpx` in `requirements-dev.txt`. *(Fatto con U1.9: la
-      fixture `nessuna_spesa` lo importa esplicitamente per bloccare il
-      transport HTTP, quindi non è più una dipendenza transitiva ma una
-      dichiarata.)*
+Nel ramo embeddings reali ([mars_core.py:1188](mars_core.py#L1188))
+`model.encode([])` seguito da `cosine_similarity`
+([:1245](mars_core.py#L1245)) solleva `ValueError`, mentre il proxy
+restituisce `[]`: la promessa che «il chiamante non deve sapere quale dei due
+sia attivo» si rompe con chunk vuoti, e `mars_semantic` muore invece di
+risultare non misurato.
+
 - [ ] Guardia sul corpus vuoto anche nel ramo embeddings reali.
 
 ### R31 — ⚪ LIEVE: casi limite e diagnosi imprecise
 - **`load_queries` con file vuoto = successo silenzioso.**
-  ([mars_core.py:698](mars_core.py#L698)) restituisce `([], "")`; l'audit ripiega
-  sulle query generiche ([:842](mars_core.py#L842)) **senza dirlo**, e l'utente
-  crede di aver misurato le proprie. Il ramo `report_path` invece un errore lo dà.
+  ([mars_core.py:1367](mars_core.py#L1367)) restituisce `([], "")`; l'audit
+  ripiega sulle query generiche ([:1527](mars_core.py#L1527)) **senza dirlo**, e
+  l'utente crede di aver misurato le proprie. Il ramo `report_path` invece un
+  errore lo dà.
 - **Rifiuto dei classificatori mal riportato.** `interroga()`
-  ([mars_llm_judge.py:143](mars_llm_judge.py#L143)) solleva `RuntimeError` con un
+  ([mars_llm_judge.py:174](mars_llm_judge.py#L174)) solleva `RuntimeError` con un
   messaggio chiaro, ma `audit()` lo cattura nel gruppo generico
-  ([:214](mars_llm_judge.py#L214)) e stampa solo *«Giudizio non interpretabile:
+  ([:323](mars_llm_judge.py#L323)) e stampa solo *«Giudizio non interpretabile:
   RuntimeError»*, perdendo la spiegazione.
 - **Nessun tetto alla dimensione della risposta** (vedi anche I14):
-  `_get` scarica l'intero corpo senza `stream` né limite; una pagina enorme a 200
-  viene letta tutta.
+  `_get` ([mars_core.py:614](mars_core.py#L614)) scarica l'intero corpo senza
+  `stream` né limite; una pagina enorme a 200 viene letta tutta.
 
 - [ ] Errore anche per il file `--queries` senza righe utili.
 - [ ] Distinguere il `refusal` nel `mars_llm_judge`. *(Chiuso a metà da U1.9:
@@ -334,32 +339,35 @@ altri client fino a fine scansione.
       ramo e uno `status` propri per il rifiuto.)*
 
 ### R32 — ⚪ LIEVE: deriva fra documentazione e codice
-Divergenze verificate (documento → codice):
-- [README.md:123-143](README.md#L123): il paragrafo `zap-cli`
+Divergenze verificate (documento → codice). **I riferimenti di riga sono
+stati rinfrescati il 2026-08-25**: puntavano tutti altrove dopo le Fasi 4-9, e
+un puntatore che atterra sulla riga sbagliata è peggio di nessun puntatore.
+
+- [README.md:177-190](README.md#L177): il paragrafo `zap-cli`
   (`pip install zapcli`, `pip uninstall urllib3/requests/six`) è **stantio** — il
   codice parla direttamente l'API JSON di ZAP dal 2026-08-20 (AS-IS, C9). Contraddice
-  [README.md:96](README.md#L96) e `requirements-optional.txt`. Correggere anche la
-  docstring di `/audit/wapt` ([mars_api.py:383](mars_api.py#L383): «ZAP CLI»).
-- [README.md:252-268](README.md#L252): l'elenco di `AuditRequest` **omette
+  [README.md:147](README.md#L147) e `requirements-optional.txt`. Correggere anche la
+  docstring di `/audit/wapt` ([mars_api.py:379](mars_api.py#L379): «ZAP CLI»).
+- [README.md:330-347](README.md#L330): l'elenco di `AuditRequest` **omette
   `queries`** (e `llm`), aggiunti da C5/C2 dopo la stesura della sezione.
-- [README.md:369](README.md#L369): i codici di uscita omettono che `2` copre anche
+- [README.md:509](README.md#L509): i codici di uscita omettono che `2` copre anche
   l'errore d'uso (l'help della CLI è già corretto).
-- [README.md:337](README.md#L337) e help `--queries`: non dichiarano il **tetto di
+- [README.md:423](README.md#L423) e help `--queries`: non dichiarano il **tetto di
   15 query** (`DEFAULT_MAX_QUERIES`), applicato in silenzio e non regolabile da CLI
   audit; l'API non lo applica affatto.
-- [CLAUDE.md:34](CLAUDE.md#L34): `market` descritto «non ancora usato», ma
+- [CLAUDE.md:36](CLAUDE.md#L36): `market` descritto «non ancora usato», ma
   `mars_citability` lo legge da C1.
-- [TO-DO.md:143](TO-DO.md#L143) (I8): «tomli già in requirements.txt» è falso —
-  rimosso con R11; usare `tomllib` (stdlib ≥ 3.11).
+- [I8](#i8--estrarre-le-euristiche-in-un-file-di-configurazione): «tomli già in
+  requirements.txt» è falso — rimosso con R11; usare `tomllib` (stdlib ≥ 3.11).
 - [package.json](package.json): dichiara `lighthouse` e `corepack`, ma `mars_seo`
   cerca `lighthouse` solo nel PATH (ignora `node_modules/.bin`); dopo `npm install`
   il referto dice comunque «non trovato».
 - [requirements-optional.txt:20](requirements-optional.txt#L20): il commento su
   `playwright` dice «non ancora integrato: vedi C8», ma C8 è chiuso e axe-core è
   integrato — afferma il contrario del vero.
-- [mars_wapt.py:204-205](mars_wapt.py#L204): la docstring promette diffusione
-  «1x per un URL», ma la formula ([:264](mars_wapt.py#L264)) dà 1.1x (un `High`
-  singolo → score 72, non 75). Poiché la taratura di C9 è stata misurata sul
+- [mars_wapt.py:218](mars_wapt.py#L218): la docstring promette diffusione
+  «da 1x», ma la formula ([:290](mars_wapt.py#L290)) su un URL solo dà 1.1x (un
+  `High` singolo → score 72, non 75). Poiché la taratura di C9 è stata misurata sul
   codice attuale, allineare la docstring.
 - **«ZAP scrive la confidenza accanto al rischio»: la frase non regge alla
   lettura del sorgente**, ed è in tre posti. In `core/view/alerts` il campo
@@ -369,8 +377,8 @@ Divergenze verificate (documento → codice):
   `riskdesc`, che i referti tradizionali compongono e l'endpoint non emette.
   Il commento in `mars_wapt` è già riscritto da U1.6; restano la docstring di
   `test_zap_la_confidenza_non_e_una_gravita`
-  ([tests/test_core.py:1098](tests/test_core.py#L1098)) e
-  [AS-IS.md:3219](AS-IS.md#L3219), che dà il caso per **osservato** sul daemon
+  ([tests/test_core.py:1129](tests/test_core.py#L1129)) e
+  [AS-IS.md:221](AS-IS.md#L221), che dà il caso per **osservato** sul daemon
   reale. Prima di correggere quella riga va ricontrollato da dove venisse
   l'osservazione — un referto, `riskdesc`, un campo diverso: è un fatto
   registrato, e si annota, non si riscrive. Il comportamento in ogni caso non
@@ -383,17 +391,17 @@ Divergenze verificate (documento → codice):
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**
-  [tests/test_report.py:454](tests/test_report.py#L454) (`CONTROLLI`) ricalca
+  [tests/test_report.py:489](tests/test_report.py#L489) (`CONTROLLI`) ricalca
   a mano le voci di `audits` che `mars_seo.estrai_audit` produce, e da U1.7 è
   ferma a cinque campi su otto: invecchia da sola, senza che nulla diventi
   rosso. Candidata a sparire dentro **U2**, che congela la resa con i golden.
 - **Dipendenza dalla cwd.** [tests/test_cli.py](tests/test_cli.py) (righe 22, 100,
-  107) e [tests/test_api.py:278](tests/test_api.py#L278) usano percorsi relativi:
+  107) e [tests/test_api.py:320](tests/test_api.py#L320) usano percorsi relativi:
   eseguendo `pytest` da un'altra directory si hanno 1 failure e 4 errori, e
   `test_url_obbligatorio` **passa vacuamente** (attende rc 2 da argparse, ma da cwd
   sbagliata rc 2 arriva dal file non trovato).
 - **`test_html_autoconsistente` troppo debole.**
-  [tests/test_report.py:137](tests/test_report.py#L137) cerca riferimenti esterni
+  [tests/test_report.py:164](tests/test_report.py#L164) cerca riferimenti esterni
   solo negli attributi `src`/`href` quotati: un `url(https://…)` nel `<style>`,
   `@import` o `srcset` sfuggirebbero, lasciando verde una regressione che rompe
   l'autoconsistenza.
@@ -406,7 +414,7 @@ Divergenze verificate (documento → codice):
 
 `mars_lexical` costruisce il corpus con **heading + testo** del chunk
 ([mars_lexical.py:29](mars_lexical.py#L29)); `mars_semantic` indicizza il
-**solo testo** ([mars_semantic.py:117](mars_semantic.py#L117)). I due
+**solo testo** ([mars_semantic.py:149](mars_semantic.py#L149)). I due
 recuperatori ordinano quindi le stesse unità partendo da contenuti diversi.
 
 **R10** aveva lavorato perché i due ranghi si riferissero alle **stesse
@@ -432,7 +440,7 @@ dopo su un sito reale, non applicata a intuito.
 ### R36 — 🟡 MEDIO: `nosnippet` è invisibile, ed è la direttiva che conta di più
 *(trovata misurando, chiudendo R25 il 2026-08-20)*
 
-`direttive_robots()` ([mars_tech.py:123](mars_tech.py#L123)) legge ora tutte le
+`direttive_robots()` ([mars_tech.py:171](mars_tech.py#L171)) legge ora tutte le
 direttive, ma `controlla_indicizzabilita` ne giudica due: `noindex` e
 `nofollow`. Restano mute proprio quelle che governano **l'estrazione del
 testo**, cioè il meccanismo con cui un assistente cita una pagina. Misurato,
@@ -487,7 +495,7 @@ esattamente ciò che un adeguamento di forma non deve fare.)*
 - **`alertRef` non viene mai raggiunto, e tre difetti diversi si fondono in
   uno.** La catena di raggruppamento è
   `pluginId or alertRef or name or alert or "?"`
-  ([mars_wapt.py:215](mars_wapt.py#L215)), ma `pluginId` è **sempre** presente
+  ([mars_wapt.py:229](mars_wapt.py#L229)), ma `pluginId` è **sempre** presente
   e non vuoto nel JSON di ZAP (`AlertAPI.alertToSet` lo mette con
   `String.valueOf`): `alertRef` è codice morto. Conseguenza reale: la regola
   CSP 10038 emette `10038-1`, `10038-2` e `10038-3` — alert distinti, con
@@ -506,13 +514,13 @@ esattamente ciò che un adeguamento di forma non deve fare.)*
   nata — solo `pluginId` la rende stabile, perché un `name` viene dai
   `Messages.properties`, cambia fra due release ed è **localizzato**.
 - **ZAP raggiunto e fallito non lascia traccia nel referto.** Se `run_zap`
-  restituisce `None` ([mars_wapt.py:609](mars_wapt.py#L609)) c'è solo un
+  restituisce `None` ([mars_wapt.py:574](mars_wapt.py#L574)) c'è solo un
   `print`, e il referto dichiara «HTTP-Headers, superficie» senza mai dire che
   un daemon c'era e non ha portato a termine la scansione. È lo stesso difetto
   di onestà che R38 ha chiuso altrove.
 - **`audit_headers` perde il primo errore.** Se HEAD solleva e GET risponde
   ≥400, `errore` viene riassegnato a `None`
-  ([mars_wapt.py:497](mars_wapt.py#L497)) e la diagnosi diventa `HTTP 500`,
+  ([mars_wapt.py:523](mars_wapt.py#L523)) e la diagnosi diventa `HTTP 500`,
   perdendo il `ConnectionError` che spiegava il primo tentativo.
 
 - [ ] Raggruppare per `alertRef`, ritarando le penalità e dichiarando la
@@ -531,13 +539,13 @@ testi.)*
   scriverlo nel LHR, ma **non** quello di un audit andato in `error`
   (`core/scoring.js`): il suo `score: null` sopravvive al filtro e annulla il
   punteggio dell'intera categoria. `riassumi` esce allora al primo `if`
-  ([mars_seo.py:265](mars_seo.py#L265)) con «Lighthouse non ha calcolato la
+  ([mars_seo.py:390](mars_seo.py#L390)) con «Lighthouse non ha calcolato la
   categoria SEO», **senza mai chiamare `estrai_audit`** — mentre nel LHR ci
   sono dieci controlli perfettamente misurati. Vanno distinti i due casi: non
   calcolabile *e* nulla di leggibile, contro non calcolabile *ma* dieci audit
   su undici validi. Attenzione: aggiungere `audits` a quel ramo cambia anche
   la resa, perché l'HTML mostra l'elenco dei controlli **al posto** dei rilievi
-  ([mars_report.py:718-725](mars_report.py#L718)).
+  ([mars_report.py:2201](mars_report.py#L2201)).
 - **«da verificare a mano» detto a un `notApplicable`.** Lighthouse usa
   `failureTitle` solo quando `score < 0.9`, quindi un controllo non misurato
   porta il titolo del **successo**: la issue di una pagina senza canonical
@@ -549,25 +557,26 @@ testi.)*
 - **`MODI_NON_MISURATI_VOCE` e `LH_MODI_NON_MISURATI` divergono di
   proposito**, e la divergenza va tolta con una misura, non per simmetria.
   La voce si ferma a `("manual", "notApplicable")`
-  ([mars_seo.py:39](mars_seo.py#L39)); `mars_core` comprende anche
+  ([mars_seo.py:44](mars_seo.py#L44)); `mars_core` comprende anche
   `informative` ed `error`. Un `informative` ha `score: 1` per costruzione,
   quindi oggi è contato fra i **superati**; un `error` fra i **falliti**.
   Allargare la tupla della voce sposterebbe `passed`/`failed`/`manual`, la
   riga «N superati, M falliti» del referto e la ripartizione delle issues.
-- **Tre buchi in `_descrivi_item`** ([mars_seo.py:173](mars_seo.py#L173)): il
+- **Tre buchi in `_descrivi_item`** ([mars_seo.py:236](mars_seo.py#L236)): il
   `source` che è un `NodeValue` invece di una stringa — è il caso più pesante
   della categoria, `is-crawlable` bloccato da un `<meta robots noindex>`,
-  dove [:187](mars_seo.py#L187) cerca `url`/`value` e non `selector`; gli item
+  dove [:250](mars_seo.py#L250) cerca `url`/`value` e non `selector`; gli item
   `{index, line, message}` di `robots-txt`; i `subItems` di `hreflang`.
   Correggerli cambia il testo delle issues.
-- **`explanation`, `displayValue`, `warnings` e `description` di Lighthouse
-  sono ignorati.** Sono i testi che spiegano *perché* un controllo è fallito e
-  *come* rimediare: materiale della **Fase 3** (U3), dove `description` va
-  anche ripulita dai link Markdown — la funzione che lo fa in marsbeacon
-  (`_strip_md_links`) in MARS non esiste ancora. Da notare `warnings` di
-  `is-crawlable`: un audit che **passa** pur avendo qualcosa da dire.
+- **`explanation`, `displayValue` e `warnings` di Lighthouse sono ignorati.**
+  *(Aggiornato il 2026-08-25: `description` **non** lo è più — U3.2 la porta in
+  `detail` e `_senza_link_markdown` la ripulisce dai link Markdown, che è la
+  funzione che questa voce dava per mancante. Restano gli altri tre, verificato:
+  zero occorrenze in `mars_seo.py`.)* Sono i testi che dicono *perché* un
+  controllo è fallito. Da notare `warnings` di `is-crawlable`: un audit che
+  **passa** pur avendo qualcosa da dire.
 - **Il parametro `score` di `severita_lighthouse` non viene mai letto**
-  ([mars_core.py:337](mars_core.py#L337)): la funzione decide su modo e peso.
+  ([mars_core.py:381](mars_core.py#L381)): la funzione decide su modo e peso.
   Non è morto per svista — è il chiamante che deve filtrare i superati, e
   senza quel filtro un sito perfetto produrrebbe nove `warning` — ma un
   parametro inerte in una firma pubblica invita a crederlo significativo.
@@ -583,7 +592,7 @@ testi.)*
 ### R42 — 🟢 LIEVE: la citabilità sparisce dalla vista testo quando fallisce
 *(trovato censendo i consumatori per U1.8, il 2026-08-24)*
 
-[mars_report.py:302](mars_report.py#L302) salta `mars_citability` nel ciclo
+[mars_report.py:1391](mars_report.py#L1391) salta `mars_citability` nel ciclo
 delle aree, perché ha un blocco tutto suo in fondo — ma quel blocco è protetto
 da `if cit and cit.get("profiles")`. Quando i profili non ci sono, e cioè
 proprio quando qualcosa è andato storto, **la vista testo non stampa nulla**:
@@ -607,7 +616,7 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 
 - **La favicon dichiara un MIME che non e' il suo.** `file favicon.ico` dice
   `PNG image data, 32 x 32`, mentre `_favicon_data_uri`
-  ([mars_report.py:381](mars_report.py#L381)) la incorpora come
+  ([mars_report.py:1482](mars_report.py#L1482)) la incorpora come
   `data:image/x-icon;base64,…` e la docstring parla di «.ico (2,8 KB)». I
   browser lo digeriscono, ma la dichiarazione è falsa. Correggerla cambia il
   golden HTML, quindi va fatta con la sua rigenerazione.
@@ -619,12 +628,41 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 - [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
 - [ ] Dire nel referto quando l'icona non è stata incorporata.
 
+### R46 — ⚪ LIEVE: lo sforzo è editoriale e non scala col difetto
+*(lasciata aperta da U4, il 2026-08-24; la sezione è stata scritta il
+2026-08-25 — fino ad allora la voce era **dichiarata aperta e non c'era nulla
+da leggere**, citata solo di sfuggita in [AS-IS.md](AS-IS.md))*
+
+`SFORZO` ([mars_remediation.py:135](mars_remediation.py#L135)) è una mappa
+`chiave -> minuti|ore|giorni` scritta a mano: dipende dal **tipo** di
+controllo e non da quante volte il difetto ricorre. «1 immagine senza `alt`» e
+«400 immagini senza `alt`» hanno la stessa chiave, quindi lo stesso sforzo —
+`giorni` in entrambi i casi, che sul primo è una sopravvalutazione e sul
+secondo forse una sottovalutazione.
+
+Il dato per fare meglio **c'è già**: ogni rilievo porta nei `params` il proprio
+conteggio di istanze (`immagini`, `campi`, `pagine`, `nodes`, `n`), ma i nomi
+sono **diversi per area**, scelti da chi ha scritto il modulo. Renderli
+canonici è il prerequisito, e non è gratis: significa o un nome comune in più
+accanto a quelli parlanti, o una mappa chiave → nome del conteggio, cioè un
+secondo catalogo da tenere allineato ai moduli.
+
+Finché quel conteggio non è canonico lo sforzo **resta editoriale, ed è
+dichiarato tale**: il referto scrive `sforzo: giorni` e non «3 giorni», e la
+differenza è voluta — un ordine di grandezza è una stima, un numero sembra una
+misura.
+
+- [ ] Decidere se il conteggio delle istanze diventa canonico, e con quale
+      nome. È il prerequisito, non un dettaglio dell'implementazione.
+- [ ] Solo dopo: far scalare lo sforzo col conteggio, e continuare a
+      dichiararlo come stima.
+
 ### R47 — 🟡 MEDIO: nessun rilievo dichiara la pagina che lo ha prodotto
 *(trovata chiudendo U8.3, il 2026-08-25)*
 
 `Finding.url` esiste dal modello dati di U1 ed è **vuoto in otto aree su
 nove**. Nell'unica che lo valorizza, `mars_wcag`
-([mars_wcag.py:333](mars_wcag.py#L333)), porta `voce["help_url"]`, cioè il
+([mars_wcag.py:383](mars_wcag.py#L383)), porta `voce["help_url"]`, cioè il
 link alla **documentazione della regola axe** — non l'URL analizzato.
 Verificato sul golden completo: i due soli rilievi con `url` puntano a
 `dequeuniversity.com`, mentre le pagine scansionate sono su
@@ -709,18 +747,18 @@ allargare l'ambiente, ed è anche quella che riduce il JavaScript.
 Proposte di sviluppo, non promesse dal README. Da valutare, **non** da eseguire
 senza conferma: alcune allargano il perimetro del progetto.
 
-### I1 — `--baseline` e audit differenziale
-Salvare il report JSON (**C4**) e confrontare due esecuzioni:
-`python3 mars_audit.py <url> --baseline report-precedente.json`, con output
-"+12 SEO, −5 WCAG, 2 nuovi problemi". Trasforma MARS da fotografia in
-strumento di monitoraggio, riusando ciò che C4 costruisce già.
+> **I1** (audit differenziale) e **I13** (test diretti del `Crawler`) sono state
+> **realizzate** e sono uscite di qui il 2026-08-25 — la prima da U7, in una
+> forma diversa da quella proposta, la seconda dalle regressioni scritte per
+> R15-R24. Le due voci stanno in [AS-IS.md](AS-IS.md) con la differenza fra ciò
+> che era stato proposto e ciò che è stato fatto.
 
 ### I2 — Modalità CI con exit code e soglie
 `--fail-under 70` → exit code ≠ 0. Rende MARS utilizzabile come gate in una
 pipeline. Costo: una decina di righe.
 
 ### I3 — Sensibilità del parametro `k` dell'RRF
-`k=60` è hardcoded ([mars_core.py:171](mars_core.py#L171)) — è il valore del
+`k=60` è hardcoded ([mars_core.py:1536](mars_core.py#L1536)) — è il valore del
 paper Cormack 2009, ma il progetto è *anche* didattico: esporre `--rrf-k` e
 mostrare come cambia il consenso al variare di `k` è esattamente il tipo di
 intuizione che il README vuole trasmettere. Quasi gratis da implementare.
@@ -766,7 +804,7 @@ librerie. Il *rank shift* vero e proprio resta però da fare: oggi si legge
 
 ### I10 — Modulo performance (Core Web Vitals)
 Lighthouse viene già invocato per la categoria `seo`
-([mars_seo.py:16](mars_seo.py#L16)) e nella stessa risposta JSON restituisce
+([mars_seo.py:21](mars_seo.py#L21)) e nella stessa risposta JSON restituisce
 `performance`, `accessibility` e `best-practices`: sono dati **già scaricati e
 buttati via**. Un `mars_perf.py` costerebbe pochissimo e la categoria
 `accessibility` di Lighthouse darebbe una controprova a `mars_wcag.py`.
@@ -783,17 +821,6 @@ ZAP, Playwright, torch. Il README dedica un intero paragrafo a risolvere
 conflitti di pacchetti a mano. Un'immagine con tutto preinstallato
 eliminerebbe la classe di problemi — a costo di un file, senza toccare il
 codice.
-
-### I13 — Test diretti del `Crawler`
-*(proposta dalla revisione del 2026-08-20)* Nessun test esercita `robots()`,
-`can_fetch()`, `fetch_sitemap()`, `estrai_link()` o `crawl()`: `conftest.py`
-azzera `Crawler` e `test_api` usa doppi. Le trappole documentate in
-[CLAUDE.md](CLAUDE.md) (`parse([])` sul ramo robots-mancante, `crawl_delay` che
-non eredita da `*`) e diverse voci R15-R24 qui sopra sono **senza regressione**.
-Sono testabili offline montando un adapter `requests` finto sulla `session` del
-crawler (pattern verificato funzionante durante la revisione) o con un server
-HTTP locale, senza toccare la rete. È il complemento naturale delle voci
-residue di **C12**.
 
 ### I14 — Tetto alla dimensione della risposta HTTP
 *(proposta dalla revisione del 2026-08-20)* `_get` scarica l'intero corpo senza

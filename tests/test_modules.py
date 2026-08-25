@@ -1425,21 +1425,33 @@ def _lhr(punteggio=0.27):
         "lighthouseVersion": "13.4.1",
         "finalDisplayedUrl": "https://esempio.test/",
         "configSettings": {"formFactor": "mobile"},
-        "categories": {"seo": {"score": punteggio, "auditRefs": [
-            {"id": "is-crawlable", "weight": PESO_CRAWLABLE},
-            {"id": "document-title", "weight": 1},
-            {"id": "meta-description", "weight": 1},
-            {"id": "http-status-code", "weight": 1},
-            {"id": "link-text", "weight": 1},
-            {"id": "crawlable-anchors", "weight": 1},
-            # Non applicabili: Lighthouse azzera il peso, non la
-            # configurazione, dove valgono 1.
-            {"id": "robots-txt", "weight": 0},
-            {"id": "image-alt", "weight": 1},
-            {"id": "hreflang", "weight": 1},
-            {"id": "canonical", "weight": 0},
-            {"id": "structured-data", "weight": 0},
-        ]}},
+        # Lighthouse gira SEMPRE per intero: `esegui_lighthouse` non
+        # passa `--only-categories`, quindi tutte e cinque le categorie
+        # sono nel LHR. I punteggi delle altre quattro vengono da un
+        # run vero (lymphatechnologies.com, mobile, 13.4.1): senza,
+        # `punteggi_categorie` verrebbe provata su un LHR che dichiara
+        # una sola categoria, cioe' su una forma che non esiste.
+        "categories": {
+            "performance": {"id": "performance", "score": 0.56},
+            "accessibility": {"id": "accessibility", "score": 0.97},
+            "best-practices": {"id": "best-practices", "score": 0.96},
+            "agentic-browsing": {"id": "agentic-browsing", "score": 1},
+            "seo": {"score": punteggio, "auditRefs": [
+                {"id": "is-crawlable", "weight": PESO_CRAWLABLE},
+                {"id": "document-title", "weight": 1},
+                {"id": "meta-description", "weight": 1},
+                {"id": "http-status-code", "weight": 1},
+                {"id": "link-text", "weight": 1},
+                {"id": "crawlable-anchors", "weight": 1},
+                # Non applicabili: Lighthouse azzera il peso, non la
+                # configurazione, dove valgono 1.
+                {"id": "robots-txt", "weight": 0},
+                {"id": "image-alt", "weight": 1},
+                {"id": "hreflang", "weight": 1},
+                {"id": "canonical", "weight": 0},
+                {"id": "structured-data", "weight": 0},
+            ]},
+        },
         "audits": {
             "is-crawlable": {
                 "description": "I motori di ricerca non sono in grado di "
@@ -3925,3 +3937,79 @@ def test_llm_i_findings_arrivano_al_referto(contesto):
     assert area["findings"] == esito["findings"]
     assert referto["llm_judgement"]["findings"] == esito["findings"]
     json.dumps(referto)
+
+
+# --- R45: due numeri sulla stessa area, e perche' differiscono --------
+#
+# Misurato su un sito vero (lymphatechnologies.com): Lighthouse dava 97
+# all'accessibilita' e MARS 59, con lo STESSO strumento — axe-core — e
+# lo STESSO difetto trovato da entrambi (color-contrast). Cambia solo
+# l'aritmetica: Lighthouse fa una media pesata dei propri controlli su
+# una pagina, MARS sottrae penalita' per gravita' e diffusione su un
+# campione. Un cliente che apra PageSpeed accanto al referto vede i due
+# numeri comunque: tacerne uno non li rende uguali.
+
+def test_seo_pubblica_tutte_le_categorie_di_lighthouse():
+    """Lighthouse le calcola tutte a ogni run, e finora quattro su
+    cinque venivano buttate via insieme al resto del LHR."""
+    esito = mars_seo.riassumi(_lhr())
+    assert esito["lighthouse_scores"] == {
+        "performance": 56.0, "accessibility": 97.0, "best-practices": 96.0,
+        "agentic-browsing": 100.0, "seo": 27.0}
+
+
+def test_seo_una_categoria_non_calcolata_resta_none():
+    """`None` non e' zero: e' la distinzione di tutto il progetto."""
+    lhr = _lhr()
+    lhr["categories"]["performance"]["score"] = None
+    assert mars_seo.punteggi_categorie(lhr)["performance"] is None
+
+
+def test_seo_i_punteggi_di_categoria_non_hanno_falsa_precisione():
+    """0.56 * 100 fa 56.00000000000001, che in un referto consegnato si
+    legge come precisione che non c'e'. Lighthouse arrotonda gia' a due
+    decimali sulla scala 0-1, quindi su 0-100 non si perde nulla."""
+    for valore in mars_seo.punteggi_categorie(_lhr()).values():
+        assert valore == round(valore, 2)
+
+
+def test_seo_pubblica_le_categorie_anche_senza_il_punteggio_seo():
+    """Il run e' riuscito: e' la sola categoria SEO a non essere
+    calcolabile, e le altre quattro ci sono lo stesso."""
+    lhr = _lhr()
+    lhr["categories"]["seo"]["score"] = None
+    esito = mars_seo.riassumi(lhr)
+    assert esito["score"] is None and esito["status"] == "unavailable"
+    assert esito["lighthouse_scores"]["accessibility"] == 97.0
+
+
+def test_wcag_legge_il_numero_di_lighthouse_senza_rilanciarlo(contesto):
+    """Nessun secondo Lighthouse: il numero e' gia' stato pagato da
+    mars_seo, che gira prima in MODULES_REGISTRY."""
+    contesto["results"] = {"mars_seo": mars_seo.riassumi(_lhr())}
+    esito = mars_wcag.audit(contesto)
+    assert esito["reference_score"] == 97.0
+    assert esito["reference_tool"] == "Lighthouse"
+
+
+def test_wcag_senza_lighthouse_non_inventa_un_secondo_numero(contesto):
+    """Tre casi che portano allo stesso esito: Lighthouse assente,
+    fallito, o quest'area invocata da sola dall'endpoint /audit/wcag."""
+    for risultati in ({}, {"mars_seo": {"score": None,
+                                        "status": "unavailable"}},
+                      {"mars_seo": {"lighthouse_scores": {}}}):
+        contesto["results"] = risultati
+        esito = mars_wcag.audit(contesto)
+        assert "reference_score" not in esito, risultati
+        assert "reference_tool" not in esito, risultati
+
+
+def test_wcag_il_confronto_c_e_anche_nel_ramo_di_ripiego(contesto,
+                                                         monkeypatch):
+    """Il ramo statico e' quello in cui il confronto serve di piu': il
+    nostro numero e' un controllo di superficie, il suo no."""
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: False)
+    contesto["results"] = {"mars_seo": mars_seo.riassumi(_lhr())}
+    esito = mars_wcag.audit(contesto)
+    assert esito["status"] == "surface"
+    assert esito["reference_score"] == 97.0

@@ -18,7 +18,7 @@
 5. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
 6. Accessibilità     :  37/100
-  axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate
+  axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
   → 1 link con testo generico ("clicca qui", "leggi tutto")

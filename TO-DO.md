@@ -6,7 +6,7 @@
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
-> **Correzioni chiuse**: R1-R27, R34, R38. **Aperte**: R28-R33, R35-R37 e
+> **Correzioni chiuse**: R1-R27, R34, R38, R45. **Aperte**: R28-R33, R35-R37 e
 > R39-R44, queste ultime sei trovate *adeguando* i moduli alle Fasi 1, 2 e 3 —
 > nessuna è stata corretta lì dentro, perché avrebbe spostato punteggi o testi
 > dentro un commit che cambiava la forma.

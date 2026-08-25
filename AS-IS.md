@@ -3747,6 +3747,86 @@ oggi quel rilievo entra nel piano, cioè il test misurava due cose. Ora è
       `.priorita`, `.badge`, `.qw`, `.guadagno`), otto test, i due golden
       `.html`.
 
+### R45 — ✅ (2026-08-25): due numeri sulla stessa area, e perché differiscono
+
+**Il difetto, trovato sul campo.** Confrontando il referto di MARS con
+PageSpeed Insights su un sito vero — `lymphatechnologies.com` — la differenza
+era enorme e inspiegabile a chi legge: **Lighthouse 97 all'accessibilità,
+MARS 59**. Non è un disaccordo sui fatti. Verificato eseguendo il Lighthouse
+13.4.1 locale, lo stesso che MARS invoca:
+
+- usano **lo stesso strumento**, axe-core, e hanno trovato **lo stesso
+  difetto**, `color-contrast`;
+- Lighthouse fa una **media pesata** su 76 controlli, 30 dei quali con peso,
+  per un peso totale di 226: `color-contrast` pesa 7, cioè il 3%. Da lì il 97;
+- MARS **sottrae penalità**: `color-contrast` è `serious`, 12 punti,
+  moltiplicati per la diffusione — presente su tutte e 5 le pagine esaminate,
+  quindi 2× — fa 24. Più `scrollable-region-focusable`, 12 × 1,4 = 16,8.
+  Totale 40,8, da cui il 59.
+
+Due differenze strutturali oltre alla scala: MARS guarda **5 pagine**,
+Lighthouse **una**; e `scrollable-region-focusable` **non è nella categoria
+accessibility di Lighthouse** — verificato sul LHR — quindi non ci sarebbe
+entrato nemmeno guardando lo stesso campione.
+
+Sull'unico numero che è la **stessa misura**, invece, non c'era alcuna
+differenza: il SEO di MARS *è* il punteggio di Lighthouse, e valeva 100 per
+entrambi.
+
+**La decisione, presa dall'utente fra tre alternative** (lasciare e dichiarare;
+ritarare `PESI_AXE`; pubblicare entrambi): **pubblicare entrambi i numeri con
+la nota che il nostro è più restrittivo**. È la risposta che non tocca la
+misura e non nasconde niente — chi apre PageSpeed accanto al referto i due
+numeri li vede comunque, e tacerne uno non li rende uguali, li rende
+inspiegabili.
+
+**Costo zero, e una cosa che si buttava via.** `esegui_lighthouse` non passa
+`--only-categories`, quindi Lighthouse calcola **tutte e cinque** le categorie
+a ogni run — performance, accessibilità, best practices, SEO, agentic
+browsing — e `mars_seo` ne teneva una, buttando le altre insieme al resto del
+LHR. Ora le pubblica tutte in `lighthouse_scores`, e `mars_wcag` legge da lì
+il numero che gli serve: **nessun secondo Lighthouse**, perché il modulo gira
+dopo `mars_seo` in `MODULES_REGISTRY` — la stessa cucitura su cui poggia
+`mars_citability`.
+
+**Le chiavi sono generiche**, `reference_score` e `reference_tool`, non
+`lighthouse_*`: il confronto non è una proprietà di quello strumento, e la
+stessa forma servirà il giorno che un'altra area avrà un termine di paragone.
+
+**Tracciabilità.** Il 97 compare nell'area accessibilità, ma è stato misurato
+dal run pagato dall'area SEO: senza `lighthouse_scores` nel dato canonico non
+ci sarebbe modo di risalire a chi l'ha prodotto. `build_report` copia una
+lista chiusa di chiavi, quindi la prima stesura lo perdeva — è la lezione di
+U1.2, ripresentatasi identica.
+
+**La resa sta in `_qualificatori`**, condivisa fra testo e HTML, quindi le due
+viste non possono divergere: «axe-core · WCAG 2.1 A + AA · 5 pagine
+esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più
+severa)».
+
+Due dettagli che sarebbero passati: il confronto vale **anche nel ramo di
+ripiego**, dove serve di più — lì il nostro numero è un controllo di
+superficie e quello di Lighthouse no — e la condizione è `is not None` e non
+la verità del valore, altrimenti **uno zero dell'altro strumento sparirebbe**,
+cioè proprio il caso peggiore. Entrambi presidiati da un test e da una
+mutazione.
+
+La fixture `_lhr()` ora dichiara tutte e cinque le categorie, coi punteggi del
+run vero: senza, `punteggi_categorie` sarebbe stata provata su un LHR che ne
+dichiara una sola, cioè su una forma che non esiste.
+
+Undici mutazioni, nessuna sfuggita. Golden mossi: quattro — i due `.json` e il
+`.txt`/`.html` del referto completo.
+
+**Non chiude la questione della scala**, e va detto: MARS resta molto più
+severo, e un solo controllo violato su tutte le pagine costa un quarto del
+punteggio. Ora però il referto lo dichiara, invece di lasciarlo scoprire a chi
+confronta.
+
+- [x] `punteggi_categorie()` in `mars_seo`, `punteggio_riferimento()` in
+      `mars_wcag`, tre chiavi nel referto, `_qualificatori`, undici test,
+      quattro golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

@@ -1084,3 +1084,63 @@ def test_il_piano_html_dichiara_che_l_indice_e_una_stima(contesto):
     html = render_html(_referto_con_piano(contesto))
     assert "è una stima derivata dai pesi per assistente" in html
     assert "mercato eu, stima" in html
+
+
+# ----------------------------------------------------------------------
+# R45: il numero dell'altro strumento nelle viste
+# ----------------------------------------------------------------------
+
+def _area_con_riferimento(contesto):
+    contesto["results"] = {
+        "mars_seo": {"score": 27.0, "issues": [],
+                     "lighthouse_scores": {"seo": 27.0,
+                                           "accessibility": 97.0}},
+        "mars_wcag": {"score": 59, "tool": "axe-core",
+                      "wcag_level": "WCAG 2.1 A + AA", "pages_tested": 5,
+                      "issues": [], "reference_score": 97.0,
+                      "reference_tool": "Lighthouse"},
+    }
+    return build_report(contesto["results"], contesto)
+
+
+def test_le_viste_mostrano_il_secondo_numero_e_il_perche(contesto):
+    """Due numeri in contraddizione sono un dubbio; due numeri con la
+    ragione per cui differiscono sono un'informazione in piu'."""
+    referto = _area_con_riferimento(contesto)
+    for reso in (render_text(referto), render_html(referto)):
+        assert "Lighthouse 97/100" in reso
+        assert "scala diversa" in reso
+    # L'apostrofo tipografico l'HTML lo escapa, quindi la frase per
+    # intero si verifica dove arriva intera.
+    assert "la nostra è più severa" in render_text(referto)
+
+
+def test_il_secondo_numero_e_tracciabile(contesto):
+    """Il 97 compare nell'area accessibilita', ma viene dal run di
+    Lighthouse pagato dall'area SEO: senza `lighthouse_scores` nel dato
+    non ci sarebbe modo di risalire a chi l'ha misurato."""
+    referto = _area_con_riferimento(contesto)
+    seo = [a for a in referto["areas"] if a["module"] == "mars_seo"][0]
+    assert seo["lighthouse_scores"]["accessibility"] == 97.0
+
+
+def test_senza_secondo_numero_le_viste_non_dicono_nulla(contesto):
+    contesto["results"] = {"mars_wcag": {"score": 59, "tool": "axe-core",
+                                         "issues": []}}
+    referto = build_report(contesto["results"], contesto)
+    for reso in (render_text(referto), render_html(referto)):
+        # "Lighthouse" da solo non basta: compare in un commento del
+        # CSS, dove la fascia dei quadranti dichiara da dove viene.
+        assert "Lighthouse 97/100" not in reso
+        assert "scala diversa" not in reso
+
+
+def test_il_secondo_numero_zero_non_sparisce(contesto):
+    """`if area.get("reference_score")` invece di `is not None` farebbe
+    sparire proprio il caso peggiore: un'area a zero secondo l'altro
+    strumento."""
+    contesto["results"] = {"mars_wcag": {"score": 59, "tool": "axe-core",
+                                         "issues": [], "reference_score": 0.0,
+                                         "reference_tool": "Lighthouse"}}
+    assert "Lighthouse 0/100" in render_text(
+        build_report(contesto["results"], contesto))

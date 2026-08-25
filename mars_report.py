@@ -93,6 +93,19 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             # Con quale strumento e a quale livello: un punteggio di
             # accessibilita' senza il livello WCAG non significa nulla.
             "tool": res.get("tool"),
+            # Il punteggio di un ALTRO strumento sulla stessa area,
+            # quando esiste: due numeri diversi sulla stessa cosa si
+            # spiegano, uno solo si subisce. Chiavi generiche e non
+            # "lighthouse_*" perche' il confronto non e' una proprieta'
+            # di quello strumento.
+            "reference_score": res.get("reference_score"),
+            "reference_tool": res.get("reference_tool"),
+            # Tutti i punteggi di categoria di Lighthouse, dove
+            # l'area li ha. Non si rendono nelle viste umane, ma
+            # rendono TRACCIABILE il numero di riferimento qui sopra:
+            # senza, il 97 dell'accessibilita' comparirebbe nel
+            # referto senza che nulla dica da dove viene.
+            "lighthouse_scores": res.get("lighthouse_scores"),
             "wcag_level": res.get("wcag_level"),
             "pages_tested": res.get("pages_tested"),
             # Elenco dei singoli controlli, quando lo strumento lo
@@ -268,6 +281,15 @@ def _qualificatori(area: dict) -> List[str]:
     if area.get("form_factor"):
         # Un referto mobile e uno desktop non sono confrontabili.
         pezzi.append(str(area["form_factor"]))
+    if area.get("reference_score") is not None:
+        # Il numero dell'altro strumento, con la ragione per cui
+        # differisce. Senza quella ragione sarebbero due voti in
+        # contraddizione; con essa sono due misure con scale diverse,
+        # ed e' un'informazione in piu' invece che un dubbio.
+        pezzi.append("%s %.0f/100 (1 pagina, scala diversa: la nostra è "
+                     "più severa)"
+                     % (area.get("reference_tool") or "altro strumento",
+                        area["reference_score"]))
     controlli = area.get("audits") or []
     if controlli:
         superati = sum(1 for c in controlli if c.get("passed"))

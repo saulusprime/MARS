@@ -428,6 +428,50 @@ def run_axe(urls: List[str],
 
 
 # ======================================================================
+# Il numero dell'altro strumento
+# ======================================================================
+
+# Quale categoria di Lighthouse misura la stessa cosa di quest'area.
+CATEGORIA_LIGHTHOUSE = "accessibility"
+
+
+def punteggio_riferimento(context: dict) -> Optional[float]:
+    """Il punteggio di accessibilita' di Lighthouse, se qualcuno l'ha gia'.
+
+    Non si lancia un secondo Lighthouse: `mars_seo` ne ha gia' eseguito
+    uno per intero — Lighthouse calcola tutte le categorie a ogni run —
+    e da qui si legge il numero che aveva in mano e buttava via. Il
+    modulo gira DOPO mars_seo in MODULES_REGISTRY, ed e' la stessa
+    cucitura su cui poggia `mars_citability`.
+
+    None quando Lighthouse non c'e', quando e' fallito, o quando
+    quest'area viene invocata da sola (l'endpoint `/audit/wcag`): sono
+    tutti casi in cui il secondo numero non esiste, e il referto non
+    deve inventarlo.
+
+    **Perche' due numeri e non uno.** Misurano la stessa superficie con
+    lo stesso strumento — axe-core — e danno risultati molto diversi,
+    perche' le scale sono diverse: Lighthouse fa una media pesata dei
+    propri controlli su UNA pagina, MARS sottrae penalita' per gravita'
+    e diffusione su un campione. Misurato su un sito vero: 97 contro
+    59, con lo stesso identico difetto trovato da entrambi. Un cliente
+    che apra PageSpeed accanto al referto vede i due numeri comunque:
+    tacerne uno non li rende uguali, li rende inspiegabili.
+    """
+    seo = ((context.get("results") or {}).get("mars_seo") or {})
+    valore = (seo.get("lighthouse_scores") or {}).get(CATEGORIA_LIGHTHOUSE)
+    return float(valore) if isinstance(valore, (int, float)) else None
+
+
+def _riferimento(context: dict) -> Dict[str, object]:
+    """Le chiavi del confronto, o un dict vuoto se non c'e' con chi."""
+    punteggio = punteggio_riferimento(context)
+    if punteggio is None:
+        return {}
+    return {"reference_score": punteggio, "reference_tool": "Lighthouse"}
+
+
+# ======================================================================
 
 def audit(context: dict) -> dict:
     """Area 6: accessibilità, con axe-core quando disponibile.
@@ -478,6 +522,7 @@ def audit(context: dict) -> dict:
                             "analizzate": analizzate}).as_dict()]
             return {
                 "score": esito["score"],
+                **_riferimento(context),
                 "tool": "axe-core",
                 "wcag_level": WCAG_LIVELLO,
                 # Le pagine davvero esaminate, non quelle tentate.
@@ -509,6 +554,7 @@ def audit(context: dict) -> dict:
         f.params["penalty"] = float(PENALITA_STATICA)
         f.params["surface"] = True
     return {"score": max(0, score), "status": "surface", "tool": "markup",
+            **_riferimento(context),
             "wcag_level": "%s (parziale: solo criteri statici)" % WCAG_LIVELLO,
             "pages_total": len(pages), "issues": testi_statici,
             "findings": [f.as_dict() for f in statici],

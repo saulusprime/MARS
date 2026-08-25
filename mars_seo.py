@@ -309,6 +309,42 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
     return esito
 
 
+def punteggi_categorie(lhr: dict) -> Dict[str, Optional[float]]:
+    """Tutti i punteggi di categoria che Lighthouse ha calcolato.
+
+    Lighthouse gira SEMPRE per intero — `esegui_lighthouse` non passa
+    `--only-categories` — quindi performance, accessibilita', best
+    practices e agentic browsing sono gia' nel referto che abbiamo
+    pagato, e finora venivano buttati via insieme al resto del LHR.
+
+    Servono perche' MARS misura alcune di quelle aree con strumenti e
+    SCALE proprie, e un cliente che apra PageSpeed accanto al nostro
+    referto vede due numeri diversi sulla stessa cosa. Pubblicarli
+    tutt'e due, dichiarando che la nostra scala e' piu' severa, e' il
+    principio 5: un punteggio che non si sa da dove venga vale meno di
+    due punteggi che si sa perche' differiscono.
+
+    Verbatim, moltiplicati per 100 come fa il referto per il SEO.
+    None per una categoria che Lighthouse non ha saputo calcolare: e'
+    la stessa distinzione fra "zero" e "non misurato" di tutto il
+    progetto.
+    """
+    esito: Dict[str, Optional[float]] = {}
+    for chiave, categoria in (lhr.get("categories") or {}).items():
+        punteggio = (categoria or {}).get("score")
+        # `round(..., 2)` non e' una ritaratura: Lighthouse arrotonda
+        # gia' il punteggio di categoria a due decimali sulla scala
+        # 0-1 (`clampTo2Decimals`), quindi su 0-100 il valore esatto e'
+        # un intero e le due cifre non possono perdere nulla. Servono a
+        # togliere l'artefatto binario — 0.56 * 100 fa
+        # 56.00000000000001 — che in un referto consegnato si legge
+        # come falsa precisione.
+        esito[str(chiave)] = (round(float(punteggio) * 100.0, 2)
+                              if isinstance(punteggio, (int, float))
+                              else None)
+    return esito
+
+
 def riassumi(lhr: dict) -> dict:
     """Il risultato d'area a partire dal referto Lighthouse.
 
@@ -328,7 +364,11 @@ def riassumi(lhr: dict) -> dict:
                 "findings": [_stato(
                     "seo.status.not_scored",
                     "Lighthouse non ha calcolato la categoria SEO per "
-                    "questa pagina")]}
+                    "questa pagina")],
+                # Le ALTRE categorie possono esserci lo stesso: il run
+                # e' riuscito, e' la sola categoria SEO a non essere
+                # calcolabile.
+                "lighthouse_scores": punteggi_categorie(lhr)}
 
     controlli = estrai_audit(lhr)
     falliti = [c for c in controlli if not c["passed"] and not c["manual"]]
@@ -373,6 +413,9 @@ def riassumi(lhr: dict) -> dict:
         "form_factor": impostazioni.get("formFactor"),
         "audited_url": lhr.get("finalDisplayedUrl") or lhr.get("finalUrl"),
         "audits": controlli,
+        # Le altre categorie dello stesso run: non le misura quest'area,
+        # ma le ha pagate lei.
+        "lighthouse_scores": punteggi_categorie(lhr),
         "passed": len(superati),
         "failed": len(falliti),
         "manual": len(manuali),

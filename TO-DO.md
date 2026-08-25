@@ -1,23 +1,24 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
-> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo la Fase 4.
+> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4 e 5.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
 >
-> **Correzioni chiuse**: R1-R27, R34, R38, R45. **Aperte**: R28-R33, R35-R37 e
-> R39-R44 e R46, trovate *adeguando* i moduli alle Fasi 1-4 —
-> nessuna è stata corretta lì dentro, perché avrebbe spostato punteggi o testi
+> **Correzioni chiuse**: R1-R27, R34, R38, R41, R45. **Aperte**: R28-R33,
+> R35-R37, R39-R40 e R42-R44, R46 — trovate *adeguando* i moduli alle Fasi
+> 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o testi
 > dentro un commit che cambiava la forma.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`, la versione è **2.3.0**. **U1, U2 e U3 sono chiuse** — le loro
-> tredici voci stanno in [AS-IS.md](AS-IS.md) — e **anche U4 è chiusa**, con
-> le sue cinque. La prossima è U5. Da U3 in poi vale un vincolo: ogni
-> cambiamento di resa fa fallire i golden di `tests/golden/`, e la
-> rigenerazione va sempre seguita dalla **revisione del diff**.
+> `upgrade`, la versione è **2.4.0**. **Le prime cinque fasi sono chiuse** —
+> le loro ventuno voci stanno in [AS-IS.md](AS-IS.md). La prossima è U6.
+>
+> Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
+> di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
+> del diff**.
 
 ---
 
@@ -125,7 +126,7 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1, U2 e U3 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
+### U1-U5 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
 **U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
 nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
@@ -143,61 +144,20 @@ con la regola «la spiegazione in `detail`, la prescrizione in `fix`», e la
 resa nelle schede d'area e nella vista testo. Bump a 2.2.0. Le ha lasciato
 dietro una sola voce aperta: **R44**.
 
+**U4 — piano di interventi** (G02), in cinque voci: `mars_remediation.py` come
+funzione pura, la chiave `remediation` nel referto, e la resa nelle tre viste.
+Ogni intervento dichiara di quanto risale il punteggio dell'area se lo si
+chiude — il **recupero**, non la penalità — quanto ne guadagna l'indice di
+citabilità e su quale assistente, e quanto costa in ordine di grandezza. Bump
+a 2.3.0. Ha lasciato aperta **R46**.
+
+**U5 — complessivo, hero e ancore** (G07, G11), in tre voci: `overall_score()`
+secondo D3, il riquadro in testa coi conteggi per gravità, e le ancore stabili
+ricavate dalla `key` invece che dallo slug del titolo. Bump a 2.4.0. Con i
+conteggi si chiude **R41**.
+
 ### Altre fasi
 
-- [x] **U4 — Piano di remediation ordinato** (G02, Fase 4) — il cuore
-      dell'adeguamento. Spezzata come U1 e U3, e per la stessa ragione: il
-      dato prima, la resa poi, così il diff dei golden resta rivedibile.
-      Il progetto è stato preceduto da una ricognizione di dodici agenti in
-      sola lettura; le due decisioni che i critici hanno demolito e le
-      diciotto obiezioni verificate stanno in [AS-IS.md](AS-IS.md), voce
-      U4.1.
-  - [x] **U4.1** — `mars_remediation.py` come funzione pura: recupero
-        (`R(base − p) − R(base)`, non la penalità), certificato d'area,
-        quattro corsie, guadagno di citabilità come derivata, catalogo dello
-        sforzo. Il piano non è ancora nel referto: si prova la funzione.
-  - [x] **U4.2** — `build_report` guadagna la chiave `remediation`, con
-        l'import **duro** di `mars_remediation` (il piano è dato canonico:
-        la sua assenza deve rompere, non produrre un referto monco). Il
-        piano si costruisce **per ultimo**, dalla struttura che le aree e
-        la citabilità hanno appena riempito. Si sono mossi i due golden
-        `.json` e solo per la chiave nuova; l'API la riceve senza altro
-        lavoro.
-  - [x] **U4.3** — la sezione a testo in `render_text`, fra il ciclo delle
-        aree e la sezione RRF, condizionata sul **dato** e mai sul nome del
-        modulo (R42). Sempre stampata, anche vuota. Cinque interventi come
-        i cinque alert ZAP, con la troncatura dichiarata. E le correzioni
-        d'area ora mostrano **solo ciò che il piano non prende in carico**:
-        senza, ogni fix compariva due volte in quaranta righe.
-  - [x] **U4.4** — `_sezione_piano` in `render_html` più il CSS delle
-        schede e dei badge, riusando `.ok`/`.warn`/`.bad`. Nessuno script:
-        D1 vale solo dalla Fase 8. Qui **nessun tetto di cinque** — è il
-        documento che si consegna — e l'`example` resta alla scheda d'area.
-        Due golden `.html`.
-  - [x] **U4.5** — chiusura: «Azioni con maggior guadagno di profilo» sotto
-        i profili di citabilità (l'ultimo pezzo che la Fase 4 prometteva), il
-        vincolo R41 annotato su UPGRADE.md accanto alle Fasi 4, 5 e 7, il
-        bump a 2.3.0 con il README, e un test che lega le due dichiarazioni
-        di versione.
-- [ ] **U5 — Punteggio complessivo, hero, ancore stabili** (G07, G11, Fase 5).
-  - [x] **U5.1** — `overall_score()` secondo D3: media pesata delle sole aree
-        misurate, rinormalizzata, con i due segnali derivati a peso 1,5 e
-        citabilità e giudizio LLM esclusi **per nome**, così restano fuori
-        anche quando falliscono. Chiave `overall` nel dato, con i componenti
-        accanto perché il numero sia rifacibile; riga `COMPLESSIVO` in testa
-        alla vista testo.
-  - [x] **U5.2** — l'hero in `render_html`: lo stesso `_quadrante` della
-        fascia, più grande per CSS; verdetto e **scala dichiarata**; quattro
-        caselle — critici, avvertenze, informativi e pagine — coi conteggi
-        che **escludono i derivati** (seconda casella di R41, chiusa). Il
-        donut previsto da UPGRADE.md diventa due numeri: colorarli con la
-        scala dei punteggi trasformerebbe in voto una quota che non lo è.
-  - [x] **U5.3** — ancore stabili (G11), ricavate dalla `key` e non dallo
-        slug del titolo: la Fase 1 le ha già rese stabili per costruzione.
-        Permalink sui rilievi e sui controlli, `:target` nel CSS, il piano e
-        il riquadro «Da dove cominciare» che le linkano, e un test che
-        pretende **zero link rotti** — in un referto HTML non farebbero
-        alcun rumore.
 - [ ] **U6 — Formati Markdown e CSV** (G04, Fase 6).
 - [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
       `schema_version`, parametri RRF e soglie nel referto; delta fra due
@@ -599,74 +559,6 @@ testi.)*
 - [ ] Allineare il testo delle issues dei non applicabili a quello dei
       rilievi, rigenerando i golden.
 - [ ] Chiudere i tre buchi di `_descrivi_item`.
-
-### R41 — 🟡 MEDIO: `derived` esiste, ma nessun consumatore lo legge ancora
-*(trovato chiudendo U1.8, il 2026-08-24: è il vincolo che quella voce impone
-alle fasi successive, e va scritto prima che le si scriva.)*
-
-Da U1.8 ogni rilievo di `mars_citability` porta `params["derived"] = True` e
-**nessuna** `penalty`: sono sintesi, ridicono difetti che altre aree hanno già
-misurato con più dettaglio. Il marcatore però **non ha ancora un lettore**
-(`grep -rn '"derived"' *.py` → solo `mars_citability`), e le tre "guardie"
-contro il doppio conteggio non sono equivalenti:
-
-- **niente `penalty`** protegge le *somme* di recupero, non l'*elenco*: il
-  piano della Fase 4 filtra per gravità, e un rilievo senza penalità vi
-  entrerebbe con guadagno zero;
-- **`severity: info`** è ciò che oggi li esclude davvero dal piano (che filtra
-  `critical`+`warning`), ma è una protezione **incidentale**: la Fase 5 prevede
-  tre riquadri coi conteggi per gravità *dai findings*, e lì i sette
-  `cit.*.unmeasured` e i `cit.*.weak` gonfierebbero il conteggio «Info»
-  accanto ai rilievi che ridicono. Il doppio conteggio che **D3** chiude sul
-  *punteggio* si riaprirebbe sui *conteggi di rilievi*.
-
-Il vincolo, da rispettare in U4, U5 e U7: **ogni consumatore che AGGREGA
-rilievi — piano di interventi, conteggi per gravità, confronto fra due
-esecuzioni — deve escludere quelli con `params.get("derived")`.** Chi invece li
-mostra uno per uno (elenco d'area, JSON, CSV) li tiene: dicono qualcosa di
-vero, e `params["sources"]` dice a quali aree agganciarli.
-
-Eccezione da conoscere: `cit.status.error`, che sintetizza `build_report`
-quando il modulo fallisce, **non** porta `derived` — ed è giusto, perché non è
-una sintesi ma un guasto del nostro strumento, e nessun'altra area lo sta già
-dicendo.
-
-- [x] Annotare il vincolo su UPGRADE.md, accanto alle Fasi 4, 5 e 7 —
-      fatto in U4.5.
-- [x] Escluderli in `build_remediation` — fatto in U4.1, con un test che
-      costruisce un derivato **critico** apposta: oggi li terrebbe fuori anche
-      la sola gravità, ed è proprio la protezione incidentale che questa voce
-      denuncia.
-- [x] Escluderli nei conteggi per gravità — fatto in U5.2, con lo stesso
-      test costruito sul derivato critico. **R41 è chiusa.**
-
-### R46 — 🟡 MEDIO: lo sforzo è editoriale perché il conteggio non è canonico
-*(aperta chiudendo U4, il 2026-08-25)*
-
-Il piano di interventi dichiara uno sforzo — `minuti`, `ore`, `giorni` — da un
-catalogo a mano in `mars_remediation.SFORZO`, con una voce per ciascuno dei
-venticinque controlli che MARS misura da sé. È una **stima di ordine di
-grandezza dichiarata come tale**, e serve a una cosa sola: riconoscere i quick
-win.
-
-Non può diventare una misura finché manca il dato su cui poggerebbe: **quante
-istanze** ha il difetto. Correggere un `alt` mancante su una pagina è cosa di
-minuti; farlo su duecento immagini di un catalogo è cosa di giorni, e oggi il
-piano dice «giorni» in entrambi i casi perché il numero non lo guarda.
-
-Il numero c'è, ma sotto nomi diversi in ogni modulo: `params["immagini"]`,
-`params["campi"]`, `params["tabelle"]`, `params["salti"]`, `params["link"]` in
-`mars_wcag`; `params["nodes"]` per axe; `params["n"]` per ZAP e per
-`mars_schema`; nessuno in `mars_seo`, dove Lighthouse elenca gli elementi ma
-il rilievo ne conta soltanto i primi cinque.
-
-- [ ] Un nome canonico — `params["istanze"]` — accanto a quelli specifici,
-      che restano perché dicono *che cosa* si conta.
-- [ ] Farlo entrare nella stima dello sforzo, e **dichiarare** quando manca:
-      senza istanze la stima resta quella editoriale di oggi.
-- [ ] Verificare che non si sovrapponga a `params["penalty"]`: la diffusione
-      pesa già nella penalità di axe e di ZAP, e contarla due volte
-      gonfierebbe insieme guadagno e costo.
 
 ### R42 — 🟢 LIEVE: la citabilità sparisce dalla vista testo quando fallisce
 *(trovato censendo i consumatori per U1.8, il 2026-08-24)*

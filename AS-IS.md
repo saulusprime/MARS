@@ -3979,6 +3979,41 @@ Trentadue mutazioni nelle tre voci, nessuna sfuggita.
       `_hero()`, `_ancora()`, `ancore_dei_rilievi()`, `_primi_rilievi()`, il
       CSS, ventotto test, i golden.
 
+### R41 — ✅ CHIUSA (2026-08-25): `derived` ha finalmente dei lettori
+
+**Il difetto.** Da U1.8 ogni rilievo di `mars_citability` porta
+`params["derived"] = True` e nessuna `penalty`: sono sintesi, ridicono difetti
+che altre aree hanno già misurato con più dettaglio. Il marcatore però **non
+aveva un lettore** — `grep -rn '"derived"' *.py` trovava solo il modulo che lo
+scriveva — e le tre guardie contro il doppio conteggio non erano equivalenti:
+l'assenza di `penalty` protegge le *somme*, non l'*elenco*; e `severity: info`
+è ciò che li escludeva davvero, ma è una protezione **incidentale**.
+
+**Chiusa in due tempi, dai due consumatori che sono nati nel frattempo:**
+
+- **U4.1** li esclude dal piano di interventi (`_e_candidato`);
+- **U5.2** li esclude dai conteggi per gravità dell'hero
+  (`conteggi_per_gravita`), che è il caso che la voce prevedeva: i sette
+  `cit.*.unmeasured` e i `cit.*.weak` avrebbero gonfiato la casella «Info»
+  accanto ai rilievi che ripetono, riaprendo sui *conteggi* il doppio
+  conteggio che D3 chiude sul *punteggio*. Nel golden completo sono quattro
+  rilievi su dodici informativi.
+
+Entrambi i test costruiscono un derivato **critico** apposta, cioè uno stato
+che oggi nessun modulo produce: senza, verificherebbero la protezione
+incidentale invece di quella vera, e il giorno che un derivato nascesse
+`warning` il conteggio si gonfierebbe in silenzio.
+
+**Il vincolo è ora scritto dove serve** (U4.5): in UPGRADE.md, accanto alle
+Fasi 4, 5 e 7 — le tre che aggregano rilievi — invece che in una voce del
+TO-DO, che è il posto sbagliato per un vincolo sul lavoro futuro. Chi mostra i
+rilievi uno per uno (elenco d'area, JSON, CSV) li tiene: dicono qualcosa di
+vero, e `params["sources"]` dice a quali aree agganciarli.
+
+Resta valida l'eccezione: `cit.status.error`, che `build_report` sintetizza
+quando il modulo fallisce, **non** porta `derived` — non è una sintesi ma un
+guasto del nostro strumento, e nessun'altra area lo sta già dicendo.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

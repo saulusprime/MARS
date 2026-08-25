@@ -859,11 +859,18 @@ class Crawler:
         # altro. Senza, si scopre seguendo i link interni.
         self.discovery = "sitemap" if da_sitemap else "link interni"
         segui_link = not da_sitemap
-        coda = list(da_sitemap) or [self.base_url]
+        # La coda porta anche la PROFONDITA': quanti click dalla home.
+        # `None` per le pagine che vengono dalla sitemap, e non e' un
+        # dettaglio — sono dichiarate dal sito ma non necessariamente
+        # raggiungibili seguendo i link, e chiamarle "profondita' 0"
+        # direbbe che stanno in home. Ignota e' l'unica risposta vera,
+        # e il referto ha un secchiello apposta per loro.
+        coda = ([(u, None) for u in da_sitemap]
+                or [(self.base_url, 0)])
         visti = self._visti = set()
 
         while coda and len(self.pages) < self.max_pages:
-            grezzo = coda.pop(0)  # FIFO: ampiezza, non profondita'
+            grezzo, profondita = coda.pop(0)  # FIFO: ampiezza
             richiesto = safe_normalize_url(grezzo)
             if richiesto is None:
                 # Un <loc> di sitemap malformato non e' un errore
@@ -920,6 +927,9 @@ class Crawler:
             lingua = (html_tag.get("lang") or "") if html_tag else ""
             self.pages[url] = {
                 "title": title,
+                # Distanza in click dalla home, o None se la pagina
+                # viene dalla sitemap e nessuno l'ha raggiunta per link.
+                "depth": profondita,
                 # Estratti qui, dove il DOM e' gia' in memoria: prima
                 # mars_schema e mars_wcag riparsavano l'HTML ciascuno
                 # per conto suo, tre parse per pagina invece di uno.
@@ -963,7 +973,10 @@ class Crawler:
                 # rispetto a dove si e' finiti.
                 for link in self.estrai_link(soup, url):
                     if link not in visti:
-                        coda.append(link)
+                        # In questo ramo la profondita' e' sempre nota:
+                        # ci si arriva solo partendo dalla home, che
+                        # entra in coda a 0.
+                        coda.append((link, (profondita or 0) + 1))
         return self.pages
 
 

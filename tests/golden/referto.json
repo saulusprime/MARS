@@ -25,6 +25,39 @@
     "non HTML: https://esempio.test/listino.pdf",
     "URL non analizzabile: https://esempio.test/[2001"
   ],
+  "pages": [
+    {
+      "url": "https://esempio.test/",
+      "title": "Drenaggio linfatico",
+      "lang": "it",
+      "depth": null,
+      "headings": 3,
+      "chunks": 2,
+      "json_ld_types": [
+        "FAQPage"
+      ]
+    },
+    {
+      "url": "https://esempio.test/servizi/",
+      "title": "Servizi",
+      "lang": "it",
+      "depth": null,
+      "headings": 2,
+      "chunks": 1,
+      "json_ld_types": []
+    },
+    {
+      "url": "https://esempio.test/faq/",
+      "title": "Domande frequenti",
+      "lang": "it",
+      "depth": null,
+      "headings": 2,
+      "chunks": 1,
+      "json_ld_types": [
+        "FAQPage"
+      ]
+    }
+  ],
   "areas": [
     {
       "module": "mars_tech",

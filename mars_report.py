@@ -155,6 +155,10 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         # chiave.
         "queries": list(context.get("queries") or []),
         "skipped": list(context.get("skipped") or []),
+        # La superficie come dato: che cosa c'e' su ogni URL e quanto e'
+        # profondo. Serve alle integrazioni, e nessuna delle nove aree
+        # lo espone — ognuna guarda la propria misura.
+        "pages": pagine_scansionate(context),
         "areas": aree,
         # Chiave del contratto con mars_citations.py --from-audit:
         # lista di voci ciascuna con la propria "query".
@@ -285,6 +289,110 @@ def overall_score(referto: dict) -> Optional[Dict[str, object]]:
             "components": componenti,
             "excluded": escluse,
             "weight_total": totale}
+
+
+# I secchielli della profondità di crawl. Tre e non uno per livello:
+# oltre il terzo click la differenza fra quattro e sette non cambia
+# quel che si fa, e un istogramma con dodici colonne da una pagina
+# ciascuna non si legge.
+SECCHIELLI_PROFONDITA = (
+    (0, 0, "home"),
+    (1, 1, "1 click"),
+    (2, 2, "2 click"),
+    (3, 3, "3 click"),
+    (4, None, "4+ click"),
+)
+
+
+def _tipi_json_ld(blocchi: List[str]) -> List[str]:
+    """I tipi Schema.org dichiarati da una pagina.
+
+    Legge il `@type`, che nel JSON-LD puo' essere una stringa o una
+    lista, e puo' stare dentro un `@graph`. Un blocco che non si
+    analizza non da' niente e **non e' un giudizio**: che sia malformato
+    lo dice gia' `mars_schema` con un rilievo suo, e ripeterlo qui
+    sarebbe la seconda voce sullo stesso difetto.
+    """
+    tipi: List[str] = []
+
+    def raccogli(nodo: object) -> None:
+        if isinstance(nodo, list):
+            for voce in nodo:
+                raccogli(voce)
+            return
+        if not isinstance(nodo, dict):
+            return
+        valore = nodo.get("@type")
+        if isinstance(valore, str):
+            tipi.append(valore)
+        elif isinstance(valore, list):
+            tipi.extend(v for v in valore if isinstance(v, str))
+        raccogli(nodo.get("@graph"))
+
+    for blocco in blocchi or []:
+        try:
+            raccogli(json.loads(blocco or ""))
+        except ValueError:
+            continue
+    # Ordinati e senza doppioni: il referto e' un dato che si
+    # confronta fra due esecuzioni, e l'ordine di apparizione nel DOM
+    # non e' un'informazione.
+    return sorted(set(tipi))
+
+
+def pagine_scansionate(context: dict) -> List[Dict[str, object]]:
+    """Le pagine come dato, senza il loro contenuto.
+
+    `context["pages"]` porta anche `html` e `text` — centinaia di
+    kilobyte per pagina — che nel referto non hanno posto: qui esce il
+    sottoinsieme che serve a un'integrazione, cioe' che cosa c'e' su
+    ogni URL e quanto e' profondo.
+
+    **Lo status HTTP non c'e', e non si inventa**: nel dict pagina non
+    esiste, perche' solo le 200 entrano in `pages` e tutto il resto
+    finisce in `skipped`. Metterci un 200 fisso vorrebbe dire scrivere
+    una misura che nessuno ha fatto.
+    """
+    esito = []
+    for url, pagina in (context.get("pages") or {}).items():
+        esito.append({
+            "url": url,
+            "title": pagina.get("title") or "",
+            "lang": pagina.get("lang") or "",
+            # None quando la pagina viene dalla sitemap: dichiarata dal
+            # sito, ma nessuno l'ha raggiunta seguendo i link.
+            "depth": pagina.get("depth"),
+            "headings": len(pagina.get("headings") or []),
+            "chunks": len(pagina.get("chunks") or []),
+            "json_ld_types": _tipi_json_ld(pagina.get("json_ld") or []),
+        })
+    return esito
+
+
+def depth_distribution(pagine: List[dict]) -> List[Dict[str, object]]:
+    """Quante pagine a ciascuna distanza dalla home.
+
+    Il secchiello «profondita' ignota» non e' un residuo: raccoglie le
+    pagine che il crawler ha preso dalla sitemap senza mai raggiungerle
+    per link, e sono la scoperta piu' utile della sezione — un
+    contenuto che sta nella sitemap e in nessun percorso di
+    navigazione e' un contenuto che un assistente trova solo se sa gia'
+    che esiste.
+    """
+    profondita = [p.get("depth") for p in pagine]
+    esito: List[Dict[str, object]] = []
+    for minimo, massimo, etichetta in SECCHIELLI_PROFONDITA:
+        quante = sum(1 for d in profondita
+                     if isinstance(d, int)
+                     and d >= minimo and (massimo is None or d <= massimo))
+        if quante:
+            esito.append({"label": etichetta, "pages": quante,
+                          "unknown": False})
+    ignote = sum(1 for d in profondita if not isinstance(d, int))
+    if ignote:
+        esito.append({"label": "profondità ignota", "pages": ignote,
+                      "unknown": True})
+    return esito
 
 
 def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],

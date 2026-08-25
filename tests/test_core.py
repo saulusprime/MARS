@@ -1263,3 +1263,39 @@ def test_lo_user_agent_porta_la_versione():
     cio' che permette a chi legge i log di sapere con che cosa ha a che
     fare, e va aggiornato insieme al resto."""
     assert mars_core.USER_AGENT == "MARSBeacon/%s" % mars_core.__version__
+
+
+# ----------------------------------------------------------------------
+# U8: la profondita' di crawl
+# ----------------------------------------------------------------------
+
+def test_il_crawler_registra_la_distanza_dalla_home():
+    """Un click per livello, seguendo i link: e' la misura che dice se
+    un contenuto sta in vista o in fondo a un corridoio."""
+    pagine = {
+        "http://esempio.test/": '<html><body><a href="/a">a</a></body></html>',
+        "http://esempio.test/a": '<html><body><a href="/b">b</a></body></html>',
+        "http://esempio.test/b": "<html><body>fine</body></html>",
+    }
+    risposte = {"http://esempio.test/robots.txt": ("", "text/plain")}
+    risposte.update({u: (c, "text/html") for u, c in pagine.items()})
+    crawler = _crawler_finto(risposte)
+    risultato = crawler.crawl()
+    assert crawler.discovery == "link interni"
+    assert {u: p["depth"] for u, p in risultato.items()} == {
+        "http://esempio.test/": 0,
+        "http://esempio.test/a": 1,
+        "http://esempio.test/b": 2}
+
+
+def test_dalla_sitemap_la_profondita_resta_ignota():
+    """Dichiarate dal sito, non necessariamente raggiungibili per link:
+    chiamarle «profondita' 0» direbbe che stanno in home, e ignota e'
+    l'unica risposta vera."""
+    crawler = _crawler_con_sitemap(
+        ["http://esempio.test/x", "http://esempio.test/y"],
+        **{"http://esempio.test/x": "<html><body>x</body></html>",
+           "http://esempio.test/y": "<html><body>y</body></html>"})
+    risultato = crawler.crawl()
+    assert crawler.discovery == "sitemap"
+    assert [p["depth"] for p in risultato.values()] == [None, None]

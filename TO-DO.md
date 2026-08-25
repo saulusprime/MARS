@@ -167,8 +167,21 @@ nelle tre viste umane. Bump a 2.6.0.
 
 ### Altre fasi
 
-- [ ] **U8 — Analisi della superficie** (G12, Fase 8): profondità, treemap,
-      grafo dei link (qui entra D1), matematica dell'RRF, `pages[]`.
+- [ ] **U8 — Analisi della superficie** (G12, Fase 8).
+  - [x] **U8.1** — `pages[]` nel dato canonico (url, titolo, lingua,
+        profondità, quanti heading e chunk, tipi Schema.org) e la
+        profondità di crawl registrata dal crawler: nota quando si seguono
+        i link, **ignota** per le pagine che vengono dalla sola sitemap.
+        Lo status HTTP non c'è e non si inventa.
+  - [ ] **U8.2** — la resa della distribuzione di profondità e
+        `surface_math`: superficie attuale contro potenziale, con
+        l'assunzione dichiarata nel testo.
+  - [ ] **U8.3** — treemap della superficie: SVG statico con `role="img"`,
+        `<title>` per rettangolo e tabella di ripiego in `<details>`.
+  - [ ] **U8.4** — grafo dei link interni, e con esso **D1**: il primo
+        JavaScript nel referto, inline e in progressive enhancement. Va
+        adeguato nello stesso commit il test che oggi pretende «nessuno
+        script», da riscrivere come «nessuna origine esterna».
 - [ ] **U9 — i18n del referto** (G05, Fase 9) — *rinviata da D4*. Cataloghi e
       `--lang` per it/en/fr/de/es, riusando i cataloghi già scritti in
       marsbeacon dove i controlli coincidono. Ridurre a it/en è legittimo ma

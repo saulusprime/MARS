@@ -4133,6 +4133,48 @@ e seconda.
       `mars_history.py`, tre chiavi nel referto più `delta`, `--history` e
       `--no-history`, la resa in testo/HTML/Markdown, trenta test, i golden.
 
+### U8.1 — ✅ (2026-08-25): la superficie come dato
+
+**`pages[]` nel referto**: per ogni URL scansionato il titolo, la lingua, la
+profondità, quanti heading e quanti chunk, e i tipi Schema.org dichiarati.
+Nessuna delle nove aree lo espone — ognuna guarda la propria misura — e per
+un'integrazione è il dato più utile del referto dopo i rilievi.
+
+Esce **senza il contenuto**: `context["pages"]` porta anche `html` e `text`,
+centinaia di kilobyte per pagina, che nel referto non hanno posto.
+
+**Lo status HTTP non c'è, e non si inventa.** Nel dict pagina non esiste,
+perché solo le 200 entrano in `pages` e tutto il resto finisce in `skipped`:
+scriverci un 200 fisso vorrebbe dire pubblicare una misura che nessuno ha
+fatto. È l'avvertenza che UPGRADE.md stesso segnalava.
+
+**La profondità di crawl**, registrata dal crawler: la coda BFS porta ora la
+distanza in click dalla home. Le pagine che vengono dalla **sola sitemap**
+hanno profondità `None` — dichiarate dal sito, ma nessuno le ha raggiunte
+seguendo i link, e chiamarle «profondità 0» direbbe che stanno in home. Ne
+segue che la profondità si misura **solo** quando il crawler segue i link,
+cioè quando la sitemap manca: è per costruzione, e il secchiello «profondità
+ignota» esiste apposta.
+
+Quel secchiello non è un residuo: un contenuto che sta nella sitemap e in
+nessun percorso di navigazione è un contenuto che un assistente trova solo se
+sa già che esiste — ed è la scoperta più utile della sezione.
+
+**I tipi Schema.org** si leggono nelle tre forme che i siti veri usano:
+`@type` stringa, `@type` lista, e dentro un `@graph`. Un blocco che non si
+analizza non dà niente e **non diventa un giudizio**: che sia malformato lo
+dice già `mars_schema` con un rilievo suo, e ripeterlo qui sarebbe la seconda
+voce sullo stesso difetto.
+
+I due golden restano a profondità ignota su tutte le pagine, ed è fedele:
+entrambi i dataset dichiarano `discovery: sitemap`. I secchielli veri li
+esercitano i test, e due test nuovi sul `Crawler` verificano il giro completo
+— tre pagine in fila danno 0, 1, 2, e la stessa scansione da sitemap dà
+`None`.
+
+- [x] `Crawler.crawl()` (la coda porta la profondità), `pagine_scansionate()`,
+      `depth_distribution()`, `_tipi_json_ld()`, nove test, i due golden JSON.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

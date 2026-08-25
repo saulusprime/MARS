@@ -24,7 +24,8 @@ import mars_report
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          _ancora, _correzioni, _md_cella,
                          ancore_dei_rilievi,
-                         conteggi_per_gravita, segnali_derivati,
+                         conteggi_per_gravita, depth_distribution,
+                         pagine_scansionate, segnali_derivati,
                          _correzioni_testo, _elenco_controlli,
                          _etichetta_area, _quadrante, build_report,
                          render_csv, render_html, render_json,
@@ -1803,3 +1804,70 @@ def test_il_delta_a_testo_si_ferma_a_tre_per_elenco(contesto):
                           for i in range(9)]}
     testo = render_text(_referto_con_delta(contesto, molti))
     assert "... e altri 6" in testo
+
+
+# ----------------------------------------------------------------------
+# U8.1: la superficie come dato
+# ----------------------------------------------------------------------
+
+def test_le_pagine_escono_senza_il_loro_contenuto(referto):
+    """`context["pages"]` porta anche `html` e `text`, centinaia di
+    kilobyte per pagina: nel referto non hanno posto."""
+    assert referto["pages"], "il contesto ne ha"
+    for pagina in referto["pages"]:
+        assert set(pagina) == {"url", "title", "lang", "depth", "headings",
+                               "chunks", "json_ld_types"}
+    json.dumps(referto["pages"])
+
+
+def test_le_pagine_non_dichiarano_uno_status_che_nessuno_ha_misurato(referto):
+    """Solo le 200 entrano in `pages`, il resto va in `skipped`: un 200
+    fisso sarebbe una misura che nessuno ha fatto."""
+    assert all("status" not in p for p in referto["pages"])
+
+
+def test_i_tipi_json_ld_si_leggono_anche_dentro_un_graph(contesto):
+    """`@type` puo' essere una stringa, una lista, o stare in un
+    `@graph`: sono tutte forme che i siti veri usano."""
+    contesto["pages"]["https://esempio.test/"]["json_ld"] = [
+        '{"@type": "Organization"}',
+        '{"@type": ["LocalBusiness", "Store"]}',
+        '{"@graph": [{"@type": "FAQPage"}]}',
+    ]
+    pagine = pagine_scansionate(contesto)
+    assert pagine[0]["json_ld_types"] == ["FAQPage", "LocalBusiness",
+                                          "Organization", "Store"]
+
+
+def test_un_json_ld_malformato_non_diventa_un_giudizio(contesto):
+    """Che sia rotto lo dice gia' `mars_schema` con un rilievo suo:
+    ripeterlo qui sarebbe la seconda voce sullo stesso difetto."""
+    contesto["pages"]["https://esempio.test/"]["json_ld"] = ["{rotto",
+                                                             '{"@type": "X"}']
+    assert pagine_scansionate(contesto)[0]["json_ld_types"] == ["X"]
+
+
+def test_i_secchielli_di_profondita_contano_le_pagine():
+    pagine = [{"depth": 0}, {"depth": 1}, {"depth": 1}, {"depth": 3},
+              {"depth": 7}, {"depth": 9}]
+    assert depth_distribution(pagine) == [
+        {"label": "home", "pages": 1, "unknown": False},
+        {"label": "1 click", "pages": 2, "unknown": False},
+        {"label": "3 click", "pages": 1, "unknown": False},
+        {"label": "4+ click", "pages": 2, "unknown": False}]
+
+
+def test_le_pagine_di_sola_sitemap_hanno_un_secchiello_loro():
+    """E' la scoperta piu' utile della sezione: un contenuto che sta
+    nella sitemap e in nessun percorso di navigazione e' un contenuto
+    che un assistente trova solo se sa gia' che esiste."""
+    assert depth_distribution([{"depth": None}, {"depth": 0}]) == [
+        {"label": "home", "pages": 1, "unknown": False},
+        {"label": "profondità ignota", "pages": 1, "unknown": True}]
+
+
+def test_i_secchielli_vuoti_non_compaiono():
+    """Un istogramma con dodici colonne da zero non si legge."""
+    assert depth_distribution([{"depth": 0}]) == [
+        {"label": "home", "pages": 1, "unknown": False}]
+    assert depth_distribution([]) == []

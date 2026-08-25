@@ -3702,6 +3702,51 @@ rompevano la sintassi e non dimostravano nulla. Rifatte cambiando la
 - [x] `_piano_testo()`, `_voce_piano_testo()`, `_correzioni_testo(…,
       nel_piano)`, otto test, i due golden `.txt`.
 
+### U4.4 — ✅ (2026-08-25): il piano nella vista HTML
+
+Una scheda per intervento, nella stessa posizione della vista testo — dopo le
+aree, prima dell'RRF — perché le due rese raccontino il referto nello stesso
+ordine. Ogni scheda porta priorità, badge di gravità, area, sforzo, il quick
+win, il recupero coi punteggi di partenza e arrivo, il guadagno d'indice e la
+prescrizione.
+
+**Qui non c'è il tetto di cinque della vista testo**: è il documento che si
+consegna, e li porta tutti.
+
+**Che cosa NON si ripete, e perché.** L'`example` resta alla scheda d'area:
+sedici blocchi di codice dentro un elenco di priorità lo renderebbero
+illeggibile proprio come elenco. Il `fix` invece si ripete, ed è una scelta
+opposta a quella presa nella vista testo poche ore prima — là il referto è
+largo 55 colonne e il lettore aveva le due righe sott'occhio insieme, qui sono
+due sezioni di un documento lungo, e un intervento che non dicesse *che cosa
+fare* manderebbe a cercarlo. Senza nemmeno un'ancora: quelle arrivano con la
+Fase 5.
+
+**I due numeri hanno statuto diverso, e il referto lo dice.** I punti d'area
+sono la stessa aritmetica che ha prodotto i punteggi pubblicati; il guadagno
+d'indice esce da una matrice di pesi editoriali, quindi è dichiarato *stima* e
+porta con sé il mercato — lo stesso rilievo vale diversamente in due esecuzioni
+con segnali misurati diversi.
+
+**Una trappola dei selettori annidati, colta prima di consegnarla.** La scheda
+riusa la classe `riga` delle schede d'area, ma il CSS la definiva come
+`.area .riga`, cioè **ristretta**: dentro `.intervento` titolo e badge sarebbero
+rimasti impilati invece che affiancati. Nessun test sul contenuto lo avrebbe
+visto, perché l'HTML sarebbe stato identico. Il selettore ora copre entrambe, e
+un test lo pretende.
+
+Tredici mutazioni, nessuna sfuggita — compresa quella che restringe di nuovo il
+selettore e quella che toglie la parola «stima».
+
+Due test esistenti sono stati adeguati, e vale la pena dire perché: uno
+costruiva un rilievo `critical` per provare il ramo «Nessun rilievo.», e da
+oggi quel rilievo entra nel piano, cioè il test misurava due cose. Ora è
+`info`, e ne misura una.
+
+- [x] `_sezione_piano()`, `_voce_piano_html()`, il CSS (`.intervento`,
+      `.priorita`, `.badge`, `.qw`, `.guadagno`), otto test, i due golden
+      `.html`.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

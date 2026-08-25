@@ -50,8 +50,8 @@ h3 { font-size:.95rem; margin:0; }
 .area { background:var(--card); border:1px solid var(--line);
         border-radius:.6rem; padding:.9rem 1rem; margin:.6rem 0;
         box-shadow:var(--ombra); }
-.area .riga { display:flex; align-items:baseline; gap:.6rem;
-              justify-content:space-between; }
+.area .riga, .intervento .riga { display:flex; align-items:baseline;
+              gap:.6rem; justify-content:space-between; }
 .punteggio { font-variant-numeric:tabular-nums; font-weight:600;
              white-space:nowrap; }
 .strumento { font-size:.78rem; color:var(--muted); margin:.3rem 0 0; }
@@ -67,6 +67,20 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
                           word-break:break-all; }
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
+
+/* --- piano di interventi (Fase 4) --- */
+.intervento { background:var(--card); border:1px solid var(--line);
+              border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
+              box-shadow:var(--ombra); }
+.intervento h3 { font-size:.92rem; font-weight:600; }
+.priorita { display:inline-block; min-width:1.5rem; margin-right:.35rem;
+            color:var(--muted); font-variant-numeric:tabular-nums; }
+.badge { font-size:.7rem; font-weight:700; letter-spacing:.04em;
+         border:1px solid currentColor; border-radius:.75rem;
+         padding:.05rem .5rem; white-space:nowrap; }
+.qw { color:var(--ok); font-weight:600; }
+.guadagno { font-size:.83rem; margin:.3rem 0 0;
+            font-variant-numeric:tabular-nums; }
 
 /* --- come si aggiusta: i testi di correzione (Fase 3) --- */
 .titolo-correzioni { font-size:.72rem; text-transform:uppercase;
@@ -404,6 +418,90 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <ul class='rilievi'>
 <li>Giudizio LLM disattivato (--llm off)</li>
 </ul>
+</div>
+<h2>Piano di interventi</h2>
+<p class='meta'>8 interventi (3 critici, 5 avvertenze) · 1 quick win</p>
+<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 4 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>1</span> robots.txt BLOCCA 1 crawler IA: GPTBot</h3>
+<span class='badge bad'>CRITICO</span>
+</div>
+<p class='meta'>Tecnica · sforzo: minuti · <span class='qw'>QUICK WIN</span>
+</p>
+<p class='guadagno'>+40 punti d'area (57 → 97) · indice di citabilità +16.18 (mercato global, stima)</p>
+<span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>2</span> 1 campi di modulo senza etichetta</h3>
+<span class='badge bad'>CRITICO</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: giorni</p>
+<p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
+<span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>3</span> 1/2 immagini prive di testo alternativo</h3>
+<span class='badge bad'>CRITICO</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: giorni</p>
+<p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
+<span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>4</span> 1 blocchi JSON-LD malformati</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Dati Strutturati · sforzo: ore</p>
+<p class='guadagno'>+10 punti d'area (90 → 100) · indice di citabilità +3.26 (mercato global, stima)</p>
+<span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>5</span> CSP mancante</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Sicurezza · sforzo: giorni</p>
+<p class='guadagno'>+15 punti d'area (75 → 90) · indice di citabilità +2.02 (mercato global, stima)</p>
+<span class='fix'>Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche&#x27; non passi all&#x27;header vero.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>6</span> 1 salti nella gerarchia degli heading (es. h2 seguito da h4)</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: ore</p>
+<p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
+<span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>7</span> 1 tabelle dati senza intestazioni &lt;th&gt;</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: ore</p>
+<p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
+<span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>8</span> X-Frame-Options mancante</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Sicurezza · sforzo: minuti</p>
+<p class='guadagno'>+10 punti d'area (75 → 85) · indice di citabilità +1.35 (mercato global, stima)</p>
+<span class='fix'>Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.</span>
 </div>
 <h2>Profili di citabilità IA</h2>
 <p class='meta'>Mercato: global</p>

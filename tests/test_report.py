@@ -752,9 +752,12 @@ def test_html_nessun_rilievo_solo_senza_findings_e_senza_issues(contesto):
     """
     contesto["results"] = {
         "mars_tech": {"score": 90, "issues": ["Solo issue"], "findings": []},
+        # `info`, cosi' il piano non lo prende e il test misura una
+        # cosa sola: il ramo «Nessun rilievo.», non la resa del piano.
         "mars_schema": {"score": 90, "issues": [],
                         "findings": [_rilievo(area="mars_schema",
                                               key="sd.a.b",
+                                              severity=SEV_INFO,
                                               title="Solo finding")]},
         "mars_wcag": {"score": 100, "issues": [], "findings": []},
     }
@@ -918,8 +921,15 @@ def _referto_con_piano(contesto, quanti=1):
                                 title="sitemap assente %d" % n,
                                 severity=SEV_WARNING, fix="Pubblicala.",
                                 params={"penalty": 0.0}))
-    contesto["results"] = {"mars_tech": {"score": 57, "issues": [],
-                                         "findings": rilievi}}
+    contesto["results"] = {
+        "mars_tech": {"score": 57, "issues": [], "findings": rilievi},
+        # Senza `signals` i coefficienti non esistono e il guadagno
+        # d'indice non comparirebbe: e' il ramo degradato, provato
+        # altrove.
+        "mars_citability": {"score": 57.0, "market": "eu", "issues": [],
+                            "profiles": {"Claude": 57.0},
+                            "signals": {"Accesso e indicizzabilità": 57.0}},
+    }
     return build_report(contesto["results"], contesto)
 
 
@@ -969,7 +979,9 @@ def test_il_piano_a_testo_non_tace_dove_manca_un_numero(contesto):
 
 def test_il_piano_a_testo_conta_le_aree_e_non_le_cabla(contesto):
     referto = _referto_con_piano(contesto)
-    assert "1 aree su 1;" in render_text(referto)
+    # Una sola area alimenta il piano su due presenti: la citabilita'
+    # non puo' entrarci, i suoi rilievi sono tutti derivati.
+    assert "1 aree su 2;" in render_text(referto)
 
 
 def test_il_piano_a_testo_non_guarda_il_nome_del_modulo(contesto):
@@ -985,3 +997,90 @@ def test_il_piano_a_testo_non_guarda_il_nome_del_modulo(contesto):
                               params={"penalty": 43.0})]}}
     testo = render_text(build_report(contesto["results"], contesto))
     assert "rilievo di un plugin" in testo
+
+
+# ----------------------------------------------------------------------
+# U4.4: il piano nella vista HTML
+# ----------------------------------------------------------------------
+
+def test_il_piano_html_ha_badge_e_numeri(contesto):
+    html = render_html(_referto_con_piano(contesto))
+    assert "<h2>Piano di interventi</h2>" in html
+    assert "<span class='badge bad'>CRITICO</span>" in html
+    assert "<span class='priorita'>1</span>" in html
+    assert "+43 punti d&#x27;area (57 → 100)" in html or \
+        "+43 punti d'area (57 → 100)" in html
+    assert "<span class='qw'>QUICK WIN</span>" in html
+
+
+def test_il_piano_html_c_e_anche_quando_e_vuoto(contesto):
+    contesto["results"] = {"mars_tech": {"score": 100, "issues": []}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "<h2>Piano di interventi</h2>" in html
+    assert "Nessun rilievo critico o di avvertenza" in html
+
+
+def test_il_piano_html_li_porta_tutti(contesto):
+    """Nessun tetto di cinque: e' il documento che si consegna."""
+    html = render_html(_referto_con_piano(contesto, quanti=9))
+    assert html.count("<div class='intervento'>") == 9
+
+
+def test_il_piano_html_non_ripete_gli_esempi(contesto):
+    """L'`example` resta alla scheda d'area: sedici blocchi di codice
+    dentro un elenco di priorita' lo renderebbero illeggibile proprio
+    come elenco."""
+    contesto["results"] = {"mars_tech": {
+        "score": 57, "issues": [],
+        "findings": [_rilievo(key="tech.robots.ai_blocked", fix="Fai X.",
+                              example="ESEMPIO-UNICO",
+                              params={"penalty": 43.0})]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert html.count("ESEMPIO-UNICO") == 1, "solo nella scheda d'area"
+    assert html.count("Fai X.") == 2, "nella scheda e nel piano"
+
+
+def test_il_piano_html_neutralizza_il_markup_del_sito(contesto):
+    """Titolo e fix possono contenere HTML: vengono dal sito e dagli
+    strumenti, e la `solution` di ZAP e' piena di <meta http-equiv>."""
+    contesto["results"] = {"mars_tech": {
+        "score": 57, "issues": [],
+        "findings": [_rilievo(key="tech.robots.ai_blocked",
+                              title="<script>alert(1)</script>",
+                              fix="<img src=x onerror=alert(1)>",
+                              params={"penalty": 43.0})]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "<script>alert(1)</script>" not in html
+    assert "<img src=x" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_il_piano_html_dice_perche_un_numero_manca(contesto):
+    contesto["results"] = {"mars_tech": {
+        "score": 100, "issues": [],
+        "findings": [_rilievo(key="tech.robots.ai_blocked",
+                              params={"penalty": 0.0})]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    assert "non entra nel punteggio dell&#x27;area" in html
+    assert "class='guadagno'" not in html
+
+
+def test_il_css_del_piano_non_e_ristretto_alle_schede_d_area(referto):
+    """Trappola dei selettori annidati: `.area .riga` e' SCOPED.
+
+    Riusare `riga` dentro `.intervento` senza estendere il selettore
+    lascerebbe titolo e badge impilati invece che affiancati — un
+    difetto che nessun test sul contenuto vedrebbe, perche' l'HTML
+    sarebbe identico.
+    """
+    html = render_html(referto)
+    assert ".area .riga, .intervento .riga" in html
+
+
+def test_il_piano_html_dichiara_che_l_indice_e_una_stima(contesto):
+    """I due numeri hanno statuto diverso: i punti d'area sono la stessa
+    aritmetica che ha prodotto i punteggi, il guadagno d'indice esce da
+    una matrice di pesi editoriali. Il referto lo dice."""
+    html = render_html(_referto_con_piano(contesto))
+    assert "è una stima derivata dai pesi per assistente" in html
+    assert "mercato eu, stima" in html

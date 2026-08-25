@@ -169,9 +169,11 @@ dietro una sola voce aperta: **R44**.
         i cinque alert ZAP, con la troncatura dichiarata. E le correzioni
         d'area ora mostrano **solo ciò che il piano non prende in carico**:
         senza, ogni fix compariva due volte in quaranta righe.
-  - [ ] **U4.4** — `_sezione_remediation` in `render_html` più il CSS dei
-        badge (sforzo, quick win, corsia), riusando `.ok`/`.warn`/`.bad`.
-        Nessuno script: D1 vale solo dalla Fase 8. Due golden `.html`.
+  - [x] **U4.4** — `_sezione_piano` in `render_html` più il CSS delle
+        schede e dei badge, riusando `.ok`/`.warn`/`.bad`. Nessuno script:
+        D1 vale solo dalla Fase 8. Qui **nessun tetto di cinque** — è il
+        documento che si consegna — e l'`example` resta alla scheda d'area.
+        Due golden `.html`.
   - [ ] **U4.5** — chiusura: le due caselle di R41, il bump a 2.3.0, e la
         voce nuova che U4.1 apre — `params["istanze"]` canonico, che è la
         condizione perché lo sforzo diventi misurato invece che editoriale.

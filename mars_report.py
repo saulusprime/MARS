@@ -590,8 +590,8 @@ h3 { font-size:.95rem; margin:0; }
 .area { background:var(--card); border:1px solid var(--line);
         border-radius:.6rem; padding:.9rem 1rem; margin:.6rem 0;
         box-shadow:var(--ombra); }
-.area .riga { display:flex; align-items:baseline; gap:.6rem;
-              justify-content:space-between; }
+.area .riga, .intervento .riga { display:flex; align-items:baseline;
+              gap:.6rem; justify-content:space-between; }
 .punteggio { font-variant-numeric:tabular-nums; font-weight:600;
              white-space:nowrap; }
 .strumento { font-size:.78rem; color:var(--muted); margin:.3rem 0 0; }
@@ -607,6 +607,20 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
                           word-break:break-all; }
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
+
+/* --- piano di interventi (Fase 4) --- */
+.intervento { background:var(--card); border:1px solid var(--line);
+              border-radius:.6rem; padding:.75rem 1rem; margin:.5rem 0;
+              box-shadow:var(--ombra); }
+.intervento h3 { font-size:.92rem; font-weight:600; }
+.priorita { display:inline-block; min-width:1.5rem; margin-right:.35rem;
+            color:var(--muted); font-variant-numeric:tabular-nums; }
+.badge { font-size:.7rem; font-weight:700; letter-spacing:.04em;
+         border:1px solid currentColor; border-radius:.75rem;
+         padding:.05rem .5rem; white-space:nowrap; }
+.qw { color:var(--ok); font-weight:600; }
+.guadagno { font-size:.83rem; margin:.3rem 0 0;
+            font-variant-numeric:tabular-nums; }
 
 /* --- come si aggiusta: i testi di correzione (Fase 3) --- */
 .titolo-correzioni { font-size:.72rem; text-transform:uppercase;
@@ -963,6 +977,101 @@ def _scheda_area(area: dict, referto: dict) -> str:
             % (_e(area["label"]), voto, "".join(corpo)))
 
 
+_BADGE_GRAVITA = {SEV_CRITICAL: ("bad", "CRITICO"),
+                  SEV_WARNING: ("warn", "AVVERTENZA")}
+
+
+def _voce_piano_html(voce: dict) -> str:
+    """Un intervento come scheda.
+
+    Porta cio' che la scheda d'area non ha — priorita', sforzo,
+    recupero, guadagno d'indice — e ripete il `fix`, che invece la
+    scheda ce l'ha. La ripetizione qui e' voluta, mentre nella vista
+    testo e' stata tolta: la' il referto e' largo 55 colonne e il
+    lettore aveva le due righe sott'occhio insieme, qui sono due
+    sezioni di un documento lungo, e un intervento che non dicesse che
+    cosa fare manderebbe a cercarlo — senza nemmeno un'ancora, che
+    arriva con la Fase 5.
+
+    L'`example` invece resta alla scheda d'area, e non e' una
+    dimenticanza: sedici blocchi di codice dentro un elenco di
+    priorita' lo renderebbero illeggibile proprio come elenco.
+    """
+    classe, etichetta = _BADGE_GRAVITA.get(voce["severity"], ("muted", "?"))
+    parti = ["<div class='intervento'><div class='riga'>",
+             "<h3><span class='priorita'>%d</span> %s</h3>"
+             % (voce["priority"], _e(voce["title"])),
+             "<span class='badge %s'>%s</span></div>" % (classe, etichetta)]
+
+    contesto = [_e(voce["area_label"].split(". ", 1)[-1])]
+    contesto.append("sforzo: %s" % _e(voce["effort"] or "non dichiarato"))
+    if voce["quick_win"]:
+        contesto.append("<span class='qw'>QUICK WIN</span>")
+    parti.append("<p class='meta'>%s</p>" % " · ".join(contesto))
+
+    if voce["recovery"]:
+        numeri = ["+%d punti d'area (%d → %d)"
+                  % (voce["recovery"], voce["score_before"],
+                     voce["score_after"])]
+        if voce["index_gain"]:
+            # Il mercato viaggia col numero: i coefficienti si
+            # rinormalizzano sui segnali misurati, quindi lo stesso
+            # rilievo vale diversamente in due esecuzioni diverse.
+            numeri.append("indice di citabilità +%.2f (mercato %s, stima)"
+                          % (voce["index_gain"], _e(voce["market"] or "?")))
+        parti.append("<p class='guadagno'>%s</p>" % " · ".join(numeri))
+    else:
+        # Mai un silenzio al posto di un numero: la corsia dice perche'.
+        parti.append("<p class='meta'>%s</p>"
+                     % _e(voce["lane_reason"] or "recupero non dichiarato"))
+
+    if voce["fix"]:
+        parti.append("<span class='fix'>%s</span>" % _e(voce["fix"]))
+    parti.append("</div>")
+    return "".join(parti)
+
+
+def _sezione_piano(referto: dict, p: List[str]) -> None:
+    """Il piano di interventi, ordinato.
+
+    **Sempre presente**, anche vuoto, a differenza delle tre sezioni
+    che seguono: un piano che sparisce non si distingue da un piano non
+    calcolato.
+
+    Qui non c'e' il tetto di cinque della vista testo: e' il documento
+    che si consegna, e li porta tutti.
+    """
+    piano = referto.get("remediation") or []
+    riepilogo = mars_remediation.riepilogo(piano, referto)
+    p.append("<h2>Piano di interventi</h2>")
+    if not piano:
+        p.append("<p class='meta'>Nessun rilievo critico o di avvertenza: "
+                 "non c'è nulla da mettere in ordine di priorità.</p>")
+        return
+
+    conteggi = ["%d interventi (%d critici, %d avvertenze)"
+                % (riepilogo["total"], riepilogo["critical"],
+                   riepilogo["warning"]),
+                "%d quick win" % riepilogo["quick_wins"]]
+    senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
+    if senza:
+        conteggi.append("%d senza recupero dichiarato" % senza)
+    if riepilogo["no_effort"]:
+        conteggi.append("%d senza sforzo dichiarato" % riepilogo["no_effort"])
+    p.append("<p class='meta'>%s</p>" % _e(" · ".join(conteggi)))
+    # Le aree si CONTANO: al massimo cinque delle nove alimentano il
+    # piano, perche' due non producono rilievi e due li producono tutti
+    # `info`. Un numero fisso qui sarebbe falso.
+    p.append("<p class='meta'>Ordinato per gravità, poi per guadagno "
+             "dell'indice di citabilità. Lo alimentano %d aree su %d; "
+             "i punti d'area sono la stessa aritmetica che ha prodotto i "
+             "punteggi, il guadagno d'indice è una stima derivata dai "
+             "pesi per assistente.</p>"
+             % (riepilogo["areas_covered"], riepilogo["areas_total"]))
+    for voce in piano:
+        p.append(_voce_piano_html(voce))
+
+
 def _sezione_rrf(referto: dict, p: List[str]) -> None:
     aggregato = referto.get("rrf_aggregate")
     simulazione = referto.get("rrf_simulation") or []
@@ -1077,6 +1186,7 @@ def render_html(referto: dict) -> str:
     for area in referto["areas"]:
         p.append(_scheda_area(area, referto))
 
+    _sezione_piano(referto, p)
     _sezione_rrf(referto, p)
     _sezione_citabilita(referto, p)
     _sezione_llm(referto, p)

@@ -4437,6 +4437,92 @@ Suite da 794 a 826 test, `flake8` a zero. Golden mossi: JSON e HTML in tutte
 e quattro le voci; testo, Markdown e CSV solo in U8.2, perché treemap e grafo
 stanno nel solo referto HTML.
 
+
+### U9.1 — ✅ (2026-08-25): l'impianto dell'i18n e il catalogo dei rilievi
+
+**La premessa del piano non reggeva, ed è stata misurata prima di
+cominciare.** UPGRADE.md (Fase 9) prevede cinque lingue e prevede di riusare
+i cataloghi «già scritti in marsbeacon dove i controlli coincidono». Sulle
+chiavi vere: il riferimento ne ha **145**, MARS ne emette **49**, e **ne
+coincidono quattro** — `tech.canonical.missing`, `tech.robots.ai_blocked`,
+`tech.robots.missing`, `tech.sitemap.missing`. Non è una questione di nomi da
+riallineare: il riferimento copre `tech`/`sem`/`lex`/`sd`/`rrf` e **non ha una
+sola chiave `wcag.`, `sec.` o `seo.`**, che sono tre delle nove aree di MARS;
+MARS a sua volta non emette rilievi `lex.`/`sem.` (è **U13**). Le traduzioni
+si scrivono, non si copiano.
+
+**D4 ratificata: due lingue, e dichiarate come livello inferiore.** Quattro
+lingue scritte da zero senza che nessuno qui dentro possa verificarle sarebbero
+quattro lingue di qualità **non misurata**, cioè il contrario del principio 5.
+La scelta sta scritta in testa a `mars_i18n.py` con la misura che l'ha
+motivata, e l'impianto non assume che le lingue siano due: aggiungerne una
+costa un catalogo e una voce in `LINGUE`.
+
+**L'italiano non entra nel catalogo.** Vive dove il rilievo nasce — nei moduli
+e in `mars_fixes.py` — e qui c'è solo ciò che l'italiano non è. È la ragione
+per cui `mars_fixes.py` era stato scritto come catalogo (U3.1): se l'italiano
+vivesse in due forme, letterale nel modulo e riga di catalogo, le due
+divergerebbero senza che nulla si rompa.
+
+**`finding_texts()` non solleva mai**, e ripiega **campo per campo**: un
+template incoerente coi params lascia in piedi l'italiano di quel campo e
+traduce gli altri tre. È il principio 2 applicato alla prosa — un referto con
+una riga nella lingua sbagliata si legge, uno interrotto a metà no.
+
+**Tre famiglie non si traducono qui**, ed è una regola dichiarata:
+`wcag.axe.*`, `sec.zap.*`, `seo.lh.*` prendono il testo dallo strumento che
+ha fatto la misura. Riscriverle a mano significherebbe due errori insieme —
+dire peggio di axe, ZAP e Lighthouse ciò che loro dicono, e invecchiare
+accanto a loro a ogni release. La lingua si chiederà **allo strumento**
+(U9.3).
+
+**Il ripiego è silenzioso per costruzione, quindi va presidiato dall'esterno.**
+Sei test lo fanno da versi diversi: ogni chiave scritta nei moduli è tradotta;
+ogni chiave che i due referti sintetici accendono è tradotta; i sette segnali
+di `mars_citability` — le cui chiavi non sono letterali da nessuna parte,
+perché `_rilievo_segnale` le compone — sono tradotti tutti e due gli esiti;
+il fallimento d'area è tradotto per ogni prefisso di `AREA_PREFIX`; nessuna
+voce è **orfana** (tradotta e non più emessa); e i `fix`/`example` tradotti
+stanno esattamente dove stanno quelli italiani, nei due versi.
+
+**Il buco che i golden non potevano coprire, e come si è chiuso.** Il primo
+test sui segnaposto girava sui due referti sintetici, che di `tech.` accendono
+**due chiavi su dodici**: una mutazione `%(pagine)d` → `%(pages)d` su
+`tech.index.noindex` è passata **verde**, perché il ripiego non fa rumore. Ora
+`_params_del_banco()` fa girare i moduli **veri** su contesti costruiti apposta
+(noindex + nofollow + canonical cross-host, sitemap illeggibile, blocco JSON-LD
+vuoto, pagina senza `lang` con tabindex positivo, Lighthouse in timeout, i
+sette segnali tutti deboli e poi tutti non misurati), e il test **pretende** che
+ogni template con un segnaposto abbia un caso che lo accenda: 25 su 25, tredici
+dai golden e dodici dal banco. Una chiave nuova con un segnaposto e senza caso
+è rossa il giorno in cui nasce.
+
+**Una riga di dato in più, e non è cosmesi.** Il titolo italiano di
+`tech.robots.ai_blocked` elenca cinque crawler su N; il dato canonico li porta
+tutti. Senza un `elenco` già troncato nei params, ogni lingua rifarebbe il
+troncamento per conto suo e due viste dello stesso rilievo elencherebbero un
+numero diverso di crawler. `elenco` viaggia ora accanto a `bloccati`, ed è
+l'unica riga per cui i golden JSON si sono mossi — nessuna vista è cambiata.
+
+**Quindici mutazioni, due sfuggite alla prima esecuzione.** La prima era un
+test **vacuo**: `normalizza_lingua("EN")` era verificato con `in LINGUE`, e
+togliendo il `.lower()` "EN" ripiegava su "it", che in `LINGUE` c'è. La seconda
+era il buco di copertura qui sopra. Rieseguite dopo la correzione: 15 su 15.
+
+**Due guardie restano non colte da alcuna mutazione, e si dice perché.** In
+`finding_texts` le uscite anticipate su lingua canonica e chiave vuota sono
+ridondanti rispetto alla ricerca a catalogo, che su entrambe torna comunque
+l'italiano. Restano perché scrivono il contratto — *l'italiano non passa dal
+catalogo* — e il giorno che qualcuno aggiungesse un catalogo `it` sarebbero
+l'unica cosa a impedire che i testi italiani vengano riformattati attraverso
+i template.
+
+- [x] `mars_i18n.py` (`LINGUE`, `normalizza_lingua()`, `dallo_strumento()`,
+      `_params_leggibili()`, `finding_texts()`, il catalogo `en` di 60 voci),
+      `elenco` nei params di `mars_tech`, 37 test in `tests/test_i18n.py`,
+      i due golden JSON. **Nessuna resa cambia**: testo, HTML, Markdown e CSV
+      restano identici, perché la lingua non arriva ancora ai renderer (U9.2).
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

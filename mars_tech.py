@@ -111,15 +111,21 @@ def controlla_robots(context: dict) -> List[Finding]:
 
     rilievi = []
     if bloccati:
+        # L'elenco troncato viaggia nei params accanto a quello intero
+        # perche' il titolo e' prosa, e la prosa si traduce: senza,
+        # ogni lingua rifarebbe il troncamento per conto suo e due
+        # viste dello stesso rilievo elencherebbero un numero diverso
+        # di crawler. Vedi mars_i18n.finding_texts().
+        elenco = ", ".join(sorted(bloccati)[:5])
         rilievi.append(_rilievo(
             "critico", "robots.txt BLOCCA %d crawler IA: %s"
-                       % (len(bloccati), ", ".join(sorted(bloccati)[:5])),
+                       % (len(bloccati), elenco),
             "tech.robots.ai_blocked",
             # L'elenco COMPLETO: la stringa ne mostra cinque ma il
             # conteggio non e' troncato, quindi con sei crawler bloccati
             # il testo dice un numero ed elenca meno. Il dato canonico
             # non tronca — a troncare e' la vista compatta.
-            bloccati=sorted(bloccati), n=len(bloccati)))
+            bloccati=sorted(bloccati), n=len(bloccati), elenco=elenco))
     if not citati:
         rilievi.append(_rilievo(
             "lieve", "Nessuna regola esplicita per i crawler IA: passano "

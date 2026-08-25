@@ -103,6 +103,7 @@
               "GPTBot"
             ],
             "n": 1,
+            "elenco": "GPTBot",
             "penalty": 40.0
           }
         },

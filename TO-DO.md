@@ -14,8 +14,9 @@
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
 > `upgrade`, la versione è **2.7.0**. **Le prime otto fasi sono chiuse** —
-> le loro voci stanno in [AS-IS.md](AS-IS.md). La prossima è U9, l'i18n,
-> rinviata a suo tempo da D4.
+> le loro voci stanno in [AS-IS.md](AS-IS.md). In corso la **U9**, l'i18n:
+> **D4 è ratificata** (it/en, livello inferiore dichiarato) e **U9.1 è
+> chiusa**; restano U9.2 e U9.3.
 >
 > Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
 > di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
@@ -123,7 +124,7 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 | **D1** | JavaScript nel referto | **Sì**, vanilla inline, progressive enhancement: l'SVG statico resta la base, nessuna origine esterna, `prefers-reduced-motion` spegne le animazioni. **Applicata in U8.4** (2026-08-25): `REFERTO_JS`, il grafo dei link. Il vincolo "NESSUNO SCRIPT" di `mars_report.py` è diventato "nessuna origine esterna", e i due test che lo presidiavano sono stati riscritti |
 | **D2** | Scala di severità canonica | **Sì**, quattro livelli `critical`/`warning`/`info`/`ok`. La granularità in più delle tre scale esistenti si conserva nel **peso**, non in livelli extra |
 | **D3** | Pesi del punteggio complessivo | **Sì**: aree misurate a peso 1.0, Recuperabilità-RRF e "In forma di risposta" a 1.5; **esclusi** Citabilità (sintesi derivata: conterebbe due volte) e Giudizio LLM (opzionale e a pagamento). Rinormalizzazione sulle aree presenti |
-| **D4** | Lingue | **Rinviata**: la i18n esce dal piano delle fasi e diventa la voce U9 qui sotto. Il referto resta in italiano finché non la si affronta |
+| **D4** | Lingue | **it ed en**, ratificata il 2026-08-25 aprendo U9.1, ed è un livello **inferiore** al riferimento a cinque lingue, dichiarato come tale. Il riuso previsto dal piano è stato misurato prima di decidere: dei cataloghi di marsbeacon coincidono **4 chiavi su 49**, perché il riferimento non ha una sola chiave `wcag.`, `sec.` o `seo.` — le traduzioni si scrivono, e quattro lingue non verificabili sarebbero qualità non misurata (principio 5). L'impianto non assume che siano due |
 
 ### Fasi
 
@@ -177,11 +178,29 @@ colore) e **R48** (il grafo non ha un test di comportamento nella suite).
 
 ### Altre fasi
 
-- [ ] **U9 — i18n del referto** (G05, Fase 9) — *rinviata da D4*. Cataloghi e
-      `--lang` per it/en/fr/de/es, riusando i cataloghi già scritti in
-      marsbeacon dove i controlli coincidono. Ridurre a it/en è legittimo ma
-      va **dichiarato** come livello inferiore rispetto al riferimento.
-      Prerequisito implicito: `key` e `params` dei `Finding` (U1).
+### U9 — i18n del referto (G05, Fase 9) — *in corso*
+
+**U9.1 è chiusa**, in [AS-IS.md](AS-IS.md): `mars_i18n.py`, il catalogo `en`
+dei rilievi risolto su `key`+`params`, e il ripiego dichiarato campo per
+campo. Nessuna resa è cambiata — la lingua non arriva ancora ai renderer.
+
+- [ ] **U9.2 — la cornice e il parametro `lang`.** Catalogo delle stringhe dei
+      renderer (misurate: ~113 distinte, sparse in 35 funzioni di
+      `mars_report.py`), `lang` **passato esplicitamente** attraverso i
+      renderer — non un `ContextVar`, che non attraversa il threadpool su cui
+      FastAPI esegue gli handler sincroni — `--lang` nella CLI e campo `lang`
+      nell'API. I golden restano congelati in `it`, che è la lingua canonica;
+      per l'inglese bastano test funzionali. Da dichiarare in testa ai formati
+      di prosa non italiani: le evidenze citate dal sito restano nella lingua
+      del sito, e il JSON resta canonico italiano con `key`+`params` perché
+      chi lo consuma traduca da sé.
+- [ ] **U9.3 — la lingua chiesta agli strumenti**, che è ciò che chiude
+      **R44**. `wcag.axe.*`, `sec.zap.*` e `seo.lh.*` prendono i testi da axe,
+      ZAP e Lighthouse: `--lang` deve governare `--locale` di Lighthouse e il
+      file di locale di axe, e il referto deve dichiarare ciò che lo strumento
+      non sa dire in quella lingua (ZAP parla inglese e basta). Oggi il ramo
+      axe produce titoli inglesi dentro un referto italiano, e la fixture del
+      golden lo nasconde: va resa fedele nello stesso commit.
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
       Kimi accanto a Claude.
 - [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
@@ -644,9 +663,9 @@ Due strade, e non sono equivalenti:
   costerebbe **la misura e non solo i testi** — l'esatto contrario di come
   U3.2 ha deciso di leggerlo. Servirebbe un `try` nel browser.
 
-Entrambe muovono i golden di testo e HTML: da fare in un commit suo, e
-verosimilmente **dentro U9**, dove la lingua diventa un parametro invece di
-una costante.
+Entrambe muovono i golden di testo e HTML: da fare in un commit suo, ed è
+**U9.3**, dove la lingua diventa un parametro invece di una costante e si
+chiede allo strumento invece che a noi.
 
 - [ ] Tradurre i titoli axe, scegliendo fra le due strade.
 - [ ] Rendere fedele `_violazioni_axe()` nello stesso commit.

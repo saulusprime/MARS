@@ -8,6 +8,8 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import json
+import os
 import shlex
 import subprocess
 import sys
@@ -189,3 +191,76 @@ def test_url_obbligatorio():
 def test_valori_non_ammessi_rifiutati(argomenti):
     with pytest.raises(SystemExit):
         mars_audit.costruisci_parser().parse_args(argomenti)
+
+
+# ----------------------------------------------------------------------
+# U7: lo storico, dalla riga di comando
+# ----------------------------------------------------------------------
+
+class _ModuloConPunteggio:
+    @staticmethod
+    def audit(context):
+        return {"score": 57, "issues": [], "findings": []}
+
+
+def _audit_con_storico(monkeypatch, capsys, contesto, percorso):
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica")])
+    monkeypatch.setattr(mars_audit, "load_external_module",
+                        lambda nome: _ModuloConPunteggio)
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: contesto)
+    codice = mars_audit.run_audit("https://x/", 1, "none", "global",
+                                  formato="json", storico=percorso)
+    return codice, capsys.readouterr().out
+
+
+def test_la_cli_scrive_lo_storico(monkeypatch, capsys, contesto, tmp_path):
+    percorso = str(tmp_path / "storico.jsonl")
+    codice, uscita = _audit_con_storico(monkeypatch, capsys, contesto,
+                                        percorso)
+    assert codice == 0
+    assert "Storico aggiornato" in uscita
+    righe = open(percorso, encoding="utf-8").read().strip().split("\n")
+    assert len(righe) == 1
+    assert json.loads(righe[0])["scores"] == {"mars_tech": 57}
+
+
+def test_la_cli_rilegge_lo_storico_e_produce_il_delta(monkeypatch, capsys,
+                                                      contesto, tmp_path):
+    """Il giro completo: la prima esecuzione scrive, la seconda
+    confronta. E' l'unico posto dove le due meta' si toccano."""
+    percorso = str(tmp_path / "storico.jsonl")
+    _audit_con_storico(monkeypatch, capsys, contesto, percorso)
+    _, uscita = _audit_con_storico(monkeypatch, capsys, contesto, percorso)
+    referto = json.loads(uscita[uscita.index("{"):uscita.rindex("}") + 1])
+    assert referto["delta"] is not None
+    assert referto["delta"]["previous_run"] is not None
+    assert len(open(percorso, encoding="utf-8").read().strip().split("\n")) == 2
+
+
+def test_senza_storico_la_cli_non_lo_tocca(monkeypatch, capsys, contesto,
+                                           tmp_path):
+    """`--no-history` passa None: nessuna lettura, nessuna scrittura."""
+    percorso = str(tmp_path / "storico.jsonl")
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica")])
+    monkeypatch.setattr(mars_audit, "load_external_module",
+                        lambda nome: _ModuloConPunteggio)
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: contesto)
+    mars_audit.run_audit("https://x/", 1, "none", "global", formato="json",
+                         storico=None)
+    assert not os.path.exists(percorso)
+
+
+def test_uno_storico_non_scrivibile_non_fa_fallire_l_audit(monkeypatch,
+                                                           capsys, contesto,
+                                                           tmp_path):
+    """Il referto e' gia' prodotto: perdere una riga di archivio non
+    vale il codice di uscita. Lo si dichiara e si va avanti."""
+    cartella = tmp_path / "non" / "esiste"
+    codice, uscita = _audit_con_storico(monkeypatch, capsys, contesto,
+                                        str(cartella / "s.jsonl"))
+    assert codice == 0
+    assert "Impossibile scrivere lo storico" in uscita

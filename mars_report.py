@@ -20,11 +20,12 @@ import re
 import time
 from typing import Dict, List, Optional
 
+import mars_history
 import mars_remediation
-from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL, SEV_INFO,
-                       SEV_OK, SEV_WARNING, Finding, __version__,
-                       describe_chunk, normalizza_risultato,
-                       reciprocal_rank_fusion)
+from mars_core import (AREA_PREFIX, JSON_SCHEMA_VERSION, MODULES_REGISTRY,
+                       RRF_FORMULA, RRF_K, SEV_CRITICAL, SEV_INFO, SEV_OK,
+                       SEV_WARNING, Finding, __version__, describe_chunk,
+                       normalizza_risultato, reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -126,6 +127,20 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     referto: Dict[str, object] = {
         "tool": "mars_audit.py",
         "version": __version__,
+        # Lo schema del DATO, non del programma: chi consuma il JSON
+        # legge questo. Sale solo su un cambiamento incompatibile.
+        "schema_version": JSON_SCHEMA_VERSION,
+        # I parametri che rendono il referto riproducibile. Il k della
+        # fusione era il default di una funzione: due esecuzioni con k
+        # diversi non sono confrontabili alla pari, e senza scriverlo
+        # qui bisognerebbe aprire il codice di quella versione.
+        "rrf": {"k": RRF_K, "formula": RRF_FORMULA},
+        # `null` finche' le soglie non sono configurabili, e dichiararlo
+        # e' il punto: due referti con soglie diverse non si confrontano
+        # alla pari, quindi la chiave esiste da subito — quando le
+        # soglie arriveranno, chi legge il JSON non dovra' distinguere
+        # "assente perche' vecchio" da "assente perche' di serie".
+        "thresholds": None,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "url": context.get("url"),
         "market": context.get("market"),
@@ -168,6 +183,12 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     # questo e' dato canonico, e la sua assenza deve rompere invece di
     # produrre un referto silenziosamente senza piano.
     referto["remediation"] = mars_remediation.build_remediation(referto)
+    # Il confronto con l'esecuzione precedente, se il chiamante ne ha
+    # trovata una. `None` alla prima, e le viste tacciono: una sezione
+    # «rispetto a prima» con tutto a zero direbbe che non e' cambiato
+    # nulla, invece che «non c'e' un prima».
+    referto["delta"] = mars_history.compute_delta(
+        context.get("previous"), mars_history.riga_storico(referto))
     return referto
 
 
@@ -532,6 +553,56 @@ def _voce_piano_testo(voce: dict) -> List[str]:
     return righe
 
 
+# Quanti rilievi risolti o nuovi mostra la vista compatta.
+DELTA_IN_TESTO = 3
+
+
+def _segno(valore: float) -> str:
+    """Un numero con il segno sempre visibile: «+3» e «-3», mai «3»."""
+    return "%+.0f" % valore if valore else "invariato"
+
+
+def _delta_testo(referto: dict) -> List[str]:
+    """Il confronto con l'esecuzione precedente, se c'e'.
+
+    Assente alla prima, e la sezione **non compare**: una sezione
+    «rispetto a prima» con tutto invariato direbbe che non e' cambiato
+    nulla, che e' un'altra cosa da «non c'e' un prima». E' l'opposto
+    della scelta fatta per il piano, dove la sezione resta anche vuota
+    — li' il vuoto e' un risultato, qui e' un'assenza.
+    """
+    delta = referto.get("delta")
+    if not delta:
+        return []
+    righe = ["-" * 55,
+             "RISPETTO A PRIMA     : %s" % (delta.get("previous_run") or "?")]
+    if delta.get("overall"):
+        righe.append("  Complessivo          %s  (%.0f → %.0f)"
+                     % (_segno(delta["overall"]["change"]),
+                        delta["overall"]["before"], delta["overall"]["after"]))
+    for voce in delta["scores"]:
+        if not voce["change"]:
+            continue
+        righe.append("  %-20s %s  (%.0f → %.0f)"
+                     % (voce["area"].replace("mars_", ""),
+                        _segno(voce["change"]), voce["before"],
+                        voce["after"]))
+    for etichetta, elenco in (("risolti", delta["resolved"]),
+                              ("nuovi", delta["new"])):
+        if not elenco:
+            continue
+        righe.append("  %d %s:" % (len(elenco), etichetta))
+        for rilievo in elenco[:DELTA_IN_TESTO]:
+            righe.append("    · %s" % rilievo.get("title"))
+        if len(elenco) > DELTA_IN_TESTO:
+            righe.append("    · ... e altri %d"
+                         % (len(elenco) - DELTA_IN_TESTO))
+    if delta.get("by_title_fallback"):
+        righe.append("  (qualche rilievo non ha una chiave stabile: "
+                     "confrontato sul titolo)")
+    return righe
+
+
 def _piano_testo(referto: dict) -> List[str]:
     """La sezione del piano, per la vista compatta.
 
@@ -602,6 +673,7 @@ def render_text(referto: dict) -> str:
         righe.extend(_correzioni_testo(area.get("findings") or [],
                                        nel_piano))
 
+    righe.extend(_delta_testo(referto))
     righe.extend(_piano_testo(referto))
 
     aggregato = referto.get("rrf_aggregate")
@@ -1396,6 +1468,48 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None
     return "".join(parti)
 
 
+def _sezione_delta(referto: dict, p: List[str]) -> None:
+    """«Rispetto all'esecuzione precedente», con risolti e nuovi."""
+    delta = referto.get("delta")
+    if not delta:
+        return
+    p.append("<h2>Rispetto all'esecuzione precedente</h2>")
+    p.append("<p class='meta'>Confronto con il %s (v%s).</p>"
+             % (_e(delta.get("previous_run")),
+                _e(delta.get("previous_version"))))
+    righe = []
+    if delta.get("overall"):
+        righe.append(("Complessivo", delta["overall"]))
+    righe += [(v["area"].replace("mars_", ""), v)
+              for v in delta["scores"] if v["change"]]
+    if righe:
+        p.append("<table><tr><th>Area</th><th>Prima</th><th>Dopo</th>"
+                 "<th>Variazione</th></tr>")
+        for nome, voce in righe:
+            # Il colore segue il SEGNO e non la scala dei punteggi: qui
+            # non si giudica quanto vale l'area, si dice se e' salita.
+            classe = "ok" if voce["change"] > 0 else "bad"
+            p.append("<tr><td>%s</td><td class='num'>%.0f</td>"
+                     "<td class='num'>%.0f</td>"
+                     "<td class='num %s'>%s</td></tr>"
+                     % (_e(nome), voce["before"], voce["after"], classe,
+                        _segno(voce["change"])))
+        p.append("</table>")
+    for titolo, elenco, classe in (("Risolti", delta["resolved"], "ok"),
+                                   ("Nuovi", delta["new"], "bad")):
+        if not elenco:
+            continue
+        p.append("<h3 class='%s'>%s (%d)</h3>" % (classe, titolo,
+                                                  len(elenco)))
+        p.append("<ul class='rilievi'>%s</ul>"
+                 % "".join("<li>%s</li>" % _e(r.get("title"))
+                           for r in elenco))
+    if delta.get("by_title_fallback"):
+        p.append("<p class='meta'>Qualche rilievo non ha una chiave "
+                 "stabile: il confronto usa il titolo, ed è più "
+                 "debole.</p>")
+
+
 def _sezione_piano(referto: dict, p: List[str],
                    ancore: Optional[Dict[str, str]] = None) -> None:
     """Il piano di interventi, ordinato.
@@ -1604,6 +1718,7 @@ def render_html(referto: dict) -> str:
     for area in referto["areas"]:
         p.append(_scheda_area(area, referto, ancore))
 
+    _sezione_delta(referto, p)
     _sezione_piano(referto, p, ancore)
     _sezione_rrf(referto, p)
     _sezione_citabilita(referto, p)
@@ -1707,6 +1822,31 @@ def render_markdown(referto: dict) -> str:
         r.append("| %s | %s | %s |"
                  % (_md_cella(area.get("label")), voto,
                     _md_cella(" · ".join(_qualificatori(area)))))
+
+    delta = referto.get("delta")
+    if delta:
+        r += ["", "## Rispetto all'esecuzione precedente", "",
+              "Confronto con il %s (v%s)." % (delta.get("previous_run"),
+                                              delta.get("previous_version"))]
+        movimenti = ([("Complessivo", delta["overall"])]
+                     if delta.get("overall") else [])
+        movimenti += [(v["area"].replace("mars_", ""), v)
+                      for v in delta["scores"] if v["change"]]
+        if movimenti:
+            r += ["", "| Area | Prima | Dopo | Variazione |", "|---|---|---|---|"]
+            for nome, voce in movimenti:
+                r.append("| %s | %.0f | %.0f | %s |"
+                         % (_md_cella(nome), voce["before"], voce["after"],
+                            _segno(voce["change"])))
+        for titolo, elenco in (("Risolti", delta["resolved"]),
+                               ("Nuovi", delta["new"])):
+            if not elenco:
+                continue
+            r += ["", "**%s (%d)**" % (titolo, len(elenco)), ""]
+            r += ["- %s" % _md_cella(x.get("title")) for x in elenco]
+        if delta.get("by_title_fallback"):
+            r += ["", "*Qualche rilievo non ha una chiave stabile: il "
+                      "confronto usa il titolo, ed è più debole.*"]
 
     piano = referto.get("remediation") or []
     riepilogo = mars_remediation.riepilogo(piano, referto)

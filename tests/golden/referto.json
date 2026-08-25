@@ -1,6 +1,12 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
+  "schema_version": 1,
+  "rrf": {
+    "k": 60,
+    "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
+  },
+  "thresholds": null,
   "generated_at": "2026-01-01T00:00:00+0000",
   "url": "https://esempio.test/",
   "market": "eu",
@@ -1648,5 +1654,159 @@
       "certified": true,
       "priority": 16
     }
-  ]
+  ],
+  "delta": {
+    "previous_run": "2025-12-01T09:00:00+0000",
+    "previous_version": "0.0.0",
+    "scores": [
+      {
+        "area": "mars_tech",
+        "before": 40,
+        "after": 57,
+        "change": 17
+      },
+      {
+        "area": "mars_schema",
+        "before": 100,
+        "after": 90,
+        "change": -10
+      },
+      {
+        "area": "mars_llm_judge",
+        "before": 55,
+        "after": 61,
+        "change": 6
+      },
+      {
+        "area": "mars_citability",
+        "before": 60.0,
+        "after": 65.6,
+        "change": 5.6
+      },
+      {
+        "area": "mars_seo",
+        "before": 27,
+        "after": 27.0,
+        "change": 0.0
+      },
+      {
+        "area": "mars_wapt",
+        "before": 57,
+        "after": 57,
+        "change": 0
+      },
+      {
+        "area": "mars_wcag",
+        "before": 37,
+        "after": 37,
+        "change": 0
+      }
+    ],
+    "overall": {
+      "before": 61.0,
+      "after": 66.3,
+      "change": 5.3
+    },
+    "resolved": [
+      {
+        "area": "mars_tech",
+        "key": "tech.sitemap.missing",
+        "title": "Nessuna sitemap dichiarata",
+        "severity": "warning"
+      }
+    ],
+    "new": [
+      {
+        "area": "mars_seo",
+        "key": "seo.lh.is_crawlable",
+        "title": "L'indicizzazione della pagina è bloccata",
+        "severity": "critical"
+      },
+      {
+        "area": "mars_seo",
+        "key": "seo.lh.document_title",
+        "title": "Il documento non ha un elemento `<title>`",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_seo",
+        "key": "seo.lh.meta_description",
+        "title": "Il documento non ha una meta descrizione",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_seo",
+        "key": "seo.lh.link_text",
+        "title": "I link non hanno testo descrittivo",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_seo",
+        "key": "seo.lh.image_alt",
+        "title": "Gli elementi immagine non hanno attributi `[alt]`",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_schema",
+        "key": "sd.jsonld.block_malformed",
+        "title": "1 blocchi JSON-LD malformati",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.axe.image_alt",
+        "title": "Le immagini devono avere un testo alternativo",
+        "severity": "critical"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.axe.color_contrast",
+        "title": "Il contrasto deve essere sufficiente",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.axe.label",
+        "title": "I campi di modulo devono avere un'etichetta",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.img.alt_missing",
+        "title": "1/2 immagini prive di testo alternativo",
+        "severity": "critical"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.heading.skip",
+        "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.form.label_missing",
+        "title": "1 campi di modulo senza etichetta",
+        "severity": "critical"
+      },
+      {
+        "area": "mars_wcag",
+        "key": "wcag.table.th_missing",
+        "title": "1 tabelle dati senza intestazioni <th>",
+        "severity": "warning"
+      },
+      {
+        "area": "mars_wapt",
+        "key": "sec.zap.40012",
+        "title": "Cross Site Scripting (Reflected)",
+        "severity": "critical"
+      },
+      {
+        "area": "mars_wapt",
+        "key": "sec.zap.10038",
+        "title": "Content Security Policy (CSP) Header Not Set",
+        "severity": "warning"
+      }
+    ],
+    "by_title_fallback": false
+  }
 }

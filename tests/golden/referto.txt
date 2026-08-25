@@ -34,6 +34,20 @@ COMPLESSIVO          :  66/100  (da migliorare)
   ⚠ Nessun prezzo verificabile
   ⚠ Nessuna fonte citata
 -------------------------------------------------------
+RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
+  Complessivo          +5  (61 → 66)
+  tech                 +17  (40 → 57)
+  schema               -10  (100 → 90)
+  llm_judge            +6  (55 → 61)
+  citability           +6  (60 → 66)
+  1 risolti:
+    · Nessuna sitemap dichiarata
+  15 nuovi:
+    · L'indicizzazione della pagina è bloccata
+    · Il documento non ha un elemento `<title>`
+    · Il documento non ha una meta descrizione
+    · ... e altri 12
+-------------------------------------------------------
 PIANO DI INTERVENTI  : 16 interventi (6 critici, 10 avvertenze)
   1 quick win · 4 senza recupero · 10 senza sforzo dichiarato
   5 aree su 9; ordinato per gravita', poi per guadagno dell'indice

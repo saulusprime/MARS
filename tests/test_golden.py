@@ -38,6 +38,10 @@ GOLDEN = os.path.join(os.path.dirname(__file__), "golden")
 # formattasse la data cadrebbe su "GENERATED_AT". La versione e'
 # 0.0.0 per lo stesso motivo — inconfondibile in un diff, ma ancora
 # parsabile da un confronto semver.
+# Il timestamp dell'esecuzione di ieri, congelato come quello di oggi:
+# il presidio sui campi volatili ammette i letterali della fixture e
+# nient'altro, cosi' una data VIVA che sfuggisse resta rossa.
+GENERATED_AT_PRECEDENTE = "2025-12-01T09:00:00+0000"
 GENERATED_AT = "2026-01-01T00:00:00+0000"
 VERSIONE = "0.0.0"
 
@@ -334,9 +338,35 @@ def _modulo(nome: str):
     return load_external_module(nome)
 
 
+def _esecuzione_precedente() -> dict:
+    """Una riga di storico, come la scriverebbe l'esecuzione di ieri.
+
+    Congelata a mano e non prodotta da un secondo giro dei moduli: se
+    la generasse il codice, il delta uscirebbe sempre vuoto e il golden
+    congelerebbe una sezione che non dice niente. Qui c'e' un rilievo
+    risolto (`tech.sitemap.missing`), uno che resta e uno nuovo comparso
+    oggi, piu' due punteggi che si muovono in direzioni opposte.
+    """
+    return {
+        "generated_at": GENERATED_AT_PRECEDENTE,
+        "url": BASE, "version": "0.0.0", "schema_version": 1,
+        "scores": {"mars_tech": 40, "mars_seo": 27, "mars_schema": 100,
+                   "mars_wcag": 37, "mars_wapt": 57,
+                   "mars_citability": 60.0, "mars_llm_judge": 55},
+        "overall": 61.0,
+        "findings": [
+            {"area": "mars_tech", "key": "tech.robots.ai_blocked",
+             "title": "robots.txt BLOCCA 1 crawler IA: GPTBot",
+             "severity": "critical"},
+            {"area": "mars_tech", "key": "tech.sitemap.missing",
+             "title": "Nessuna sitemap dichiarata", "severity": "warning"},
+        ],
+    }
+
+
 def _referto_completo(monkeypatch) -> dict:
     """Il sito misurato con ogni strumento a disposizione."""
-    contesto = _contesto()
+    contesto = _contesto(previous=_esecuzione_precedente())
     risultati = {}
     for nome, _ in MODULES_REGISTRY:
         modulo = _modulo(nome)
@@ -509,7 +539,8 @@ def test_le_rese_non_contengono_campi_volatili(monkeypatch):
         for formato, reso in _rendi(dataset, monkeypatch).items():
             dove = "%s/%s" % (dataset, formato)
             assert mars_core.__version__ not in reso, dove
-            assert set(iso.findall(reso)) <= {GENERATED_AT[:19]}, dove
+            assert set(iso.findall(reso)) <= {
+                GENERATED_AT[:19], GENERATED_AT_PRECEDENTE[:19]}, dove
             assert os.path.dirname(os.path.abspath(__file__)) not in reso
 
 

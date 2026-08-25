@@ -28,7 +28,15 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.5.0"
+__version__ = "2.6.0"
+
+# Versione dello SCHEMA del referto, indipendente da quella del
+# programma: si incrementa solo su un cambiamento **incompatibile** —
+# una chiave rimossa, rinominata, o il cui significato cambia. Le
+# aggiunte sono additive e non la muovono, altrimenti a ogni fase del
+# programma UPGRADE ne servirebbe una nuova e il numero smetterebbe di
+# dire qualcosa. Chi consuma il JSON legge questo, non `version`.
+JSON_SCHEMA_VERSION = 1
 
 # La versione compare nello User-Agent, in --version e nell'API:
 # tenerla in un posto solo evita che le tre divergano.
@@ -1464,8 +1472,17 @@ def build_context(url: str, max_pages: int = 10,
     }
 
 
+# Il k della fusione RRF, e la formula che lo usa. Erano il default di
+# una funzione e una riga di docstring: da U7 stanno nel referto,
+# perche' due esecuzioni con k diversi non sono confrontabili alla pari
+# e chi rilegge un referto di sei mesi fa deve poterlo sapere senza
+# aprire il codice di quella versione.
+RRF_K = 60
+RRF_FORMULA = "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
+
+
 def reciprocal_rank_fusion(rankings: List[List[int]],
-                           k: int = 60) -> List[Tuple[int, float]]:
+                           k: int = RRF_K) -> List[Tuple[int, float]]:
     """Fonde piu' classifiche con la formula di Cormack et al. (2009).
 
     score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)

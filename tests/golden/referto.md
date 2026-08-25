@@ -22,6 +22,40 @@ Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: 
 | 8. Citabilità IA | 66/100 |  |
 | 9. Giudizio LLM | 61/100 |  |
 
+## Rispetto all'esecuzione precedente
+
+Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
+
+| Area | Prima | Dopo | Variazione |
+|---|---|---|---|
+| Complessivo | 61 | 66 | +5 |
+| tech | 40 | 57 | +17 |
+| schema | 100 | 90 | -10 |
+| llm_judge | 55 | 61 | +6 |
+| citability | 60 | 66 | +6 |
+
+**Risolti (1)**
+
+- Nessuna sitemap dichiarata
+
+**Nuovi (15)**
+
+- L'indicizzazione della pagina è bloccata
+- Il documento non ha un elemento `<title>`
+- Il documento non ha una meta descrizione
+- I link non hanno testo descrittivo
+- Gli elementi immagine non hanno attributi `[alt]`
+- 1 blocchi JSON-LD malformati
+- Le immagini devono avere un testo alternativo
+- Il contrasto deve essere sufficiente
+- I campi di modulo devono avere un'etichetta
+- 1/2 immagini prive di testo alternativo
+- 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
+- 1 campi di modulo senza etichetta
+- 1 tabelle dati senza intestazioni <th>
+- Cross Site Scripting (Reflected)
+- Content Security Policy (CSP) Header Not Set
+
 ## Piano di interventi
 
 16 interventi (6 critici, 10 avvertenze) · 1 quick win.

@@ -2,15 +2,15 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.5.0 — Fase 6 del programma UPGRADE: due formati nuovi.
-Markdown per incollare il referto in una issue o in un wiki, col piano
-di interventi come task list che si spunta; CSV per lavorare i rilievi
-altrove, con punto e virgola e BOM UTF-8 perche' Excel li apra con gli
-accenti giusti. Le fasi precedenti hanno reso strutturati i rilievi
-(1), congelato la resa in `tests/golden/` (2), scritto come si aggiusta
-ogni controllo (3), ordinato gli interventi per quanto rendono (4) e
-messo in testa il punteggio complessivo con le ancore stabili (5). Il
-piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
+Versione 2.6.0 — Fase 7 del programma UPGRADE: il referto dichiara la
+versione del proprio schema e i parametri con cui e' stato prodotto, e
+sa confrontarsi con l'esecuzione precedente dello stesso sito — che
+cosa e' salito, che cosa e' stato risolto, che cosa e' comparso. Le
+fasi precedenti hanno reso strutturati i rilievi (1), congelato la
+resa in `tests/golden/` (2), scritto come si aggiusta ogni controllo
+(3), ordinato gli interventi per quanto rendono (4), messo in testa il
+complessivo con le ancore stabili (5) e aggiunto Markdown e CSV (6).
+Il piano sta in UPGRADE.md, il lavoro concluso in AS-IS.md.
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche:
@@ -417,6 +417,24 @@ Formati del referto (--format, predefinito text):
     csv       una riga per rilievo, con punto e virgola e BOM UTF-8: si
               apre in Excel o Fogli con gli accenti giusti e le colonne
               separate
+
+Il JSON dichiara la versione del proprio schema in `schema_version`, che è
+cosa diversa dalla versione del programma: sale **solo** su un cambiamento
+incompatibile — una chiave rimossa, rinominata, o il cui significato cambia —
+mentre le aggiunte sono additive e non la muovono. Chi consuma il referto da
+un programma legge quella, non `version`. Accanto ci sono i parametri che
+rendono il referto riproducibile: `rrf` con il k della fusione e la formula,
+e `thresholds`, oggi `null` perché le soglie non sono configurabili — due
+referti con soglie diverse non sarebbero confrontabili alla pari, e la chiave
+c'è da subito perché il giorno che lo diventeranno nessuno debba distinguere
+«assente perché vecchio» da «assente perché di serie».
+
+Con --history il referto guadagna la sezione «rispetto all'esecuzione
+precedente»: una riga compatta per esecuzione in un file JSONL append-only,
+e il confronto dei rilievi per **chiave stabile** — cosi' un conteggio che
+cambia nel titolo non fa sembrare un difetto risolto e uno nuovo. Alla prima
+esecuzione non c'e' nulla da confrontare e la sezione non compare;
+--no-history disattiva lettura e scrittura.
 
 Con --output il referto va su file invece che a video. Il referto JSON
 si dà in pasto a mars_citations.py --from-audit, che ne riusa le stesse

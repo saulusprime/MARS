@@ -11,12 +11,14 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
 
 import pytest
 
 from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
                        load_queries)
+import mars_core
 import mars_remediation
 import mars_report
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
@@ -77,10 +79,11 @@ def referto(contesto):
 # ----------------------------------------------------------------------
 
 def test_referto_ha_i_campi_attesi(referto):
-    for chiave in ("tool", "version", "generated_at", "url", "market",
-                   "pages_crawled", "discovery", "chunks", "areas",
-                   "rrf_simulation", "rrf_aggregate", "citability",
-                   "llm_judgement", "skipped", "remediation"):
+    for chiave in ("tool", "version", "schema_version", "generated_at",
+                   "url", "market", "pages_crawled", "discovery", "chunks",
+                   "areas", "rrf", "thresholds", "rrf_simulation",
+                   "rrf_aggregate", "citability", "llm_judgement", "skipped",
+                   "remediation", "overall"):
         assert chiave in referto, "manca %s" % chiave
 
 
@@ -1671,3 +1674,132 @@ def test_il_csv_quota_le_celle_ostili(contesto):
     righe = list(csv.reader(io.StringIO(reso[1:]), delimiter=";"))
     assert righe[1][4] == 'titolo; con "virgolette"'
     assert righe[1][6] == "prima riga\nseconda riga"
+
+
+# ----------------------------------------------------------------------
+# U7.1: i metadati che rendono un referto rileggibile
+# ----------------------------------------------------------------------
+
+def test_lo_schema_e_dichiarato_e_indipendente_dalla_versione(referto):
+    """Due numeri diversi, e non e' una ridondanza: `version` cambia a
+    ogni fase, `schema_version` solo su un cambiamento incompatibile.
+    Chi consuma il JSON da un programma legge questa."""
+    assert referto["schema_version"] == mars_core.JSON_SCHEMA_VERSION
+    assert referto["schema_version"] != referto["version"]
+
+
+def test_il_referto_dichiara_i_parametri_della_fusione(referto):
+    """Il k viveva come default di una funzione: due esecuzioni con k
+    diversi non sono confrontabili, e senza scriverlo bisognerebbe
+    aprire il codice di quella versione."""
+    assert referto["rrf"] == {"k": mars_core.RRF_K,
+                              "formula": mars_core.RRF_FORMULA}
+    assert "1 / (k + rank(d) + 1)" in referto["rrf"]["formula"]
+
+
+def test_il_k_dichiarato_e_quello_che_gira_davvero():
+    """Presidio della dichiarazione, non del valore.
+
+    Il referto dichiara `RRF_K`, ma la fusione la chiamano quattro
+    moduli: se uno passasse un `k` suo, il referto direbbe il falso e
+    nessun test sul contenuto se ne accorgerebbe. Si guarda il codice
+    perche' e' l'unico posto dove la divergenza esiste.
+    """
+    import ast
+    import glob
+    radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    chiamate = 0
+    for percorso in glob.glob(os.path.join(radice, "mars_*.py")):
+        albero = ast.parse(open(percorso, encoding="utf-8").read())
+        for nodo in ast.walk(albero):
+            if not isinstance(nodo, ast.Call):
+                continue
+            nome = getattr(nodo.func, "id", None) or getattr(
+                nodo.func, "attr", None)
+            if nome != "reciprocal_rank_fusion":
+                continue
+            chiamate += 1
+            assert len(nodo.args) == 1, "%s: k passato per posizione" % percorso
+            assert not [kw for kw in nodo.keywords if kw.arg == "k"], (
+                "%s: k passato esplicitamente, il referto direbbe il falso"
+                % percorso)
+    assert chiamate >= 4, "le chiamate sono quattro: trovate %d" % chiamate
+
+
+def test_le_soglie_sono_dichiarate_assenti(referto):
+    """`null` e non chiave mancante: quando le soglie arriveranno,
+    nessuno dovra' distinguere «assente perche' vecchio» da «assente
+    perche' di serie»."""
+    assert "thresholds" in referto
+    assert referto["thresholds"] is None
+
+
+# ----------------------------------------------------------------------
+# U7.2: il delta nelle viste
+# ----------------------------------------------------------------------
+
+def _referto_con_delta(contesto, precedente=None):
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
+        _rilievo(key="tech.robots.ai_blocked", title="robots blocca",
+                 params={"penalty": 43.0})]}}
+    contesto["previous"] = precedente if precedente is not None else {
+        "generated_at": "2025-12-01T09:00:00+0000", "version": "1.0.0",
+        "url": contesto["url"], "scores": {"mars_tech": 40},
+        "overall": 40.0,
+        "findings": [{"area": "mars_tech", "key": "tech.sitemap.missing",
+                      "title": "sitemap assente", "severity": "warning"}]}
+    return build_report(contesto["results"], contesto)
+
+
+def test_il_delta_entra_nel_dato_canonico(contesto):
+    delta = _referto_con_delta(contesto)["delta"]
+    assert delta["previous_run"] == "2025-12-01T09:00:00+0000"
+    assert [f["key"] for f in delta["resolved"]] == ["tech.sitemap.missing"]
+    assert [f["key"] for f in delta["new"]] == ["tech.robots.ai_blocked"]
+
+
+def test_alla_prima_esecuzione_il_delta_e_null_e_le_viste_tacciono(contesto):
+    """Una sezione «rispetto a prima» con tutto invariato direbbe che
+    non è cambiato nulla, che è un'altra cosa da «non c'è un prima». È
+    l'opposto della scelta fatta per il piano, dove la sezione resta
+    anche vuota: lì il vuoto è un risultato, qui è un'assenza."""
+    contesto["results"] = {"mars_tech": {"score": 57, "issues": []}}
+    referto = build_report(contesto["results"], contesto)
+    assert referto["delta"] is None
+    assert "RISPETTO A PRIMA" not in render_text(referto)
+    assert "esecuzione precedente" not in render_html(referto)
+    assert "esecuzione precedente" not in render_markdown(referto)
+
+
+def test_le_tre_viste_mostrano_risolti_e_nuovi(contesto):
+    referto = _referto_con_delta(contesto)
+    for reso in (render_text(referto), render_html(referto),
+                 render_markdown(referto)):
+        assert "sitemap assente" in reso
+        assert "robots blocca" in reso
+
+
+def test_il_delta_mostra_il_segno_sempre(contesto):
+    """«+17» e «-10», mai «17»: senza segno una variazione si legge
+    come un punteggio."""
+    testo = render_text(_referto_con_delta(contesto))
+    assert "+17" in testo, "40 → 57"
+
+
+def test_il_colore_del_delta_segue_il_segno_non_la_scala(contesto):
+    """Qui non si giudica quanto vale l'area, si dice se è salita: un
+    59 che sale da 40 è una buona notizia, e la scala dei punteggi lo
+    dipingerebbe di rosso."""
+    html = render_html(_referto_con_delta(contesto))
+    tabella = html[html.index("Rispetto all"):]
+    assert "<td class='num ok'>+17</td>" in tabella
+
+
+def test_il_delta_a_testo_si_ferma_a_tre_per_elenco(contesto):
+    molti = {"generated_at": "2025-12-01T09:00:00+0000", "version": "1.0.0",
+             "url": contesto["url"], "scores": {}, "overall": None,
+             "findings": [{"area": "mars_tech", "key": "tech.k%d" % i,
+                           "title": "vecchio %d" % i, "severity": "warning"}
+                          for i in range(9)]}
+    testo = render_text(_referto_con_delta(contesto, molti))
+    assert "... e altri 6" in testo

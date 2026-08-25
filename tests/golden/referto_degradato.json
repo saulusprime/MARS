@@ -1,6 +1,12 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
+  "schema_version": 1,
+  "rrf": {
+    "k": 60,
+    "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
+  },
+  "thresholds": null,
   "generated_at": "2026-01-01T00:00:00+0000",
   "url": "https://esempio.test/",
   "market": "italia",
@@ -1011,5 +1017,6 @@
       "certified": true,
       "priority": 8
     }
-  ]
+  ],
+  "delta": null
 }

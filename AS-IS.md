@@ -4063,6 +4063,76 @@ Quattordici mutazioni, nessuna sfuggita.
 - [x] `render_markdown()`, `render_csv()`, `_md_cella()`, gli esempi della
       CLI, il README, quattordici test, quattro golden nuovi.
 
+### U7 — ✅ (2026-08-25): riproducibilità e storia, e `__version__` a 2.6.0
+
+**I metadati (G09).** Il referto dichiara `schema_version`, che è cosa diversa
+dalla versione del programma: sale **solo** su un cambiamento incompatibile,
+mentre le aggiunte sono additive. Senza quella distinzione servirebbe una
+versione di schema nuova a ogni fase del programma UPGRADE, e il numero
+smetterebbe di dire qualcosa.
+
+Accanto ci sono i parametri che rendono il referto rileggibile fra sei mesi:
+`rrf` con il k della fusione e la formula — viveva come **default di una
+funzione**, e due esecuzioni con k diversi non sono confrontabili alla pari —
+e `thresholds`, oggi `null`. Null e non chiave mancante: quando le soglie
+diventeranno configurabili, nessuno dovrà distinguere «assente perché vecchio»
+da «assente perché di serie».
+
+Un test guarda il **codice** e non il dato: il referto dichiara `RRF_K`, ma la
+fusione la chiamano quattro moduli, e se uno passasse un `k` suo il referto
+direbbe il falso senza che nessun test sul contenuto se ne accorga. Verificato
+con `ast` su tutti i `mars_*.py`: quattro chiamate, nessuna col `k` esplicito.
+
+**Lo storico e il delta (G06).** `mars_history.py`, modulo suo perché
+`mars_report` ha già 1.800 righe e perché l'I/O va separato dalla logica. Una
+riga compatta per esecuzione in JSONL **append-only**: il referto intero pesa
+1.500 righe di JSON, e conservarne uno per esecuzione trasforma lo storico in
+un archivio che nessuno rilegge.
+
+**Il confronto è per chiave**, ed è il ritorno della Fase 1. Una `key` non
+contiene mai un valore variabile, quindi `tech.canonical.missing` resta la
+stessa quando le pagine senza canonical passano da 2 a 117 — confrontare i
+*titoli* direbbe un rilievo risolto e uno nuovo, cioè il contrario del vero.
+Per i rilievi senza chiave, che nessuno dei nove moduli produce ma un plugin
+di terzi può, si ripiega sul titolo coi numeri normalizzati **e il delta lo
+dichiara**: è un confronto più debole, e chi legge deve saperlo.
+
+**Tre decisioni che sarebbero potute andare storte:**
+
+- **un'area misurata ieri e non oggi non è peggiorata**: non è stata guardata.
+  I punteggi si confrontano solo dove entrambe le esecuzioni hanno un numero,
+  ed è la stessa distinzione fra «non misurato» e «zero» che il referto fa
+  dappertutto. Sarebbe stata la bugia più facile della fase;
+- **il colore del delta segue il segno, non la scala dei punteggi**: qui non si
+  giudica quanto vale l'area, si dice se è salita, e un 59 che sale da 40 è una
+  buona notizia che la scala dipingerebbe di rosso;
+- **la sezione non compare alla prima esecuzione**. È l'opposto della scelta
+  fatta per il piano, dove la sezione resta anche vuota: lì il vuoto è un
+  risultato, qui è un'assenza — «tutto invariato» e «non c'è un prima» sono
+  cose diverse.
+
+**Lo storico non può far fallire un audit.** Un file assente, illeggibile o non
+scrivibile restituisce `None`/`False` e viene dichiarato: il referto è già
+prodotto, e perdere una riga di archivio non vale il codice di uscita. Una
+riga corrotta non invalida le altre — è il vantaggio del JSONL sul JSON, ed è
+la ragione per cui lo storico ha questo formato.
+
+**Il golden completo ha ora un'esecuzione precedente**, congelata a mano e non
+prodotta da un secondo giro dei moduli: se la generasse il codice, il delta
+uscirebbe vuoto e il golden congelerebbe una sezione che non dice niente. Il
+degradato resta alla prima esecuzione, così i due dataset coprono entrambi i
+casi. Il presidio sui campi volatili ammette ora due letterali, e nient'altro:
+una data *viva* che sfuggisse resta rossa.
+
+Ventisei mutazioni, nessuna sfuggita. Due erano sfuggite al primo giro, ed
+erano un buco vero: il cablaggio nella CLI — leggere prima, appendere dopo —
+non era presidiato da nulla. Ora un test fa il giro completo, prima esecuzione
+e seconda.
+
+- [x] `mars_core` (`JSON_SCHEMA_VERSION`, `RRF_K`, `RRF_FORMULA`),
+      `mars_history.py`, tre chiavi nel referto più `delta`, `--history` e
+      `--no-history`, la resa in testo/HTML/Markdown, trenta test, i golden.
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.

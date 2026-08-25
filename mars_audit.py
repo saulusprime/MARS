@@ -17,6 +17,7 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
                        normalizza_risultato)
 from mars_core import load_queries
 from mars_citability import MERCATI
+import mars_history
 from mars_report import RENDERERS, build_report
 
 
@@ -34,7 +35,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               owner_declaration: bool = False,
               llm: str = "auto", formato: str = "text",
               output: str | None = None,
-              queries: list[str] | None = None) -> int:
+              queries: list[str] | None = None,
+              storico: str | None = None) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}")
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
@@ -78,7 +80,25 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
         else:
             print(f"[ ] {mod_desc} ignorato (file non trovato)")
 
+    # L'esecuzione precedente si legge PRIMA di comporre il referto:
+    # il delta e' una chiave del dato canonico, non una nota della
+    # vista, cosi' JSON, CSV e API lo ricevono senza altro lavoro.
+    if storico:
+        context["previous"] = mars_history.leggi_ultima_esecuzione(
+            storico, context["url"])
+
     referto = build_report(results, context)
+
+    # Lo storico si aggiorna DOPO: se l'append fallisce il referto e'
+    # gia' fatto, e perdere una riga di archivio non vale il codice di
+    # uscita. Lo si dichiara e si va avanti.
+    if storico:
+        if mars_history.appendi_storico(storico,
+                                        mars_history.riga_storico(referto)):
+            print(f"Storico aggiornato in {storico}")
+        else:
+            print(f"⚠ Impossibile scrivere lo storico in {storico}")
+
     testo = RENDERERS[formato](referto)
     if output:
         try:
@@ -120,6 +140,9 @@ esempi:
 
   # i rilievi come tabella, da aprire in Excel o Fogli
   mars_audit.py https://example.com --format csv --output rilievi.csv
+
+  # confronto con l'esecuzione precedente dello stesso sito
+  mars_audit.py https://example.com --history storico.jsonl
 
   # sito proprio: robots.txt ignorato e scansione WAPT attiva
   mars_audit.py https://miosito.it --i-own-this-domain
@@ -207,13 +230,31 @@ def costruisci_parser() -> argparse.ArgumentParser:
         help="Resa del referto. Valori: text (a video, default), json "
              "(struttura canonica, riusabile da mars_citations.py "
              "--from-audit), html (pagina autoconsistente, apribile "
-             "senza rete).")
+             "senza rete), markdown (da incollare in una issue: il piano "
+             "e' una task list), csv (una riga per rilievo, per Excel o "
+             "Fogli).")
 
     parser.add_argument(
         "--output", metavar="FILE",
         help="Scrive il referto su file invece che a video. Esempi: "
              "referto.html, referto.json. Uscita 3 se il file non e' "
              "scrivibile.")
+
+    parser.add_argument(
+        "--history", metavar="FILE", dest="storico",
+        help="File JSONL dello storico, per confrontare questa "
+             "esecuzione con la precedente dello stesso sito. Esempio: "
+             "storico-clienti.jsonl. Default: %s accanto a --output, o "
+             "nella cartella corrente. Il referto guadagna la sezione "
+             "'rispetto all'esecuzione precedente'; alla prima non c'e' "
+             "nulla da confrontare e non compare."
+             % mars_history.STORICO_PREDEFINITO)
+
+    parser.add_argument(
+        "--no-history", action="store_true", dest="senza_storico",
+        help="Non legge e non scrive lo storico. Utile in una pipeline "
+             "che riesegue l'audit molte volte, dove il confronto con "
+             "l'esecuzione di dieci minuti prima non dice nulla.")
 
     parser.add_argument(
         "--llm", choices=("auto", "on", "off"), default="auto",
@@ -251,4 +292,8 @@ if __name__ == "__main__":
                        args.market, delay=args.delay, timeout=args.timeout,
                        owner_declaration=args.owner_declaration,
                        llm=args.llm, formato=args.formato,
-                       output=args.output, queries=elenco_query))
+                       output=args.output, queries=elenco_query,
+                       storico=(None if args.senza_storico else
+                                args.storico
+                                or mars_history.percorso_storico(
+                                    args.output))))

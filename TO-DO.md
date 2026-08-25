@@ -1,7 +1,7 @@
 # MARS Beacon — TO-DO
 
 > Stato rilevato: 2026-08-19; revisione sistematica il 2026-08-20 (voci
-> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4, 5 e 6.
+> R15-R37, I13-I16); **rivisto il 2026-08-25**, chiudendo le Fasi 4-7.
 >
 > **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
 > verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove.
@@ -13,8 +13,8 @@
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
-> `upgrade`, la versione è **2.5.0**. **Le prime cinque fasi sono chiuse** —
-> le loro voci stanno in [AS-IS.md](AS-IS.md). La prossima è U7.
+> `upgrade`, la versione è **2.6.0**. **Le prime cinque fasi sono chiuse** —
+> le loro voci stanno in [AS-IS.md](AS-IS.md). La prossima è U8.
 >
 > Da U3 in poi vale un vincolo: ogni cambiamento di resa fa fallire i golden
 > di `tests/golden/`, e la rigenerazione va sempre seguita dalla **revisione
@@ -126,7 +126,7 @@ Registrate qui perché non vengano prese "di fatto" scrivendo codice.
 
 ### Fasi
 
-### U1-U6 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
+### U1-U7 — ✅ CHIUSE, in [AS-IS.md](AS-IS.md)
 
 **U1 — modello dati dei rilievi** (G01), prerequisito di U3, U4, U5 e U7:
 nove sotto-voci, una per modulo, più il bump a 2.1.0. Tutte e nove le aree
@@ -160,11 +160,13 @@ conteggi si chiude **R41**.
 issue, e una riga per rilievo con `;` e BOM UTF-8 per Excel. Registrati in
 `RENDERERS`, quindi la CLI e i golden li acquisiscono da soli. Bump a 2.5.0.
 
+**U7 — riproducibilità e storia** (G09, G06): `schema_version`, i parametri
+dell'RRF e le soglie nel dato; `mars_history.py` con lo storico JSONL
+append-only e il confronto per **chiave stabile** fra due esecuzioni, reso
+nelle tre viste umane. Bump a 2.6.0.
+
 ### Altre fasi
 
-- [ ] **U7 — Riproducibilità e storia** (G09, G06, Fase 7):
-      `schema_version`, parametri RRF e soglie nel referto; delta fra due
-      esecuzioni e storico.
 - [ ] **U8 — Analisi della superficie** (G12, Fase 8): profondità, treemap,
       grafo dei link (qui entra D1), matematica dell'RRF, `pages[]`.
 - [ ] **U9 — i18n del referto** (G05, Fase 9) — *rinviata da D4*. Cataloghi e

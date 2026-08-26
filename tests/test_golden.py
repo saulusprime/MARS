@@ -18,6 +18,7 @@ import types
 import pytest
 
 import mars_core
+import mars_history
 import mars_report
 import mars_wcag
 from conftest import pagina
@@ -272,6 +273,18 @@ def _alert_zap() -> list:
         {"pluginId": "10038", "alertRef": "10038-1",
          "alert": "Content Security Policy (CSP) Header Not Set",
          "risk": "Medium", "url": BASE + "faq/"},
+        # Seconda SOTTO-VARIANTE della stessa regola (R39): il golden
+        # congela la ripartizione, cioe' due rilievi distinti con
+        # soluzioni proprie e la penalita' della regola divisa in due.
+        # Sta su un URL gia' nell'unione, cosi' la diffusione — e con
+        # essa il punteggio dell'area — non si muove: e' esattamente
+        # cio' che la ritaratura promette.
+        {"pluginId": "10038", "alertRef": "10038-2",
+         "alert": "CSP: Wildcard Directive", "risk": "Medium", "url": BASE,
+         "description": "La direttiva ammette qualunque origine, quindi "
+                        "non restringe nulla.",
+         "solution": "Sostituisci il carattere jolly con le origini "
+                     "che servono davvero."},
         {"pluginId": "10035", "alert": "Strict-Transport-Security non impostato",
          "risk": "Low", "url": BASE},
     ]
@@ -590,10 +603,22 @@ def test_le_rese_non_contengono_campi_volatili(monkeypatch):
     diventerebbe rosso a ogni bump di versione, e verrebbe rigenerato
     senza capire perche'."""
     iso = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+    # Le `since` delle migrazioni di chiave sono COSTANTI dichiarate in
+    # mars_history, non la versione di questa esecuzione: resteranno
+    # "2.9.0" quando il codice sara' alla 3.0, e coincidono con
+    # __version__ solo nella release che le introduce. Si tolgono dalla
+    # resa PRIMA di cercare — e non si allenta l'asserzione — cosi' la
+    # rete resta tesa su tutto il resto invece di aprirsi una volta per
+    # migrazione.
+    dichiarate = ['"since": "%s"' % m["since"]
+                  for m in mars_history.MIGRAZIONI_CHIAVE]
     for dataset in DATASET:
         for formato, reso in _rendi(dataset, monkeypatch).items():
             dove = "%s/%s" % (dataset, formato)
-            assert mars_core.__version__ not in reso, dove
+            ripulito = reso
+            for letterale in dichiarate:
+                ripulito = ripulito.replace(letterale, "")
+            assert mars_core.__version__ not in ripulito, dove
             assert set(iso.findall(reso)) <= {
                 GENERATED_AT[:19], GENERATED_AT_PRECEDENTE[:19]}, dove
             assert os.path.dirname(os.path.abspath(__file__)) not in reso

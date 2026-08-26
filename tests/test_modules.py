@@ -3588,6 +3588,117 @@ def test_wapt_raggruppa_gli_alert_per_regola():
     assert esito["score"] > 40, "sei occorrenze non sono sei difetti"
 
 
+def _variante(plugin, ref=None, risk="Medium", url="https://x/", **extra):
+    voce = {"pluginId": plugin, "alert": "Regola %s" % plugin,
+            "risk": risk, "url": url}
+    if ref is not None:
+        voce["alertRef"] = ref
+    voce.update(extra)
+    return voce
+
+
+def test_wapt_le_sotto_varianti_diventano_rilievi_distinti():
+    """R39: `alertRef` non veniva mai raggiunto, ed era codice morto.
+
+    La catena era `pluginId or alertRef or ...`, ma `pluginId` e'
+    SEMPRE presente nel JSON di ZAP (`AlertAPI.alertToSet` lo scrive con
+    `String.valueOf`). La regola CSP 10038 emette `10038-1`, `-2` e
+    `-3`: alert distinti, con testi e soluzioni proprie, che
+    diventavano **una** voce sola con la soluzione del primo."""
+    esito = mars_wapt.score_from_alerts([
+        _variante("10038", "10038-1", solution="Imposta l'header."),
+        _variante("10038", "10038-2", solution="Togli unsafe-inline."),
+    ])
+    rilievi = {f["key"]: f for f in esito["findings"]}
+
+    assert set(rilievi) == {"sec.zap.10038_1", "sec.zap.10038_2"}
+    assert rilievi["sec.zap.10038_1"]["fix"] == "Imposta l'header."
+    assert rilievi["sec.zap.10038_2"]["fix"] == "Togli unsafe-inline."
+    # La regola violata resta UNA: il conteggio dice quante regole, non
+    # quanti rilievi, e i due numeri ora differiscono.
+    assert esito["rules_violated"] == 1
+    assert esito["alerts_grouped"] == 2
+
+
+def test_wapt_la_ritaratura_non_sposta_il_punteggio():
+    """La decisione del 2026-08-26: si ritara sulla REGOLA — penalita'
+    sull'unione degli URL, ripartita fra le sotto-varianti — cosi' i
+    rilievi diventano distinti e **la somma resta quella di prima**.
+
+    Senza, ogni sito che viola una regola con tre varianti ne
+    perderebbe il triplo: la cardinalita' dei gruppi *e'* il punteggio.
+    """
+    urls = ["https://x/a", "https://x/b", "https://x/c"]
+    prima = mars_wapt.score_from_alerts(
+        [_variante("10038", url=u) for u in urls])
+    dopo = mars_wapt.score_from_alerts(
+        [_variante("10038", "10038-%d" % i, url=u)
+         for i, u in enumerate(urls, 1)])
+
+    assert dopo["score"] == prima["score"]
+    assert len(dopo["findings"]) == 3 and len(prima["findings"]) == 1
+
+
+def test_wapt_la_ripartizione_della_penalita_e_auditabile():
+    """Un numero del referto vale quanto la possibilita' di rifarne il
+    conto: `penalty * variants == rule_penalty`, e `rule_penalty` si
+    ricalcola dalla formula sull'unione degli URL."""
+    esito = mars_wapt.score_from_alerts([
+        _variante("10038", "10038-1", url="https://x/a"),
+        _variante("10038", "10038-2", url="https://x/b"),
+    ])
+    for f in esito["findings"]:
+        p = f["params"]
+        assert p["variants"] == 2
+        assert p["penalty"] * p["variants"] == pytest.approx(
+            p["rule_penalty"])
+        # Due URL distinti fra le due varianti: la diffusione si misura
+        # sull'UNIONE, non sulla singola variante.
+        assert p["rule_n"] == 2
+        assert p["n"] == 1
+        assert p["rule_penalty"] == pytest.approx(10 * (1 + 2 / 10.0))
+
+
+def test_wapt_la_diffusione_non_conta_due_volte_lo_stesso_url():
+    """Due varianti sulla stessa pagina sono una pagina sola: l'unione
+    e' un insieme, e contarle due volte gonfierebbe la diffusione."""
+    esito = mars_wapt.score_from_alerts([
+        _variante("10038", "10038-1", url="https://x/a"),
+        _variante("10038", "10038-2", url="https://x/a"),
+    ])
+    assert esito["findings"][0]["params"]["rule_n"] == 1
+
+
+@pytest.mark.parametrize("ref", [None, "10038"])
+def test_wapt_una_regola_senza_varianti_tiene_la_chiave_di_prima(ref):
+    """`alertRef` assente, o uguale al `pluginId`: la chiave non migra,
+    e il confronto con gli archivi gia' scritti regge."""
+    esito = mars_wapt.score_from_alerts([_variante("10038", ref)])
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "sec.zap.10038"
+    assert rilievo["params"]["variants"] == 1
+    # Vuoto in entrambi i casi: `alertRef` uguale al `pluginId` non
+    # dichiara una variante, dichiara che la regola non ne ha.
+    assert rilievo["params"]["alert_ref"] == ""
+
+
+def test_wapt_il_rischio_della_variante_e_quello_della_regola_convivono():
+    """La gravita' del rilievo e' quella che ZAP ha dato a QUELLA
+    variante; la penalita' viene dalla regola, che ne ha una sola.
+
+    Quando le due differiscono il dato lo dice invece di nasconderlo:
+    un rilievo `info` che porta una quota di penalita' `High` sarebbe
+    altrimenti inspiegabile."""
+    esito = mars_wapt.score_from_alerts([
+        _variante("10038", "10038-1", risk="High"),
+        _variante("10038", "10038-2", risk="Low"),
+    ])
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+    assert per_chiave["sec.zap.10038_2"]["params"]["risk"] == "Low"
+    assert per_chiave["sec.zap.10038_2"]["params"]["rule_risk"] == "High"
+    assert per_chiave["sec.zap.10038_2"]["source_severity"] == "ZAP:Low"
+
+
 def test_wapt_confidenza_fra_parentesi():
     esito = mars_wapt.score_from_alerts(
         [{"pluginId": "1", "risk": "Medium (High)", "alert": "X",
@@ -3819,13 +3930,20 @@ def _alert(**kw) -> dict:
     URL separati da a-capo. Un valore messo a None sparisce dal dict,
     che e' come si prova il caso "campo assente".
     """
-    base = {"pluginId": "10038", "alertRef": "10038-1",
+    base = {"pluginId": "10038",
             "alert": "CSP Header Not Set", "name": "CSP Header Not Set",
             "risk": "Medium", "url": "https://x/",
             "description": "The header is not set.",
             "solution": "Ensure the header is set.",
             "reference": "https://a/\nhttps://b/"}
     base.update(kw)
+    # L'`alertRef` di ZAP COMINCIA sempre col pluginId: e' il pluginId
+    # piu' un indice di variante, ed e' il pluginId nudo per le regole
+    # che varianti non ne hanno. Derivarlo invece di cablarlo tiene il
+    # finto fedele quando un test cambia il pluginId — da R39 e'
+    # l'alertRef a raggruppare, e un default cablato metterebbe due
+    # regole diverse nello stesso gruppo senza che nulla lo riveli.
+    base.setdefault("alertRef", base.get("pluginId"))
     return {k: v for k, v in base.items() if v is not None}
 
 
@@ -4028,13 +4146,20 @@ def test_wapt_la_chiave_zap_e_sanificata_ma_collide():
 
 
 def test_wapt_la_chiave_dichiara_da_quale_campo_nasce():
-    """La chiave e' stabile SOLO quando nasce dal pluginId: un nome
-    viene dai Messages.properties di ZAP, cambia fra due release ed e'
-    localizzato. Chi confrontera' due esecuzioni deve poterlo sapere."""
+    """La chiave e' stabile quando nasce dal `pluginId` o dall'
+    `alertRef`, che ne e' il pluginId piu' un indice; un nome viene dai
+    Messages.properties di ZAP, cambia fra due release ed e'
+    localizzato. Chi confrontera' due esecuzioni deve poterlo sapere.
+
+    L'`alertRef` uguale al pluginId non fa `alertRef`: li' i due valori
+    sono lo stesso, e dire il campo piu' specifico dei due sarebbe
+    dichiarare una precisione che non c'e'."""
     da_plugin = mars_wapt.score_from_alerts([_alert()])
+    da_variante = mars_wapt.score_from_alerts([_alert(alertRef="10038-1")])
     da_nome = mars_wapt.score_from_alerts(
         [_alert(pluginId=None, alertRef=None)])
     assert da_plugin["findings"][0]["params"]["key_source"] == "pluginId"
+    assert da_variante["findings"][0]["params"]["key_source"] == "alertRef"
     assert da_nome["findings"][0]["params"]["key_source"] == "name"
 
 
@@ -4172,13 +4297,18 @@ def test_wapt_una_solution_assente_non_e_un_errore():
 
 
 def test_wapt_un_gruppo_con_piu_soluzioni_lo_dichiara():
-    """Dentro un pluginId gli alertRef possono avere soluzioni diverse:
-    `fix` ne porta una, e se le altre si perdono il dato deve dirlo
-    invece di lasciar credere che fosse l'unica."""
+    """`fix` ne porta una, e se le altre si perdono il dato deve dirlo
+    invece di lasciar credere che fosse l'unica.
+
+    **Il caso era un altro**: due `alertRef` dello stesso `pluginId`,
+    che R39 ha separato in due rilievi — ciascuno ora tiene la propria
+    soluzione, e non se ne perde nessuna. Resta il caso vero, piu'
+    stretto: lo STESSO alert su due URL con soluzioni diverse."""
     esito = mars_wapt.score_from_alerts([
         _alert(alertRef="10038-1", solution="Prima."),
-        _alert(alertRef="10038-2", solution="Seconda.", url="https://x/b")])
+        _alert(alertRef="10038-1", solution="Seconda.", url="https://x/b")])
     finding = esito["findings"][0]
+    assert len(esito["findings"]) == 1, "un alertRef solo, un rilievo solo"
     assert finding["fix"] == "Prima.", "la prima non vuota, deterministica"
     assert finding["params"]["soluzioni"] == 2
 
@@ -4195,15 +4325,18 @@ def test_wapt_le_reference_diventano_una_lista():
     assert finding["doc_url"] == "", "ZAP non manda un link per regola"
 
 
-def test_wapt_gli_alert_refs_del_gruppo_non_si_perdono():
-    """Il raggruppamento resta per regola — cambiarlo sposterebbe i
-    punteggi — ma il dato che permettera' di affinarlo va conservato
-    ADESSO, perche' dopo il ciclo non c'e' piu'."""
+def test_wapt_ogni_variante_dichiara_il_proprio_alert_ref():
+    """`params["alert_refs"]` era l'insieme del gruppo, conservato da
+    U1.6 come «il dato che permettera' di spezzarlo quando lo si
+    vorra'». R39 lo ha spezzato: il gruppo E' la variante, quindi il
+    campo diventa singolare e ogni rilievo porta il suo."""
     esito = mars_wapt.score_from_alerts([
         _alert(alertRef="10038-2"),
         _alert(alertRef="10038-1", url="https://x/b")])
-    assert esito["findings"][0]["params"]["alert_refs"] == ["10038-1",
-                                                            "10038-2"]
+    per_chiave = {f["key"]: f["params"]["alert_ref"]
+                  for f in esito["findings"]}
+    assert per_chiave == {"sec.zap.10038_2": "10038-2",
+                          "sec.zap.10038_1": "10038-1"}
 
 
 def test_wapt_le_due_tabelle_di_rischio_coprono_gli_stessi_livelli():

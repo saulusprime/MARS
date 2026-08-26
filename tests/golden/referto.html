@@ -240,7 +240,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='meta'>critici</span>
 </div>
 <div class='tessera'>
-<span class='grande warn'>13</span>
+<span class='grande warn'>14</span>
 <span class='meta'>avvertenze</span>
 </div>
 <div class='tessera'>
@@ -672,6 +672,7 @@ Disallow:</pre>
 <ul class='rilievi'>
 <li>[ZAP:High] Cross Site Scripting (Reflected) (1 URL)</li>
 <li>[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)</li>
+<li>[ZAP:Medium] CSP: Wildcard Directive (1 URL)</li>
 <li>[ZAP:Low] Strict-Transport-Security non impostato (1 URL)</li>
 <li>Solo scansione passiva: l&#x27;active scan richiede --i-own-this-domain</li>
 </ul>
@@ -683,11 +684,17 @@ Disallow:</pre>
 <span class='spiegazione'>Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo&#x27; farvi eseguire script arbitrario nel browser della vittima.</span>
 <span class='fix'>Convalida l&#x27;input e codifica l&#x27;output.</span>
 </li>
-<li id='r-sec-zap-10038'>
+<li id='r-sec-zap-10038-1'>
 <b>Content Security Policy (CSP) Header Not Set</b>
-<a class='ancora' href='#r-sec-zap-10038' aria-label='Link a questo rilievo'>#</a>
+<a class='ancora' href='#r-sec-zap-10038-1' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.</span>
 <span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
+</li>
+<li id='r-sec-zap-10038-2'>
+<b>CSP: Wildcard Directive</b>
+<a class='ancora' href='#r-sec-zap-10038-2' aria-label='Link a questo rilievo'>#</a>
+<span class='spiegazione'>La direttiva ammette qualunque origine, quindi non restringe nulla.</span>
+<span class='fix'>Sostituisci il carattere jolly con le origini che servono davvero.</span>
 </li>
 </ul>
 </div>
@@ -738,7 +745,7 @@ Disallow:</pre>
 <p class='meta'>Ogni rettangolo è una pagina, l&#x27;area è proporzionale alle parole recuperabili. Il colore è la gravità peggiore dei rilievi che citano la pagina.</p>
 <svg class='treemap' viewBox='0 0 760 420' role='img' aria-label='Treemap della superficie: 3 pagine, la più estesa è / con 133 parole. I dati sono nella tabella qui sotto.'>
 <rect x='0.0' y='0.0' width='387.3' height='420.0' class='bad'>
-<title>/ — 133 parole, 2 passaggi, 17 rilievi, il peggiore: rilievo critico</title>
+<title>/ — 133 parole, 2 passaggi, 18 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='6.0' y='17.0'>/</text>
 <rect x='387.3' y='0.0' width='372.7' height='210.0' class='warn'>
@@ -763,7 +770,7 @@ Disallow:</pre>
 <td>https://esempio.test/</td>
 <td class='num'>133</td>
 <td class='num'>2</td>
-<td>17 rilievi, il peggiore: rilievo critico</td>
+<td>18 rilievi, il peggiore: rilievo critico</td>
 </tr>
 <tr>
 <td>https://esempio.test/faq/</td>
@@ -885,7 +892,7 @@ Disallow:</pre>
 <ul class='rilievi'>
 <li>Nessuna sitemap dichiarata</li>
 </ul>
-<h3 class='bad'>Nuovi (18)</h3>
+<h3 class='bad'>Nuovi (19)</h3>
 <ul class='rilievi'>
 <li>L&#x27;indicizzazione della pagina è bloccata</li>
 <li>Il documento non ha un elemento `&lt;title&gt;`</li>
@@ -905,9 +912,11 @@ Disallow:</pre>
 <li>1 tabelle dati senza intestazioni &lt;th&gt;</li>
 <li>Cross Site Scripting (Reflected)</li>
 <li>Content Security Policy (CSP) Header Not Set</li>
+<li>CSP: Wildcard Directive</li>
 </ul>
+<p class='meta'>Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu&#x27; per sola regola: sec.zap.10038 e&#x27; diventato sec.zap.10038_1, _2, _3 (R39): in quest&#x27;area «risolto» e «comparso» non sono fatti del sito.</p>
 <h2>Piano di interventi</h2>
-<p class='meta'>19 interventi (6 critici, 13 avvertenze) · 1 quick win · 4 senza recupero dichiarato · 10 senza sforzo dichiarato</p>
+<p class='meta'>20 interventi (6 critici, 14 avvertenze) · 1 quick win · 4 senza recupero dichiarato · 11 senza sforzo dichiarato</p>
 <p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 7 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
 <div class='intervento'>
 <div class='riga'>
@@ -1051,18 +1060,29 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>14</span> <a href='#r-sec-zap-10038'>Content Security Policy (CSP) Header Not Set</a>
+<span class='priorita'>14</span> <a href='#r-sec-zap-10038-1'>Content Security Policy (CSP) Header Not Set</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
-<p class='guadagno'>+12 punti d'area (57 → 69) · indice di citabilità +0.75 (mercato eu, stima)</p>
+<p class='guadagno'>+6 punti d'area (57 → 63) · indice di citabilità +0.38 (mercato eu, stima)</p>
 <span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>15</span> <a href='#r-lex-query-no-match'>1/3 query senza un riscontro lessicale</a>
+<span class='priorita'>15</span> <a href='#r-sec-zap-10038-2'>CSP: Wildcard Directive</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Sicurezza · sforzo: non dichiarato</p>
+<p class='guadagno'>+6 punti d'area (57 → 63) · indice di citabilità +0.38 (mercato eu, stima)</p>
+<span class='fix'>Sostituisci il carattere jolly con le origini che servono davvero.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>16</span> <a href='#r-lex-query-no-match'>1/3 query senza un riscontro lessicale</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1073,7 +1093,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>16</span> <a href='#r-lex-words-thin'>3/3 pagine sotto le 300 parole</a>
+<span class='priorita'>17</span> <a href='#r-lex-words-thin'>3/3 pagine sotto le 300 parole</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1084,7 +1104,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>17</span> <a href='#r-sem-chunks-few'>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</a>
+<span class='priorita'>18</span> <a href='#r-sem-chunks-few'>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1095,7 +1115,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>18</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
+<span class='priorita'>19</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1106,7 +1126,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>19</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
+<span class='priorita'>20</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>

@@ -907,6 +907,7 @@
       "issues": [
         "[ZAP:High] Cross Site Scripting (Reflected) (1 URL)",
         "[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)",
+        "[ZAP:Medium] CSP: Wildcard Directive (1 URL)",
         "[ZAP:Low] Strict-Transport-Security non impostato (1 URL)",
         "Solo scansione passiva: l'active scan richiede --i-own-this-domain"
       ],
@@ -924,15 +925,17 @@
           "source_severity": "ZAP:High",
           "params": {
             "rule": "40012",
+            "alert_ref": "",
             "key_source": "pluginId",
             "risk": "High",
+            "rule_risk": "High",
             "urls": [
               "https://esempio.test/servizi/"
             ],
             "n": 1,
-            "alert_refs": [
-              "40012"
-            ],
+            "rule_n": 1,
+            "variants": 1,
+            "rule_penalty": 27.500000000000004,
             "references": [
               "https://owasp.org/xss",
               "https://cwe.mitre.org/79"
@@ -946,7 +949,7 @@
           "area": "mars_wapt",
           "severity": "warning",
           "title": "Content Security Policy (CSP) Header Not Set",
-          "key": "sec.zap.10038",
+          "key": "sec.zap.10038_1",
           "detail": "Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.",
           "fix": "Configura il server per impostare l'header CSP.",
           "example": "",
@@ -955,19 +958,51 @@
           "source_severity": "ZAP:Medium",
           "params": {
             "rule": "10038",
-            "key_source": "pluginId",
+            "alert_ref": "10038-1",
+            "key_source": "alertRef",
             "risk": "Medium",
+            "rule_risk": "Medium",
             "urls": [
               "https://esempio.test/",
               "https://esempio.test/faq/"
             ],
             "n": 2,
-            "alert_refs": [
-              "10038-1"
-            ],
+            "rule_n": 2,
+            "variants": 2,
+            "rule_penalty": 12.0,
             "references": [],
             "soluzioni": 1,
-            "penalty": 12.0,
+            "penalty": 6.0,
+            "text_lang": "en"
+          }
+        },
+        {
+          "area": "mars_wapt",
+          "severity": "warning",
+          "title": "CSP: Wildcard Directive",
+          "key": "sec.zap.10038_2",
+          "detail": "La direttiva ammette qualunque origine, quindi non restringe nulla.",
+          "fix": "Sostituisci il carattere jolly con le origini che servono davvero.",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "ZAP:Medium",
+          "params": {
+            "rule": "10038",
+            "alert_ref": "10038-2",
+            "key_source": "alertRef",
+            "risk": "Medium",
+            "rule_risk": "Medium",
+            "urls": [
+              "https://esempio.test/"
+            ],
+            "n": 1,
+            "rule_n": 2,
+            "variants": 2,
+            "rule_penalty": 12.0,
+            "references": [],
+            "soluzioni": 1,
+            "penalty": 6.0,
             "text_lang": "en"
           }
         },
@@ -984,13 +1019,17 @@
           "source_severity": "ZAP:Low",
           "params": {
             "rule": "10035",
+            "alert_ref": "",
             "key_source": "pluginId",
             "risk": "Low",
+            "rule_risk": "Low",
             "urls": [
               "https://esempio.test/"
             ],
             "n": 1,
-            "alert_refs": [],
+            "rule_n": 1,
+            "variants": 1,
+            "rule_penalty": 3.3000000000000003,
             "references": [],
             "soluzioni": 0,
             "penalty": 3.3000000000000003,
@@ -1536,15 +1575,17 @@
       "doc_url": "",
       "params": {
         "rule": "40012",
+        "alert_ref": "",
         "key_source": "pluginId",
         "risk": "High",
+        "rule_risk": "High",
         "urls": [
           "https://esempio.test/servizi/"
         ],
         "n": 1,
-        "alert_refs": [
-          "40012"
-        ],
+        "rule_n": 1,
+        "variants": 1,
+        "rule_penalty": 27.500000000000004,
         "references": [
           "https://owasp.org/xss",
           "https://cwe.mitre.org/79"
@@ -1944,7 +1985,7 @@
       "priority": 13
     },
     {
-      "key": "sec.zap.10038",
+      "key": "sec.zap.10038_1",
       "area": "mars_wapt",
       "area_label": "7. Sicurezza",
       "severity": "warning",
@@ -1954,31 +1995,33 @@
       "doc_url": "",
       "params": {
         "rule": "10038",
-        "key_source": "pluginId",
+        "alert_ref": "10038-1",
+        "key_source": "alertRef",
         "risk": "Medium",
+        "rule_risk": "Medium",
         "urls": [
           "https://esempio.test/",
           "https://esempio.test/faq/"
         ],
         "n": 2,
-        "alert_refs": [
-          "10038-1"
-        ],
+        "rule_n": 2,
+        "variants": 2,
+        "rule_penalty": 12.0,
         "references": [],
         "soluzioni": 1,
-        "penalty": 12.0,
+        "penalty": 6.0,
         "text_lang": "en"
       },
-      "penalty": 12.0,
-      "recovery": 12,
+      "penalty": 6.0,
+      "recovery": 6,
       "score_before": 57,
-      "score_after": 69,
-      "index_gain": 0.75,
+      "score_after": 63,
+      "index_gain": 0.38,
       "profile_gains": {
-        "Claude": 0.8,
-        "ChatGPT/Perplexity": 0.71,
-        "Qwen": 0.86,
-        "Kimi": 0.86
+        "Claude": 0.4,
+        "ChatGPT/Perplexity": 0.35,
+        "Qwen": 0.43,
+        "Kimi": 0.43
       },
       "market": "eu",
       "effort": null,
@@ -1988,6 +2031,53 @@
       "additive": false,
       "certified": true,
       "priority": 14
+    },
+    {
+      "key": "sec.zap.10038_2",
+      "area": "mars_wapt",
+      "area_label": "7. Sicurezza",
+      "severity": "warning",
+      "title": "CSP: Wildcard Directive",
+      "fix": "Sostituisci il carattere jolly con le origini che servono davvero.",
+      "example": "",
+      "doc_url": "",
+      "params": {
+        "rule": "10038",
+        "alert_ref": "10038-2",
+        "key_source": "alertRef",
+        "risk": "Medium",
+        "rule_risk": "Medium",
+        "urls": [
+          "https://esempio.test/"
+        ],
+        "n": 1,
+        "rule_n": 2,
+        "variants": 2,
+        "rule_penalty": 12.0,
+        "references": [],
+        "soluzioni": 1,
+        "penalty": 6.0,
+        "text_lang": "en"
+      },
+      "penalty": 6.0,
+      "recovery": 6,
+      "score_before": 57,
+      "score_after": 63,
+      "index_gain": 0.38,
+      "profile_gains": {
+        "Claude": 0.4,
+        "ChatGPT/Perplexity": 0.35,
+        "Qwen": 0.43,
+        "Kimi": 0.43
+      },
+      "market": "eu",
+      "effort": null,
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 15
     },
     {
       "key": "lex.query.no_match",
@@ -2017,7 +2107,7 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 15
+      "priority": 16
     },
     {
       "key": "lex.words.thin",
@@ -2053,7 +2143,7 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 16
+      "priority": 17
     },
     {
       "key": "sem.chunks.few",
@@ -2083,7 +2173,7 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 17
+      "priority": 18
     },
     {
       "key": "wcag.heading.skip",
@@ -2115,7 +2205,7 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 18
+      "priority": 19
     },
     {
       "key": "wcag.table.th_missing",
@@ -2147,7 +2237,7 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 19
+      "priority": 20
     }
   ],
   "delta": {
@@ -2501,15 +2591,17 @@
         "severity": "critical",
         "params": {
           "rule": "40012",
+          "alert_ref": "",
           "key_source": "pluginId",
           "risk": "High",
+          "rule_risk": "High",
           "urls": [
             "https://esempio.test/servizi/"
           ],
           "n": 1,
-          "alert_refs": [
-            "40012"
-          ],
+          "rule_n": 1,
+          "variants": 1,
+          "rule_penalty": 27.500000000000004,
           "references": [
             "https://owasp.org/xss",
             "https://cwe.mitre.org/79"
@@ -2521,28 +2613,61 @@
       },
       {
         "area": "mars_wapt",
-        "key": "sec.zap.10038",
+        "key": "sec.zap.10038_1",
         "title": "Content Security Policy (CSP) Header Not Set",
         "severity": "warning",
         "params": {
           "rule": "10038",
-          "key_source": "pluginId",
+          "alert_ref": "10038-1",
+          "key_source": "alertRef",
           "risk": "Medium",
+          "rule_risk": "Medium",
           "urls": [
             "https://esempio.test/",
             "https://esempio.test/faq/"
           ],
           "n": 2,
-          "alert_refs": [
-            "10038-1"
-          ],
+          "rule_n": 2,
+          "variants": 2,
+          "rule_penalty": 12.0,
           "references": [],
           "soluzioni": 1,
-          "penalty": 12.0,
+          "penalty": 6.0,
+          "text_lang": "en"
+        }
+      },
+      {
+        "area": "mars_wapt",
+        "key": "sec.zap.10038_2",
+        "title": "CSP: Wildcard Directive",
+        "severity": "warning",
+        "params": {
+          "rule": "10038",
+          "alert_ref": "10038-2",
+          "key_source": "alertRef",
+          "risk": "Medium",
+          "rule_risk": "Medium",
+          "urls": [
+            "https://esempio.test/"
+          ],
+          "n": 1,
+          "rule_n": 2,
+          "variants": 2,
+          "rule_penalty": 12.0,
+          "references": [],
+          "soluzioni": 1,
+          "penalty": 6.0,
           "text_lang": "en"
         }
       }
     ],
-    "by_title_fallback": false
+    "by_title_fallback": false,
+    "key_migrations": [
+      {
+        "prefix": "sec.zap.",
+        "since": "2.9.0",
+        "reason": "gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39)"
+      }
+    ]
   }
 }

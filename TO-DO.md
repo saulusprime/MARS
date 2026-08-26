@@ -24,13 +24,17 @@
 > resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
 > segnali derivati. Il piano di interventi copre ora sette aree su nove.
 >
-> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R52. **R51 è chiusa il
+> **Correzioni chiuse**: R1-R39, R41-R45, R47, R49-R52. **R51 è chiusa il
 > 2026-08-26**, e con essa **R37 per intero**: il `<meta name="googlebot">`
 > arriva ora separato dal meta globale (`meta_robots_by_agent`, una chiave
 > nuova nel contratto) e vale come il prefisso dell'`X-Robots-Tag`. R52 è
 > l'ultima nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test
 > i18n confrontavano due rese e potevano cadere a cavallo di un secondo.
-> **Aperte**: R39 (una casella), R40, R46 e R48 —
+> **R39 è chiusa il 2026-08-26**: gli alert ZAP si raggruppano per
+> sotto-variante, la penalità resta della regola e si ripartisce, i punteggi
+> non si muovono e la migrazione di chiavi è dichiarata nel referto
+> (`key_migrations`). `__version__` a **2.9.0**.
+> **Aperte**: R40, R46 e R48 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -183,65 +187,17 @@ le fasi che non sono state fatte.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R29-R38, R41-R45, R47, R49-R52 — stanno in
+Le voci chiuse — R1-R38, R41-R45, R47, R49-R52 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
-Le quattro voci qui sotto vengono tutte dall'**adeguamento dei moduli alle
+Le tre voci qui sotto vengono tutte dall'**adeguamento dei moduli alle
 fasi UPGRADE**, non dalla revisione sistematica del 2026-08-20, che è
 esaurita: leggere un modulo riga per riga per cambiarne la forma ne ha
 rivelato i difetti, e nessuno è stato corretto lì dentro perché tutti
 spostano punteggi o testi — cioè esattamente ciò che un adeguamento di forma
 non deve fare. Vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R39 — 🟡 MEDIO: `alertRef` non viene mai raggiunto
-*(le caselle 2 e 3 sono chiuse il 2026-08-26 e stanno in [AS-IS.md](AS-IS.md):
-il ripiego dopo un fallimento di ZAP ora si dichiara, e `audit_headers`
-conserva entrambe le diagnosi. Resta la prima casella, che sposta i punteggi)*
-*(trovati leggendo il modulo riga per riga per U1.6, il 2026-08-24. Nessuno è
-stato corretto lì: tutti cambierebbero punteggi o testi, cioè
-esattamente ciò che un adeguamento di forma non deve fare.)*
-
-- **`alertRef` non viene mai raggiunto, e tre difetti diversi si fondono in
-  uno.** La catena di raggruppamento è
-  `pluginId or alertRef or name or alert or "?"`
-  ([mars_wapt.py:229](mars_wapt.py#L229)), ma `pluginId` è **sempre** presente
-  e non vuoto nel JSON di ZAP (`AlertAPI.alertToSet` lo mette con
-  `String.valueOf`): `alertRef` è codice morto. Conseguenza reale: la regola
-  CSP 10038 emette `10038-1`, `10038-2` e `10038-3` — alert distinti, con
-  testi e soluzioni proprie — che oggi diventano **una** voce e **una**
-  penalità. Correggerlo è una **ritaratura di C9**, non un adeguamento: la
-  cardinalità dei gruppi *è* il punteggio, e ogni sito che viola quella regola
-  ne perderebbe il triplo. Porta con sé anche una **migrazione di chiavi**
-  (`sec.zap.10038` → `sec.zap.10038_1/_2/_3`), che per il confronto fra due
-  esecuzioni (U7) è una sparizione di massa seguita da una comparsa di massa.
-  U1.6 conserva già il dato che serve a farlo: `params["alert_refs"]`.
-- **`chiave_esterna()` non è iniettiva, e su ZAP il caso è reale.**
-  `chiave_esterna("-1") == chiave_esterna("1") == "1"`: gli alert manuali, da
-  script e da `alert/action/addAlert` hanno `pluginId = -1` e finiscono tutti
-  su `sec.zap.1`, indistinguibili da un plugin `1`. Il dato fedele resta in
-  `params["rule"]`, e `params["key_source"]` dice da quale campo la chiave sia
-  nata — solo `pluginId` la rende stabile, perché un `name` viene dai
-  `Messages.properties`, cambia fra due release ed è **localizzato**.
-- **ZAP raggiunto e fallito non lascia traccia nel referto.** Se `run_zap`
-  restituisce `None` ([mars_wapt.py:574](mars_wapt.py#L574)) c'è solo un
-  `print`, e il referto dichiara «HTTP-Headers, superficie» senza mai dire che
-  un daemon c'era e non ha portato a termine la scansione. È lo stesso difetto
-  di onestà che R38 ha chiuso altrove.
-- **`audit_headers` perde il primo errore.** Se HEAD solleva e GET risponde
-  ≥400, `errore` viene riassegnato a `None`
-  ([mars_wapt.py:523](mars_wapt.py#L523)) e la diagnosi diventa `HTTP 500`,
-  perdendo il `ConnectionError` che spiegava il primo tentativo.
-
-- [ ] Raggruppare per `alertRef`, ritarando le penalità e dichiarando la
-      migrazione di chiavi. **Deciso il 2026-08-26**: si ritara sulla REGOLA —
-      penalità calcolata sull'unione degli URL e ripartita fra le sotto-varianti,
-      così i tre rilievi CSP diventano distinti, ciascuno con la propria
-      `solution`, e la somma resta quella di oggi. Migrano solo le chiavi
-      (`sec.zap.10038` → `sec.zap.10038_1`), e la migrazione va dichiarata in
-      AS-IS e nel referto: per `compute_delta` è un «risolto» più un «comparso»
-      per ogni regola con sotto-varianti, contro gli archivi già scritti.
 
 ### R40 — 🟡 MEDIO: sei difetti di `mars_seo` trovati adeguandolo a U1.7
 *(trovati leggendo il modulo e il sorgente di Lighthouse 13.4.1 per U1.7, il

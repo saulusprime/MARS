@@ -663,6 +663,11 @@ def _testi_dal_dato() -> set:
               for _, motivo in [mars_remediation._corsia(penalita, guadagno,
                                                          certificata)]
               if motivo}
+    # Il motivo di ogni migrazione di chiave dichiarata: e' prosa
+    # italiana in una tabella di mars_history, e arriva a `t()` come
+    # variabile — lo scanner dei letterali non la vede (R39).
+    import mars_history
+    testi |= {m["reason"] for m in mars_history.MIGRAZIONI_CHIAVE}
     # Le due discovery del crawler, e i due nomi dei segnali derivati.
     testi |= {"sitemap", "link interni"}
     testi |= {"Recuperabilità", "In forma di risposta"}

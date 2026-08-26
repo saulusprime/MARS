@@ -240,3 +240,75 @@ def test_lo_storico_sta_accanto_al_referto(tmp_path):
     assert st.percorso_storico(fuori) == os.path.join(
         str(tmp_path), st.STORICO_PREDEFINITO)
     assert st.percorso_storico(None) == st.STORICO_PREDEFINITO
+
+
+# ----------------------------------------------------------------------
+# Migrazioni di chiave (R39)
+# ----------------------------------------------------------------------
+
+def test_il_delta_dichiara_una_migrazione_di_chiave():
+    """R39 ha spezzato `sec.zap.10038` in `sec.zap.10038_1/_2/_3`.
+
+    Contro un archivio scritto prima, `compute_delta` vede una
+    sparizione di massa seguita da una comparsa di massa — e nessuna
+    delle due e' successa sul sito. Il confronto non si puo' salvare,
+    ma si puo' **dichiarare indebolito**, come gia' fa
+    `by_title_fallback` per i rilievi senza chiave."""
+    prima = st.riga_storico(_referto(version="2.8.0"))
+    dopo = st.riga_storico(_referto(version="2.9.0"))
+    delta = st.compute_delta(prima, dopo)
+    migrate = delta["key_migrations"]
+    assert [m["prefix"] for m in migrate] == ["sec.zap."]
+    assert migrate[0]["since"] == "2.9.0"
+    assert "10038" in migrate[0]["reason"]
+
+
+def test_una_migrazione_non_si_dichiara_a_chi_e_gia_migrato():
+    """Due esecuzioni entrambe successive alla migrazione si
+    confrontano per intero: dichiarare un caveat che non si applica
+    e' rumore, ed e' la stessa regola di `wcag.status.no_fixes`."""
+    prima = st.riga_storico(_referto(version="2.9.0"))
+    dopo = st.riga_storico(_referto(version="2.9.1"))
+    assert st.compute_delta(prima, dopo)["key_migrations"] == []
+
+
+def test_una_versione_illeggibile_dichiara_la_migrazione():
+    """La versione viene da un file scritto da un'altra esecuzione,
+    quindi e' dato esterno: se non si legge non si puo' concludere che
+    l'archivio sia recente. Si dichiara il dubbio invece di assumere
+    il caso comodo."""
+    prima = st.riga_storico(_referto(version="sviluppo"))
+    dopo = st.riga_storico(_referto(version="2.9.0"))
+    assert st.compute_delta(prima, dopo)["key_migrations"] != []
+
+
+def test_ogni_migrazione_dichiarata_ha_una_versione_leggibile():
+    """La tabella e' scritta a mano: una `since` malformata farebbe
+    ripiegare ogni confronto sul caso peggiore, in silenzio."""
+    for voce in st.MIGRAZIONI_CHIAVE:
+        assert st._semver(voce["since"]) is not None, voce["prefix"]
+        assert voce["prefix"] and voce["reason"]
+
+
+def test_due_archivi_entrambi_vecchi_si_confrontano_senza_caveat():
+    """La migrazione riguarda il confronto solo se l'esecuzione
+    CORRENTE la ha gia' applicata.
+
+    `compute_delta` e' una funzione pura e chiunque puo' passarle due
+    righe di storico: due esecuzioni entrambe precedenti alla
+    migrazione si confrontano fra loro senza problemi, e avvisarle
+    sarebbe un caveat su un fatto che non le riguarda."""
+    prima = st.riga_storico(_referto(version="2.7.0"))
+    dopo = st.riga_storico(_referto(version="2.8.0"))
+    assert st.compute_delta(prima, dopo)["key_migrations"] == []
+
+
+def test_una_versione_che_non_si_legge_e_None_e_non_zero():
+    """`None` e `(0, 0, 0)` si comportano quasi sempre uguale — «molto
+    vecchia» — e proprio per questo la differenza va fissata: sono due
+    fatti diversi, «non l'abbiamo capita» e «e' la prima di tutte», e
+    chi confronta deve poter scegliere il caso peggiore SAPENDOLO."""
+    assert st._semver("2.9.0") == (2, 9, 0)
+    assert st._semver(" 2.9.0 ") == (2, 9, 0)
+    for illeggibile in ("sviluppo", "2.9", "v2.9.0", "", None, "2.9.0-rc1"):
+        assert st._semver(illeggibile) is None, illeggibile

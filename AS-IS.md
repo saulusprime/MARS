@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R39 | `alertRef` non veniva mai raggiunto; migrazione di chiavi | 2026-08-26 |
 | R51 | Il `<meta name="googlebot">` non aveva un agente | 2026-08-26 |
 | U13 | Le due aree di classifica non avevano un solo controllo | 2026-08-26 |
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
@@ -2356,6 +2357,103 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R39 — ✅ RISOLTO (2026-08-26): `alertRef` non veniva mai raggiunto
+*(le caselle 2, 3 e 4 erano già chiuse; questa è la prima, quella che tocca i
+punteggi. `__version__` a 2.9.0)*
+
+**Il difetto.** La catena di raggruppamento era
+`pluginId or alertRef or name or alert`, ma `pluginId` è **sempre** presente e
+non vuoto nel JSON di ZAP (`AlertAPI.alertToSet` lo scrive con
+`String.valueOf`): `alertRef` era codice morto. Conseguenza reale: la regola
+CSP 10038 emette `10038-1`, `-2` e `-3` — alert distinti, con nome,
+spiegazione e **soluzione** propri — che diventavano *una* voce sola, con la
+soluzione del primo e le altre perdute. Il campo `params["soluzioni"]` esisteva
+proprio per dichiarare quella perdita.
+
+**La decisione: ripartire, non moltiplicare.** Dare a ogni variante il costo
+pieno della regola avrebbe fatto perdere il triplo a ogni sito che la viola,
+senza che nulla fosse cambiato sul sito: la cardinalità dei gruppi *è* il
+punteggio in tutta MARS. La ritaratura è quindi sulla **regola** — penalità
+calcolata sull'unione dei suoi URL, con la diffusione di sempre — e la quota è
+divisa in parti uguali fra le varianti. Misurato sui golden, con una variante
+in più nel dataset apposta per esercitarlo: **`mars_wapt` resta 57 e
+`overall` resta 60,1**, identici a prima.
+
+La quota è una **ripartizione, non un recupero misurato**: chiudere una
+variante su tre non fa necessariamente risalire il punteggio di un terzo,
+perché la diffusione si ricalcolerebbe sull'unione rimasta. È lo stesso motivo
+per cui il piano di interventi dichiara `additive: False`, e sta scritto nella
+docstring invece di essere lasciato dedurre.
+
+**La ripartizione è auditabile.** `params` porta `variants`, `rule_penalty` e
+`rule_n`: `penalty * variants == rule_penalty`, e `rule_penalty` si ricalcola
+dalla formula sull'unione degli URL. Un numero del referto vale quanto la
+possibilità di rifarne il conto.
+
+**Due rischi convivono, e il dato lo dice.** La gravità del rilievo è quella
+che ZAP ha dato a *quella* variante; la penalità viene dalla regola, che ne ha
+una sola — il rischio del suo primo alert, criterio di sempre, perché
+cambiarlo sposterebbe i punteggi. Quando i due differiscono, `params["risk"]` e
+`params["rule_risk"]` stanno accanto: senza, un rilievo `info` che porta una
+quota di penalità `High` sarebbe inspiegabile.
+
+**`alertRef` uguale al `pluginId` non è una variante.** ZAP lo valorizza così
+per le regole che varianti non ne hanno: lì la chiave **non migra**, e
+`params["alert_ref"]` resta vuoto. È ciò che limita la migrazione alle sole
+regole che si sono davvero spezzate.
+
+**La migrazione di chiavi si dichiara, perché non si può annullare.**
+`sec.zap.10038` → `sec.zap.10038_1`: contro un archivio scritto prima,
+`compute_delta` vede una sparizione di massa seguita da una comparsa di massa,
+e nessuna delle due è successa sul sito. Tradurre le vecchie chiavi nelle nuove
+vorrebbe dire indovinare quale sotto-variante fosse quella archiviata. Il
+confronto non si salva, ma si dichiara indebolito: `mars_history` ha ora una
+tabella `MIGRAZIONI_CHIAVE` con prefisso, versione e motivo, e `compute_delta`
+pubblica `key_migrations` — la stessa scelta di `by_title_fallback` per i
+rilievi senza chiave. Le tre viste di prosa lo scrivono.
+
+Tre decisioni piccole dentro quella:
+
+- **una versione precedente illeggibile fa dichiarare la migrazione.** Viene da
+  un file scritto da un'altra esecuzione, quindi è dato esterno: non si può
+  concludere che l'archivio sia recente guardando una stringa che non si
+  capisce. Un caveat di troppo si legge, uno mancante no;
+- **`_semver` restituisce `None` e non `(0, 0, 0)`** su ciò che non legge:
+  «non l'abbiamo capita» e «è la prima di tutte» sono due fatti diversi, e chi
+  confronta sceglie il caso peggiore *sapendolo*. La differenza è osservabile
+  solo dal lato della versione corrente, quindi è fissata da un test suo;
+- **la versione della migrazione resta nel dato, non nella prosa.** Al
+  destinatario del referto non dice nulla di azionabile, e stamparla renderebbe
+  indistinguibile una costante dichiarata dalla versione dell'esecuzione — che
+  è esattamente ciò che il golden vieta di far comparire.
+
+**Un finto reso fedele.** Il costruttore di alert dei test cablava
+`alertRef: "10038-1"` accanto a `pluginId: "10038"`, quindi
+`_alert(pluginId="40012")` produceva un alert che ZAP non emetterebbe mai —
+l'`alertRef` comincia sempre col `pluginId`. Finché il raggruppamento era per
+`pluginId` non si vedeva; da R39 metteva due regole diverse nello stesso gruppo.
+Ora l'`alertRef` si deriva dal `pluginId`, ed è la stessa lezione
+dell'adattatore HTTP dei test di R16/R17.
+
+**Due test riscritti.** `test_wapt_un_gruppo_con_piu_soluzioni_lo_dichiara`
+misurava due `alertRef` dello stesso `pluginId` con soluzioni diverse: è
+esattamente il caso che questa voce **chiude**, e il test ora copre quello che
+resta vero — lo stesso alert su due URL con soluzioni diverse.
+`test_wapt_gli_alert_refs_del_gruppo_non_si_perdono` guardava
+`params["alert_refs"]`, l'insieme del gruppo che U1.6 conservava come «il dato
+che permetterà di spezzarlo quando lo si vorrà»: il gruppo *è* la variante, il
+campo diventa singolare.
+
+**Verifiche.** 1052 test verdi (erano 1039), `flake8` a zero, golden rigenerati
+e diff riletto — **nessun punteggio si muove**, cambiano le chiavi, compare un
+rilievo e compare il caveat della migrazione. **Dieci mutazioni su dieci** fanno
+rosso; **due sfuggivano alla prima esecuzione**, entrambe sul confronto fra
+versioni: la migrazione dichiarata anche a due archivi entrambi vecchi, e
+`_semver` che restituisse `(0, 0, 0)` invece di `None`. Sono i due rami che in
+produzione non si raggiungono, perché la versione corrente è sempre quella del
+codice — e `compute_delta` è una funzione pura che chiunque può chiamare con
+due righe di storico.
 
 ### R51 — ✅ RISOLTO (2026-08-26): il `<meta name="googlebot">` non aveva un agente
 *(la metà di R37 che era rimasta aperta)*

@@ -125,6 +125,71 @@ def riga_storico(referto: dict) -> dict:
     }
 
 
+# Le migrazioni di chiave, dichiarate.
+#
+# Una `key` e' l'identita' di un controllo, e il confronto fra due
+# esecuzioni ci poggia sopra per intero. Quando la FORMA di una chiave
+# cambia, un archivio scritto prima produce una sparizione di massa
+# seguita da una comparsa di massa: `compute_delta` le vede come
+# «risolti» e «comparsi», e nessuno dei due e' successo sul sito.
+#
+# Non si puo' salvare il confronto — tradurre le vecchie chiavi nelle
+# nuove vorrebbe dire indovinare quale sotto-variante fosse quella
+# archiviata — ma si puo' dichiararlo indebolito, che e' la stessa
+# scelta di `by_title_fallback` per i rilievi senza chiave.
+#
+# `since` e' la versione a partire dalla quale vale la forma NUOVA: un
+# archivio scritto prima non e' confrontabile su quel prefisso.
+MIGRAZIONI_CHIAVE = (
+    {"prefix": "sec.zap.",
+     "since": "2.9.0",
+     "reason": "gli alert ZAP si raggruppano per sotto-variante e non "
+               "piu' per sola regola: sec.zap.10038 e' diventato "
+               "sec.zap.10038_1, _2, _3 (R39)"},
+)
+
+_SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+def _semver(versione: object) -> Optional[tuple]:
+    """La versione come tupla confrontabile, o None se non si legge.
+
+    None e non `(0, 0, 0)`: la versione arriva da un file scritto da
+    un'altra esecuzione, quindi e' dato esterno, e «non si legge» deve
+    restare distinguibile da «e' antichissima». Chi chiama sceglie il
+    caso peggiore, ma lo sceglie sapendolo.
+    """
+    trovato = _SEMVER.match(str(versione or "").strip())
+    if not trovato:
+        return None
+    return tuple(int(p) for p in trovato.groups())
+
+
+def migrazioni_fra(precedente: object, corrente: object) -> List[dict]:
+    """Le migrazioni di chiave avvenute fra due versioni.
+
+    Una versione precedente **illeggibile** fa dichiarare tutte le
+    migrazioni: non si puo' concludere che l'archivio sia recente
+    guardando una stringa che non si capisce, e un caveat di troppo si
+    legge, uno mancante no.
+    """
+    prima = _semver(precedente)
+    dopo = _semver(corrente)
+    esito = []
+    for voce in MIGRAZIONI_CHIAVE:
+        soglia = _semver(voce["since"])
+        if soglia is None:
+            continue
+        # La migrazione riguarda questo confronto solo se l'esecuzione
+        # CORRENTE la ha gia' applicata: due archivi entrambi vecchi si
+        # confrontano fra loro senza problemi.
+        if dopo is not None and dopo < soglia:
+            continue
+        if prima is None or prima < soglia:
+            esito.append(dict(voce))
+    return esito
+
+
 def compute_delta(precedente: Optional[dict],
                   corrente: dict) -> Optional[dict]:
     """Che cosa e' cambiato fra due esecuzioni.
@@ -181,6 +246,11 @@ def compute_delta(precedente: Optional[dict],
         # `False` e non assente: chi legge il delta deve poter
         # distinguere «confronto pieno» da «non lo sappiamo».
         "by_title_fallback": bool(senza_chiave),
+        # Le famiglie di chiavi che hanno cambiato forma fra le due
+        # esecuzioni: li' «risolto» e «comparso» non sono fatti del
+        # sito. Lista vuota e non assente, per la stessa ragione.
+        "key_migrations": migrazioni_fra(precedente.get("version"),
+                                         corrente.get("version")),
     }
 
 

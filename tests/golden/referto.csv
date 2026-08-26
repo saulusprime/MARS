@@ -24,6 +24,7 @@ https://esempio.test/;6. Accessibilità;warning;1.0;1 tabelle dati senza intesta
 https://esempio.test/;6. Accessibilità;info;1.0;"1 link con testo generico (""clicca qui"", ""leggi tutto"")";;Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.;https://esempio.test/;;;
 https://esempio.test/;7. Sicurezza;critical;2.0;Cross Site Scripting (Reflected);Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo' farvi eseguire script arbitrario nel browser della vittima.;Convalida l'input e codifica l'output.;https://esempio.test/servizi/;;;
 https://esempio.test/;7. Sicurezza;warning;1.0;Content Security Policy (CSP) Header Not Set;Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.;Configura il server per impostare l'header CSP.;https://esempio.test/ https://esempio.test/faq/;;;
+https://esempio.test/;7. Sicurezza;warning;1.0;CSP: Wildcard Directive;La direttiva ammette qualunque origine, quindi non restringe nulla.;Sostituisci il carattere jolly con le origini che servono davvero.;https://esempio.test/;;;
 https://esempio.test/;7. Sicurezza;info;1.0;Strict-Transport-Security non impostato;;;https://esempio.test/;;;
 https://esempio.test/;7. Sicurezza;info;1.0;Solo scansione passiva: l'active scan richiede --i-own-this-domain;;;;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Qualità SEO (27/100);;;;;;

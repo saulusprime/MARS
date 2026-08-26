@@ -53,14 +53,15 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   citability           +1  (60 → 61)
   1 risolti:
     · Nessuna sitemap dichiarata
-  18 nuovi:
+  19 nuovi:
     · L'indicizzazione della pagina è bloccata
     · Il documento non ha un elemento `<title>`
     · Il documento non ha una meta descrizione
-    · ... e altri 15
+    · ... e altri 16
+  (le chiavi sec.zap. hanno cambiato forma: li' «risolto» e «comparso» non sono fatti del sito)
 -------------------------------------------------------
-PIANO DI INTERVENTI  : 19 interventi (6 critici, 13 avvertenze)
-  1 quick win · 4 senza recupero · 10 senza sforzo dichiarato
+PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
+  1 quick win · 4 senza recupero · 11 senza sforzo dichiarato
   7 aree su 9; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +7.54
@@ -76,7 +77,7 @@ PIANO DI INTERVENTI  : 19 interventi (6 critici, 13 avvertenze)
   5. [CRITICO · Accessibilità · giorni] 1 campi di modulo senza etichetta
      in questa esecuzione il controllo non entra nel punteggio dell'area
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-  · ... e altri 14 interventi (per intero nel JSON e nell'HTML)
+  · ... e altri 15 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Simulazione RRF      : Consenso Top-3 = 2/3 su 4 chunk
   aggregato su 3 query

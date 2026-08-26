@@ -910,6 +910,22 @@ _CORNICE_EN: Dict[str, str] = {
     "  (qualche rilievo non ha una chiave stabile: confrontato sul "
     "titolo)":
         "  (some findings have no stable key: compared by title)",
+    "  (le chiavi %s hanno cambiato forma: li' «risolto» e «comparso» "
+    "non sono fatti del sito)":
+        "  (the %s keys changed shape: there, \"resolved\" and "
+        "\"appeared\" are not facts about the site)",
+    "Le chiavi %s hanno cambiato forma — %s: in quest'area «risolto» e "
+    "«comparso» non sono fatti del sito.":
+        "The %s keys changed shape \u2014 %s: in this area \"resolved\" "
+        "and \"appeared\" are not facts about the site.",
+    # Il motivo di ogni migrazione dichiarata in
+    # `mars_history.MIGRAZIONI_CHIAVE`: e' prosa italiana in una
+    # tabella, quindi passa da qui come qualunque altro letterale.
+    "gli alert ZAP si raggruppano per sotto-variante e non piu' per "
+    "sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 "
+    "(R39)":
+        "ZAP alerts are now grouped by sub-variant instead of by rule "
+        "alone: sec.zap.10038 became sec.zap.10038_1, _2, _3 (R39)",
     "Qualche rilievo non ha una chiave stabile: il confronto usa il "
     "titolo, ed è più debole.":
         "Some findings have no stable key: the comparison falls back on "

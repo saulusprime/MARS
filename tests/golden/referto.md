@@ -51,7 +51,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 - Nessuna sitemap dichiarata
 
-**Nuovi (18)**
+**Nuovi (19)**
 
 - L'indicizzazione della pagina è bloccata
 - Il documento non ha un elemento `<title>`
@@ -71,10 +71,13 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - 1 tabelle dati senza intestazioni <th>
 - Cross Site Scripting (Reflected)
 - Content Security Policy (CSP) Header Not Set
+- CSP: Wildcard Directive
+
+*Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39): in quest'area «risolto» e «comparso» non sono fatti del sito.*
 
 ## Piano di interventi
 
-19 interventi (6 critici, 13 avvertenze) · 1 quick win.
+20 interventi (6 critici, 14 avvertenze) · 1 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +7.54* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -97,8 +100,10 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
 - [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +7 punti d'area · indice +0.88*
       Ensure every form element has a label
-- [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +12 punti d'area · indice +0.75*
+- [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Configura il server per impostare l'header CSP.
+- [ ] [AVVISO] CSP: Wildcard Directive — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
+      Sostituisci il carattere jolly con le origini che servono davvero.
 - [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: giorni · +20 punti d'area*
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
@@ -226,6 +231,9 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [AVVISO] Content Security Policy (CSP) Header Not Set
   Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.
   *Correzione:* Configura il server per impostare l'header CSP.
+- [AVVISO] CSP: Wildcard Directive
+  La direttiva ammette qualunque origine, quindi non restringe nulla.
+  *Correzione:* Sostituisci il carattere jolly con le origini che servono davvero.
 - [INFO] Strict-Transport-Security non impostato
 - [INFO] Solo scansione passiva: l'active scan richiede --i-own-this-domain
 

@@ -146,7 +146,7 @@ def _rilievo_zap(voce: dict) -> Finding:
     severita, peso = normalizza_severita("zap", voce["risk"])
     return Finding(
         area="mars_wapt", severity=severita, weight=peso,
-        key="sec.zap.%s" % chiave_esterna(voce["id"]),
+        key="sec.zap.%s" % chiave_esterna(voce["id"]),  # 10038-1 -> 10038_1
         title=voce["name"],
         detail=voce["description"],
         # La `solution` di ZAP e' testo semplice: i <p> che si vedono
@@ -158,22 +158,39 @@ def _rilievo_zap(voce: dict) -> Finding:
         source_severity=("ZAP:%s" % voce["risk"]
                          if voce["risk_dichiarato"] else ""),
         params={
-            # L'id grezzo, fedele allo strumento: `chiave_esterna` non
-            # e' iniettiva (un pluginId "-1" e uno "1" danno la stessa
-            # chiave), quindi questo e' l'unico dato che non collide.
-            "rule": voce["id"],
-            # Da quale campo nasce la chiave. Solo `pluginId` la rende
-            # stabile: un `name` viene dai Messages.properties, cambia
-            # fra due release di ZAP ed e' localizzato.
+            # L'id grezzo della REGOLA, fedele allo strumento:
+            # `chiave_esterna` non e' iniettiva (un pluginId "-1" e uno
+            # "1" danno la stessa chiave), quindi questo e' l'unico
+            # dato che non collide.
+            "rule": voce["rule"],
+            # La sotto-variante di ZAP, vuota dove la regola non ne ha.
+            # E' cio' che distingue "10038-1" da "10038-2": alert
+            # diversi, con testi e soluzioni proprie (R39).
+            "alert_ref": voce["alert_ref"],
+            # Da quale campo nasce la chiave. `alertRef` e `pluginId`
+            # la rendono stabile — il primo e' il secondo piu' un
+            # indice — mentre un `name` viene dai Messages.properties,
+            # cambia fra due release di ZAP ed e' localizzato.
             "key_source": voce["key_source"],
             "risk": voce["risk"],
+            # Il rischio con cui la REGOLA e' stata pesata. Coincide
+            # con `risk` quasi sempre; quando no, e' la spiegazione di
+            # un rilievo `info` che porta una quota di penalita' alta,
+            # che senza questo campo sarebbe inspiegabile.
+            "rule_risk": voce["rule_risk"],
             "urls": sorted(voce["urls"]),
             "n": voce["n"],
-            # Gli alertRef visti nel gruppo. Il raggruppamento resta
-            # per regola — cambiarlo sposterebbe i punteggi, ed e' una
-            # ritaratura, non un adeguamento di forma — ma questo e' il
-            # dato che permettera' di spezzarlo quando lo si vorra'.
-            "alert_refs": sorted(voce["alert_refs"]),
+            # La diffusione si misura sull'UNIONE degli URL della
+            # regola, non su quelli della singola variante: e' la
+            # regola a essere violata su N pagine.
+            "rule_n": voce["rule_n"],
+            # Quante sotto-varianti ha la regola, e quanto costa la
+            # regola INTERA. Con questi due numeri la ripartizione si
+            # rifa' a mano — `penalty * variants == rule_penalty` — che
+            # e' l'unico modo perche' una quota non sia un numero da
+            # credere sulla parola.
+            "variants": voce["variants"],
+            "rule_penalty": float(voce["rule_penalty"]),
             "references": list(voce["references"]),
             # Quante soluzioni DISTINTE ha il gruppo: `fix` ne porta
             # una sola, e se sono piu' d'una il dato deve dire che e'
@@ -218,7 +235,7 @@ def _rilievo_header(header: str, penalita: int, messaggio: str,
 
 
 def score_from_alerts(alerts: List[dict]) -> dict:
-    """Punteggio dagli alert ZAP, raggruppati per REGOLA.
+    """Punteggio dagli alert ZAP: penalita' per REGOLA, rilievi per VARIANTE.
 
     Raggruppare non e' un dettaglio: ZAP segnala un alert per ogni URL
     interessato, quindi un solo difetto presente su venti pagine
@@ -232,18 +249,51 @@ def score_from_alerts(alerts: List[dict]) -> dict:
     quindi il numero e' quello giusto ed e' la docstring che diceva il
     falso (R32).
 
+    **I due livelli sono due, da R39.** La regola CSP 10038 emette
+    `10038-1`, `-2` e `-3`: alert distinti, con nome, spiegazione e
+    soluzione propri, che finivano in una voce sola con la soluzione
+    del primo — `alertRef` non veniva mai raggiunto perche' `pluginId`
+    e' sempre presente nel JSON di ZAP. Ora ogni **variante** e' un
+    rilievo, ma la **penalita' resta della regola**, calcolata
+    sull'unione dei suoi URL e ripartita in parti uguali fra le
+    varianti.
+
+    Ripartire invece di moltiplicare e' la decisione, e la ragione e'
+    che la cardinalita' dei gruppi *e'* il punteggio: dare a ciascuna
+    variante il costo pieno farebbe perdere il triplo a ogni sito che
+    viola quella regola, senza che nulla sia cambiato sul sito. La
+    somma resta quella di prima; cambiano le chiavi, e la migrazione
+    e' dichiarata (`mars_history.MIGRAZIONI_CHIAVE`).
+
+    La quota e' una **ripartizione, non un recupero misurato**: chiudere
+    una variante su tre non fa necessariamente risalire il punteggio di
+    un terzo, perche' la diffusione si ricalcolerebbe sull'unione
+    rimasta. E' lo stesso motivo per cui il piano di interventi
+    dichiara `additive: False`.
+
     Funzione pura: verificabile senza un daemon ZAP.
     """
-    per_regola: Dict[str, dict] = {}
+    per_variante: Dict[str, dict] = {}
     for alert in alerts:
-        # Da QUALE campo nasce l'id conta quanto l'id: solo il
-        # pluginId rende la chiave del rilievo stabile nel tempo.
-        origine = ""
-        for campo in ("pluginId", "alertRef", "name", "alert"):
+        # La REGOLA prima della variante: e' su di lei che si calcola
+        # la penalita', perche' la diffusione di una variante da sola
+        # non dice quante pagine la regola tocchi. Da QUALE campo nasce
+        # conta quanto l'id: `pluginId` e `alertRef` rendono la chiave
+        # stabile, un `name` no.
+        campo_regola = ""
+        for campo in ("pluginId", "name", "alert"):
             if alert.get(campo):
-                origine = campo
+                campo_regola = campo
                 break
-        chiave = str(alert.get(origine)) if origine else "?"
+        regola = str(alert[campo_regola]) if campo_regola else "?"
+        # La VARIANTE e' l'alertRef, ma solo quando dice qualcosa in
+        # piu': ZAP lo valorizza col solo pluginId per le regole che
+        # varianti non ne hanno, e li' la chiave del rilievo non deve
+        # migrare.
+        riferimento = str(alert.get("alertRef") or "")
+        chiave = riferimento if riferimento and riferimento != regola \
+            else regola
+        origine = "alertRef" if chiave != regola else campo_regola
         # ZAP dichiara il rischio in "risk" e la confidenza in un campo
         # suo, "confidence": il "High (Medium)" che si vede nei referti
         # e' "riskdesc", che esiste solo li'. Lo split resta come
@@ -252,8 +302,12 @@ def score_from_alerts(alerts: List[dict]) -> dict:
         # dove il testo e' quello che ne ha scritto l'autore.
         grezzo_rischio = alert.get("risk")
         livello = str(grezzo_rischio or "Informational").split(" ")[0]
-        voce = per_regola.setdefault(chiave, {
+        voce = per_variante.setdefault(chiave, {
             "id": chiave,
+            "rule": regola,
+            # Vuoto quando la regola non ha sotto-varianti: in quel
+            # caso la chiave del rilievo non migra.
+            "alert_ref": riferimento if chiave != regola else "",
             "key_source": origine,
             "risk": livello,
             # `risk` assente e' un'assunzione nostra, non un giudizio
@@ -261,7 +315,6 @@ def score_from_alerts(alerts: List[dict]) -> dict:
             "risk_dichiarato": bool(grezzo_rischio),
             "name": alert.get("alert") or alert.get("name") or chiave,
             "urls": set(),
-            "alert_refs": set(),
             "solution": "",
             "soluzioni": set(),
             "references": [],
@@ -269,14 +322,10 @@ def score_from_alerts(alerts: List[dict]) -> dict:
         })
         if alert.get("url"):
             voce["urls"].add(alert["url"])
-        if alert.get("alertRef"):
-            voce["alert_refs"].add(str(alert["alertRef"]))
         # La `solution` era scartata, ed e' il campo su cui poggia la
-        # Fase 3. Si tiene la prima non vuota del gruppo: dentro un
-        # pluginId gli alertRef possono averne di diverse, e
-        # concatenarle produrrebbe un'istruzione che non e' quella di
-        # nessuno dei tre. La sua assenza non e' un errore: esistono
-        # alert Informational senza soluzione.
+        # Fase 3. Si tiene la prima non vuota della VARIANTE: da R39 il
+        # gruppo e' la variante, quindi la soluzione e' davvero la sua
+        # e non piu' quella del primo alert dello stesso pluginId.
         soluzione = str(alert.get("solution") or "").strip()
         if soluzione:
             voce["soluzioni"].add(soluzione)
@@ -289,27 +338,45 @@ def score_from_alerts(alerts: List[dict]) -> dict:
         # restano due campi distinti nel rilievo. Fonderle darebbe alla
         # Fase 4 una prescrizione che comincia con una spiegazione, e
         # il piano di interventi si legge per fare, non per capire.
-        # Stessa regola della soluzione — la prima non vuota del
-        # gruppo — per la stessa ragione: dentro un pluginId gli
-        # alertRef possono averne di diverse.
         descrizione = str(alert.get("description") or "").strip()
         if descrizione and not voce["description"]:
             voce["description"] = descrizione
 
+    # Le varianti raccolte per regola, nell'ordine in cui ZAP le ha
+    # date: l'ordine conta perche' il rischio della regola e' quello
+    # del suo primo alert, che e' il criterio di sempre — cambiarlo
+    # sposterebbe i punteggi, ed e' esattamente cio' che questa voce
+    # non deve fare.
+    per_regola: Dict[str, List[dict]] = {}
+    for voce in per_variante.values():
+        per_regola.setdefault(voce["rule"], []).append(voce)
+
     penalita = 0.0
     conteggio: Dict[str, int] = {}
-    for voce in per_regola.values():
-        quanti = max(len(voce["urls"]), 1)
+    for varianti in per_regola.values():
+        urls = set()
+        for voce in varianti:
+            urls |= voce["urls"]
+        # Un insieme, non una somma: due varianti sulla stessa pagina
+        # sono una pagina sola, e contarla due volte gonfierebbe la
+        # diffusione senza che il sito sia piu' compromesso.
+        quanti = max(len(urls), 1)
         diffusione = 1.0 + min(quanti, 10) / 10.0
-        costo = ZAP_PENALTIES.get(voce["risk"], PENALITA_IGNOTA) * diffusione
+        rischio = varianti[0]["risk"]
+        costo = ZAP_PENALTIES.get(rischio, PENALITA_IGNOTA) * diffusione
         penalita += costo
-        conteggio[voce["risk"]] = conteggio.get(voce["risk"], 0) + 1
-        # La penalita' si registra QUI, dentro il ciclo che la applica:
-        # `diffusione` non esiste altrove, e senza il numero vero la
-        # Fase 4 non potrebbe calcolare quanto risalirebbe il punteggio
-        # se il rilievo fosse risolto.
-        voce["n"] = quanti
-        voce["penalty"] = costo
+        conteggio[rischio] = conteggio.get(rischio, 0) + 1
+        for voce in varianti:
+            voce["n"] = max(len(voce["urls"]), 1)
+            voce["rule_n"] = quanti
+            voce["rule_risk"] = rischio
+            voce["variants"] = len(varianti)
+            voce["rule_penalty"] = costo
+            # La penalita' si registra QUI, dentro il ciclo che la
+            # applica: `diffusione` non esiste altrove, e senza il
+            # numero vero la Fase 4 non potrebbe calcolare quanto
+            # risalirebbe il punteggio se il rilievo fosse risolto.
+            voce["penalty"] = costo / len(varianti)
 
     # L'ordinamento resta per CLASSE di rischio, non per penalita'
     # effettiva, e non va "adeguato" alla convenzione di U1.3: e' lo
@@ -321,15 +388,21 @@ def score_from_alerts(alerts: List[dict]) -> dict:
     # Low in [3.3, 6] — mentre un livello IGNOTO, che costa
     # PENALITA_IGNOTA, sta in [2.2, 4.0] e puo' quindi sovrapporsi a un
     # Low.
-    ordinate = sorted(per_regola.values(),
+    ordinate = sorted(per_variante.values(),
                       key=lambda v: -ZAP_PENALTIES.get(v["risk"],
                                                        PENALITA_IGNOTA))
     # La vista compatta ne mostra cinque; il dato li porta tutti.
     issues = ["[ZAP:%s] %s (%d URL)" % (v["risk"], v["name"], v["n"])
               for v in ordinate[:5]]
     return {"score": max(0, round(100 - penalita)),
+            # Contano le REGOLE, non le varianti: e' su di loro che si
+            # calcola la penalita', ed e' il numero che non cambia da
+            # C9. Quante varianti ci siano lo dice `alerts_grouped`, e
+            # i due possono differire — un rilievo per variante, una
+            # penalita' per regola.
             "alerts_by_risk": conteggio,
             "rules_violated": len(per_regola),
+            "alerts_grouped": len(per_variante),
             "issues": issues,
             "findings": [_rilievo_zap(v).as_dict() for v in ordinate]}
 

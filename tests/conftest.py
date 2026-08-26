@@ -9,6 +9,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 
 import pytest
@@ -175,6 +176,15 @@ def nessuna_spesa(monkeypatch):
                          % tentati)
 
 
+#: Il `shutil.which` VERO, catturato prima che la fixture lo sostituisca.
+#: La sostituzione e' `autouse`, quindi vale per tutta la suite: un test
+#: che voglia esercitare la ricerca vera — quella di
+#: `mars_seo.trova_lighthouse` su una directory finta — non ha altro modo
+#: di riprendersela, e ricostruirla a mano sarebbe un finto che verifica
+#: se stesso.
+WHICH_VERO = shutil.which
+
+
 @pytest.fixture(autouse=True)
 def strumenti_esterni_assenti(monkeypatch):
     """Nessun test avvia Lighthouse, ZAP o un browser.
@@ -187,7 +197,21 @@ def strumenti_esterni_assenti(monkeypatch):
     """
     # shutil.which copre Lighthouse e il daemon ZAP non risponde
     # perche' la rete e' vietata.
-    monkeypatch.setattr("shutil.which", lambda nome: None)
+    #
+    # Copre lighthouse in DUE posti, e da R32 e' un vincolo sul codice:
+    # `mars_seo.trova_lighthouse` cerca anche in `node_modules/.bin`, e
+    # deve farlo passando di qui. Un secondo meccanismo — un `os.access`
+    # sul percorso composto — sfuggirebbe a questa riga, e su questa
+    # macchina quel file c'e': misurato, la suite lanciava Lighthouse
+    # per davvero (263 s invece di 15) e i golden del referto degradato
+    # diventavano rossi. Su un clone senza `node_modules` sarebbe stata
+    # verde: e' la trappola di `node_modules/axe-core` in forma nuova.
+    # C'e' un test che presidia il vincolo.
+    #
+    # `path` come parametro con default perche' la firma vera lo ha, e
+    # un finto che non lo accetti fa fallire il chiamante invece del
+    # test che lo riguarda.
+    monkeypatch.setattr("shutil.which", lambda nome, path=None: None)
 
     # Il browser NON era coperto, e la dichiarazione qui sopra era
     # falsa: misurato con strace, la sola porzione WCAG della suite

@@ -1128,9 +1128,21 @@ def test_grave_e_medio_restano_distinti_nel_peso():
 
 
 def test_zap_la_confidenza_non_e_una_gravita():
-    """ZAP scrive il rischio con la confidenza accanto: 'High (Medium)'.
-    Quella parentesi non e' una gravita', e prenderla per tale
-    declassava a info l'alert piu' serio che ZAP sappia emettere."""
+    """Un `risk` come 'High (Medium)' non deve declassare l'alert a info.
+
+    La motivazione originale — «ZAP scrive il rischio con la confidenza
+    accanto» — **non regge alla lettura del sorgente**, ed e' R32:
+    `core/view/alerts` costruisce `risk` come `MSG_RISK[getRisk()]`,
+    cioe' sempre uno dei quattro livelli nudi, e la confidenza sta in un
+    campo suo. Il `"High (Medium)"` dei referti tradizionali e'
+    `riskdesc`, che quell'endpoint non emette.
+
+    Il caso resta da coprire per un'altra ragione, piu' stretta: gli
+    alert che non nascono dalle regole di serie — script utente, add-on
+    di terzi, `alert/action/addAlert` — portano il testo che ne ha
+    scritto l'autore, e li' dentro puo' esserci qualunque cosa. Lo
+    `split(" ")[0]` e' una difesa verso quelli, non verso un
+    comportamento documentato di ZAP."""
     assert normalizza_severita("zap", "High (Medium)") == (SEV_CRITICAL, 2.0)
     assert normalizza_severita("zap", "  hIgH  ") == (SEV_CRITICAL, 2.0)
 

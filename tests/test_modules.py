@@ -30,7 +30,7 @@ import mars_seo
 import mars_tech
 import mars_wapt
 import mars_wcag
-from conftest import TESTI_AXE, pagina
+from conftest import TESTI_AXE, WHICH_VERO, pagina
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL,
                        SEV_INFO, SEV_WARNING, chiave_esterna,
                        load_external_module)
@@ -1776,6 +1776,90 @@ def test_seo_riassume_con_conteggi_e_strumento():
     assert esito["audited_url"] == "https://esempio.test/"
 
 
+def _finto_lighthouse(cartella) -> str:
+    """Un eseguibile finto dentro `cartella`, come lo lascia npm."""
+    comando = cartella / "lighthouse"
+    comando.write_text("#!/bin/sh\nexit 0\n")
+    comando.chmod(0o755)
+    return str(comando)
+
+
+def test_seo_lighthouse_si_cerca_anche_in_node_modules(monkeypatch, tmp_path):
+    """`package.json` dichiara `lighthouse` fra le dipendenze, quindi un
+    `npm install` senza `-g` lo mette in `node_modules/.bin` e **non** nel
+    PATH: prima di R32 il referto diceva «non trovato» proprio a chi aveva
+    seguito il package.json del progetto."""
+    monkeypatch.setattr(mars_seo, "LIGHTHOUSE_BIN", str(tmp_path))
+    # Il `which` VERO: qui si esercita la ricerca, non il finto della
+    # fixture — che risponde None a tutto e renderebbe il test vacuo.
+    # Il PATH resta comunque svuotato, perche' `path=` lo scavalca.
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome, path=None:
+                        WHICH_VERO(nome, path=path) if path else None)
+
+    # Senza il file locale l'area resta non misurata, com'era.
+    assert mars_seo.trova_lighthouse() is None
+
+    percorso = _finto_lighthouse(tmp_path)
+    assert mars_seo.trova_lighthouse() == percorso
+
+    # Un file NON eseguibile non e' un comando: non lo si annuncia.
+    (tmp_path / "lighthouse").chmod(0o644)
+    assert mars_seo.trova_lighthouse() is None
+
+
+def test_seo_il_path_vince_su_node_modules(monkeypatch, tmp_path):
+    """Il PATH e' la scelta esplicita di chi ha installato lo strumento a
+    livello di sistema; `node_modules` e' il ripiego, non il contrario."""
+    _finto_lighthouse(tmp_path)
+    monkeypatch.setattr(mars_seo, "LIGHTHOUSE_BIN", str(tmp_path))
+    monkeypatch.setattr(
+        mars_seo.shutil, "which",
+        lambda nome, path=None: None if path else "/usr/bin/lighthouse")
+    assert mars_seo.trova_lighthouse() == "/usr/bin/lighthouse"
+
+
+def test_seo_la_cartella_locale_e_quella_che_npm_usa():
+    """Il valore della costante, non solo il fatto che venga consultata.
+
+    Tutti gli altri test sostituiscono `LIGHTHOUSE_BIN` con una directory
+    finta, quindi nessuno lo guarda: una mutazione da `.bin` a `bin` — la
+    directory che npm NON usa — passava verde. E' la lezione di U1.4, una
+    costante mai confrontata con il suo valore.
+
+    Risolto da `__file__` e non dalla directory di lavoro, per la ragione
+    di R11: lanciare l'audit da un'altra cartella non deve spostare la
+    ricerca."""
+    atteso = os.path.join(os.path.dirname(os.path.abspath(mars_seo.__file__)),
+                          "node_modules", ".bin")
+    assert mars_seo.LIGHTHOUSE_BIN == atteso
+    assert os.path.isabs(mars_seo.LIGHTHOUSE_BIN)
+
+
+def test_seo_la_ricerca_locale_passa_da_which(monkeypatch, tmp_path):
+    """Il vincolo che tiene la suite indipendente dalla macchina.
+
+    `node_modules/.bin/lighthouse` esiste su questa macchina e non su un
+    clone appena fatto. La fixture della suite neutralizza `shutil.which`:
+    se la ricerca locale usasse un secondo meccanismo — un `os.access` sul
+    percorso composto — le sfuggirebbe, e la suite lancerebbe Lighthouse
+    per davvero. Misurato quando e' successo: 263 secondi invece di 15, e
+    quattro golden rossi perche' l'area SEO risultava misurata."""
+    _finto_lighthouse(tmp_path)
+    monkeypatch.setattr(mars_seo, "LIGHTHOUSE_BIN", str(tmp_path))
+    chiamate = []
+
+    def spia(nome, path=None):
+        chiamate.append(path)
+        return None
+
+    monkeypatch.setattr(mars_seo.shutil, "which", spia)
+    assert mars_seo.trova_lighthouse() is None, \
+        "il file c'e' ed e' eseguibile: se non passa da which, lo trova"
+    assert chiamate == [None, str(tmp_path)], \
+        "prima il PATH, poi node_modules/.bin, entrambi da which"
+
+
 def test_seo_ogni_rilievo_dichiara_la_pagina_misurata():
     """L'area la sapeva da sempre — `audited_url` — ma solo a livello
     d'area: un rilievo letto staccato dal referto, nel CSV o nel piano,
@@ -1821,7 +1905,7 @@ def test_seo_chiede_i_titoli_in_italiano(monkeypatch):
         return types.SimpleNamespace(stdout=json.dumps(_lhr()))
 
     monkeypatch.setattr(mars_seo.shutil, "which",
-                        lambda nome: "/usr/bin/lighthouse")
+                        lambda nome, path=None: "/usr/bin/lighthouse")
     monkeypatch.setattr(mars_seo.subprocess, "run", finto_run)
     esito = mars_seo.audit({"url": "https://esempio.test/"})
     assert "--locale=it" in visti["argv"]
@@ -1840,7 +1924,7 @@ def test_seo_score_null_non_e_un_errore_di_lighthouse(monkeypatch):
     ma "non ha calcolato la categoria" (lezione di R6).
     """
     monkeypatch.setattr(mars_seo.shutil, "which",
-                        lambda nome: "/usr/bin/lighthouse")
+                        lambda nome, path=None: "/usr/bin/lighthouse")
     monkeypatch.setattr(
         mars_seo.subprocess, "run",
         lambda *a, **k: types.SimpleNamespace(
@@ -1854,7 +1938,7 @@ def test_seo_score_null_non_e_un_errore_di_lighthouse(monkeypatch):
 def test_seo_score_valido_resta_valido(monkeypatch):
     """La guardia non deve mangiarsi i punteggi buoni, zero incluso."""
     monkeypatch.setattr(mars_seo.shutil, "which",
-                        lambda nome: "/usr/bin/lighthouse")
+                        lambda nome, path=None: "/usr/bin/lighthouse")
     for grezzo, atteso in ((0.92, 92.0), (0, 0.0), (1, 100.0)):
         monkeypatch.setattr(
             mars_seo.subprocess, "run",
@@ -2151,7 +2235,7 @@ def test_seo_ogni_ramo_non_misurato_porta_un_solo_rilievo(monkeypatch,
     fasi successive costruiranno sui findings: senza, sparisce."""
     if prepara != "assente":
         monkeypatch.setattr(mars_seo.shutil, "which",
-                            lambda nome: "/usr/bin/lighthouse")
+                            lambda nome, path=None: "/usr/bin/lighthouse")
     if prepara == "timeout":
         def run(*a, **k):
             raise subprocess.TimeoutExpired("lighthouse", 120)
@@ -2163,7 +2247,7 @@ def test_seo_ogni_ramo_non_misurato_porta_un_solo_rilievo(monkeypatch,
             return types.SimpleNamespace(
                 stdout='{"categories":{"seo":{"score":null}}}')
     else:
-        monkeypatch.setattr(mars_seo.shutil, "which", lambda nome: None)
+        monkeypatch.setattr(mars_seo.shutil, "which", lambda nome, path=None: None)
 
         def run(*a, **k):
             raise AssertionError("non si deve arrivare qui")
@@ -2182,7 +2266,7 @@ def test_seo_il_fallimento_dice_quale(monkeypatch):
     nella issue — ma `detail` dice quale, altrimenti la diagnosi si
     perde."""
     monkeypatch.setattr(mars_seo.shutil, "which",
-                        lambda nome: "/usr/bin/lighthouse")
+                        lambda nome, path=None: "/usr/bin/lighthouse")
     monkeypatch.setattr(mars_seo.subprocess, "run",
                         lambda *a, **k: types.SimpleNamespace(
                             stdout="non e' json"))
@@ -2196,7 +2280,7 @@ def test_seo_i_findings_arrivano_al_referto(monkeypatch):
     copia una lista chiusa di chiavi."""
     from mars_report import build_report
     monkeypatch.setattr(mars_seo.shutil, "which",
-                        lambda nome: "/usr/bin/lighthouse")
+                        lambda nome, path=None: "/usr/bin/lighthouse")
     monkeypatch.setattr(mars_seo.subprocess, "run",
                         lambda *a, **k: types.SimpleNamespace(
                             stdout=json.dumps(_lhr())))
@@ -3392,7 +3476,8 @@ def test_seo_nessuna_shell(monkeypatch):
         # viene passato, non cosa fa Lighthouse.
         raise subprocess.CalledProcessError(1, cmd)
 
-    monkeypatch.setattr("shutil.which", lambda n: "/usr/bin/lighthouse")
+    monkeypatch.setattr("shutil.which",
+                        lambda n, path=None: "/usr/bin/lighthouse")
     monkeypatch.setattr("subprocess.run", finto_run)
     mars_seo.audit({"url": "https://x/; rm -rf ~ #"})
     assert isinstance(visto["cmd"], list), "argomenti come lista, non stringa"
@@ -3403,7 +3488,7 @@ def test_seo_nessuna_shell(monkeypatch):
 
 def test_seo_senza_lighthouse_non_da_zero(monkeypatch):
     """Regressione R4: score 0 e' un giudizio, non un'assenza."""
-    monkeypatch.setattr("shutil.which", lambda n: None)
+    monkeypatch.setattr("shutil.which", lambda n, path=None: None)
     esito = mars_seo.audit({"url": "https://x/"})
     assert esito["score"] is None
     assert esito["status"] == "unavailable"

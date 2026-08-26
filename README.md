@@ -179,27 +179,21 @@ controllo degli header HTTP, che NON e' un WAPT e viene dichiarato come
 controllo di superficie. Se la scansione va in timeout, i rilievi
 parziali vengono riportati come tali.
 
-Nota: L'integrazione di ZAP (Zed Attack Proxy) 
-(pip install zapcli) tramite zap-cli eleva notevolmente il valore dell'audit 
-di sicurezza (WAPT: sudo snap install zaproxy --classic), passando da un 
-semplice controllo degli header a uno scan attivo (spidering, active scan 
-delle vulnerabilità comuni come XSS, SQLi, ecc.).
+Un daemon ZAP eleva molto il valore dell'audit di sicurezza: si passa da un
+controllo degli header a una scansione vera (spidering, e con la dichiarazione
+di proprieta' anche l'active scan delle vulnerabilita' comuni — XSS, SQLi,
+path traversal). Oltre al Docker qui sopra si puo' installare il pacchetto di
+sistema: `sudo snap install zaproxy --classic`, poi avviarlo in modalita'
+daemon.
 
-In caso di problemi con pacchetti prerequisito per zap-cli provare a 
-lanciare i comandi qui sotto.
-
-    ATTENZIONE: eseguirli SOLO dentro un virtualenv attivo. Il secondo
-    comando disinstalla urllib3, requests e six dall'ambiente corrente:
-    lanciato sul Python di sistema puo' rompere altri programmi e, su
-    alcune distribuzioni, strumenti del sistema operativo stesso.
-    Verificare prima che "which python" punti dentro il virtualenv.
-
-(
-python -m pip install --upgrade pip setuptools wheel
-python -m pip uninstall -y urllib3 requests six
-python -m pip cache purge
-python -m pip install --no-cache-dir --upgrade 'requests>=2.32.0' 'urllib3>=2.2.0'
-)
+    NON serve alcun pacchetto pip. MARS parla direttamente l'API JSON di ZAP
+    con `requests`, che e' gia' una dipendenza: ne' `zapcli` ne' il client
+    ufficiale `python-owasp-zap-v2.4` sono richiesti o supportati — il secondo
+    cabla l'indirizzo "http://zap/", che ZAP 2.17 non serve piu' attraverso il
+    proxy. Chi trova altrove istruzioni per installarli, e per disinstallare
+    urllib3/requests/six come loro prerequisito, sta leggendo indicazioni
+    stantie: qui non servono, e quel blocco di comandi su un Python di sistema
+    puo' rompere strumenti del sistema operativo.
 
 Sentence Transformers: Se installi il pacchetto (pip install torch 
 torchvision torchaudio sentence-transformers numpy), lo script 
@@ -341,6 +335,12 @@ Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
     market              mercato di riferimento per la citabilita' IA
     delay               pausa fra le richieste in secondi (default 0.5)
     timeout             timeout di rete in secondi (default 10)
+    queries             elenco di query per la simulazione RRF; senza,
+                        si usano quattro query generiche nella lingua
+                        prevalente del sito. L'API non applica il tetto
+                        di 15 query della CLI: le usa tutte
+    llm                 "auto" (default), "on" oppure "off": governa il
+                        solo modulo che comporta una spesa
     i_own_this_domain   DICHIARAZIONE di proprieta' del dominio e di
                         assunzione di responsabilita'. Abilita due cose:
                         ignorare robots.txt e l'active scan WAPT, che
@@ -431,6 +431,12 @@ del sito, rilevata dall'attributo lang: interrogare un sito inglese in
 italiano produrrebbe un consenso basso che non dice nulla sul sito, ma
 solo che le domande erano nella lingua sbagliata.
 
+Del file si leggono al massimo le **prime 15 query**
+(`DEFAULT_MAX_QUERIES`), e il tetto non e' regolabile da riga di comando:
+ogni query fa girare due recuperatori sull'intero corpus, quindi il costo
+cresce con esse. Via API il campo `queries` **non** ha questo tetto — chi
+chiama l'API sa quante ne sta mandando.
+
 Le query generiche sono un punto di partenza dichiarato, non un
 riferimento: le query che contano sono quelle del dominio. Su un sito
 di documentazione tecnica, per esempio, "come funziona la fusione
@@ -520,7 +526,9 @@ query della simulazione RRF: cosi' stima e misura della citabilita'
 guardano le stesse domande.
 
 Codici di uscita di mars_audit.py: 0 referto prodotto; 2 nessuna pagina
-indicizzata; 3 impossibile scrivere il file di --output.
+indicizzata **oppure** errore d'uso (argomento non valido, file di --queries
+illeggibile); 3 impossibile scrivere il file di --output. Il valore 1 resta
+libero per una futura soglia --fail-under.
 
 Monitoraggio delle citazioni IA effettive di un sito.
 

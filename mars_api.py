@@ -376,7 +376,12 @@ async def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current
 
 @app.post("/audit/wapt", response_model=AuditResponse, tags=["Audit Modules"])
 async def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 7: Sicurezza (WAPT, ZAP CLI o HTTP Headers)."""
+    """Esegue l'audit dell'Area 7: Sicurezza (WAPT via ZAP, o HTTP Headers).
+
+    ZAP si raggiunge parlando la sua API JSON: non passa da `zap-cli`
+    ne' dal client ufficiale, ed e' la correzione di R32 al testo — il
+    comportamento e' quello dal 2026-08-20 (C9).
+    """
     res = run_single_audit("mars_wapt", build_context(req))
     return AuditResponse(module="mars_wapt", score=res.get("score"),
                          issues=res.get("issues"), details=res)

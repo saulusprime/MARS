@@ -9,6 +9,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -19,6 +20,16 @@ from mars_core import (SEV_INFO, Finding, chiave_esterna,
 
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
 CATEGORIA = "seo"
+
+# Dove cercare Lighthouse oltre al PATH. `package.json` lo dichiara fra
+# le dipendenze del progetto, quindi un `npm install` senza `-g` lo
+# mette qui e **non** nel PATH: prima di R32 il referto diceva
+# «Lighthouse non trovato» a chi aveva appena seguito il package.json
+# del progetto. Stessa cucitura con cui `mars_wcag` legge
+# `node_modules/axe-core`, e risolta da `__file__` per la stessa
+# ragione di R11 — la directory di lavoro non c'entra.
+LIGHTHOUSE_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "node_modules", ".bin")
 
 # I titoli li traduce Lighthouse, non noi: `--locale` glieli fa
 # restituire gia' nella lingua chiesta, quindi restano allineati allo
@@ -484,14 +495,43 @@ def esegui_lighthouse(url: str, lighthouse: str,
     return json.loads(result.stdout)
 
 
+def trova_lighthouse() -> Optional[str]:
+    """Il comando Lighthouse: prima il PATH, poi `node_modules/.bin`.
+
+    Il PATH per primo perche' e' la scelta esplicita di chi ha
+    installato lo strumento a livello di sistema; `node_modules/.bin`
+    come ripiego perche' e' dove finisce un `npm install` dentro il
+    repository, che `package.json` invita a fare (R32).
+
+    **Anche il ripiego passa da `shutil.which`**, con `path=`, e non da
+    un `os.access` sul percorso composto. Non e' un vezzo: e' l'unico
+    modo perche' la neutralizzazione della suite continui a valere. La
+    fixture `strumenti_esterni_assenti` sostituisce `shutil.which`, e
+    un secondo meccanismo le sfuggirebbe — misurato: con un `os.access`
+    la suite ha lanciato Lighthouse per davvero, 263 secondi invece di
+    15, e i quattro golden del referto degradato sono diventati rossi
+    perche' l'area SEO risultava misurata. Su una macchina senza
+    `node_modules` sarebbe stata verde: e' la trappola di
+    `node_modules/axe-core` in una forma nuova.
+
+    `which` fa per giunta il lavoro giusto — verifica che sia
+    eseguibile, e su Windows conosce le estensioni.
+
+    None quando non c'e' ne' l'uno ne' l'altro. Separata da `audit()`
+    per essere verificabile senza far girare l'area.
+    """
+    return (shutil.which("lighthouse")
+            or shutil.which("lighthouse", path=LIGHTHOUSE_BIN))
+
+
 def audit(context: dict) -> dict:
-    """Area 2: SEO via Lighthouse, se disponibile nel PATH.
+    """Area 2: SEO via Lighthouse, se disponibile.
 
     Riporta gli stessi controlli che Lighthouse mostra nella sua
     sezione SEO, non il solo punteggio: e' cio' che permette di sapere
     che cosa correggere invece che soltanto quanto si e' preso.
     """
-    lighthouse = shutil.which("lighthouse")
+    lighthouse = trova_lighthouse()
     if not lighthouse:
         return {"score": None, "status": "unavailable",
                 "issues": ["Lighthouse non trovato nel PATH"],

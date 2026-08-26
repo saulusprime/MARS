@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
+from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
+                       DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT,
                        MODULES_REGISTRY, __version__, build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
@@ -197,7 +198,9 @@ def costruisci_parser() -> argparse.ArgumentParser:
         help="File di testo con una query per riga (UTF-8). Esempio: "
              "domande.txt. Senza, si usano quattro query generiche nella "
              "lingua prevalente del sito. Le query del dominio danno una "
-             "misura molto piu' significativa di quelle generiche.")
+             "misura molto piu' significativa di quelle generiche. "
+             "Si leggono al massimo le prime %d righe utili."
+             % DEFAULT_MAX_QUERIES)
 
     parser.add_argument(
         "--embeddings", default=DEFAULT_EMBEDDINGS, metavar="MODELLO",

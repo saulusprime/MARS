@@ -223,9 +223,14 @@ def score_from_alerts(alerts: List[dict]) -> dict:
     Raggruppare non e' un dettaglio: ZAP segnala un alert per ogni URL
     interessato, quindi un solo difetto presente su venti pagine
     arriverebbe venti volte e affonderebbe il punteggio da solo. Si
-    penalizza la regola violata, con un fattore di diffusione da 1x
-    (un URL) a 2x (molti). E' la stessa correzione applicata ad
-    axe-core in C8.
+    penalizza la regola violata, con un fattore di diffusione
+    `1 + min(URL, 10)/10`: **1,1x su un URL solo**, 2x da dieci in su.
+    E' la stessa correzione applicata ad axe-core in C8, con una
+    differenza che vale la pena sapere: li' la diffusione parte
+    davvero da 1x, qui no, e un `High` isolato costa 27,5 punti — score
+    72, non 75. La taratura di C9 e' stata misurata su questa formula,
+    quindi il numero e' quello giusto ed e' la docstring che diceva il
+    falso (R32).
 
     Funzione pura: verificabile senza un daemon ZAP.
     """

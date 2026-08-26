@@ -17,5 +17,7 @@ anthropic>=0.120
 # l'indirizzo "http://zap/" e ZAP 2.17 non serve più quell'alias
 # attraverso il proxy. Serve solo il daemon ZAP in esecuzione.
 
-# Audit WCAG reale via axe-core (previsto, non ancora integrato: vedi C8).
+# Audit WCAG reale via axe-core su Chromium (integrato da C8).
+# Serve anche il browser: python -m playwright install chromium,
+# e axe-core da npm (npm install axe-core).
 playwright>=1.40

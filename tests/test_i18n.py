@@ -130,7 +130,7 @@ def _params_del_banco(monkeypatch) -> dict:
     raccogli(mars_wcag.audit(wcag))
 
     # Area 2: Lighthouse c'e' ma non risponde entro il tempo.
-    monkeypatch.setattr(mars_seo.shutil, "which", lambda _: "/bin/lighthouse")
+    monkeypatch.setattr(mars_seo.shutil, "which", lambda _, path=None: "/bin/lighthouse")
     monkeypatch.setattr(mars_seo, "esegui_lighthouse", _timeout_lighthouse)
     raccogli(mars_seo.audit({"url": "https://esempio.test/"}))
     monkeypatch.undo()

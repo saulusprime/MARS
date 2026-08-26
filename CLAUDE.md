@@ -33,7 +33,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
 | `lang` | lingua del referto, `it` (predefinita) o `en`. **Non e' solo resa**: e' anche la lingua che si chiede agli strumenti esterni, i cui testi nascono al momento della misura — `--locale` di Lighthouse, il file di locale di axe. Un modulo che porta testi di terzi dichiara in `params["text_lang"]` la lingua in cui sono davvero, cosi' il referto puo' dirlo |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
-| `market` | mercato per la citabilità (previsto da C1, non ancora usato) |
+| `market` | mercato per la citabilità: `global` (predefinito), `eu`, `us`, `cn`. Lo legge `mars_citability` — pesa gli assistenti e, dove c'è una ragione concreta, moltiplica un segnale (oggi solo l'accessibilità per `eu`, European Accessibility Act) |
 | `robots_ignored` | `True` se è stata dichiarata la proprietà del dominio |
 | `owner_declaration` | dichiarazione di proprietà: abilita anche l'active scan WAPT |
 | `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); i moduli le preferiscono all'ambiente |

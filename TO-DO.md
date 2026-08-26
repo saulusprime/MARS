@@ -19,12 +19,12 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45, R47. **Aperte**:
-> R28-R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 — trovate *adeguando* i
-> moduli alle Fasi 1-5, e non corrette lì dentro perché avrebbero spostato
-> punteggi o testi dentro un commit che cambiava la forma. **R47 è chiusa il
-> 2026-08-26**: ha portato lo schema JSON a `schema_version: 2` e chiuso il
-> passo 3 della Fase 8, e ha sbloccato **R49**.
+> **Correzioni chiuse**: R1-R27, R32, R34, R38, R41, R44, R45, R47.
+> **Aperte**: R28-R31, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
+> trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
+> avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
+> **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
+> della Fase 8 chiuso, **R49** sbloccata — e **R32** lo stesso giorno.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -190,7 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R34, R38, R41, R44, R45, R47 — stanno in
+Le voci chiuse — R1-R27, R32, R34, R38, R41, R44, R45, R47 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -268,60 +268,6 @@ risultare non misurato.
       cambiano, quindi la vista compatta continua a dire «Giudizio non
       interpretabile: RuntimeError», che resta impreciso. Resta da fare: un
       ramo e uno `status` propri per il rifiuto.)*
-
-### R32 — ⚪ LIEVE: deriva fra documentazione e codice
-Divergenze verificate (documento → codice). **I riferimenti di riga sono
-stati rinfrescati il 2026-08-25**: puntavano tutti altrove dopo le Fasi 4-9, e
-un puntatore che atterra sulla riga sbagliata è peggio di nessun puntatore.
-
-- [README.md:177-190](README.md#L177): il paragrafo `zap-cli`
-  (`pip install zapcli`, `pip uninstall urllib3/requests/six`) è **stantio** — il
-  codice parla direttamente l'API JSON di ZAP dal 2026-08-20 (AS-IS, C9). Contraddice
-  [README.md:147](README.md#L147) e `requirements-optional.txt`. Correggere anche la
-  docstring di `/audit/wapt` ([mars_api.py:379](mars_api.py#L379): «ZAP CLI»).
-- [README.md:330-347](README.md#L330): l'elenco di `AuditRequest` **omette
-  `queries`** (e `llm`), aggiunti da C5/C2 dopo la stesura della sezione.
-- [README.md:509](README.md#L509): i codici di uscita omettono che `2` copre anche
-  l'errore d'uso (l'help della CLI è già corretto).
-- [README.md:423](README.md#L423) e help `--queries`: non dichiarano il **tetto di
-  15 query** (`DEFAULT_MAX_QUERIES`), applicato in silenzio e non regolabile da CLI
-  audit; l'API non lo applica affatto.
-- [CLAUDE.md:36](CLAUDE.md#L36): `market` descritto «non ancora usato», ma
-  `mars_citability` lo legge da C1.
-- [I8](#i8--estrarre-le-euristiche-in-un-file-di-configurazione): «tomli già in
-  requirements.txt» è falso — rimosso con R11; usare `tomllib` (stdlib ≥ 3.11).
-- [package.json](package.json): dichiara `lighthouse` e `corepack`, ma `mars_seo`
-  cerca `lighthouse` solo nel PATH (ignora `node_modules/.bin`); dopo `npm install`
-  il referto dice comunque «non trovato».
-- [requirements-optional.txt:20](requirements-optional.txt#L20): il commento su
-  `playwright` dice «non ancora integrato: vedi C8», ma C8 è chiuso e axe-core è
-  integrato — afferma il contrario del vero.
-- [mars_wapt.py:218](mars_wapt.py#L218): la docstring promette diffusione
-  «da 1x», ma la formula ([:290](mars_wapt.py#L290)) su un URL solo dà 1.1x (un
-  `High` singolo → score 72, non 75). Poiché la taratura di C9 è stata misurata sul
-  codice attuale, allineare la docstring.
-- **«ZAP scrive la confidenza accanto al rischio»: la frase non regge alla
-  lettura del sorgente**, ed è in tre posti. In `core/view/alerts` il campo
-  `risk` vale sempre uno dei quattro `MSG_RISK`, perché `AlertAPI.alertToSet`
-  lo costruisce come `MSG_RISK[alert.getRisk()]`, senza concatenazioni; la
-  confidenza sta in un campo suo, `confidence`, e `"High (Medium)"` è
-  `riskdesc`, che i referti tradizionali compongono e l'endpoint non emette.
-  Il commento in `mars_wapt` è già riscritto da U1.6; restano la docstring di
-  `test_zap_la_confidenza_non_e_una_gravita`
-  ([tests/test_core.py:1129](tests/test_core.py#L1129)) e le due righe di
-  [AS-IS.md](AS-IS.md) che danno il caso per **osservato** sul daemon reale —
-  la verifica di **R4** (`"High (Medium)"` fra i payload sintetici) e la
-  sequenza confermata in **C9** (`"Medium (High)"`). Il rimando è alla sezione
-  e non alla riga: la potatura del 2026-08-26 ha mosso i numeri, e un
-  puntatore che atterra sulla riga sbagliata è peggio di nessun puntatore. Prima di correggere quella riga va ricontrollato da dove venisse
-  l'osservazione — un referto, `riskdesc`, un campo diverso: è un fatto
-  registrato, e si annota, non si riscrive. Il comportamento in ogni caso non
-  cambia: lo `split(" ")[0]` resta come difesa verso gli alert che non nascono
-  dalle regole di serie (script utente, add-on di terzi,
-  `alert/action/addAlert`).
-
-- [ ] Correggere ciascuna riga sopra (il testo, non il comportamento, tranne
-      dove indicato un'opzione di codice).
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**
@@ -700,9 +646,11 @@ citabilità (**C1**).
 
 ### I8 — Estrarre le euristiche in un file di configurazione
 Pesi degli score, soglie, elenchi di crawler IA e termini "answer-shaped" sono
-oggi costanti sparse nel codice. Un `mars_weights.yaml` (o `.toml`, con `tomli`
-già in `requirements.txt`) li renderebbe ispezionabili e regolabili senza
-toccare il codice — rafforzando il principio 6.
+oggi costanti sparse nel codice. Un `mars_weights.yaml` (o `.toml`, letto con
+`tomllib`, che è nella stdlib da Python 3.11 — `tomli` era in
+`requirements.txt` ed è stato rimosso con R11, perché nessun file lo importava)
+li renderebbe ispezionabili e regolabili senza toccare il codice — rafforzando
+il principio 6.
 
 ### I9 — Report HTML con visualizzazione RRF
 Il grafico più espressivo è il *rank shift*: due colonne (BM25, vettoriale)

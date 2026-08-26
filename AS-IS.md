@@ -74,6 +74,7 @@
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
+| R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2448,6 +2449,111 @@ U8.3): erano corrette quando sono state scritte, e si leggono con la rinomina
 in mente. Non si riscrivono — un fatto registrato si annota.
 
 ---
+
+### R32 — ✅ RISOLTO (2026-08-26): deriva fra documentazione e codice
+**Il difetto.** Dieci punti in cui un documento affermava una cosa e il codice
+ne faceva un'altra. Nessuno rompeva nulla, ed è il motivo per cui erano
+sopravvissuti: **una documentazione sbagliata non fa fallire un test**.
+
+Tutti e dieci sono stati **riverificati sul codice prima di correggerli**, e
+tutti e dieci erano reali.
+
+**Otto correzioni di solo testo.**
+
+- Il paragrafo `zap-cli` del README era stantio dal 2026-08-20: prescriveva
+  `pip install zapcli` e un `pip uninstall urllib3 requests six` come suo
+  prerequisito, mentre dal C9 MARS parla direttamente l'API JSON di ZAP e
+  **non serve alcun pacchetto pip**. Contraddiceva un'altra riga del README
+  stesso e `requirements-optional.txt`. Riscritto dicendo anche *perché* il
+  client ufficiale non si usa — cabla `http://zap/`, che ZAP 2.17 non serve
+  più attraverso il proxy — così nessuno lo reintroduca. Con lui è caduto il
+  blocco di comandi pericoloso, che ora è nominato solo per avvertire di non
+  eseguirlo.
+- L'elenco di `AuditRequest` **ometteva `queries` e `llm`**, aggiunti da C5 e
+  C2 dopo la stesura della sezione.
+- I codici di uscita tacevano che **`2` copre anche l'errore d'uso** —
+  l'help della CLI era già corretto, il README no.
+- Il **tetto di 15 query** (`DEFAULT_MAX_QUERIES`) era applicato in silenzio e
+  non dichiarato da nessuna parte. Ora lo dicono il README e l'help, e l'help
+  lo legge **dalla costante** invece di riscriverlo. Il README dichiara anche
+  l'asimmetria: via API il tetto non si applica, perché chi chiama l'API sa
+  quante query sta mandando.
+- `CLAUDE.md` descriveva `market` come «previsto da C1, non ancora usato»,
+  mentre `mars_citability` lo legge da C1: ora la riga dice i valori
+  riconosciuti e i due piani su cui agisce.
+- L'idea **I8** diceva «`tomli` già in `requirements.txt`»: falso, rimosso con
+  R11 perché nessun file lo importava — e non serve, `tomllib` è nella stdlib
+  da Python 3.11.
+- Il commento su `playwright` in `requirements-optional.txt` diceva «non ancora
+  integrato: vedi C8», cioè **il contrario del vero** da quando C8 è chiusa.
+- La docstring di `/audit/wapt` diceva «ZAP CLI».
+
+**Una docstring che prometteva un numero sbagliato**, e va detto in che verso.
+`score_from_alerts` dichiarava una diffusione «da 1x (un URL) a 2x (molti)», ma
+la formula è `1 + min(URL, 10)/10`, che su un URL solo dà **1,1x**. Misurato:
+un `High` isolato costa 27,5 punti, cioè score **72 e non 75**. La taratura di
+C9 è stata misurata su questa formula, quindi **il numero è quello giusto ed è
+la docstring a dire il falso**: si allinea il testo, non il comportamento.
+
+**Un'affermazione su ZAP che non regge alla lettura del sorgente**, ed era in
+tre posti. «ZAP scrive la confidenza accanto al rischio» — cioè `"High
+(Medium)"` — è falso per l'endpoint che MARS usa: in `core/view/alerts` il
+campo `risk` vale sempre uno dei quattro `MSG_RISK`, perché `alertToSet` lo
+costruisce come `MSG_RISK[getRisk()]`, senza concatenazioni; la confidenza sta
+in un campo suo, e `"High (Medium)"` è `riskdesc`, che quell'endpoint non
+emette.
+
+Il commento nel modulo era già stato riscritto da U1.6; restavano la docstring
+del test e due righe di AS-IS, che davano il caso per **osservato sul daemon
+reale**. Quelle due si annotano e non si riscrivono — è un fatto registrato — e
+la nota sta ora dentro R4. La docstring del test dice invece la ragione vera
+per cui il caso resta coperto: gli alert che **non** nascono dalle regole di
+serie — script utente, add-on di terzi, `alert/action/addAlert` — portano il
+testo che ne ha scritto l'autore, e lo `split(" ")[0]` è una difesa verso
+quelli. Il comportamento non cambia.
+
+**Una sola riga di codice, e non era un'opzione fra le due.** `package.json`
+dichiara `lighthouse` fra le dipendenze del progetto, ma `mars_seo` lo cercava
+**solo nel PATH**: chi seguiva il `package.json` e lanciava `npm install` senza
+`-g` si vedeva dire «Lighthouse non trovato». Delle due strade — correggere il
+testo o il codice — si è presa la seconda, perché la stessa cucitura esiste già
+per axe (`mars_wcag` legge `node_modules/axe-core`) e perché il ripiego è
+gratis.
+
+**E qui la correzione ha prodotto un difetto peggiore di quello che
+chiudeva.** La prima stesura cercava il comando con `os.access` sul percorso
+composto. Misurato subito dopo:
+
+```
+suite: 15 s -> 263 s     Lighthouse lanciato per davvero
+golden del referto degradato: 4 rossi   l'area SEO risultava MISURATA
+```
+
+La fixture `strumenti_esterni_assenti` neutralizza `shutil.which`, e un secondo
+meccanismo le sfuggiva. Su questa macchina `node_modules/.bin/lighthouse` c'è;
+su un clone appena fatto no — quindi il verde sarebbe dipeso dalla macchina in
+**entrambi i versi**. È la trappola di `node_modules/axe-core` in forma nuova,
+e la più insidiosa finora, perché la neutralizzazione esisteva e sembrava
+bastare.
+
+La forma giusta è che **anche il ripiego passi da `shutil.which`**, con
+`path=`: un solo meccanismo, già presidiato, e per giunta `which` fa il lavoro
+migliore — verifica l'eseguibilità e su Windows conosce le estensioni. C'è un
+test che presidia il vincolo contando le chiamate, e uno che pinna il valore di
+`LIGHTHOUSE_BIN`.
+
+**Quattro mutazioni; la quarta non era colta**: cambiare `node_modules/.bin` in
+`node_modules/bin` — la directory che npm **non** usa — passava verde, perché
+tutti i test sostituivano la costante con una directory finta e nessuno ne
+guardava il valore. È la lezione di U1.4, una costante mai confrontata con sé
+stessa, alla terza occorrenza.
+
+**Sei finti di `shutil.which` non erano fedeli alla firma vera**, che ha anche
+`path`: sono saliti come `TypeError` appena il codice ha cominciato a usarlo.
+Corretti; e il `which` autentico è ora esposto dal `conftest` come
+`WHICH_VERO`, perché la fixture è `autouse` e un test che voglia esercitare la
+ricerca vera non ha altro modo di riprenderselo — ricostruirla a mano sarebbe
+un finto che verifica se stesso.
 
 ### C13 — ✅ RISOLTO (2026-08-19 e 2026-08-20): file di progetto mancanti
 Repository inizializzato su `main`, con `.gitignore` scritto **prima**

@@ -91,11 +91,16 @@ def test_ogni_voce_del_catalogo_e_prescrittiva():
         assert "?" not in fix, "%s: e' una domanda" % chiave
 
 
-def test_il_catalogo_copre_le_quattro_aree_che_lo_usano():
-    """Le famiglie a catalogo, dichiarate: se ne nasce una quinta senza
-    testi, qui si vede."""
+def test_il_catalogo_copre_le_sei_aree_che_lo_usano():
+    """Le famiglie a catalogo, dichiarate: se ne nasce una settima
+    senza testi, qui si vede.
+
+    Erano quattro fino a U13, che ha dato dei controlli — e quindi dei
+    testi di correzione — alle due aree di classifica. Restano fuori
+    `seo`, `cit` e `llm`: la prima prende i testi da Lighthouse, le
+    altre due non prescrivono."""
     aree = {chiave.split(".")[0] for chiave in mars_fixes.CATALOGO}
-    assert aree == {"tech", "sd", "wcag", "sec"}
+    assert aree == {"tech", "lex", "sem", "sd", "wcag", "sec"}
     # Nessuna chiave di stato, nessun derivato: sono le due esenzioni.
     assert not [c for c in mars_fixes.CATALOGO if ".status." in c]
     assert not [c for c in mars_fixes.CATALOGO if c.startswith("cit.")]

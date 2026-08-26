@@ -51,16 +51,40 @@ def referto(contesto):
                           params={"penalty": 15.0}).as_dict()]},
         "mars_seo": {"score": None, "status": "unavailable",
                      "issues": ["Lighthouse assente"]},
-        # status e tool come li dichiarano i moduli veri (R38): senza,
-        # la fixture proverebbe una resa che in produzione non esiste.
+        # status, tool, score e findings come li dichiarano i moduli
+        # veri (R38, U13): senza, la fixture proverebbe una resa che in
+        # produzione non esiste. Il punteggio c'e' da U13, e con esso i
+        # rilievi che lo spiegano.
         "mars_lexical": {"status": "ranking", "tool": "BM25 (k1=1.5, b=0.75)",
-                         "rank": [0, 1], "top_chunk": "https://x/ § H",
+                         "score": 80, "rank": [0, 1],
+                         "top_chunk": "https://x/ § H",
                          "queries": ["alfa", "beta"],
+                         "issues": ["[grave] 1/2 pagine sotto le 300 parole"],
+                         "findings": [Finding(
+                             area="mars_lexical", severity=SEV_WARNING,
+                             source_severity="grave",
+                             key="lex.words.thin",
+                             title="1/2 pagine sotto le 300 parole",
+                             params={"penalty": 20.0, "pagine": 1,
+                                     "totale": 2, "soglia": 300,
+                                     "media": 150,
+                                     "urls": ["https://x/"]}).as_dict()],
                          "per_query": [{"query": "alfa", "rank": [0, 1]},
                                        {"query": "beta", "rank": [1, 0]}]},
         "mars_semantic": {"status": "ranking", "tool": "proxy char-TFIDF",
-                          "rank": [0, 1], "answer_shaped_ratio": 0.5,
-                          "n_chunks": 2,
+                          "score": 92, "rank": [0, 1],
+                          "answer_shaped_ratio": 0.5, "n_chunks": 2,
+                          "issues": ["[medio] 2 passaggi indicizzabili su 1 "
+                                     "pagine, sotto i 20 attesi"],
+                          "findings": [Finding(
+                              area="mars_semantic", severity=SEV_WARNING,
+                              source_severity="medio",
+                              key="sem.chunks.few",
+                              title="2 passaggi indicizzabili su 1 pagine, "
+                                    "sotto i 20 attesi",
+                              params={"penalty": 8.0, "chunk": 2,
+                                      "pagine": 1,
+                                      "soglia": 20}).as_dict()],
                           "per_query": [{"query": "alfa", "rank": [0, 1]},
                                         {"query": "beta", "rank": [0, 1]}]},
         "mars_wcag": {"score": 70, "tool": "axe-core",
@@ -506,9 +530,13 @@ def test_l_icona_mancante_e_dichiarata(referto, monkeypatch):
     uscita = render_html(referto)
     assert "<link rel='icon'" not in uscita
     assert "Icona non incorporata" in uscita
-    # E il referto resta valido: nessun riferimento esterno comparso al
-    # posto dell'icona.
-    assert re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:)([^\'"]+)',
+    # E il referto resta valido: nessun riferimento ESTERNO comparso al
+    # posto dell'icona. Le ancore interne — `href='#r-...'`, il
+    # cancelletto che rende citabile un rilievo — non lo sono, e vanno
+    # escluse: senza, il test misurava anche quanti rilievi con un
+    # `fix` porti la fixture, che non c'entra con R43 e l'ha reso rosso
+    # il giorno in cui U13 ne ha aggiunti.
+    assert re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:|#)([^\'"]+)',
                       uscita) == []
 
 
@@ -600,16 +628,17 @@ def test_scala_dei_colori_e_quella_di_lighthouse(valore, classe):
     assert _classe(valore) == classe
 
 
-def test_html_non_finge_un_voto_per_lessicale_e_semantica(referto):
-    """Quelle due aree producono classifiche, non voti: mettere loro
-    uno zero — o un quadrante qualunque — sarebbe inventare una misura.
+def test_html_dichiara_classifica_e_voto_per_lessicale_e_semantica(referto):
+    """Il voto c'e' da U13, e accanto resta detto che l'area ordina.
 
-    L'intento e' lo stesso di prima; il meccanismo no. Il verdetto
-    veniva sovrascritto con "classifica" cablando il NOME del modulo
-    nella vista, ed e' da li' che nasceva il difetto R38: la vista
-    decideva sul nome invece che sul dato, e su un'area andata in
-    errore stampava comunque l'etichetta normale. Ora la parola arriva
-    dallo stato dichiarato dal modulo."""
+    **Questo test asseriva l'opposto** — «nessun voto inventato»,
+    `"/100" not in scheda` — ed era giusto finche' le due aree un voto
+    non l'avevano. U13 gliel'ha dato, con dei controlli dietro: la
+    riscrittura e' la decisione, non un aggiustamento per far tornare
+    il verde. Cio' che non cambia e' il meccanismo, che e' il difetto
+    da cui il test nacque (R38): la parola arriva dallo STATO
+    dichiarato dal modulo, mai dal nome del modulo cablato nella
+    vista."""
     uscita = render_html(referto)
 
     # Lo strumento c'e': un rango senza il nome di chi l'ha calcolato
@@ -621,10 +650,10 @@ def test_html_non_finge_un_voto_per_lessicale_e_semantica(referto):
     for etichetta in ("3. Lessicale", "4. Semantica"):
         trovate = [s for s in schede if etichetta in s]
         assert len(trovate) == 1, "scheda %s: %d" % (etichetta, len(trovate))
-        assert "classifica, non un voto" in trovate[0]
-        # L'asserzione forte: nessun voto inventato.
-        assert "/100" not in trovate[0], \
-            "%s non deve esibire un punteggio" % etichetta
+        assert "/100" in trovate[0], "%s ha un punteggio" % etichetta
+        assert "con una classifica dei passaggi" in trovate[0], \
+            "%s lo dice accanto al voto, non al suo posto" % etichetta
+        assert "non un voto" not in trovate[0]
 
 
 @pytest.mark.parametrize("modulo, etichetta", [
@@ -1677,6 +1706,42 @@ def test_citabilita_e_llm_restano_fuori_dal_complessivo(contesto):
         mars_llm_judge={"score": 10, "issues": []})["overall"]
     assert complessivo["score"] == 80.0
     assert complessivo["excluded"] == ["mars_citability", "mars_llm_judge"]
+
+
+def test_le_aree_di_classifica_restano_fuori_dal_complessivo(contesto):
+    """U13 ha dato loro un punteggio, non un posto nella media.
+
+    Le stesse due aree ci entrano gia' dai segnali derivati, a peso 1.5
+    ciascuno: contarle anche a 1.0 come aree darebbe a due aree su nove
+    esattamente META' del complessivo (1+1+1.5+1.5 su 10). E' la stessa
+    ragione per cui D3 tiene fuori `mars_citability`, che sintetizza
+    misure gia' contate."""
+    complessivo = _referto_complessivo(
+        contesto,
+        mars_lexical={"score": 0, "status": "ranking", "issues": [],
+                      "rank": [0]},
+        mars_semantic={"score": 0, "status": "ranking", "issues": [],
+                       "rank": [1], "answer_shaped_ratio": 0.0,
+                       "n_chunks": 4})["overall"]
+    assert "mars_lexical" in complessivo["excluded"]
+    assert "mars_semantic" in complessivo["excluded"]
+    # I due zeri non entrano nella media; il segnale derivato che ne
+    # deriva, quello si': (60 + 100 + 1.5*0 + 1.5*0) / 5 = 32.
+    assert [c["value"] for c in complessivo["components"]] == [60.0, 100.0,
+                                                               0.0, 0.0]
+    assert complessivo["weight_total"] == 5.0
+
+
+def test_il_punteggio_di_un_area_di_classifica_non_si_dice_non_un_voto(
+        contesto):
+    """`_qualificatori` annota lo stato solo accanto a un punteggio, e
+    da U13 quel punteggio c'e': la frase «classifica, non un voto»
+    comparirebbe a due centimetri dal voto che nega."""
+    area = {"module": "mars_lexical", "label": "3. Lessicale", "score": 60,
+            "status": "ranking", "tool": "BM25 (k1=1.5, b=0.75)"}
+    reso = " ".join(mars_report._qualificatori(area))
+    assert "non un voto" not in reso
+    assert "classifica" in reso, "il fatto resta detto, cambia solo dove"
 
 
 def test_le_due_aree_escluse_lo_restano_anche_quando_falliscono(contesto):

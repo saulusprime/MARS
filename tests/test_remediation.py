@@ -85,7 +85,10 @@ def test_r_ricostruisce_il_punteggio_di_ogni_area_certificata():
                                                   cert["reason"])
             assert rem.punteggio_ricostruito(cert["base"]) == round(
                 area["score"]), area["module"]
-    assert visitate == 9, "nove aree con penalita' fra i due golden"
+    assert visitate == 12, ("dodici aree con penalita' fra i due golden: "
+                            "erano nove fino a U13, che ha dato dei "
+                            "controlli — e quindi delle penalita' — alle "
+                            "due aree di classifica")
 
 
 # ----------------------------------------------------------------------
@@ -648,20 +651,20 @@ def test_il_piano_si_ricostruisce_a_mano():
 # ----------------------------------------------------------------------
 
 def test_le_aree_del_piano_si_contano_e_non_si_cablano():
-    """Al massimo cinque su nove, non sette.
+    """Al massimo sette su nove, non nove.
 
-    mars_lexical e mars_semantic non producono rilievi; quelli di
-    mars_citability sono per costruzione derivati e quelli di
-    mars_llm_judge sono tutti di stato. Un numero cablato in un referto
-    consegnato a un cliente sarebbe falso in una riga scritta per
-    essere onesta.
+    I rilievi di mars_citability sono per costruzione derivati e quelli
+    di mars_llm_judge sono tutti di stato: nessuna delle due puo'
+    entrare nel piano. Erano cinque fino a U13, che ha dato dei
+    controlli alle due aree di classifica — ed e' esattamente il genere
+    di numero che invecchia da solo, cioe' la ragione per cui si conta
+    invece di scriverlo.
     """
     referto = _golden("referto.json")
     riep = rem.riepilogo(rem.build_remediation(referto), referto)
     assert riep["areas_total"] == 9
-    assert riep["areas_covered"] == 5
-    assert set(riep["areas_excluded"]) == {"mars_lexical", "mars_semantic",
-                                           "mars_citability",
+    assert riep["areas_covered"] == 7
+    assert set(riep["areas_excluded"]) == {"mars_citability",
                                            "mars_llm_judge"}
 
 

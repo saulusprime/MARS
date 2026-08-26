@@ -282,6 +282,74 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Lighthouse failed",
     },
 
+    # --- Area 3: lessicale (U13) ----------------------------------------
+    "lex.status.no_pages": {
+        "title": "No pages to analyse",
+    },
+    "lex.words.thin": {
+        "title": "%(pagine)d of %(totale)d pages under %(soglia)d words",
+        "fix": "Take the key pages past the threshold with informative "
+               "content, not promotional: BM25 normalises term "
+               "frequency by document length, and two paragraphs never "
+               "reach the frequency the formula rewards.",
+    },
+    "lex.title.dup": {
+        "title": "%(pagine)d of %(totale)d pages share a <title>",
+        "fix": "Give every page a distinct <title>: two pages with the "
+               "same title compete for the same queries and neither "
+               "stands out in the index.",
+        "example": '// before \u2014 two pages, one title\n'
+                   '<title>Services</title>\n'
+                   '<title>Services</title>\n'
+                   '// after\n'
+                   '<title>Manual lymphatic drainage | Example '
+                   'Centre</title>\n'
+                   '<title>Post-operative care | Example Centre</title>',
+    },
+    "lex.query.no_match": {
+        "title": "%(senza_riscontro)d of %(totale)d queries with no "
+                 "lexical match",
+        "fix": "Not one term of the question appears on the site: write "
+               "a passage using the words the question is asked with, "
+               "not the company's internal synonyms.",
+    },
+
+    # --- Area 4: semantica (U13) ----------------------------------------
+    "sem.status.no_pages": {
+        "title": "No pages to analyse",
+    },
+    "sem.chunks.none": {
+        "title": "No passage extractable from the %(pagine)d pages",
+        "fix": "The pages offer no text that can be split into "
+               "passages: write flowing paragraphs under headings, "
+               "because the passage is the unit a hybrid engine cites.",
+    },
+    "sem.chunks.few": {
+        "title": "%(chunk)d indexable passages across %(pagine)d pages, "
+                 "below the %(soglia)d expected",
+        "fix": "Increase the number of self-contained thematic "
+               "passages: each passage is a separate chance to appear "
+               "in a result list.",
+    },
+    "sem.answer_shaped.low": {
+        "title": "%(quota).0f%% of passages in answer form, below the "
+                 "%(soglia)d%% expected",
+        "fix": "Shape the passages as answers: the heading asks the "
+               "question, the opening lines close it. It is the format "
+               "assistants quote most readily, because it is already "
+               "extractable on its own.",
+        "example": "<h2>How long does a session last?</h2>\n"
+                   "<p>A session lasts about fifty minutes, initial "
+                   "assessment included.</p>",
+    },
+    "sem.query.no_match": {
+        "title": "%(senza_riscontro)d of %(totale)d queries with no "
+                 "semantic match",
+        "fix": "The vector retriever finds nothing close to the "
+               "question: a passage on that topic is missing, not a "
+               "keyword to add.",
+    },
+
     # --- Area 5: dati strutturati --------------------------------------
     "sd.status.no_pages": {
         "title": "No pages to analyse",
@@ -622,18 +690,15 @@ _CORNICE_EN: Dict[str, str] = {
     # --- Complessivo e verdetti ----------------------------------------
     "COMPLESSIVO": "OVERALL",
     "Complessivo": "Overall",
-    "  media pesata di %d misure; citabilità e giudizio LLM esclusi":
-        "  weighted mean of %d measures; citability and LLM judgement "
-        "excluded",
-    "media pesata di %d misure · citabilità e giudizio LLM esclusi":
-        "weighted mean of %d measures · citability and LLM judgement "
-        "excluded",
-    "Media pesata di %d misure; citabilità e giudizio LLM esclusi. "
+    "  media pesata di %d misure; escluse %s":
+        "  weighted mean of %d measures; %s excluded",
+    "media pesata di %d misure · escluse %s":
+        "weighted mean of %d measures · %s excluded",
+    "Media pesata di %d misure; escluse %s. "
     "Scala dichiarata: critico sotto %d, da migliorare %d-%d, buono "
     "da %d.":
-        "Weighted mean of %d measures; citability and LLM judgement "
-        "excluded. Declared scale: critical below %d, needs work %d-%d, "
-        "good from %d.",
+        "Weighted mean of %d measures; %s excluded. Declared scale: "
+        "critical below %d, needs work %d-%d, good from %d.",
     "scala dichiarata: critico sotto %d · da migliorare %d-%d · buono "
     "da %d":
         "declared scale: critical below %d · needs work %d-%d · good "
@@ -657,7 +722,7 @@ _CORNICE_EN: Dict[str, str] = {
     "8. Citabilità IA": "8. AI Citability",
     "9. Giudizio LLM": "9. LLM Judgement",
     "controllo di superficie": "surface check",
-    "classifica, non un voto": "a ranking, not a score",
+    "con una classifica dei passaggi": "with a ranking of passages",
     "disattivato": "disabled",
     "errore del modulo": "module error",
     "scansione parziale": "partial scan",

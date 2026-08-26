@@ -8,7 +8,7 @@
 
 **60/100** — da migliorare
 
-Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
+Media pesata di 7 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
 ## Punteggi per area
 
@@ -16,8 +16,8 @@ Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: 
 |---|---|---|
 | 1. Tecnica | 57/100 |  |
 | 2. SEO | 27/100 | Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti |
-| 3. Lessicale | classifica, non un voto | BM25 (k1=1.5, b=0.75) |
-| 4. Semantica | classifica, non un voto | proxy char-TFIDF |
+| 3. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
+| 4. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
 | 5. Dati Strutturati | 90/100 |  |
 | 6. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
 | 7. Sicurezza | 57/100 | ZAP (passiva) |
@@ -51,13 +51,16 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 - Nessuna sitemap dichiarata
 
-**Nuovi (15)**
+**Nuovi (18)**
 
 - L'indicizzazione della pagina è bloccata
 - Il documento non ha un elemento `<title>`
 - Il documento non ha una meta descrizione
 - I link non hanno testo descrittivo
 - Gli elementi immagine non hanno attributi `[alt]`
+- 3/3 pagine sotto le 300 parole
+- 1/3 query senza un riscontro lessicale
+- 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
 - 1 blocchi JSON-LD malformati
 - Le immagini devono avere un testo alternativo
 - Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore
@@ -71,7 +74,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ## Piano di interventi
 
-16 interventi (6 critici, 10 avvertenze) · 1 quick win.
+19 interventi (6 critici, 13 avvertenze) · 1 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +7.54* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -96,6 +99,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Ensure every form element has a label
 - [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +12 punti d'area · indice +0.75*
       Configura il server per impostare l'header CSP.
+- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: giorni · +20 punti d'area*
+      Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
+- [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
+      Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
+- [ ] [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi — *Semantica · sforzo: giorni · +8 punti d'area*
+      Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
 - [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: ore*
       Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
 - [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: ore*
@@ -145,11 +154,15 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ### 3. Lessicale
 
-Nessun rilievo.
+- [AVVISO] 3/3 pagine sotto le 300 parole
+  *Correzione:* Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
+- [AVVISO] 1/3 query senza un riscontro lessicale
+  *Correzione:* Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 
 ### 4. Semantica
 
-Nessun rilievo.
+- [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
+  *Correzione:* Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
 
 ### 5. Dati Strutturati
 

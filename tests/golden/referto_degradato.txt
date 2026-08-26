@@ -3,7 +3,7 @@
            MARS BEACON - REPORT FINALE           
 =======================================================
 COMPLESSIVO          :  66/100  (da migliorare)
-  media pesata di 4 misure; citabilità e giudizio LLM esclusi
+  media pesata di 4 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM
 -------------------------------------------------------
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
@@ -12,8 +12,10 @@ COMPLESSIVO          :  66/100  (da migliorare)
     Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               : non misurato
   ⚠ Lighthouse non trovato nel PATH
-3. Lessicale         : classifica, non un voto
-  BM25 (k1=1.5, b=0.75)
+3. Lessicale         :  60/100
+  BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi
+  ⚠ [grave] 3/3 pagine sotto le 300 parole
+  ⚠ [grave] 1/3 query senza un riscontro lessicale
 4. Semantica         : errore del modulo
   ⚠ MemoryError: corpus troppo grande
 5. Dati Strutturati  :  90/100
@@ -37,9 +39,9 @@ SUPERFICIE
   Con 900 parole per pagina i passaggi sarebbero 12, cioe' x3.0
   (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
 -------------------------------------------------------
-PIANO DI INTERVENTI  : 8 interventi (3 critici, 5 avvertenze)
+PIANO DI INTERVENTI  : 10 interventi (3 critici, 7 avvertenze)
   1 quick win
-  4 aree su 9; ordinato per gravita', poi per guadagno dell'indice
+  5 aree su 9; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +16.18
      Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -55,7 +57,7 @@ PIANO DI INTERVENTI  : 8 interventi (3 critici, 5 avvertenze)
   5. [AVVERTENZA · Sicurezza · giorni] CSP mancante
      +15 punti d'area (75 → 90) · indice +2.02
      Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
-  · ... e altri 3 interventi (per intero nel JSON e nell'HTML)
+  · ... e altri 5 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: global)
   Claude                66.6  █████████████

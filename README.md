@@ -33,10 +33,16 @@ e crea il referto:
                                     stessi undici controlli della
                                     sezione SEO di Lighthouse, non
                                     il solo punteggio
-3. Lessicale        (mars_lexical)  segnali di tipo BM25 (title, 
-                                    heading, termini)
-4. Semantica        (mars_semantic) chunk autoconsistenti, contenuto 
-                                    "answer-shaped"
+3. Lessicale        (mars_lexical)  BM25 sui passaggi, piu' i tre
+                                    controlli che lo alimentano
+                                    (pagine sotto le 300 parole,
+                                    title ripetuti fra pagine,
+                                    query senza riscontro)
+4. Semantica        (mars_semantic) recupero vettoriale sui passaggi,
+                                    piu' i tre controlli che lo
+                                    nutrono (quanti passaggi, quota
+                                    "answer-shaped", query senza
+                                    riscontro)
 5. Dati strutturati (mars_schema)   JSON-LD / Schema.org
 6. Accessibilità    (mars_wcag)     compatibilità WCAG
 7. Sicurezza        (mars_wapt)     test WAPT di superficie
@@ -488,9 +494,9 @@ a una dimenticanza cio' che e' un limite dello strumento.
 
 Cio' che nessuna lingua puo' tradurre resta com'e', e il referto lo dice: le
 evidenze citate dal sito analizzato (un titolo mancante, il testo di un link
-generico), la prosa del giudizio LLM, e le aree lessicale e semantica, che
-non producono rilievi strutturati e parlano solo attraverso le proprie righe
-compatte.
+generico) e la prosa del giudizio LLM, che e' scritta dal modello. Le aree
+lessicale e semantica erano nell'elenco finche' non producevano rilievi
+strutturati; da U13 li producono, quindi si traducono come le altre.
 
 Il JSON e' **canonico e resta in italiano** per tutto cio' che scrive MARS,
 in ogni lingua: e' il dato da cui le altre viste derivano, e due JSON diversi

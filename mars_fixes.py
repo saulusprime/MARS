@@ -216,6 +216,65 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "questa pagina sta altrove.",
     },
 
+    # --- Area 3: lessicale (U13) ----------------------------------------
+    #
+    # Le due aree di classifica non hanno un `fix` che si applichi a un
+    # tag: i loro difetti sono di CONTENUTO, e la prescrizione dice
+    # quale forma dargli. Gli esempi ci sono solo dove esiste un
+    # prima/dopo minimo di markup — altrove sarebbero una frase
+    # travestita da codice.
+    "lex.words.thin": {
+        "fix": "Porta le pagine chiave oltre la soglia con contenuto "
+               "informativo, non promozionale: BM25 normalizza la "
+               "frequenza dei termini sulla lunghezza del documento, e "
+               "due paragrafi non arrivano alla frequenza che la "
+               "formula premia.",
+    },
+    "lex.title.dup": {
+        "fix": "Dai a ogni pagina un <title> distinto: due pagine con "
+               "lo stesso titolo si contendono le stesse query e "
+               "nessuna delle due si distingue nell'indice.",
+        "example": '// prima — due pagine, un titolo solo\n'
+                   '<title>Servizi</title>\n'
+                   '<title>Servizi</title>\n'
+                   '// dopo\n'
+                   '<title>Drenaggio linfatico manuale | Centro '
+                   'Esempio</title>\n'
+                   '<title>Percorsi post-operatori | Centro '
+                   'Esempio</title>',
+    },
+    "lex.query.no_match": {
+        "fix": "Nessun termine della domanda compare nel sito: scrivi "
+               "un passaggio che usi le parole con cui la domanda viene "
+               "posta, non i sinonimi interni all'azienda.",
+    },
+
+    # --- Area 4: semantica (U13) ----------------------------------------
+    "sem.chunks.none": {
+        "fix": "Le pagine non offrono testo segmentabile in passaggi: "
+               "scrivi paragrafi discorsivi sotto intestazioni, perche' "
+               "il passaggio e' l'unita' che un motore ibrido cita.",
+    },
+    "sem.chunks.few": {
+        "fix": "Aumenta il numero di passaggi tematici autonomi: ogni "
+               "passaggio e' un'occasione distinta di comparire in una "
+               "lista di risultati.",
+    },
+    "sem.answer_shaped.low": {
+        "fix": "Dai ai passaggi la forma di una risposta: "
+               "l'intestazione pone la domanda, le prime righe la "
+               "chiudono. E' il formato che gli assistenti citano piu' "
+               "volentieri, perche' e' gia' estraibile da solo.",
+        "example": "<h2>Quanto dura una seduta?</h2>\n"
+                   "<p>Una seduta dura circa cinquanta minuti, prima "
+                   "valutazione compresa.</p>",
+    },
+    "sem.query.no_match": {
+        "fix": "Il recuperatore vettoriale non trova nulla di vicino "
+               "alla domanda: manca un passaggio che tratti quel tema, "
+               "non una parola chiave da aggiungere.",
+    },
+
     # --- Area 5: dati strutturati --------------------------------------
     "sd.jsonld.missing": {
         # Il fix NON elenca i tipi Schema.org: mars_schema verifica che

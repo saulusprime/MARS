@@ -9,17 +9,167 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
-from mars_core import (LexicalRetriever, describe_chunk,
-                       reciprocal_rank_fusion, tokenize)
+from collections import defaultdict
+from typing import Dict, List
+
+from mars_core import (SEV_INFO, Finding, LexicalRetriever, describe_chunk,
+                       normalizza_severita, reciprocal_rank_fusion, tokenize)
+
+# Sotto questa soglia una pagina non porta abbastanza testo perche' i
+# suoi termini raggiungano una frequenza che BM25 possa valorizzare: la
+# formula normalizza la frequenza sulla lunghezza del documento, quindi
+# due paragrafi competono male con una pagina che tratta lo stesso tema
+# per esteso. E' prassi editoriale e non uno standard — per questo il
+# numero viaggia nei `params` del rilievo invece di restare solo qui:
+# un referto che dica "sotto la soglia" senza dire quale afferma una
+# misura che il lettore non puo' rifare.
+SOGLIA_PAROLE = 300
+
+# Penalita' per CONTROLLO, sulla scala editoriale "mars". Stessi numeri
+# di `mars_tech.PESI` perche' e' la stessa scala: `normalizza_severita`
+# traduce la parola, questa tabella la prezza, e due aree che dicono
+# "grave" devono togliere lo stesso. La tabella e' ripetuta e non
+# importata perche' i moduli sono plugin e non si importano fra loro —
+# la stessa ragione per cui `mars_schema` ha la propria.
+#
+# Fisse, **non moltiplicate per le occorrenze**: un rilievo e' un
+# controllo, e su un sito da cinquanta pagine il solo `lex.words.thin`
+# saturerebbe il punteggio da solo. Quante volte il difetto ricorra lo
+# dicono i `params`, che e' la stessa separazione di R47 fra il
+# conteggio e il luogo.
+PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
+
+
+def _rilievo(gravita: str, testo: str, chiave: str,
+             **params: object) -> Finding:
+    """Imbuto unico dei rilievi dell'area.
+
+    `source_severity` conserva la parola italiana grezza, perche' e'
+    quella che compare fra parentesi quadre nella vista compatta: la
+    scala canonica collassa "grave" e "medio" entrambe in `warning`, e
+    chi conosce la scala di MARS perderebbe la differenza.
+    """
+    severita, peso = normalizza_severita("mars", gravita)
+    return Finding(
+        area="mars_lexical", severity=severita, weight=peso,
+        source_severity=gravita, title=testo, key=chiave,
+        params=dict(params, penalty=float(PENALITA[gravita])))
+
+
+def controlla_lunghezza(pages: dict) -> List[Finding]:
+    """Le pagine troppo corte perche' l'indice lessicale le valorizzi."""
+    parole = {url: len(((pagina or {}).get("text") or "").split())
+              for url, pagina in pages.items()}
+    sottili = sorted(url for url, quante in parole.items()
+                     if quante < SOGLIA_PAROLE)
+    if not sottili:
+        return []
+    return [_rilievo(
+        "grave",
+        "%d/%d pagine sotto le %d parole" % (len(sottili), len(parole),
+                                             SOGLIA_PAROLE),
+        "lex.words.thin", pagine=len(sottili), totale=len(parole),
+        soglia=SOGLIA_PAROLE,
+        media=sum(parole.values()) // len(parole),
+        urls=sottili)]
+
+
+def controlla_titoli(pages: dict) -> List[Finding]:
+    """I `<title>` ripetuti fra pagine diverse.
+
+    E' un fatto FRA pagine, e nessun'altra area di MARS puo' vederlo:
+    Lighthouse misura `document-title` su una pagina sola. Il titolo
+    **assente** invece resta suo, e contarlo qui darebbe due rilievi
+    sullo stesso difetto.
+    """
+    per_titolo: Dict[str, List[str]] = defaultdict(list)
+    for url, pagina in pages.items():
+        titolo = ((pagina or {}).get("title") or "").strip()
+        if titolo:
+            per_titolo[titolo].append(url)
+    ripetuti = {titolo: urls for titolo, urls in per_titolo.items()
+                if len(urls) > 1}
+    if not ripetuti:
+        return []
+    coinvolte = sorted(url for urls in ripetuti.values() for url in urls)
+    return [_rilievo(
+        "medio",
+        "%d/%d pagine con un <title> ripetuto" % (len(coinvolte), len(pages)),
+        "lex.title.dup", titoli=len(ripetuti), pagine=len(coinvolte),
+        totale=len(pages),
+        esempi=" | ".join(sorted(ripetuti)[:3]),
+        urls=coinvolte)]
+
+
+def controlla_query(per_query: List[dict]) -> List[Finding]:
+    """Le query su cui il corpus non offre un solo riscontro.
+
+    R23 ha insegnato a non spacciare l'ordine di scansione per una
+    classifica; il fatto restava pero' dentro `per_query`, e nessuno
+    ne faceva un controllo. **Nessun `urls`**: la domanda senza
+    risposta non e' un difetto di una pagina, e sceglierne una per
+    colorare la treemap sarebbe inventare l'indirizzo.
+    """
+    vuote = [voce["query"] for voce in per_query if not voce["matched"]]
+    if not vuote:
+        return []
+    return [_rilievo(
+        "grave",
+        "%d/%d query senza un riscontro lessicale" % (len(vuote),
+                                                      len(per_query)),
+        "lex.query.no_match", senza_riscontro=len(vuote),
+        totale=len(per_query), esempi=" | ".join(vuote[:3]))]
+
+
+def _giudizio(pages: dict, per_query: List[dict]) -> dict:
+    """Punteggio e rilievi, separati dalla classifica (U13).
+
+    Senza pagine non c'e' nulla da giudicare: un punteggio calcolato
+    sulle sole query direbbe 100 su un sito da cui non e' stata letta
+    una riga. `score: None` piu' `unavailable` e' il contratto, e non
+    e' la stessa cosa di uno zero.
+    """
+    if not pages:
+        return {"score": None, "status": "unavailable",
+                "issues": ["Nessuna pagina da analizzare"],
+                "findings": [Finding(
+                    area="mars_lexical", severity=SEV_INFO,
+                    key="lex.status.no_pages",
+                    title="Nessuna pagina da analizzare").as_dict()]}
+    rilievi = (controlla_lunghezza(pages) + controlla_titoli(pages)
+               + controlla_query(per_query))
+    ordinati = sorted(rilievi, key=lambda f: -f.params["penalty"])
+    penalita = sum(f.params["penalty"] for f in rilievi)
+    return {
+        # round() e non il solo max(): le penalita' sono float, e senza
+        # arrotondare il JSON porterebbe 80.0 dove le altre aree
+        # portano 80 — un cambio di contratto invisibile ai test,
+        # perche' 80 == 80.0.
+        "score": max(0, round(100 - penalita)),
+        "issues": ["[%s] %s" % (f.source_severity, f.title)
+                   for f in ordinati],
+        "findings": [f.as_dict() for f in ordinati],
+    }
 
 
 def audit(context: dict) -> dict:
-    """BM25 sui chunk del sito.
+    """Area 3: BM25 sui chunk del sito, e i segnali che lo alimentano.
 
     Indicizza i CHUNK, non le pagine: prima questo modulo lavorava su
     pagine e mars_semantic su chunk, e i due ranking venivano poi fusi
     dall'RRF come se si riferissero alle stesse unita'. Non era cosi',
     e il "consenso" che ne usciva non aveva il significato dichiarato.
+
+    Da U13 l'area produce **anche un punteggio**: la classifica dice
+    quale passaggio vincerebbe, i tre controlli dicono se il sito
+    offre a BM25 qualcosa da valorizzare. Il punteggio resta fuori dal
+    complessivo — vedi `AREE_FUORI_DAL_COMPLESSIVO` in mars_report —
+    perche' quest'area ci entra gia' dai segnali derivati.
+
+    Copertura dichiarata: i controlli riguardano la LUNGHEZZA e la
+    DISTINGUIBILITA' dei documenti, cioe' le due grandezze su cui BM25
+    normalizza. La qualita' dei termini — sigle senza forma estesa,
+    sinonimi, riformulazioni — non e' misurata.
     """
     chunks = context["chunks"]
     corpus = []
@@ -65,8 +215,8 @@ def audit(context: dict) -> dict:
                                    if p["matched"]])
     rank = [indice for indice, _ in fusi]
 
-    return {
-        # Quest'area produce una CLASSIFICA, non un voto: e' un fatto
+    esito = {
+        # Quest'area produce una CLASSIFICA oltre al voto: e' un fatto
         # del dato, non una particolarita' della vista. Finche' stava
         # solo nelle viste, queste intercettavano il modulo per NOME e
         # stampavano "Analizzato" — anche quando il modulo era andato
@@ -81,3 +231,7 @@ def audit(context: dict) -> dict:
         "top_chunk": describe_chunk(chunks[rank[0]]) if rank else "N/A",
         "top_url": chunks[rank[0]]["url"] if rank else "N/A",
     }
+    # La classifica resta anche quando non c'e' nulla da giudicare: e'
+    # l'uscita primaria dell'area, e il giudizio le si aggiunge sopra.
+    esito.update(_giudizio(context.get("pages") or {}, per_query))
+    return esito

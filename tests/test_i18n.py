@@ -91,7 +91,9 @@ def _params_del_banco(monkeypatch) -> dict:
     template si esercitino contro i params che il modulo passa davvero e
     non contro quelli che chi ha tradotto immaginava.
     """
+    import mars_lexical
     import mars_schema
+    import mars_semantic
     import mars_seo
     import mars_wcag
 
@@ -152,6 +154,38 @@ def _params_del_banco(monkeypatch) -> dict:
     monkeypatch.setattr(mars_seo, "esegui_lighthouse", _timeout_lighthouse)
     raccogli(mars_seo.audit({"url": "https://esempio.test/"}))
     monkeypatch.undo()
+
+    # Aree 3 e 4 (U13): due pagine con lo STESSO title, testo senza una
+    # domanda, e una query che non trova nulla ne' lessicalmente ne'
+    # semanticamente. I golden accendono `lex.words.thin`,
+    # `lex.query.no_match` e `sem.chunks.few`; le altre quattro chiavi
+    # hanno bisogno di questo caso.
+    def _pag(url, titolo, testo):
+        return {"title": titolo, "text": testo, "lang": "it", "html": "",
+                "headings": [], "chunks": [{"url": url, "heading": titolo,
+                                            "text": testo}]}
+
+    prosa = " ".join(["organizzazione"] * 60)
+    doppie = {"https://esempio.test/a": _pag("https://esempio.test/a",
+                                             "Servizi", prosa),
+              "https://esempio.test/b": _pag("https://esempio.test/b",
+                                             "Servizi", prosa)}
+    ranghi = {"url": "https://esempio.test/", "pages": doppie,
+              "chunks": [c for p in doppie.values() for c in p["chunks"]],
+              # "zzzzz qqqqq" non ha riscontro nemmeno per il proxy
+              # char-TFIDF: e' lo stesso corpus-guardia di R23.
+              "queries": ["zzzzz qqqqq"], "embeddings_model": "none",
+              "force_proxy": True, "credentials": {}}
+    raccogli(mars_lexical.audit(ranghi))
+    raccogli(mars_semantic.audit(ranghi))
+
+    # Pagine che ci sono e non producono un passaggio: `sem.chunks.none`.
+    vuote = {"pages": {"https://esempio.test/": {
+        "title": "Vuota", "text": "", "lang": "it", "html": "",
+        "headings": [], "chunks": []}},
+        "chunks": [], "queries": [], "embeddings_model": "none",
+        "force_proxy": True, "credentials": {}}
+    raccogli(mars_semantic.audit(vuote))
 
     # Area 8: i sette segnali tutti deboli, poi tutti non misurati.
     # I due derivati non vengono da uno `score`: `answer_shaped` dal

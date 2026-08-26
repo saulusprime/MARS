@@ -156,6 +156,9 @@ SFORZO: Dict[str, str] = {
     "tech.sitemap.missing": ORE,
     "tech.sitemap.no_lastmod": ORE,
     "tech.sitemap.unreadable": ORE,
+    # Un <title> per pagina: si tocca un template e si verifica su
+    # tutte, ma non si scrive contenuto nuovo.
+    "lex.title.dup": ORE,
     "sd.jsonld.missing": ORE,
     "sd.jsonld.block_malformed": ORE,
     "sd.jsonld.block_empty": ORE,
@@ -170,6 +173,16 @@ SFORZO: Dict[str, str] = {
     "wcag.img.alt_missing": GIORNI,
     "wcag.form.label_missing": GIORNI,
     "wcag.link.generic": GIORNI,
+    # Le due aree di classifica (U13) chiedono di SCRIVERE: pagine piu'
+    # lunghe, passaggi nuovi, risposte dove oggi c'e' prosa
+    # promozionale. Nessuna di queste voci si chiude toccando un tag,
+    # ed e' la ragione per cui nessuna e' un quick win.
+    "lex.words.thin": GIORNI,
+    "lex.query.no_match": GIORNI,
+    "sem.chunks.none": GIORNI,
+    "sem.chunks.few": GIORNI,
+    "sem.answer_shaped.low": GIORNI,
+    "sem.query.no_match": GIORNI,
 }
 
 
@@ -512,12 +525,12 @@ def riepilogo(piano: List[dict], referto: dict) -> dict:
     """I conteggi della testata, calcolati e mai cablati.
 
     `aree_nel_piano` si conta a runtime: le aree che possono
-    contribuire sono al massimo cinque, non nove, perche'
-    `mars_lexical` e `mars_semantic` non producono rilievi e i rilievi
-    di `mars_citability` e `mars_llm_judge` sono per costruzione tutti
-    `info`. Stampare un numero cablato in un referto consegnato a un
-    cliente sarebbe una dichiarazione falsa in una riga scritta per
-    essere onesta.
+    contribuire sono al massimo sette, non nove, perche' i rilievi di
+    `mars_citability` e `mars_llm_judge` sono per costruzione tutti
+    `info`. Erano cinque fino a U13, che ha dato dei controlli a
+    `mars_lexical` e `mars_semantic`: e' esattamente il genere di
+    numero che invecchia da solo, ed e' la ragione per cui si conta
+    invece di scriverlo.
     """
     aree = referto.get("areas") or []
     rappresentate = sorted({v["area"] for v in piano})

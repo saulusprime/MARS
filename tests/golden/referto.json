@@ -550,10 +550,56 @@
     {
       "module": "mars_lexical",
       "label": "3. Lessicale",
-      "score": null,
+      "score": 60,
       "status": "ranking",
-      "issues": [],
-      "findings": [],
+      "issues": [
+        "[grave] 3/3 pagine sotto le 300 parole",
+        "[grave] 1/3 query senza un riscontro lessicale"
+      ],
+      "findings": [
+        {
+          "area": "mars_lexical",
+          "severity": "warning",
+          "title": "3/3 pagine sotto le 300 parole",
+          "key": "lex.words.thin",
+          "detail": "",
+          "fix": "Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.",
+          "example": "",
+          "doc_url": "",
+          "weight": 2.0,
+          "source_severity": "grave",
+          "params": {
+            "pagine": 3,
+            "totale": 3,
+            "soglia": 300,
+            "media": 96,
+            "urls": [
+              "https://esempio.test/",
+              "https://esempio.test/faq/",
+              "https://esempio.test/servizi/"
+            ],
+            "penalty": 20.0
+          }
+        },
+        {
+          "area": "mars_lexical",
+          "severity": "warning",
+          "title": "1/3 query senza un riscontro lessicale",
+          "key": "lex.query.no_match",
+          "detail": "",
+          "fix": "Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.",
+          "example": "",
+          "doc_url": "",
+          "weight": 2.0,
+          "source_severity": "grave",
+          "params": {
+            "senza_riscontro": 1,
+            "totale": 3,
+            "esempi": "parcheggio riservato",
+            "penalty": 20.0
+          }
+        }
+      ],
       "tool": "BM25 (k1=1.5, b=0.75)",
       "reference_score": null,
       "reference_tool": null,
@@ -567,10 +613,31 @@
     {
       "module": "mars_semantic",
       "label": "4. Semantica",
-      "score": null,
+      "score": 92,
       "status": "ranking",
-      "issues": [],
-      "findings": [],
+      "issues": [
+        "[medio] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi"
+      ],
+      "findings": [
+        {
+          "area": "mars_semantic",
+          "severity": "warning",
+          "title": "4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi",
+          "key": "sem.chunks.few",
+          "detail": "",
+          "fix": "Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "medio",
+          "params": {
+            "chunk": 4,
+            "pagine": 3,
+            "soglia": 20,
+            "penalty": 8.0
+          }
+        }
+      ],
       "tool": "proxy char-TFIDF",
       "reference_score": null,
       "reference_tool": null,
@@ -1327,6 +1394,8 @@
       }
     ],
     "excluded": [
+      "mars_lexical",
+      "mars_semantic",
       "mars_citability",
       "mars_llm_judge"
     ],
@@ -1921,6 +1990,102 @@
       "priority": 14
     },
     {
+      "key": "lex.query.no_match",
+      "area": "mars_lexical",
+      "area_label": "3. Lessicale",
+      "severity": "warning",
+      "title": "1/3 query senza un riscontro lessicale",
+      "fix": "Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.",
+      "example": "",
+      "doc_url": "",
+      "params": {
+        "senza_riscontro": 1,
+        "totale": 3,
+        "esempi": "parcheggio riservato",
+        "penalty": 20.0
+      },
+      "penalty": 20.0,
+      "recovery": 20,
+      "score_before": 60,
+      "score_after": 80,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "giorni",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 15
+    },
+    {
+      "key": "lex.words.thin",
+      "area": "mars_lexical",
+      "area_label": "3. Lessicale",
+      "severity": "warning",
+      "title": "3/3 pagine sotto le 300 parole",
+      "fix": "Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.",
+      "example": "",
+      "doc_url": "",
+      "params": {
+        "pagine": 3,
+        "totale": 3,
+        "soglia": 300,
+        "media": 96,
+        "urls": [
+          "https://esempio.test/",
+          "https://esempio.test/faq/",
+          "https://esempio.test/servizi/"
+        ],
+        "penalty": 20.0
+      },
+      "penalty": 20.0,
+      "recovery": 20,
+      "score_before": 60,
+      "score_after": 80,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "giorni",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 16
+    },
+    {
+      "key": "sem.chunks.few",
+      "area": "mars_semantic",
+      "area_label": "4. Semantica",
+      "severity": "warning",
+      "title": "4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi",
+      "fix": "Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.",
+      "example": "",
+      "doc_url": "",
+      "params": {
+        "chunk": 4,
+        "pagine": 3,
+        "soglia": 20,
+        "penalty": 8.0
+      },
+      "penalty": 8.0,
+      "recovery": 8,
+      "score_before": 92,
+      "score_after": 100,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "giorni",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 17
+    },
+    {
       "key": "wcag.heading.skip",
       "area": "mars_wcag",
       "area_label": "6. Accessibilità",
@@ -1950,7 +2115,7 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 15
+      "priority": 18
     },
     {
       "key": "wcag.table.th_missing",
@@ -1982,7 +2147,7 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 16
+      "priority": 19
     }
   ],
   "delta": {
@@ -2167,6 +2332,48 @@
             "https://dequeuniversity.com/rules/axe/4.12/image-alt"
           ],
           "penalty": 9.05511811023622
+        }
+      },
+      {
+        "area": "mars_lexical",
+        "key": "lex.words.thin",
+        "title": "3/3 pagine sotto le 300 parole",
+        "severity": "warning",
+        "params": {
+          "pagine": 3,
+          "totale": 3,
+          "soglia": 300,
+          "media": 96,
+          "urls": [
+            "https://esempio.test/",
+            "https://esempio.test/faq/",
+            "https://esempio.test/servizi/"
+          ],
+          "penalty": 20.0
+        }
+      },
+      {
+        "area": "mars_lexical",
+        "key": "lex.query.no_match",
+        "title": "1/3 query senza un riscontro lessicale",
+        "severity": "warning",
+        "params": {
+          "senza_riscontro": 1,
+          "totale": 3,
+          "esempi": "parcheggio riservato",
+          "penalty": 20.0
+        }
+      },
+      {
+        "area": "mars_semantic",
+        "key": "sem.chunks.few",
+        "title": "4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi",
+        "severity": "warning",
+        "params": {
+          "chunk": 4,
+          "pagine": 3,
+          "soglia": 20,
+          "penalty": 8.0
         }
       },
       {

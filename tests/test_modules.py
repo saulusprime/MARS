@@ -3240,6 +3240,263 @@ def test_semantic_faqpage_non_gonfia_il_rapporto():
 
 
 # ----------------------------------------------------------------------
+# U13: le due aree di classifica emettono controlli
+# ----------------------------------------------------------------------
+#
+# Fino a U13 `mars_lexical` e `mars_semantic` producevano metriche e
+# nessun controllo con un esito: sette aree su nove alimentavano il
+# piano di interventi, e le due che nutrono i quadranti derivati non
+# contribuivano un solo rilievo.
+
+def _pagina_u13(testo: str, titolo: str = "Pagina", url: str = "https://x/"):
+    """Una pagina finta con un conteggio di parole controllato.
+
+    Non passa da `conftest.pagina()` perche' qui serve dosare le
+    PAROLE, che e' la grandezza su cui BM25 normalizza: costruire
+    l'HTML e farlo riparsare renderebbe il conteggio un effetto
+    collaterale del chunker invece del dato del test.
+    """
+    return {"title": titolo, "text": testo, "lang": "it", "html": "",
+            "headings": [], "chunks": [{"url": url, "heading": titolo,
+                                        "text": testo}]}
+
+
+def _ctx_u13(pagine: dict, queries=("organizzazione",)) -> dict:
+    return {"url": "https://x/", "pages": pagine,
+            "chunks": [c for p in pagine.values() for c in p["chunks"]],
+            "queries": list(queries), "embeddings_model": "none",
+            "force_proxy": True, "credentials": {}, "market": "global"}
+
+
+def _chiavi(esito: dict) -> set:
+    return {f["key"] for f in esito["findings"]}
+
+
+def _rilievo_con(esito: dict, chiave: str) -> dict:
+    trovati = [f for f in esito["findings"] if f["key"] == chiave]
+    assert trovati, "atteso %s, presenti %s" % (chiave, _chiavi(esito))
+    return trovati[0]
+
+
+def test_lexical_le_pagine_sottili_sono_un_rilievo():
+    """BM25 normalizza la frequenza dei termini sulla lunghezza del
+    documento: una pagina di due righe non raggiunge una frequenza che
+    la formula possa valorizzare, e finora l'area non lo diceva."""
+    magra = _pagina_u13("parole poche davvero", url="https://x/magra")
+    grassa = _pagina_u13(" ".join(["organizzazione"] * 400),
+                         titolo="Grassa", url="https://x/grassa")
+    esito = mars_lexical.audit(_ctx_u13({"https://x/magra": magra,
+                                         "https://x/grassa": grassa}))
+    rilievo = _rilievo_con(esito, "lex.words.thin")
+    assert rilievo["params"]["pagine"] == 1
+    assert rilievo["params"]["totale"] == 2
+    assert rilievo["params"]["soglia"] == mars_lexical.SOGLIA_PAROLE
+    # R47: il rilievo dichiara DOVE, e solo la pagina che l'ha acceso.
+    assert rilievo["params"]["urls"] == ["https://x/magra"]
+
+
+def test_lexical_i_title_ripetuti_sono_un_rilievo():
+    """Due pagine con lo stesso <title> non si distinguono nell'indice
+    lessicale, ed e' un fatto FRA pagine: Lighthouse guarda una pagina
+    sola, quindi nessuna altra area di MARS puo' vederlo."""
+    pagine = {
+        "https://x/a": _pagina_u13(" ".join(["testo"] * 400), "Servizi",
+                                   "https://x/a"),
+        "https://x/b": _pagina_u13(" ".join(["testo"] * 400), "Servizi",
+                                   "https://x/b"),
+        "https://x/c": _pagina_u13(" ".join(["testo"] * 400), "Contatti",
+                                   "https://x/c"),
+    }
+    rilievo = _rilievo_con(mars_lexical.audit(_ctx_u13(pagine)),
+                           "lex.title.dup")
+    assert rilievo["params"]["titoli"] == 1
+    assert rilievo["params"]["pagine"] == 2
+    assert rilievo["params"]["urls"] == ["https://x/a", "https://x/b"]
+
+
+def test_lexical_un_title_vuoto_non_e_un_duplicato():
+    """Due pagine senza <title> non hanno lo STESSO titolo: non ne
+    hanno affatto, ed e' un difetto che misura Lighthouse. Contarle
+    qui darebbe due rilievi sullo stesso fatto, uno dei quali falso."""
+    pagine = {"https://x/a": _pagina_u13("testo " * 400, "", "https://x/a"),
+              "https://x/b": _pagina_u13("testo " * 400, "", "https://x/b")}
+    assert "lex.title.dup" not in _chiavi(mars_lexical.audit(_ctx_u13(pagine)))
+
+
+@pytest.mark.parametrize("modulo, chiave", [
+    (mars_lexical, "lex.query.no_match"),
+    (mars_semantic, "sem.query.no_match"),
+])
+def test_una_query_senza_riscontro_diventa_un_rilievo(modulo, chiave):
+    """R23 aveva insegnato a NON spacciare l'ordine di scansione per
+    una classifica; il fatto restava pero' solo dentro `per_query`, e
+    il referto non ne faceva nulla."""
+    esito = modulo.audit(_ctx_r23(["zzzzz qqqqq wwwww", "organizzazione"]))
+    rilievo = _rilievo_con(esito, chiave)
+    assert rilievo["params"]["senza_riscontro"] == 1
+    assert rilievo["params"]["totale"] == 2
+    # Non e' un fatto di UNA pagina: dichiarare `urls` qui colorerebbe
+    # la treemap su una pagina scelta a caso.
+    assert "urls" not in rilievo["params"]
+
+
+@pytest.mark.parametrize("modulo, chiave", [
+    (mars_lexical, "lex.status.no_pages"),
+    (mars_semantic, "sem.status.no_pages"),
+])
+def test_senza_pagine_le_aree_di_classifica_non_inventano_un_punteggio(
+        modulo, chiave):
+    """Un punteggio calcolato sulle sole query direbbe 100 su un sito
+    da cui non e' stata letta una riga. `score: None` piu'
+    `unavailable` e' il contratto."""
+    esito = modulo.audit({"url": "https://x/", "pages": {}, "chunks": [],
+                          "queries": [], "embeddings_model": "none",
+                          "force_proxy": True, "credentials": {}})
+    assert esito["score"] is None
+    assert esito["status"] == "unavailable"
+    assert _chiavi(esito) == {chiave}
+
+
+def test_semantic_pochi_passaggi_sono_un_rilievo():
+    """Ogni chunk e' un'occasione di comparire in una lista: il numero
+    di passaggi e' il moltiplicatore della somma RRF."""
+    pagina_sola = _pagina_u13(" ".join(["organizzazione"] * 400))
+    esito = mars_semantic.audit(_ctx_u13({"https://x/": pagina_sola}))
+    rilievo = _rilievo_con(esito, "sem.chunks.few")
+    assert rilievo["params"]["chunk"] == 1
+    assert rilievo["params"]["soglia"] == mars_semantic.SOGLIA_CHUNK
+
+
+def test_semantic_nessun_passaggio_e_un_rilievo_critico():
+    """Pagine che ci sono e non producono un passaggio: il sito non
+    offre nulla su cui un recuperatore possa lavorare. E' diverso da
+    «nessuna pagina», che e' uno stato della scansione."""
+    vuota = {"title": "Vuota", "text": "", "lang": "it", "html": "",
+             "headings": [], "chunks": []}
+    esito = mars_semantic.audit(_ctx_u13({"https://x/": vuota}))
+    rilievo = _rilievo_con(esito, "sem.chunks.none")
+    assert rilievo["severity"] == mars_core.SEV_CRITICAL
+    assert esito["status"] == "ranking", "le pagine c'erano: e' un giudizio"
+
+
+def test_semantic_la_quota_in_forma_di_risposta_bassa_e_un_rilievo():
+    """`answer_shaped_ratio` era misurato e non giudicato: il solo
+    rilievo che lo citava era `cit.answer_shaped.weak`, derivato, che
+    rimandava a un'area senza un rilievo da indicare."""
+    testo = " ".join(["organizzazione"] * 60)
+    pagine = {"https://x/%d" % i: _pagina_u13(testo, "Sezione %d" % i,
+                                              "https://x/%d" % i)
+              for i in range(3)}
+    esito = mars_semantic.audit(_ctx_u13(pagine))
+    assert esito["answer_shaped_ratio"] == 0.0
+    rilievo = _rilievo_con(esito, "sem.answer_shaped.low")
+    assert rilievo["params"]["soglia"] == mars_semantic.SOGLIA_ANSWER_SHAPED
+    # Dove: le pagine che non portano un solo passaggio in forma di
+    # risposta, cosi' la treemap colora quelle e non l'intero sito.
+    assert rilievo["params"]["urls"] == sorted(pagine)
+
+
+def test_la_soglia_in_forma_di_risposta_e_quella_della_citabilita():
+    """Due soglie sullo stesso numero: sotto 60 `mars_citability`
+    dichiara il segnale debole. Se qui fosse 10, il referto direbbe
+    «segnale debole» accanto a un'area che non ha nulla da segnalare —
+    e nessun errore lo rivelerebbe."""
+    assert (mars_semantic.SOGLIA_ANSWER_SHAPED
+            == mars_citability.SOGLIA_DEBOLE)
+
+
+def _chunk_risposta(url: str) -> dict:
+    """Un passaggio in forma di risposta: heading interrogativo e oltre
+    MIN_PAROLE parole, che sono le due condizioni del rapporto."""
+    return {"url": url, "heading": "Quanto dura una seduta?",
+            "text": " ".join(["parola"] * (mars_semantic.MIN_PAROLE + 5))}
+
+
+def _chunk_muto(url: str) -> dict:
+    return {"url": url, "heading": "Chi siamo",
+            "text": " ".join(["parola"] * (mars_semantic.MIN_PAROLE + 5))}
+
+
+def test_semantic_alla_soglia_esatta_il_rilievo_non_scatta():
+    """Il confronto e' `>=`, e il caso di confine e' l'unico che
+    distingue `>=` da `>`: tre passaggi su cinque fanno esattamente il
+    60% atteso, e a quel punto l'area non ha nulla da segnalare."""
+    chunks = ([_chunk_risposta("https://x/a") for _ in range(3)]
+              + [_chunk_muto("https://x/a") for _ in range(2)])
+    pagine = {"https://x/a": {"lang": "it", "html": "", "headings": [],
+                              "title": "A", "text": "x", "chunks": chunks}}
+    esito = mars_semantic.audit({"url": "https://x/", "pages": pagine,
+                                 "chunks": chunks, "queries": [],
+                                 "embeddings_model": "none",
+                                 "force_proxy": True, "credentials": {}})
+    assert esito["answer_shaped_ratio"] == 0.6
+    assert "sem.answer_shaped.low" not in _chiavi(esito)
+
+
+def test_semantic_le_pagine_con_una_risposta_restano_fuori_dal_rilievo():
+    """R47 dice DOVE, e «dove» non e' «ovunque».
+
+    Con il rapporto sotto soglia ma una pagina che una risposta ce
+    l'ha, elencare anche quella colorerebbe la treemap su una pagina
+    che il difetto non ha."""
+    chunks = ([_chunk_risposta("https://x/buona")]
+              + [_chunk_muto("https://x/buona")]
+              + [_chunk_muto("https://x/muta") for _ in range(3)])
+    pagine = {url: {"lang": "it", "html": "", "headings": [], "title": url,
+                    "text": "x", "chunks": []}
+              for url in ("https://x/buona", "https://x/muta")}
+    esito = mars_semantic.audit({"url": "https://x/", "pages": pagine,
+                                 "chunks": chunks, "queries": [],
+                                 "embeddings_model": "none",
+                                 "force_proxy": True, "credentials": {}})
+    assert esito["answer_shaped_ratio"] == 0.2
+    rilievo = _rilievo_con(esito, "sem.answer_shaped.low")
+    assert rilievo["params"]["urls"] == ["https://x/muta"]
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_le_aree_di_classifica_non_pubblicano_un_punteggio_negativo(
+        modulo, contesto, monkeypatch):
+    """Il pavimento a zero, provato invece che assunto.
+
+    Coi controlli di oggi le penalita' non arrivano a 100 — 48 sul
+    lessicale, 80 sul semantico — quindi il ramo non si raggiunge con
+    un sito, per quanto malmesso. Si raggiunge alzando la tabella delle
+    penalita', ed e' cio' che rende il presidio vero: il giorno in cui
+    un controllo nuovo la fara' saturare, questo test c'e' gia'."""
+    monkeypatch.setitem(modulo.PENALITA, "grave", 200.0)
+    monkeypatch.setitem(modulo.PENALITA, "medio", 200.0)
+    monkeypatch.setitem(modulo.PENALITA, "critico", 200.0)
+    contesto["queries"] = ["zzzzz qqqqq wwwww"]
+    esito = modulo.audit(contesto)
+    assert esito["findings"], "il caso ha senso solo con dei rilievi"
+    assert esito["score"] == 0
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_le_aree_di_classifica_ricostruiscono_il_punteggio(modulo, contesto):
+    """Le penalita' dichiarate devono ricostruire lo score, altrimenti
+    il piano di interventi non puo' quantificare alcun recupero: e'
+    `certificato_area`, applicata alle due aree nuove."""
+    esito = modulo.audit(contesto)
+    penalita = sum(f["params"]["penalty"] for f in esito["findings"])
+    assert esito["score"] == max(0, round(100 - penalita))
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_ogni_rilievo_delle_aree_di_classifica_dichiara_una_penalita(
+        modulo, contesto):
+    """Tranne quelli di stato, che non sono difetti del sito."""
+    for f in modulo.audit(contesto)["findings"]:
+        if ".status." in f["key"]:
+            continue
+        assert isinstance(f["params"].get("penalty"), float), f["key"]
+
+
+# ----------------------------------------------------------------------
 # mars_wapt (C9)
 # ----------------------------------------------------------------------
 

@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| U13 | Le due aree di classifica non avevano un solo controllo | 2026-08-26 |
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
 | R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
 | R30 | `VectorRetriever` moriva sul corpus vuoto, in un ramo su due | 2026-08-26 |
@@ -2354,6 +2355,125 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### U13 — ✅ RISOLTO (2026-08-26): le due aree di classifica non avevano un solo controllo
+
+**Il difetto.** `mars_lexical` e `mars_semantic` producevano metriche —
+`answer_shaped_ratio`, ranghi, consenso — e **nessun controllo con un esito**.
+Sette aree su nove alimentavano il piano di interventi, il CSV, il confronto
+fra due esecuzioni e i conteggi per gravità; le due che nutrono i quadranti
+derivati non contribuivano un solo `Finding`. Il caso più visibile:
+`cit.answer_shaped.weak` è un rilievo **derivato**, e per D3 un derivato
+rimanda all'area che ha misurato — che non aveva nulla da indicare.
+
+**Che cosa NON si è fatto, e perché.** Il riferimento `marsbeacon/` ha 47
+chiavi `lex.`/`sem.`. Portarle tutte era la strada sbagliata, per tre ragioni
+misurate prima di scegliere:
+
+- **metà sono già coperte altrove.** `lex.title.*` e `lex.desc.*` sono
+  `seo.lh.document-title` e `seo.lh.meta-description`; `lex.alt.*` è
+  `wcag.img.alt_missing`. Due rilievi sullo stesso difetto sono due penalità;
+- **22 delle 47 sono chiavi `.ok`**, e nessun modulo di MARS emette `SEV_OK`.
+  Renderli significativi è la decisione che **R40** rimanda esplicitamente a
+  una fase sua: portarli qui l'avrebbe presa di straforo;
+- **due controlli non sono realizzabili** senza toccare il contratto del
+  crawler: la pagina prodotta da `crawl()` non ha `description` (verificato
+  sull'elenco delle chiavi). È lo stesso costo che tiene aperta R51.
+
+Restano fuori anche freschezza, fonti citate e autoconsistenza dei passaggi —
+il riferimento le misura, MARS non estrae i dati che servirebbero. Le docstring
+dei due moduli lo **dichiarano**, invece di lasciarlo dedurre.
+
+**La soluzione: sette controlli, sei dei quali su misure già fatte.** Il
+criterio è uno solo — *spiega un esito di recupero, usa dati che MARS ha già,
+non duplica un'altra area*.
+
+| chiave | quando scatta | gravità | penalità |
+|---|---|---|---|
+| `lex.words.thin` | pagine sotto le 300 parole | grave | 20 |
+| `lex.title.dup` | `<title>` ripetuto fra pagine | medio | 8 |
+| `lex.query.no_match` | query senza un riscontro lessicale | grave | 20 |
+| `sem.chunks.none` | pagine che non producono un passaggio | critico | 40 |
+| `sem.chunks.few` | meno di 20 passaggi | medio | 8 |
+| `sem.answer_shaped.low` | quota in forma di risposta sotto il 60% | grave | 20 |
+| `sem.query.no_match` | query senza un riscontro semantico | grave | 20 |
+
+`lex.title.dup` è l'unico controllo del riferimento che **nessun'altra area di
+MARS può vedere**: Lighthouse misura `document-title` su una pagina sola, e il
+titolo ripetuto è un fatto *fra* pagine. Le due `query.no_match` non stanno nel
+riferimento affatto: MARS i due recuperatori li **esegue**, quindi `matched:
+False` è una misura che c'era già e si buttava via (era il dato di R23).
+
+**Le decisioni, con il loro perché.**
+
+**Il punteggio c'è, e resta fuori dal complessivo.** Le due aree avevano
+`score: None` per costruzione; ora hanno un voto, e con esso `certificato_area`
+le certifica e il piano di interventi ne quantifica il recupero. Ma **entrano
+in `AREE_FUORI_DAL_COMPLESSIVO`**, ed è aritmetica, non gusto: quelle due aree
+nel complessivo ci sono già come *segnali derivati* a peso 1.5 ciascuno.
+Contarle anche come aree porterebbe il totale da 8.0 a 10.0 con **5.0 che
+vengono da loro** — metà del referto a due aree su nove. La strada opposta —
+togliere i segnali e tenere le aree — costa di più: il consenso RRF è la
+domanda del progetto e **nessuno dei sette controlli lo misura**, quindi
+sparirebbe dal complessivo per non tornare. Misurato sui golden: `overall`
+resta 60.1 e 65.5, identici a prima.
+
+**La soglia in forma di risposta è 60, la stessa di `mars_citability`.** Con
+due numeri diversi il referto avrebbe detto «segnale debole» accanto a un'area
+senza nulla da segnalare. I moduli sono plugin e non si importano fra loro: a
+tenerle insieme non c'è un accorgimento ma **un test**, come per `ORIGINE`.
+
+**Penalità per controllo, non per occorrenza.** Su un sito da cinquanta pagine
+`lex.words.thin` da solo saturerebbe il punteggio. Quante volte il difetto
+ricorra lo dicono i `params`, dove sta anche `urls` (R47): la treemap si colora
+sulle pagine sottili e su quelle senza una risposta, **non** su quelle che una
+risposta ce l'hanno.
+
+**Nessun `urls` sulle due `query.no_match`.** Una domanda senza risposta non è
+il difetto di una pagina, e sceglierne una per colorare la treemap sarebbe
+inventare l'indirizzo. Omettere è diverso da una lista vuota, ed è documentato.
+
+**`status: "ranking"` è migrato dal posto del verdetto a quello dei
+qualificatori**, esattamente come U1.9 aveva previsto. La frase però diceva
+«classifica, **non un voto**», e con il voto accanto negava il numero a due
+centimetri di distanza: ora è «con una classifica dei passaggi».
+
+**Una riga di prosa era diventata falsa senza che nulla se ne accorgesse.**
+«media pesata di N misure; citabilità e giudizio LLM esclusi» era scritta a
+mano in **tre** viste, ed era una seconda copia di
+`AREE_FUORI_DAL_COMPLESSIVO`. Ora la compone `aree_escluse_leggibili()`
+leggendo `overall["excluded"]`: una decisione su quell'elenco si propaga da
+sola. È la stessa classe di R32 — deriva fra ciò che il codice fa e ciò che il
+testo afferma — colta qui perché la modifica l'ha resa visibile.
+
+**Due test riscritti con intenzione, e va detto.**
+`test_html_non_finge_un_voto_per_lessicale_e_semantica` asseriva
+`"/100" not in scheda`: era **giusto** finché quelle aree un voto non
+l'avevano, ed è la decisione a superarlo, non un aggiustamento per far tornare
+il verde. Il suo meccanismo — la parola arriva dallo *stato* dichiarato dal
+modulo, mai dal nome cablato nella vista (R38) — resta asserito.
+`test_l_icona_mancante_e_dichiarata` invece era **sbagliato**: la sua regex
+contava anche le ancore interne `href='#r-...'` fra i «riferimenti esterni», e
+restava verde solo perché la fixture non aveva rilievi con un `fix`. Misurava
+la fixture, non R43.
+
+**Verifiche.** 1032 test verdi (erano 1011), `flake8` a zero, golden
+rigenerati e diff riletto: `overall` invariato, il piano passa da 5 aree su 9 a
+7, il delta da 15 a 18 comparsi. Referto end-to-end su un sito locale servito
+da `http.server`, con sentence-transformers reale e con il proxy: i tre rilievi
+lessicali e i due semantici escono con gli `urls` giusti e il complessivo non
+si muove. **Sedici mutazioni su sedici** fanno rosso; **tre sfuggivano alla
+prima esecuzione**, e sono quelle che hanno insegnato qualcosa:
+
+- `max(0, round(100 - penalita))` → `round(...)`: le penalità di oggi non
+  arrivano a 100 (48 sul lessicale, 80 sul semantico), quindi il pavimento è
+  **irraggiungibile con un sito**. Ora un test lo raggiunge alzando `PENALITA`,
+  così il presidio c'è già il giorno in cui un controllo nuovo saturerà;
+- `if quota >= SOGLIA` → `>`: mancava il caso di confine, l'unico che
+  distingue i due operatori. Tre passaggi su cinque fanno esattamente il 60%;
+- `con_risposta.add(url)` → `pass`: il test aveva quota 0.0, dove l'insieme è
+  vuoto in entrambi i casi. Serviva una pagina **con** una risposta accanto a
+  una senza, cioè proprio ciò che `urls` deve saper distinguere.
 
 ### R48 — ✅ RIDOTTO (2026-08-26): l'aritmetica del grafo è uscita dal JavaScript
 *(la voce non si chiude: si rimpicciolisce, e il perimetro rimasto è scritto in

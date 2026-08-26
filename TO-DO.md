@@ -19,6 +19,11 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
+> **U13 è chiusa il 2026-08-26** e sta in [AS-IS.md](AS-IS.md): le due aree
+> di classifica emettono sette controlli, hanno un punteggio, e quel punteggio
+> resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
+> segnali derivati. Il piano di interventi copre ora sette aree su nove.
+>
 > **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R50, R52 — R37 a
 > metà: la metà aperta è **R51**. L'ultima
 > nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
@@ -120,7 +125,7 @@ non dipende dal codice.
       deboli, quindi è il formato giusto per controllarne l'esito.
 
 ### C12 — voci residue
-La suite esiste — 908 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
+La suite esiste — 1032 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 - [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
       oggi si sa quali difetti sono protetti, non quanto codice è toccato.
@@ -171,31 +176,6 @@ le fasi che non sono state fatte.
       accessibilità delle tabelle, brand nel footer.
 - [ ] **U12 — Ancore esterne alla simulazione** (G13, Fase 12) — *opzionale*:
       Brave Search e confronto competitivo.
-
-### U13 — `mars_lexical` e `mars_semantic` non hanno controlli
-
-> **Aggiornamento 2026-08-21.** La metà di *resa* è chiusa da **R38**: il
-> referto copre ora tutti e nove gli ambiti, ciascuno con uno stato
-> dichiarato, e non afferma più «Analizzato» su aree che non hanno giudicato.
-> Resta la metà di *sostanza*, qui sotto: quelle due aree non emettono
-> controlli.
-
-*(trovata mappando i moduli per U1, il 2026-08-21)*
-
-Le due aree **non emettono un solo rilievo**: producono metriche
-(`answer_shaped_ratio`, ranghi, consenso) ma nessun controllo con un esito.
-Nel riferimento `lex.` e `sem.` sono **47 chiavi su 122** — titoli duplicati,
-contenuti sottili, freschezza, fonti citate.
-
-Il divario non è di formato ed **U1 non lo chiude**: adeguare il modello dati
-non fa comparire rilievi che non esistono. Conseguenza da conoscere prima di
-U5, non da scoprire dopo: hero, tile per gravità, CSV, piano di remediation e
-delta descriveranno **sette aree su nove**, e le due che alimentano i quadranti
-derivati non contribuiranno un solo `Finding`.
-
-- [ ] Decidere se colmarlo, e con quali controlli. Candidati dal riferimento:
-      `lex.title.dup`, `lex.words.thin`, `sem.fresh.very_stale`,
-      `sem.refs.missing`. È materia di una fase a sé, non di una riga.
 
 ---
 

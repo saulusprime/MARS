@@ -203,15 +203,26 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
 
 # D3: chi entra nel punteggio complessivo, e con quale peso.
 #
-# Le due aree escluse lo sono per NOME e non per una proprieta' del
-# dato, ed e' deliberato. `mars_citability` e' una sintesi dei
-# punteggi altrui: contarla sarebbe contare due volte le stesse
-# misure. `mars_llm_judge` e' opzionale e a pagamento, quindi lo
-# stesso sito darebbe due complessivi diversi a seconda che si sia
-# speso o no. Escluderle per nome le tiene fuori anche quando
-# FALLISCONO, che e' proprio il caso in cui una regola basata sul dato
-# le lascerebbe rientrare.
-AREE_FUORI_DAL_COMPLESSIVO = ("mars_citability", "mars_llm_judge")
+# Le aree escluse lo sono per NOME e non per una proprieta' del dato,
+# ed e' deliberato. `mars_citability` e' una sintesi dei punteggi
+# altrui: contarla sarebbe contare due volte le stesse misure.
+# `mars_llm_judge` e' opzionale e a pagamento, quindi lo stesso sito
+# darebbe due complessivi diversi a seconda che si sia speso o no.
+# Escluderle per nome le tiene fuori anche quando FALLISCONO, che e'
+# proprio il caso in cui una regola basata sul dato le lascerebbe
+# rientrare.
+#
+# `mars_lexical` e `mars_semantic` sono entrate in questo elenco con
+# U13, che ha dato loro un punteggio: e' la stessa ragione della
+# citabilita', misurata invece che assunta. Quelle due aree ci entrano
+# gia' dai SEGNALI DERIVATI, a peso 1.5 ciascuno; contarle anche come
+# aree porterebbe il totale da 8.0 a 10.0 con 5.0 che vengono da loro,
+# cioe' meta' del complessivo a due aree su nove. La strada opposta —
+# togliere i segnali e tenere le aree — costa di piu': il consenso RRF
+# e' la domanda del progetto e nessun controllo di U13 lo misura,
+# quindi sparirebbe dal complessivo per non tornare.
+AREE_FUORI_DAL_COMPLESSIVO = ("mars_citability", "mars_llm_judge",
+                              "mars_lexical", "mars_semantic")
 
 # I due segnali derivati pesano una volta e mezza un'area: non vengono
 # da uno strumento esterno ma dal CONFRONTO fra i due recuperatori,
@@ -225,10 +236,11 @@ def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
                      ) -> List[Dict[str, object]]:
     """I due segnali che non vengono da un'area ma dal confronto fra due.
 
-    `mars_lexical` e `mars_semantic` producono una classifica e non un
-    voto, quindi non hanno un punteggio da mediare: al loro posto
-    valgono il consenso RRF aggregato e la quota di contenuto in forma
-    di risposta.
+    `mars_lexical` e `mars_semantic` un punteggio da U13 ce l'hanno, ma
+    resta fuori dalla media (`AREE_FUORI_DAL_COMPLESSIVO`): al loro
+    posto valgono il consenso RRF aggregato e la quota di contenuto in
+    forma di risposta, che sono MISURE dei due recuperatori invece che
+    somme di penalita' editoriali.
 
     Scritta una volta sola perche' la leggono in due — la fascia dei
     quadranti e il punteggio complessivo — e due implementazioni dello
@@ -1043,10 +1055,15 @@ def render_json(referto: dict, lang: str = LINGUA_CANONICA) -> str:
 # ZAP completa sono lo stesso numero e due fatti diversi.
 STATO_LEGGIBILE = {
     "surface": "controllo di superficie",
-    # Un'area che ordina invece di giudicare. Prima il fatto non stava
+    # Un'area che ordina OLTRE a giudicare. Prima il fatto non stava
     # nel dato e le viste lo cablavano per nome del modulo: da li'
     # nasceva "Analizzato", stampato anche su un'area andata in errore.
-    "ranking": "classifica, non un voto",
+    #
+    # Diceva "classifica, non un voto", ed era vero finche' il voto non
+    # c'era: U13 lo ha dato, e la frase sarebbe comparsa fra i
+    # qualificatori a due centimetri dal numero che nega. Il fatto
+    # resta detto, cambia cio' che afferma.
+    "ranking": "con una classifica dei passaggi",
     "unavailable": "non misurato",
     "disabled": "disattivato",
     "error": "errore del modulo",
@@ -1154,14 +1171,31 @@ def _ha_blocco_dedicato(area: dict, referto: dict) -> bool:
     return bool((referto.get("citability") or {}).get("profiles"))
 
 
+def aree_escluse_leggibili(referto: dict,
+                           lang: str = LINGUA_CANONICA) -> str:
+    """Le aree tenute fuori dal complessivo, per etichetta.
+
+    Si legge da `overall["excluded"]` invece di scriverle a mano nelle
+    tre viste. La frase diceva «citabilità e giudizio LLM esclusi», ed
+    e' rimasta vera finche' le escluse erano due: U13 ne ha aggiunte
+    due, e nessun test poteva accorgersene perche' quella riga era
+    prosa, non dato. Da qui in poi una decisione su
+    `AREE_FUORI_DAL_COMPLESSIVO` si propaga da sola.
+    """
+    etichette = {area.get("module"): area.get("label") or area.get("module")
+                 for area in referto.get("areas") or []}
+    escluse = (referto.get("overall") or {}).get("excluded") or []
+    return ", ".join(t(str(etichette.get(nome, nome)), lang)
+                     for nome in escluse)
+
+
 def _riga_complessivo(referto: dict,
                       lang: str = LINGUA_CANONICA) -> List[str]:
     """Il complessivo in testa, con che cosa lo compone.
 
     Un numero solo per nove aree e' utile quanto e' verificabile: la
-    riga sotto dice quante misure ci sono dentro e quali due non ci
-    sono per decisione, cosi' chi legge 68 sa che non e' la media di
-    tutto.
+    riga sotto dice quante misure ci sono dentro e quali non ci sono
+    per decisione, cosi' chi legge 68 sa che non e' la media di tutto.
     """
     complessivo = referto.get("overall")
     if not complessivo:
@@ -1169,8 +1203,9 @@ def _riga_complessivo(referto: dict,
     righe = ["%-20s : %3.0f/100  (%s)"
              % (t("COMPLESSIVO", lang), complessivo["score"],
                 _verdetto(complessivo["score"], lang))]
-    righe.append(t("  media pesata di %d misure; citabilità e giudizio LLM "
-                   "esclusi", lang) % len(complessivo["components"]))
+    righe.append(t("  media pesata di %d misure; escluse %s", lang)
+                 % (len(complessivo["components"]),
+                    aree_escluse_leggibili(referto, lang)))
     righe.append("-" * 55)
     return righe
 
@@ -1486,9 +1521,9 @@ def _righe_compatte(area: dict,
     controllo — ed e' scritto qui invece che in tre renderer perche'
     testo, HTML e Markdown non possano divergere.
 
-    Dove i rilievi non ci sono — `mars_lexical` e `mars_semantic`, che
-    non ne producono (U13), e il giudizio LLM, che e' prosa del modello
-    — restano le issues italiane, e il referto lo dichiara in testa.
+    Dove i rilievi non ci sono — il giudizio LLM, che e' prosa del
+    modello — restano le issues italiane, e il referto lo dichiara in
+    testa. Le due aree di classifica ne producono da U13.
     """
     if lang == LINGUA_CANONICA:
         return list(area.get("issues") or [])
@@ -2067,8 +2102,9 @@ def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
         "<div class='tessere'>%s</div></section>"
         % (_quadrante(voto, t("Complessivo", lang), lang=lang),
            _classe(voto), _verdetto(voto, lang),
-           t("media pesata di %d misure · citabilità e giudizio "
-             "LLM esclusi", lang) % len(complessivo["components"]),
+           t("media pesata di %d misure · escluse %s", lang)
+           % (len(complessivo["components"]),
+              aree_escluse_leggibili(referto, lang)),
            t("scala dichiarata: critico sotto %d · da migliorare "
              "%d-%d · buono da %d", lang)
            % (SOGLIA_MEDIO, SOGLIA_MEDIO, SOGLIA_BUONO - 1, SOGLIA_BUONO),
@@ -3446,10 +3482,12 @@ def render_markdown(referto: dict,
               "**%.0f/100** — %s" % (complessivo["score"],
                                      _verdetto(complessivo["score"], lang)),
               "",
-              t("Media pesata di %d misure; citabilità e giudizio LLM "
-                "esclusi. Scala dichiarata: critico sotto %d, da "
-                "migliorare %d-%d, buono da %d.", lang)
-              % (len(complessivo["components"]), SOGLIA_MEDIO, SOGLIA_MEDIO,
+              t("Media pesata di %d misure; escluse %s. Scala "
+                "dichiarata: critico sotto %d, da migliorare %d-%d, "
+                "buono da %d.", lang)
+              % (len(complessivo["components"]),
+                 aree_escluse_leggibili(referto, lang),
+                 SOGLIA_MEDIO, SOGLIA_MEDIO,
                  SOGLIA_BUONO - 1, SOGLIA_BUONO)]
 
     r += ["", "## %s" % t("Punteggi per area", lang), "",

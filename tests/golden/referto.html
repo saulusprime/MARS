@@ -231,7 +231,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nome'>Complessivo</div>
 </div>
 <p class='verdetto warn'>da migliorare</p>
-<p class='meta'>media pesata di 7 misure · citabilità e giudizio LLM esclusi</p>
+<p class='meta'>media pesata di 7 misure · escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM</p>
 <p class='meta'>scala dichiarata: critico sotto 50 · da migliorare 50-89 · buono da 90</p>
 </div>
 <div class='tessere'>
@@ -240,7 +240,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='meta'>critici</span>
 </div>
 <div class='tessera'>
-<span class='grande warn'>10</span>
+<span class='grande warn'>13</span>
 <span class='meta'>avvertenze</span>
 </div>
 <div class='tessera'>
@@ -301,21 +301,23 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nome'>SEO</div>
 <div class='nota'>Lighthouse 13.4.1</div>
 </div>
-<div class='quadrante muted'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Lessicale: non misurato'>
-<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='4 6'/>
-<text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Lessicale: 60 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='211.12 140.74' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>60</text>
 </svg>
 <div class='nome'>Lessicale</div>
-<div class='nota'>classifica, non un voto</div>
+<div class='nota'>BM25 (k1=1.5, b=0.75)</div>
 </div>
-<div class='quadrante muted'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Semantica: non misurato'>
-<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='4 6'/>
-<text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
+<div class='quadrante ok'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Semantica: 92 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='323.71 28.15' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>92</text>
 </svg>
 <div class='nome'>Semantica</div>
-<div class='nota'>classifica, non un voto</div>
+<div class='nota'>proxy char-TFIDF</div>
 </div>
 <div class='quadrante ok'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Dati Strutturati: 90 su 100'>
@@ -512,23 +514,53 @@ Disallow:</pre>
 <div class='riga'>
 <h3>3. Lessicale</h3>
 <span class='punteggio'>
-<span class='muted'>classifica, non un voto</span>
+<span class='warn'>60<span class='muted'>/100</span>
+</span>
 </span>
 </div>
 <p class='strumento'>Passaggio in testa: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
 </p>
-<p class='strumento'>BM25 (k1=1.5, b=0.75)</p>
+<p class='strumento'>BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi</p>
+<ul class='rilievi'>
+<li>[grave] 3/3 pagine sotto le 300 parole</li>
+<li>[grave] 1/3 query senza un riscontro lessicale</li>
+</ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li id='r-lex-words-thin'>
+<b>3/3 pagine sotto le 300 parole</b>
+<a class='ancora' href='#r-lex-words-thin' aria-label='Link a questo rilievo'>#</a>
+<span class='fix'>Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
+</li>
+<li id='r-lex-query-no-match'>
+<b>1/3 query senza un riscontro lessicale</b>
+<a class='ancora' href='#r-lex-query-no-match' aria-label='Link a questo rilievo'>#</a>
+<span class='fix'>Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
+</li>
+</ul>
 </div>
 <div class='area'>
 <div class='riga'>
 <h3>4. Semantica</h3>
 <span class='punteggio'>
-<span class='muted'>classifica, non un voto</span>
+<span class='ok'>92<span class='muted'>/100</span>
+</span>
 </span>
 </div>
 <p class='strumento'>75% di 4 chunk in forma di risposta.</p>
 <p class='strumento'>FAQPage JSON-LD: 2 pagine su 3.</p>
-<p class='strumento'>proxy char-TFIDF</p>
+<p class='strumento'>proxy char-TFIDF · con una classifica dei passaggi</p>
+<ul class='rilievi'>
+<li>[medio] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</li>
+</ul>
+<p class='titolo-correzioni'>Come si aggiusta</p>
+<ul class='correzioni'>
+<li id='r-sem-chunks-few'>
+<b>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</b>
+<a class='ancora' href='#r-sem-chunks-few' aria-label='Link a questo rilievo'>#</a>
+<span class='fix'>Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
+</li>
+</ul>
 </div>
 <div class='area'>
 <div class='riga'>
@@ -706,15 +738,15 @@ Disallow:</pre>
 <p class='meta'>Ogni rettangolo è una pagina, l&#x27;area è proporzionale alle parole recuperabili. Il colore è la gravità peggiore dei rilievi che citano la pagina.</p>
 <svg class='treemap' viewBox='0 0 760 420' role='img' aria-label='Treemap della superficie: 3 pagine, la più estesa è / con 133 parole. I dati sono nella tabella qui sotto.'>
 <rect x='0.0' y='0.0' width='387.3' height='420.0' class='bad'>
-<title>/ — 133 parole, 2 passaggi, 16 rilievi, il peggiore: rilievo critico</title>
+<title>/ — 133 parole, 2 passaggi, 17 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='6.0' y='17.0'>/</text>
 <rect x='387.3' y='0.0' width='372.7' height='210.0' class='warn'>
-<title>/faq/ — 64 parole, 1 passaggio, 2 rilievi, il peggiore: avvertenza</title>
+<title>/faq/ — 64 parole, 1 passaggio, 3 rilievi, il peggiore: avvertenza</title>
 </rect>
 <text x='393.3' y='17.0'>/faq/</text>
 <rect x='387.3' y='210.0' width='372.7' height='210.0' class='bad'>
-<title>/servizi/ — 64 parole, 1 passaggio, 5 rilievi, il peggiore: rilievo critico</title>
+<title>/servizi/ — 64 parole, 1 passaggio, 6 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='393.3' y='227.0'>/servizi/</text>
 </svg>
@@ -731,19 +763,19 @@ Disallow:</pre>
 <td>https://esempio.test/</td>
 <td class='num'>133</td>
 <td class='num'>2</td>
-<td>16 rilievi, il peggiore: rilievo critico</td>
+<td>17 rilievi, il peggiore: rilievo critico</td>
 </tr>
 <tr>
 <td>https://esempio.test/faq/</td>
 <td class='num'>64</td>
 <td class='num'>1</td>
-<td>2 rilievi, il peggiore: avvertenza</td>
+<td>3 rilievi, il peggiore: avvertenza</td>
 </tr>
 <tr>
 <td>https://esempio.test/servizi/</td>
 <td class='num'>64</td>
 <td class='num'>1</td>
-<td>5 rilievi, il peggiore: rilievo critico</td>
+<td>6 rilievi, il peggiore: rilievo critico</td>
 </tr>
 </table>
 </details>
@@ -853,13 +885,16 @@ Disallow:</pre>
 <ul class='rilievi'>
 <li>Nessuna sitemap dichiarata</li>
 </ul>
-<h3 class='bad'>Nuovi (15)</h3>
+<h3 class='bad'>Nuovi (18)</h3>
 <ul class='rilievi'>
 <li>L&#x27;indicizzazione della pagina è bloccata</li>
 <li>Il documento non ha un elemento `&lt;title&gt;`</li>
 <li>Il documento non ha una meta descrizione</li>
 <li>I link non hanno testo descrittivo</li>
 <li>Gli elementi immagine non hanno attributi `[alt]`</li>
+<li>3/3 pagine sotto le 300 parole</li>
+<li>1/3 query senza un riscontro lessicale</li>
+<li>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</li>
 <li>1 blocchi JSON-LD malformati</li>
 <li>Le immagini devono avere un testo alternativo</li>
 <li>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</li>
@@ -872,8 +907,8 @@ Disallow:</pre>
 <li>Content Security Policy (CSP) Header Not Set</li>
 </ul>
 <h2>Piano di interventi</h2>
-<p class='meta'>16 interventi (6 critici, 10 avvertenze) · 1 quick win · 4 senza recupero dichiarato · 10 senza sforzo dichiarato</p>
-<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 5 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
+<p class='meta'>19 interventi (6 critici, 13 avvertenze) · 1 quick win · 4 senza recupero dichiarato · 10 senza sforzo dichiarato</p>
+<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 7 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
 <div class='intervento'>
 <div class='riga'>
 <h3>
@@ -1027,7 +1062,40 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>15</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
+<span class='priorita'>15</span> <a href='#r-lex-query-no-match'>1/3 query senza un riscontro lessicale</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Lessicale · sforzo: giorni</p>
+<p class='guadagno'>+20 punti d'area (60 → 80)</p>
+<span class='fix'>Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>16</span> <a href='#r-lex-words-thin'>3/3 pagine sotto le 300 parole</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Lessicale · sforzo: giorni</p>
+<p class='guadagno'>+20 punti d'area (60 → 80)</p>
+<span class='fix'>Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>17</span> <a href='#r-sem-chunks-few'>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Semantica · sforzo: giorni</p>
+<p class='guadagno'>+8 punti d'area (92 → 100)</p>
+<span class='fix'>Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>18</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1038,7 +1106,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>16</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
+<span class='priorita'>19</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>

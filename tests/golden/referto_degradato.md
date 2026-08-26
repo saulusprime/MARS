@@ -6,7 +6,7 @@
 
 **66/100** — da migliorare
 
-Media pesata di 4 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
+Media pesata di 4 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
 ## Punteggi per area
 
@@ -14,7 +14,7 @@ Media pesata di 4 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: 
 |---|---|---|
 | 1. Tecnica | 57/100 |  |
 | 2. SEO | non misurato |  |
-| 3. Lessicale | classifica, non un voto | BM25 (k1=1.5, b=0.75) |
+| 3. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
 | 4. Semantica | errore del modulo |  |
 | 5. Dati Strutturati | 90/100 |  |
 | 6. Accessibilità | 40/100 | markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie |
@@ -35,7 +35,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 ## Piano di interventi
 
-8 interventi (3 critici, 5 avvertenze) · 1 quick win.
+10 interventi (3 critici, 7 avvertenze) · 1 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +16.18* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -53,6 +53,10 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 - [ ] [AVVISO] X-Frame-Options mancante — *Sicurezza · sforzo: minuti · +10 punti d'area · indice +1.35*
       Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.
+- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: giorni · +20 punti d'area*
+      Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
+- [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
+      Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
 
 ## Rilievi per area
 
@@ -83,7 +87,10 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 ### 3. Lessicale
 
-Nessun rilievo.
+- [AVVISO] 3/3 pagine sotto le 300 parole
+  *Correzione:* Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
+- [AVVISO] 1/3 query senza un riscontro lessicale
+  *Correzione:* Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 
 ### 4. Semantica
 

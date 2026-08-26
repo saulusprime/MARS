@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import pathlib
 import re
 from urllib.parse import urljoin
 
@@ -1419,6 +1420,29 @@ def test_la_versione_del_readme_segue_quella_del_codice():
     assert dichiarate == [mars_core.__version__], (
         "README dichiara %s, il codice %s" % (dichiarate,
                                               mars_core.__version__))
+
+
+def test_le_istruzioni_di_progetto_sono_tutte_importate():
+    """CLAUDE.md non contiene piu' le istruzioni: le importa.
+
+    Ogni file sotto `.claude/` deve avere la sua riga `@`, e ogni riga
+    `@` deve puntare a un file che c'e'. Il difetto che questo test
+    coglie e' **muto in entrambe le direzioni**: un file senza la riga
+    esiste, si apre e si legge benissimo, ma nel contesto non arriva
+    mai; una riga senza il file non produce un errore, solo un pezzo di
+    istruzioni che sparisce. E' la stessa forma di R47 — chi sa una
+    cosa e non la dichiara la toglie di mezzo senza un errore.
+    """
+    radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(radice, "CLAUDE.md"), encoding="utf-8") as fh:
+        indice = fh.read()
+    importati = set(re.findall(r"^@(\S+)$", indice, re.MULTILINE))
+    presenti = {"/".join(p.parts[-2:]) for p
+                in pathlib.Path(radice, ".claude").glob("*.md")}
+    assert presenti, ".claude/ e' vuota: la divisione e' stata disfatta"
+    assert importati == presenti, (
+        "senza riga @: %s; senza file: %s"
+        % (sorted(presenti - importati), sorted(importati - presenti)))
 
 
 def test_lo_user_agent_porta_la_versione():

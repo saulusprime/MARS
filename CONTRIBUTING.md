@@ -1,7 +1,9 @@
 # Contribuire a MARS Beacon
 
 Grazie dell'interesse. Questo documento descrive come è organizzato il
-lavoro; il contratto tecnico dei moduli sta in [CLAUDE.md](CLAUDE.md).
+lavoro; il contratto tecnico dei moduli sta in
+[.claude/contratto-moduli.md](.claude/contratto-moduli.md), che
+[CLAUDE.md](CLAUDE.md) importa insieme al resto delle istruzioni.
 
 ## Prima di aprire una modifica
 
@@ -113,7 +115,7 @@ giudizio e non un'assenza di misura.
 - Il passaggio del `context` da dict a classi: attraversa il confine dei
   plugin.
 
-Le ragioni per esteso sono nei principi in [CLAUDE.md](CLAUDE.md).
+Le ragioni per esteso sono in [.claude/principi.md](.claude/principi.md).
 
 ## Segnalazioni di sicurezza
 

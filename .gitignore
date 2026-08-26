@@ -29,9 +29,12 @@ referto.json
 # ignora: cp examples/audit_request.json examples/mio.local.json
 *.local.json
 
-# --- Storico delle citazioni (dati, non codice) ---
-# mars_citations.py --history accoda qui: e' dato dell'utente.
+# --- Storico (dati, non codice) ---
+# Due file distinti di due funzioni distinte, e sono dato dell'utente:
+# mars_citations.py --history accoda al primo, l'audit differenziale di
+# mars_history.py (STORICO_PREDEFINITO) al secondo.
 storico.jsonl
+.mars-history.jsonl
 
 # --- Cache di strumenti ---
 .pytest_cache/

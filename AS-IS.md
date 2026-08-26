@@ -2782,6 +2782,18 @@ scritto a memoria: chiavi del `context`, di pagina e di chunk confrontate a
 runtime, zero divergenze in entrambe le direzioni — nulla di documentato che
 non esista, nulla di esistente non documentato.
 
+**Diviso il 2026-08-26** in cinque file sotto `.claude/`, uno per argomento,
+che `CLAUDE.md` importa con le righe `@`: il testo che arriva nel contesto è lo
+stesso, la divisione è stata verificata ricomponendo i pezzi e confrontandoli
+con l'originale, byte per byte. Nello stesso passaggio sono uscite dalle
+trappole le **tre già presidiate nel punto in cui si sbaglierebbe** — il pin di
+`bcrypt` porta la sua ragione accanto a sé in `requirements.txt` (R11);
+`soup.title.string` è R6, con `test_crawler_estrae_titoli_difficili` che prova proprio
+`<title></title>`; «il `context` una volta sola» è R5, con
+`test_audit_full_scansiona_una_volta_sola` che **conta le scansioni** e pretende
+1. Il criterio: una trappola resta in CLAUDE.md finché può ancora mordere
+codice non ancora scritto; quando un test la coglie, il presidio è il test.
+
 **Le due voci residue erano state lasciate aperte di proposito**: pubblicare un
 nome e un indirizzo in un repository è una decisione del titolare, non una
 formattazione. `LICENSE` conservava il segnaposto `Copyright [yyyy] [name of

@@ -4,228 +4,27 @@ Contesto essenziale per chi (persona o modello) mette mano al codice.
 Il quadro completo sta in [README.md](README.md), il lavoro aperto in
 [TO-DO.md](TO-DO.md), quello concluso in [AS-IS.md](AS-IS.md).
 
-## Il contratto dei moduli
+Le istruzioni vere stanno nei file qui sotto, uno per argomento, e le
+righe `@` li importano: Claude Code le risolve e monta il testo in
+questo punto, così ciò che arriva nel contesto è identico a prima della
+divisione. Chi legge a mano segue i link.
 
-Un'area di audit è **un file** che espone **una funzione**:
+- [Il contratto dei moduli](.claude/contratto-moduli.md) — cosa arriva
+  in `context`, cosa `audit()` deve restituire.
+- [Principi da non violare](.claude/principi.md) — le sette scelte di
+  fondo del progetto.
+- [Come si lavora](.claude/metodo.md) — pytest, flake8, golden,
+  mutazioni, commit.
+- [Trappole già pagate](.claude/trappole.md) — i difetti che sono
+  costati ore e possono ancora tornare.
+- [Sicurezza](.claude/sicurezza.md) — segreti, shell, robots.txt.
 
-```python
-def audit(context: dict) -> dict:
-    ...
-```
+Aggiungere un argomento significa aggiungere **un file e la sua riga
+`@`**: se un file c'è e la riga manca, il testo non arriva nel contesto
+e nessuno se ne accorge, perché il file esiste e si legge benissimo.
 
-`mars_core.load_external_module()` carica i moduli dal filesystem a
-runtime; `MODULES_REGISTRY` (in `mars_core.py`) elenca quali e in quale
-ordine. Aggiungere un'area = un file più una riga nel registro.
-
-### Cosa arriva in `context`
-
-| chiave | contenuto |
-|---|---|
-| `url` | URL di partenza |
-| `pages` | dict `url -> pagina` (vedi sotto) |
-| `urls` | elenco degli URL scansionati |
-| `chunks` | lista di `{"url", "heading", "text"}` — **le unità su cui lavorano i retriever** |
-| `queries` | query su cui gira la simulazione RRF; default generico nella lingua del sito |
-| `discovery` | come sono state trovate le pagine: `sitemap` o `link interni` |
-| `robots` | robots.txt grezzo: `found`, `text`, `sitemaps` |
-| `sitemap` | statistiche della sitemap: `urls`, `with_lastmod`, `index_files`, `unreadable`… |
-| `delay` | ritardo **effettivo** fra due richieste, in secondi: robots.txt può averlo alzato con `Crawl-delay`. Chi rivisita le pagine (il browser di `mars_wcag`) deve rispettarlo |
-| `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
-| `lang` | lingua del referto, `it` (predefinita) o `en`. **Non e' solo resa**: e' anche la lingua che si chiede agli strumenti esterni, i cui testi nascono al momento della misura — `--locale` di Lighthouse, il file di locale di axe. Un modulo che porta testi di terzi dichiara in `params["text_lang"]` la lingua in cui sono davvero, cosi' il referto puo' dirlo |
-| `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
-| `market` | mercato per la citabilità: `global` (predefinito), `eu`, `us`, `cn`. Lo legge `mars_citability` — pesa gli assistenti e, dove c'è una ragione concreta, moltiplica un segnale (oggi solo l'accessibilità per `eu`, European Accessibility Act) |
-| `robots_ignored` | `True` se è stata dichiarata la proprietà del dominio |
-| `owner_declaration` | dichiarazione di proprietà: abilita anche l'active scan WAPT |
-| `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); i moduli le preferiscono all'ambiente |
-| `skipped` | motivo di ogni URL scartato dal crawler |
-
-Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
-`chunks`, `json_ld`, `images`, `meta_robots`, `canonical`,
-`x_robots_tag`, più la struttura che `estrai_struttura()` legge sullo
-stesso DOM: `heading_levels`, `form_fields`, `tables`, `links`,
-`tabindex`. Sono già estratti dal crawler: **non riparsare l'HTML** in
-un modulo, il DOM è già stato attraversato una volta.
-
-Il crawler estrae **dati grezzi, non giudizi**: `role="presentation"` su
-una tabella arriva com'è, decidere che esenti dal criterio tocca al
-modulo. Le uniche cose già risolte sono quelle che richiedono il
-documento intero e a valle non sarebbero più ricostruibili — la
-`<label for>` che punta a un campo e la `<label>` che lo avvolge.
-Servono altri dati? Si aggiungono lì, non si riapre l'HTML: legarsi a
-`pagina["html"]` significa che smettere di conservarlo svuoterebbe i
-controlli **senza un errore**.
-
-### Cosa restituire
-
-`score` (0-100) e `issues` (lista di stringhe) sono opzionali ma
-riconosciuti dal referto. Chiavi aggiuntive sono libere.
-
-Se `audit()` solleva o non restituisce un `dict`, l'area **non
-sparisce**: il referto la mostra con `status: "error"` e il motivo fra i
-rilievi (`normalizza_risultato()` / `errore_modulo()` in `mars_core`).
-Un'area persa in silenzio è peggio di una dichiarata fallita — vedi R22.
-
-**`score: None` più `status: "unavailable"` quando l'area non è stata
-misurata** — strumento assente, sito irraggiungibile. Non è la stessa
-cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
-`non misurato`.
-
-**Un rilievo è un CONTROLLO, non un'occorrenza**, e dichiara le pagine
-su cui è scattato in `params["urls"]`. Lo stesso difetto su venti
-pagine resta **un** rilievo: la cardinalità dei rilievi è accoppiata al
-punteggio in tutta MARS, e spezzarlo per pagina moltiplicherebbe la
-penalità per venti. Il conteggio (`pagine`, `immagini`, `nodes`…) dice
-quanto, `urls` dice dove — sono due domande diverse e convivono. Chi
-legge quella lista è `pagine_del_rilievo()` in `mars_core`, e la
-treemap del referto vi si colora sopra. Un modulo che la pagina la sa e
-non la dichiara toglie il rilievo dalla treemap **senza un errore** —
-vedi R47. Il campo `doc_url` è un'altra cosa: il link alla
-documentazione della regola dello strumento, mai una pagina del sito.
-
-## Principi da non violare
-
-1. **Gli algoritmi core sono scritti a mano** — crawler, BM25, proxy
-   char-TFIDF, RRF, chunker. Non sostituirli con librerie: sono il
-   valore del progetto, non un dettaglio implementativo.
-2. **Degradazione graduale.** Lighthouse, ZAP, sentence-transformers,
-   Anthropic sono tutti opzionali. Se mancano si ripiega e **lo si
-   dichiara**; non si solleva e non si inventa un punteggio.
-3. **Moduli plugin, contratto sopra.** Il `context` e ciò che contiene
-   restano **dict**: attraversano il confine dei plugin, e imporre
-   classi di `mars_core` costringerebbe ogni modulo esterno a
-   importarle. I `@dataclass` valgono per le strutture interne a un
-   modulo.
-4. **CLI e API sono due interfacce sopra lo stesso motore.**
-   `build_context()`, `MODULES_REGISTRY` e `load_external_module()`
-   stanno in `mars_core`: se ti trovi a copiare qualcosa fra
-   `mars_audit.py` e `mars_api.py`, appartiene a `mars_core`.
-5. **Onestà metodologica.** Ogni punteggio deve derivare da una misura.
-   Se è una stima euristica, il referto lo dice. Se un'area non è stata
-   guardata, il referto lo dice. Vale anche per le docstring: diverse
-   dichiarano quanto della propria area *non* coprono ancora.
-6. **Interfaccia in italiano**, identificatori in inglese.
-7. **Stile di riferimento: `mars_citations.py`.** Type hints,
-   `from __future__ import annotations`, I/O separato dalla logica, il
-   dato prima della presentazione, docstring che spiegano il *perché*.
-
-## Come si lavora
-
-- **`pytest` deve restare verde**, e la suite non deve toccare la rete:
-  la fixture `niente_rete` lo impedisce, ed e' `autouse` perche' nessuno
-  possa dimenticarla.
-  Si invoca **senza `-q`**: `setup.cfg` ce l'ha già in `addopts`, e un
-  secondo `-q` fa `-qq`, che sopprime la riga di riepilogo finale — la
-  suite può essere rossa senza che si veda. In uno script, decidere dal
-  **codice di uscita**, mai da una parola nell'output.
-- **Reintrodurre il difetto per fidarsi del test.** Un test verde non
-  dimostra nulla finche' non lo si e' visto fallire. Un giro di mutazioni
-  va eseguito con **`PYTHONDONTWRITEBYTECODE=1`**: applicare e
-  ripristinare una mutazione della stessa lunghezza dentro lo stesso
-  secondo lascia in `__pycache__` il bytecode vecchio (vedi la trappola
-  qui sotto), e le mutazioni di un carattere — `3.0` -> `5.0` — vengono
-  valutate sul codice sbagliato. Verificare inoltre che il file resti
-  **importabile**: una mutazione che rompe la sintassi fa fallire tutto
-  e non dimostra che il test cogliesse quel difetto.
-- **Il referto ha dei golden.** `tests/golden/` congela la resa dei tre
-  formati su due referti sintetici. Cambiare una resa — o un punteggio,
-  perche' i golden congelano la pipeline intera — fa fallire
-  `tests/test_golden.py`: si rigenera con `MARS_RIGENERA_GOLDEN=1 pytest`
-  e **si rivede il diff**, non si rigenera per far tornare il verde.
-- **`flake8` deve restare a zero.** `setup.cfg` è già configurato:
-  basta `flake8 .`. È il controllo che ha rivelato il difetto più grave
-  del progetto (login rotto da una funzione definita due volte).
-- **Verificare, non dedurre.** Prima di correggere, riprodurre il
-  difetto; dopo, dimostrare che è chiuso. Diverse voci di
-  [AS-IS.md](AS-IS.md) documentano previsioni smentite dalla misura:
-  registrarle vale più che cancellarle.
-- **Un commit per voce del TO-DO**, e **la riformattazione in un commit
-  separato** da ciò che cambia il comportamento.
-- **Chiuso ≠ cancellato.** Una voce risolta si sposta dal TO-DO ad
-  AS-IS con difetto, soluzione e verifiche, così nessuno rifà la stessa
-  indagine.
-
-## Trappole già pagate
-
-Costano ore se le si reincontra senza saperlo.
-
-- **`bcrypt` è pinnato a 4.0.1.** passlib 1.7.4 non sa leggere la
-  versione di bcrypt ≥ 4.1 e solleva `AttributeError`: ogni login si
-  rompe. Non alzare il vincolo senza aver aggiornato passlib.
-- **`load_external_module` registra in `sys.modules` prima di eseguire
-  il modulo.** Senza, ogni modulo che usi `@dataclass` insieme a
-  `from __future__ import annotations` fallisce con un errore
-  incomprensibile.
-- **Il caricatore compila la sorgente invece di usare `exec_module()`.**
-  Il bytecode cache di Python valida su *(mtime in secondi interi,
-  dimensione)*: un file modificato nello stesso secondo e della stessa
-  lunghezza — cambiare una cifra, invertire un booleano — verrebbe
-  eseguito nella versione vecchia, senza un solo errore.
-- **`RobotFileParser` senza `parse()` nega ogni URL.** Va chiamato
-  `parse([])` anche quando robots.txt manca. E `crawl_delay()` per un
-  agente specifico **non eredita** da `*`.
-- **Un IPv6 letterale non si taglia sui due punti.** `[2001:db8::1]`
-  ne è pieno: `split(":")[0]` dà `[2001`, e due indirizzi diversi
-  diventano lo stesso host — il filtro same-host salta senza un
-  errore. `parts.hostname` toglie invece le quadre, e l'URL ricomposto
-  non è più un indirizzo valido. Vedi R24.
-- **Normalizzare un URL può sollevare `ValueError`**, e non solo dentro
-  `normalize_url`: su un IPv6 malformato solleva **`urljoin` stesso**,
-  prima. Gli URL vengono dal sito analizzato, quindi sono dato ostile:
-  usare `safe_normalize_url()`, che restituisce `None`, e dichiarare lo
-  scarto in `skipped`. Vedi R15.
-- **Corpus e query si tokenizzano con la stessa funzione.**
-  `tokenize()` sta in `mars_core` proprio per questo: se i due lati
-  divergono, la query smette di trovare ciò che l'indice contiene, e
-  non c'è alcun errore — solo punteggi sbagliati. Con
-  `.lower().split()` bastava un `?` a escludere una parola. Vedi R18.
-- **Un redirect è un URL nuovo, e va ricontrollato prima di seguirlo.**
-  `requests` li segue da solo e l'arrivo non viene più esaminato: basta
-  un `302` perché il sito faccia scaricare al crawler un percorso
-  `Disallow` o il contenuto di un altro host. Le pagine passano da
-  `_scarica_pagina()`, che controlla ogni salto **prima** di farlo;
-  robots.txt e sitemap li seguono ancora da sé (RFC 9309). Vedi R17.
-- **`resp.text` decodifica in ISO-8859-1 ogni `text/*` senza charset.**
-  È il default legacy di RFC 2616 che `requests` applica ancora: su un
-  sito UTF-8 restituisce mojibake, e il corpus si corrompe in silenzio.
-  Usare `decode_html()` per le pagine e `resp.content` per il resto.
-  Vedi R16.
-- **Vietare la rete non basta a fermare un browser.** Playwright non
-  passa da `requests`: prima che `conftest.py` rendesse
-  `playwright.sync_api` non importabile, la sola parte WCAG della suite
-  lanciava **15 volte** chrome-headless-shell, mentre fixture e README
-  dichiaravano il contrario. Si neutralizza la **libreria**, non
-  `mars_wcag`, così non dipende da quale oggetto-modulo sia vivo.
-  Vedi R20.
-- **`node_modules` non è nell'ambiente di test, ma i moduli lo leggono.**
-  `mars_wcag` prende da `node_modules/axe-core/locales/it.json` i testi di
-  correzione delle regole axe. Un file che c'è su questa macchina e non su
-  un clone appena fatto rende la suite **dipendente dalla macchina**:
-  misurato, cinque test verdi qui e rossi là. Lo si fissa in `conftest.py`
-  (`locale_axe_fisso`), come `force_proxy` fa con sentence-transformers.
-  E la fixture va **presidiata da un test**, perché dove il file c'è la
-  sua assenza è invisibile.
-- **La fixture `niente_rete` copre `requests.get`, non `Session.get`.**
-  Il `Crawler` usa una `Session`: per esercitarlo nei test si monta un
-  `requests.adapters.BaseAdapter` finto sulla sua `session`
-  (`tests/test_core.py`), non si conta sulla fixture. Quell'adattatore
-  deve restare **fedele** a `HTTPAdapter.build_response`: quando
-  fissava `resp.encoding = "utf-8"` tre mutazioni di R16 su cinque
-  passavano inosservate, e finché non impostava `resp.request` il
-  difetto R17 non si manifestava affatto nei test.
-- **`soup.title.string` è `None` su `<title></title>`**, non `""`. Usare
-  `get_text(strip=True)`.
-- **`sentence-transformers` si importa pigramente.** L'import trascina
-  torch e costa ~3 secondi: non riportarlo a livello di modulo.
-- **Il `context` si costruisce una volta per audit.** `/audit/full`
-  scansionava il sito otto volte.
-
-## Sicurezza
-
-- `MARS_SECRET_KEY` firma i JWT. Senza, il server genera una chiave
-  effimera e lo dichiara: i token scadono a ogni riavvio.
-- **Mai interpolare un URL in una stringa di shell.** Gli URL arrivano
-  dall'utente, anche dal corpo di una richiesta API: lista di argomenti
-  e `shell=False`.
-- Il crawler rispetta robots.txt. L'unico modo per ignorarlo è la
-  dichiarazione di proprietà del dominio (`--i-own-this-domain`,
-  `i_own_this_domain`), che viene registrata nel referto.
+@.claude/contratto-moduli.md
+@.claude/principi.md
+@.claude/metodo.md
+@.claude/trappole.md
+@.claude/sicurezza.md

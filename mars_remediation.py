@@ -149,6 +149,7 @@ SFORZO: Dict[str, str] = {
     "tech.index.nofollow": ORE,
     "tech.index.nosnippet": ORE,
     "tech.index.unavailable_after": ORE,
+    "tech.index.agent_only": ORE,
     "tech.index.noarchive": ORE,
     "tech.canonical.missing": ORE,
     "tech.canonical.cross_host": ORE,

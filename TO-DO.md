@@ -19,7 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R34, R36, R38, R41-R45, R47, R50 — l'ultima
+> **Correzioni chiuse**: R1-R34, R36-R37, R38, R41-R45, R47, R50 — R37 a
+> metà: la metà aperta è **R51**. L'ultima
 > nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
 > confrontavano due rese e potevano cadere a cavallo di un secondo.
 > **Aperte**: R35, R37, R39-R40, R46, R48 e R49 —
@@ -239,35 +240,28 @@ La correzione probabile è una riga (indicizzare `heading + testo` anche nel
 vettoriale), ma **cambia tutti i punteggi vettoriali**: va misurata prima e
 dopo su un sito reale, non applicata a intuito.
 
-### R37 — 🟢 LIEVE: il prefisso per agente dell'X-Robots-Tag viene ignorato
-*(trovata misurando, chiudendo R25 il 2026-08-20)*
+### R51 — ⚪ LIEVE: il `<meta name="googlebot">` non ha un agente
+*(la metà di R37 che non si è chiusa il 2026-08-26)*
 
-`X-Robots-Tag` ammette un prefisso che limita la direttiva a un solo crawler:
-`X-Robots-Tag: googlebot: noindex`. `direttive_robots()` lascia il prefisso fra
-i token e la direttiva viene contata come se valesse per tutti — comportamento
-ereditato dalla ricerca per sottostringa, non introdotto da R25. Misurato:
+R37 ha separato il prefisso per agente dell'`X-Robots-Tag`, e il DOM ha
+l'equivalente: `<meta name="googlebot" content="noindex">` vale per il solo
+Google, mentre `<meta name="robots">` vale per tutti. Oggi ricevono lo stesso
+giudizio, perché il crawler unisce i `content` di più meta in **una stringa
+sola** (`mars_core`) e quale meta li portasse è perduto prima di arrivare al
+modulo — `direttive_per_agente()` non può separarli, e lo dichiara nella propria
+docstring.
 
-```
-X-Robots-Tag: noindex             -> 54  [critico] 1/1 pagine escluse dagli indici
-X-Robots-Tag: googlebot: noindex  -> 54  [critico] 1/1 pagine escluse dagli indici
-X-Robots-Tag: gptbot: noindex     -> 54  [critico] 1/1 pagine escluse dagli indici
-```
+Chiuderla vuol dire una chiave nuova nella pagina prodotta dal crawler, cioè il
+contratto documentato in [.claude/contratto-moduli.md](.claude/contratto-moduli.md):
+è la ragione per cui non è stata fatta insieme a R37, dove sarebbe finita in un
+commit che cambiava anche il crawler.
 
-I tre casi sono diversi e ricevono lo stesso giudizio. Il secondo esclude
-Google ma **non** GPTBot, ClaudeBot o PerplexityBot: per la citabilità IA è
-molto meno grave del primo. Il terzo è invece mirato esattamente ai crawler
-che l'area 1 già enumera in `CRAWLER_IA`, e meriterebbe di essere segnalato
-per nome.
+Il comportamento di oggi è **fissato da un test**
+(`test_tech_il_meta_per_agente_resta_fuori_e_lo_si_dichiara`), che diventerà
+rosso quando questa voce si chiuderà: è esattamente quando va riscritto.
 
-- [ ] Separare il prefisso per agente e graduare la gravità: tutti i crawler,
-      solo i motori tradizionali, o proprio quelli IA.
-
-R36 ha aggiunto accanto una ricucitura del valore delle direttive
-(`_DIRETTIVE_CON_VALORE`), scritta **per nome** proprio per non peggiorare
-questa voce: ricucire ogni `:` incollerebbe `googlebot:` a `noindex` e
-nasconderebbe la direttiva più grave che il modulo conosce. Un test lo
-presidia (`test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso`):
-chi chiude R37 lo troverà rosso se sbaglia da quella parte.
+- [ ] Conservare l'agente del meta nella pagina, e trattarlo come il prefisso
+      dell'header.
 
 ### R39 — 🟡 MEDIO: `alertRef` non viene mai raggiunto
 *(le caselle 2 e 3 sono chiuse il 2026-08-26 e stanno in [AS-IS.md](AS-IS.md):

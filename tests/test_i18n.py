@@ -121,7 +121,13 @@ def _params_del_banco(monkeypatch) -> dict:
             # frammento non vi scatterebbe piu'.
             "https://esempio.test/c": pagina(
             '<html><head><meta name="robots" content="unavailable_after: '
-            '2020-01-01"></head><body><p>x</p></body></html>')},
+            '2020-01-01"></head><body><p>x</p></body></html>'),
+            # Quarta pagina: una direttiva riservata a un agente che non
+            # e' un assistente. Sta sull'HEADER e non sul meta, perche'
+            # il prefisso per agente vive solo li' (R37).
+            "https://esempio.test/d": dict(
+            pagina('<html><head></head><body><p>x</p></body></html>'),
+            x_robots_tag="googlebot: noindex")},
         "robots": {"found": True, "text": "User-agent: *\nAllow: /",
                    "sitemaps": []},
         "sitemap": {"found": True, "from_robots": True, "urls": 3,

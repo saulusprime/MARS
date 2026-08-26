@@ -361,16 +361,32 @@ def test_tech_il_divieto_di_frammento_su_tutto_il_sito_pesa_di_piu():
     assert misto["source_severity"] == "critico"
 
 
-def test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso():
-    """Unire `max-snippet` al suo valore serve; farlo per ogni `:`
-    incollerebbe `googlebot:` a `noindex` e nasconderebbe in silenzio
-    la direttiva piu' grave che il modulo conosce (R37 resta aperta,
-    ma il prefisso non deve peggiorare)."""
-    token = mars_tech.direttive_robots({"x_robots_tag": "googlebot: noindex"})
-    assert token >= {"googlebot:", "noindex"}
+def test_tech_le_due_ricuciture_dei_due_punti_non_si_confondono():
+    """Nel modulo i due punti significano due cose, e non vanno confuse.
 
-    esito = mars_tech.audit(_contesto_tech(x_robots_tag="googlebot: noindex"))
-    assert any(f["key"] == "tech.index.noindex" for f in esito["findings"])
+    `max-snippet: 0` e' una direttiva col suo VALORE, e i due pezzi si
+    ricuciono (R36). `googlebot: noindex` e' un PREFISSO per agente, e i
+    due pezzi si separano (R37). Un parser che trattasse i due casi allo
+    stesso modo romperebbe l'altro in silenzio: ricucendo tutto,
+    `googlebot:noindex` diventerebbe un token unico e il noindex
+    sparirebbe; separando tutto, `max-snippet` diventerebbe un agente e
+    sparirebbe il divieto di frammento.
+
+    Fino a R37 questo test asseriva che `googlebot:` restasse fra i
+    token, che era il comportamento di allora — contato come se la
+    direttiva valesse per tutti. R37 lo cambia DI PROPOSITO: qui si
+    fissa il confine fra le due ricuciture, che e' cio' che deve
+    restare vero comunque."""
+    globali, agenti = mars_tech.direttive_per_agente(
+        {"x_robots_tag": "googlebot: noindex, max-snippet: 0"})
+
+    # Il prefisso e' un agente, e si porta dietro cio' che segue.
+    assert set(agenti) == {"googlebot"}
+    assert "noindex" in agenti["googlebot"]
+    # La direttiva con valore resta un token solo, e NON e' un agente.
+    assert "max-snippet:0" in agenti["googlebot"]
+    assert "max-snippet" not in agenti
+    assert globali == set()
 
 
 def test_tech_una_pagina_scaduta_e_fuori_dagli_indici():
@@ -543,6 +559,121 @@ def test_l_esempio_delle_direttive_chiude_davvero_il_rilievo(chiave):
         assert chiave not in chiavi, "%s: l'esempio non chiude" % esempio
 
 
+def test_tech_una_direttiva_per_google_non_e_una_per_gli_assistenti():
+    """R37: `X-Robots-Tag: googlebot: noindex` esclude Google e **non**
+    GPTBot, ClaudeBot o PerplexityBot.
+
+    Misurato prima della correzione, i tre casi ricevevano lo stesso
+    identico giudizio — 54, `tech.index.noindex` critico — mentre sono
+    fatti diversi. Questo progetto misura la citabilita' IA: una
+    direttiva mirata al solo Google non toglie il sito agli assistenti,
+    e chiamarla critica direbbe il falso.
+
+    La contropartita e' dichiarata: la gravita' di un'esclusione reale
+    da Google SCENDE. E' una scelta editoriale coerente con l'oggetto
+    del progetto, non una svista, e sta nella docstring del modulo."""
+    tutti = mars_tech.audit(_contesto_tech(x_robots_tag="noindex"))
+    solo_google = mars_tech.audit(
+        _contesto_tech(x_robots_tag="googlebot: noindex"))
+    chiavi = {f["key"] for f in solo_google["findings"]}
+
+    per_chiave = {f["key"]: f for f in solo_google["findings"]}
+    assert "tech.index.noindex" not in chiavi
+    assert "tech.index.agent_only" in chiavi
+    assert solo_google["score"] > tutti["score"]
+
+    ristretto = per_chiave["tech.index.agent_only"]
+    assert ristretto["params"]["agents"] == ["googlebot"]
+    assert ristretto["params"]["directives"] == ["noindex"]
+    # Senza `urls` il rilievo esce dalla treemap, e senza un errore (R47).
+    assert ristretto["params"]["urls"] == ["https://esempio.test/"]
+
+
+def test_tech_una_direttiva_mirata_a_un_crawler_ia_resta_grave():
+    """L'altra meta', ed e' quella che conta: `gptbot: noindex` colpisce
+    esattamente i crawler che l'area 1 enumera in `CRAWLER_IA`.
+
+    Deve restare il rilievo di sempre, con la gravita' di sempre, e
+    dire per NOME chi e' escluso."""
+    tutti = mars_tech.audit(_contesto_tech(x_robots_tag="noindex"))
+    solo_ia = mars_tech.audit(_contesto_tech(x_robots_tag="gptbot: noindex"))
+    per_chiave = {f["key"]: f for f in solo_ia["findings"]}
+
+    assert "tech.index.noindex" in per_chiave
+    assert per_chiave["tech.index.noindex"]["source_severity"] == "critico"
+    assert solo_ia["score"] == tutti["score"]
+    assert per_chiave["tech.index.noindex"]["params"]["agents"] == ["gptbot"]
+
+
+def test_tech_il_prefisso_vale_fino_al_prossimo(monkeypatch):
+    """Piu' header `X-Robots-Tag` arrivano uniti da una virgola sola —
+    e' `requests` che li concatena — quindi il prefisso non si legge
+    per token ma per POSIZIONE: vale fino al prossimo che compare.
+
+    Il caso e' quello documentato da Google:
+        X-Robots-Tag: googlebot: nofollow
+        X-Robots-Tag: otherbot: noindex, nofollow
+    """
+    esito = mars_tech.audit(_contesto_tech(
+        x_robots_tag="googlebot: nofollow, gptbot: noindex, nosnippet"))
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+
+    # Le due direttive dopo `gptbot:` sono entrambe sue.
+    assert "tech.index.noindex" in per_chiave
+    assert per_chiave["tech.index.noindex"]["params"]["agents"] == ["gptbot"]
+    # E il nofollow di googlebot non e' diventato un nofollow di tutti.
+    assert "tech.index.nofollow" not in per_chiave
+    assert "tech.index.agent_only" in per_chiave
+
+
+def test_tech_senza_prefisso_la_direttiva_vale_per_tutti():
+    """Il caso normale non deve cambiare: nessun prefisso, nessun
+    agente, e il rilievo non porta `agents`."""
+    esito = mars_tech.audit(_contesto_tech(x_robots_tag="noindex, nofollow"))
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+
+    assert per_chiave["tech.index.noindex"]["source_severity"] == "critico"
+    assert "agents" not in per_chiave["tech.index.noindex"]["params"]
+    assert "tech.index.agent_only" not in per_chiave
+
+
+@pytest.mark.parametrize("direttiva", [
+    "max-snippet: 0", "max-snippet:0", "unavailable_after: 2020-01-01",
+    "max-image-preview: none",
+])
+def test_tech_una_direttiva_con_valore_non_e_un_prefisso(direttiva):
+    """Regressione incrociata con R36: `max-snippet: 0` contiene i due
+    punti come `googlebot: noindex`, e un parser che leggesse ogni `:`
+    come prefisso creerebbe l'agente «max-snippet», facendo sparire il
+    divieto di frammento senza un errore."""
+    esito = mars_tech.audit(_contesto_tech(x_robots_tag=direttiva))
+    chiavi = {f["key"] for f in esito["findings"]}
+    assert "tech.index.agent_only" not in chiavi
+
+
+def test_tech_il_meta_per_agente_resta_fuori_e_lo_si_dichiara():
+    """R37 si chiude a META', e la meta' che resta e' dichiarata qui.
+
+    `<meta name="googlebot" content="noindex">` e' l'equivalente nel
+    DOM, ma il crawler unisce i `content` di piu' meta in una stringa
+    sola e l'informazione su QUALE meta li portava e' gia' persa
+    (`mars_core`): separarla richiede una chiave nuova nella pagina,
+    cioe' il contratto dei plugin, che e' un altro commit.
+
+    Questo test non e' un desiderio: fissa il comportamento di oggi, e
+    diventera' rosso il giorno in cui qualcuno chiudera' l'altra meta'
+    — che e' esattamente quando va riscritto."""
+    p = pagina(html='<html lang="it"><head>'
+                    '<meta name="googlebot" content="noindex">'
+                    '</head><body><p>x</p></body></html>')
+    ctx = _contesto_tech()
+    ctx["pages"] = {"https://esempio.test/": p}
+    chiavi = {f["key"] for f in mars_tech.audit(ctx)["findings"]}
+
+    assert "tech.index.noindex" in chiavi, \
+        "il meta per agente e' ancora contato come globale: e' la meta' aperta"
+
+
 def test_tech_nofollow_su_tutto_il_sito_pesa_piu_che_su_una_pagina():
     """Un `nofollow` su una pagina e' una scelta legittima; su tutte,
     la scoperta dipende interamente dalla sitemap.
@@ -593,7 +724,7 @@ TECH_CHIAVI = {
     "tech.sitemap.unreadable", "tech.sitemap.no_lastmod",
     "tech.index.noindex", "tech.index.nofollow",
     "tech.index.nosnippet", "tech.index.noarchive",
-    "tech.index.unavailable_after",
+    "tech.index.unavailable_after", "tech.index.agent_only",
     "tech.canonical.cross_host", "tech.canonical.missing",
 }
 

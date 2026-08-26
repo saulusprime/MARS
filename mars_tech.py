@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.robotparser import RobotFileParser
 
 from mars_core import (USER_AGENT, Finding, norm_host,
@@ -36,6 +36,11 @@ CRAWLER_IA = {
     "Amazonbot": "Amazon",
     "meta-externalagent": "Meta",
 }
+
+# I nomi di CRAWLER_IA in minuscolo. Le direttive sono insensibili al
+# maiuscolo per specifica, quindi il confronto avviene qui e non a
+# ogni chiamata.
+_CRAWLER_IA_MINUSCOLI = frozenset(n.lower() for n in CRAWLER_IA)
 
 # Direttive che escludono la pagina dagli indici, e direttive che
 # impediscono di seguirne i link. `none` sta in entrambe: per Google e
@@ -70,9 +75,11 @@ _SEPARATORI = re.compile(r"[,\s]+")
 # che serve. Le quattro con valore sono elencate per intero anche se
 # oggi il modulo ne giudica due: e' la stessa riga, e ometterle
 # lascerebbe il difetto in agguato per la prossima che si aggiunge.
+NOMI_CON_VALORE = frozenset({
+    "max-snippet", "max-image-preview", "max-video-preview",
+    "unavailable_after"})
 _DIRETTIVE_CON_VALORE = re.compile(
-    r"\b(max-snippet|max-image-preview|max-video-preview"
-    r"|unavailable_after)\s*:\s*")
+    r"\b(%s)\s*:\s*" % "|".join(sorted(NOMI_CON_VALORE)))
 
 # La scadenza si legge dal GREZZO, non dai token: il suo valore e' una
 # data, e una data puo' contenere spazi e virgole — cioe' esattamente i
@@ -226,10 +233,89 @@ def direttive_robots(pagina: dict) -> Set[str]:
 
     Le direttive con valore (`max-snippet: 0`) arrivano come UN token,
     valore compreso: vedi `_DIRETTIVE_CON_VALORE`.
+
+    Dal 2026-08-26 (R37) questa e' la vista **efficace per gli
+    assistenti**: le direttive senza prefisso piu' quelle mirate a un
+    crawler di `CRAWLER_IA`. Una direttiva riservata a `googlebot` non
+    compare qui — non toglie il sito agli assistenti — e viene
+    riportata a parte da `controlla_indicizzabilita`.
     """
+    return direttive_efficaci(*direttive_per_agente(pagina))
+
+
+def direttive_efficaci(globali: Set[str],
+                       per_agente: Dict[str, Set[str]]) -> Set[str]:
+    """Le direttive che valgono per gli assistenti IA.
+
+    Le globali piu' quelle mirate a un crawler di `CRAWLER_IA`. Sta in
+    una funzione sola perche' la usano sia `direttive_robots` sia
+    `controlla_indicizzabilita`: calcolarla due volte significherebbe
+    che mutarne una non si vede — misurato, tre mutazioni di R37
+    passavano inosservate finche' la regola era scritta in due punti.
+    """
+    efficaci = set(globali)
+    for agente, direttive in per_agente.items():
+        if agente in _CRAWLER_IA_MINUSCOLI:
+            efficaci |= direttive
+    return efficaci
+
+
+def direttive_per_agente(pagina: dict) -> Tuple[Set[str], Dict[str, Set[str]]]:
+    """Le direttive che valgono per tutti, e quelle ristrette a un agente.
+
+    `X-Robots-Tag` ammette un prefisso che limita la direttiva a un solo
+    crawler (`X-Robots-Tag: googlebot: noindex`), e i tre casi sono
+    diversi: escludere tutti, escludere il solo Google, escludere
+    proprio i crawler degli assistenti. Prima ricevevano lo stesso
+    giudizio (R37).
+
+    Il prefisso si legge per POSIZIONE, non per token: piu' header
+    `X-Robots-Tag` arrivano uniti da una virgola sola — e' `requests`
+    che li concatena — quindi un prefisso vale fino al prossimo che
+    compare. E' il caso documentato da Google:
+
+        X-Robots-Tag: googlebot: nofollow
+        X-Robots-Tag: otherbot: noindex, nofollow
+
+    Un pezzo con i due punti NON e' un prefisso se cio' che sta a
+    sinistra e' il nome di una direttiva con valore: `max-snippet: 0`
+    creerebbe altrimenti l'agente «max-snippet» e farebbe sparire il
+    divieto di frammento senza un errore.
+
+    Il meta `robots` non ha prefisso e finisce tutto fra le globali. Il
+    `<meta name="googlebot">` e' l'equivalente nel DOM ma resta fuori:
+    il crawler unisce i `content` di piu' meta in una stringa sola, e
+    quale meta li portasse e' gia' perduto prima di qui. Separarlo
+    vuole una chiave nuova nella pagina, cioe' il contratto dei plugin
+    — la meta' di R37 che resta aperta.
+    """
+    globali = {t for t in _SEPARATORI.split(
+        _DIRETTIVE_CON_VALORE.sub(
+            r"\1:", (pagina.get("meta_robots") or "").lower())) if t}
+    per_agente: Dict[str, Set[str]] = {}
+
     grezzo = _DIRETTIVE_CON_VALORE.sub(
-        r"\1:", _direttive_grezze(pagina).lower())
-    return {t for t in _SEPARATORI.split(grezzo) if t}
+        r"\1:", (pagina.get("x_robots_tag") or "").lower())
+    agente = None
+    for pezzo in grezzo.split(","):
+        pezzo = pezzo.strip()
+        if not pezzo:
+            continue
+        if ":" in pezzo:
+            testa, _, resto = pezzo.partition(":")
+            if testa.strip() not in NOMI_CON_VALORE:
+                agente = testa.strip()
+                pezzo = resto.strip()
+                if not pezzo:
+                    continue
+        for token in _SEPARATORI.split(pezzo):
+            if not token:
+                continue
+            if agente:
+                per_agente.setdefault(agente, set()).add(token)
+            else:
+                globali.add(token)
+    return globali, per_agente
 
 
 def scadenza_dichiarata(pagina: dict) -> Optional[datetime]:
@@ -268,6 +354,17 @@ def scadenza_dichiarata(pagina: dict) -> Optional[datetime]:
     return None
 
 
+def _agenti(agenti_di: Dict[str, Set[str]], categoria: str) -> Dict[str, object]:
+    """`agents` solo se la direttiva era riservata a qualcuno.
+
+    La chiave ASSENTE significa «valeva per tutti», che e' il caso
+    normale: metterla sempre, vuota, obbligherebbe ogni lettore a
+    distinguere la lista vuota dall'assenza.
+    """
+    chi = agenti_di.get(categoria)
+    return {"agents": sorted(chi)} if chi else {}
+
+
 def controlla_indicizzabilita(context: dict) -> List[Finding]:
     """meta robots, X-Robots-Tag e canonical, pagina per pagina.
 
@@ -285,8 +382,38 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
     # riceverebbero giudizi diversi, e l'audit non sarebbe riproducibile
     # su se stesso.
     adesso = datetime.now(timezone.utc)
+    # Chi, per NOME, ha chiesto ciascuna direttiva. Un rilievo aggrega
+    # piu' pagine, quindi qui si accumula l'unione: `params["agents"]`
+    # dice a quali crawler IA la direttiva era riservata, e la sua
+    # assenza dice che valeva per tutti (R37).
+    agenti_di: Dict[str, Set[str]] = {}
+    # Le direttive riservate a chi NON e' un assistente: non tolgono il
+    # sito agli assistenti, ma vanno dette.
+    ristrette, agenti_altrui, direttive_altrui = [], set(), set()
     for url, dati in pages.items():
-        direttive = direttive_robots(dati)
+        globali, per_agente = direttive_per_agente(dati)
+        direttive = direttive_efficaci(globali, per_agente)
+        agenti_ia = sorted(a for a in per_agente
+                           if a in _CRAWLER_IA_MINUSCOLI)
+        altrui = {a: d for a, d in per_agente.items()
+                  if a not in _CRAWLER_IA_MINUSCOLI}
+        if altrui:
+            ristrette.append(url)
+            agenti_altrui |= set(altrui)
+            for d in altrui.values():
+                direttive_altrui |= d
+
+        def nomina(categoria: str, insieme: frozenset) -> None:
+            """Quali crawler IA hanno chiesto questa direttiva per nome."""
+            chi = {a for a in agenti_ia if per_agente[a] & insieme}
+            if chi:
+                agenti_di.setdefault(categoria, set()).update(chi)
+
+        nomina("noindex", DIRETTIVE_NOINDEX)
+        nomina("nofollow", DIRETTIVE_NOFOLLOW)
+        nomina("nosnippet", DIRETTIVE_NOSNIPPET)
+        nomina("noarchive", DIRETTIVE_NOARCHIVE)
+
         escluso = bool(direttive & DIRETTIVE_NOINDEX)
         if escluso:
             noindex.append(url)
@@ -322,7 +449,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "in meta robots o X-Robots-Tag)"
                      % (len(noindex), len(pages)),
             "tech.index.noindex",
-            pagine=len(noindex), totale=len(pages), urls=sorted(noindex)))
+            pagine=len(noindex), totale=len(pages), urls=sorted(noindex),
+            **_agenti(agenti_di, "noindex")))
     if scadute:
         # Stesso denominatore del divieto di frammento: le pagine non
         # gia' dichiarate fuori dagli indici per altra via.
@@ -349,7 +477,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      % (len(nosnippet), len(pages)),
             "tech.index.nosnippet",
             pagine=len(nosnippet), totale=len(pages),
-            urls=sorted(nosnippet)))
+            urls=sorted(nosnippet),
+            **_agenti(agenti_di, "nosnippet")))
     if canonical_altrove:
         rilievi.append(_rilievo(
             "grave", "%d pagine con canonical verso un altro host: il "
@@ -369,7 +498,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
             gravita, "%d/%d pagine non fanno seguire i propri link "
                      "(nofollow o none)" % (len(nofollow), len(pages)),
             "tech.index.nofollow",
-            pagine=len(nofollow), totale=len(pages), urls=sorted(nofollow)))
+            pagine=len(nofollow), totale=len(pages), urls=sorted(nofollow),
+            **_agenti(agenti_di, "nofollow")))
     if noarchive:
         rilievi.append(_rilievo(
             "lieve", "%d/%d pagine vietano la copia in cache "
@@ -377,7 +507,24 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "archiviata no" % (len(noarchive), len(pages)),
             "tech.index.noarchive",
             pagine=len(noarchive), totale=len(pages),
-            urls=sorted(noarchive)))
+            urls=sorted(noarchive),
+            **_agenti(agenti_di, "noarchive")))
+    if ristrette:
+        # Medio e non critico: escludersi da Google pesa, ma questo
+        # progetto misura la citabilita' IA, e una direttiva mirata a
+        # chi non e' un assistente non toglie il sito agli assistenti.
+        # E' la scelta che ABBASSA la gravita' di un'esclusione reale
+        # da Google, ed e' editoriale: sta scritta anche in `audit`.
+        rilievi.append(_rilievo(
+            "medio", "%d/%d pagine con direttive riservate a un agente che "
+                     "non e' un assistente IA (%s): %s"
+                     % (len(ristrette), len(pages),
+                        ", ".join(sorted(agenti_altrui)),
+                        ", ".join(sorted(direttive_altrui))),
+            "tech.index.agent_only",
+            pagine=len(ristrette), totale=len(pages), urls=sorted(ristrette),
+            agents=sorted(agenti_altrui),
+            directives=sorted(direttive_altrui)))
     if senza_canonical:
         rilievi.append(_rilievo(
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"

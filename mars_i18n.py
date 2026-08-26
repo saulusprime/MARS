@@ -215,6 +215,14 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                "is excluded from indexes as by a noindex.",
         "example": '<meta name="robots" content="index, follow">',
     },
+    "tech.index.agent_only": {
+        "title": "%(pagine)d/%(totale)d pages with directives restricted "
+                 "to an agent that is not an AI assistant (%(agents)s): "
+                 "%(directives)s",
+        "fix": "Remove the per-agent prefix if the directive must apply "
+               "to every crawler. If the restriction is deliberate, note "
+               "that the AI assistants are not affected by it.",
+    },
     "tech.index.nosnippet": {
         "title": "%(pagine)d/%(totale)d pages indexed but not citable: "
                  "no fragment of their text may appear in an answer "

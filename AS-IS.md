@@ -2355,6 +2355,61 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R37 — ✅ RISOLTO A METÀ (2026-08-26): tre casi diversi, un giudizio solo
+*(la metà che resta — il `<meta name="googlebot">` — è una voce nuova, R51)*
+
+**Il difetto, misurato prima e dopo.** `X-Robots-Tag` ammette un prefisso che
+limita la direttiva a un solo crawler, e i tre casi ricevevano lo stesso identico
+giudizio:
+
+| `X-Robots-Tag` | prima | dopo | rilievo |
+|---|---|---|---|
+| `noindex` | 54 | 54 | `tech.index.noindex` critico |
+| `googlebot: noindex` | 54 | **86** | `tech.index.agent_only` medio |
+| `gptbot: noindex` | 54 | 54 | `tech.index.noindex` critico, `agents: [gptbot]` |
+
+**La contropartita è dichiarata, non nascosta.** Questa correzione **abbassa** la
+gravità di un'esclusione reale da Google. È una scelta editoriale coerente con
+l'oggetto del progetto — MARS misura la citabilità IA, e una direttiva mirata al
+solo Google non toglie il sito agli assistenti — e sta scritta nella docstring
+del modulo, non solo qui.
+
+**Il prefisso si legge per posizione, non per token.** Più header `X-Robots-Tag`
+arrivano uniti da **una virgola sola**: è `requests` che li concatena
+(`resp.headers.get`). Quindi un prefisso vale fino al prossimo che compare, ed è
+il caso documentato da Google:
+
+```
+X-Robots-Tag: googlebot: nofollow
+X-Robots-Tag: otherbot: noindex, nofollow
+```
+
+**I due punti significano due cose, e confonderle rompe l'altra.**
+`max-snippet: 0` è una direttiva col suo valore, e i due pezzi si **ricuciono**
+(R36); `googlebot: noindex` è un prefisso, e i due pezzi si **separano**. Un
+parser che trattasse ogni `:` allo stesso modo romperebbe l'altro caso in
+silenzio: ricucendo tutto sparirebbe il noindex, separando tutto sparirebbe il
+divieto di frammento. Il confine è presidiato da un test che li esercita insieme.
+
+**Tre mutazioni sfuggite alla prima esecuzione**, e la ragione era un difetto
+vero: `direttive_robots` e `controlla_indicizzabilita` calcolavano **entrambe**
+quali direttive valgono per gli assistenti. Con la regola scritta in due punti,
+mutarne uno non si vedeva — `direttive_robots` era diventata di fatto codice
+morto per il modulo, viva solo nei test. Estratta `direttive_efficaci()`, unica
+definizione, le tre mutazioni diventano rosse. Una quarta sfuggiva perché il test
+non asseriva `params["urls"]` sul rilievo nuovo, che senza uscirebbe dalla
+treemap (R47).
+
+**Il test che fissava il comportamento vecchio è stato riscritto, non piegato.**
+`test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso` asseriva che
+`googlebot:` restasse fra i token: era il comportamento di allora, e R37 lo cambia
+di proposito. Al suo posto un test che fissa il **confine fra le due ricuciture**,
+che è ciò che deve restare vero comunque.
+
+**Verifiche.** 998 test verdi (erano 989), `flake8` a zero, golden fermi — i due
+referti sintetici non portano prefissi per agente. **Dieci mutazioni su dieci**
+fanno rosso, dopo la rimozione della duplicazione.
+
 ### R39 (caselle 2 e 3) — ✅ RISOLTE (2026-08-26): un WAPT tentato e fallito taceva
 *(la casella 1 — raggruppare per `alertRef` — resta aperta per decisione: sposta i
 punteggi di ogni sito e migra le chiavi pubbliche, quindi vuole un commit suo)*

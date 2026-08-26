@@ -170,6 +170,14 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "e' voluta, quelle pagine non saranno mai citate.",
         "example": '<meta name="robots" content="index, follow">',
     },
+    "tech.index.agent_only": {
+        # Niente `example`: la forma di ARRIVO dipende da che cosa si
+        # voleva ottenere col prefisso, e un esempio inventato sarebbe
+        # peggio di nessun esempio (U3.1).
+        "fix": "Togli il prefisso per agente se la direttiva deve valere "
+               "per tutti i crawler. Se la restrizione e' voluta, gli "
+               "assistenti IA non ne sono toccati.",
+    },
     "tech.index.unavailable_after": {
         "fix": "Togli `unavailable_after` o porta avanti la data: "
                "quella dichiarata e' passata, e da allora la pagina e' "

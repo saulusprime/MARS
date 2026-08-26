@@ -628,6 +628,51 @@ def disposizione_ad_anelli(livelli: List[Optional[int]],
     return punti
 
 
+def geometria_arco(partenza: Tuple[float, float],
+                   arrivo: Tuple[float, float],
+                   raggio: float) -> Tuple[float, float, float, float]:
+    """Le due estremita' di un arco, dato dove stanno i due nodi.
+
+    L'arco si ferma sul **bordo** del nodo d'arrivo e non al centro,
+    altrimenti la freccia finisce nascosta sotto il cerchio.
+
+    Sta in una funzione perche' la chiamano due volte per arco — una
+    per il layout a forze, una per quello ad anelli — e prima la stessa
+    aritmetica viveva in due linguaggi: qui e dentro `ridisegna()` del
+    JavaScript, dove nessun test la eseguiva (R48).
+    """
+    dx = arrivo[0] - partenza[0]
+    dy = arrivo[1] - partenza[1]
+    lunghezza = (dx * dx + dy * dy) ** 0.5 or 1.0
+    arretra = (raggio + 3.0) / lunghezza
+    return (partenza[0], partenza[1],
+            arrivo[0] - dx * arretra, arrivo[1] - dy * arretra)
+
+
+def vicinato(archi: List[Dict[str, object]], quanti: int
+             ) -> Tuple[List[List[int]], List[List[int]]]:
+    """Per ogni nodo: i suoi vicini, e gli archi che lo toccano.
+
+    `evidenzia()` scandiva tutti gli archi a ogni passaggio del
+    puntatore per ricavarli. La risposta non dipende dal gesto — e' una
+    proprieta' del grafo — quindi si calcola una volta qui e il
+    JavaScript la legge (R48).
+
+    Un nodo e' vicino di se stesso: e' il modo in cui l'evidenziazione
+    lo tiene acceso senza un caso speciale.
+    """
+    vicini: List[List[int]] = [[i] for i in range(quanti)]
+    incidenti: List[List[int]] = [[] for _ in range(quanti)]
+    for k, arco in enumerate(archi):
+        s, t = int(arco["source"]), int(arco["target"])
+        for uno, altro in ((s, t), (t, s)):
+            if altro not in vicini[uno]:
+                vicini[uno].append(altro)
+            if k not in incidenti[uno]:
+                incidenti[uno].append(k)
+    return ([sorted(v) for v in vicini], incidenti)
+
+
 def ripartizione_pagine(referto: dict) -> Dict[str, int]:
     """I tre numeri del donut dell'hero: quanti URL, e in che stato.
 
@@ -2768,25 +2813,30 @@ def _grafo_html(referto: dict, p: List[str],
              "refY='4' markerWidth='5' markerHeight='5' "
              "orient='auto-start-reverse'>"
              "<path d='M0 0L8 4L0 8z'/></marker></defs>")
-    for arco in grafo["links"]:
-        partenza, arrivo = nodi[arco["source"]], nodi[arco["target"]]
-        dx = arrivo["x"] - partenza["x"]
-        dy = arrivo["y"] - partenza["y"]
-        lunghezza = (dx * dx + dy * dy) ** 0.5 or 1.0
-        # L'arco si ferma sul bordo del nodo d'arrivo, non al centro,
-        # altrimenti la freccia finisce nascosta sotto il cerchio.
-        arretra = (arrivo["r"] + 3.0) / lunghezza
-        p.append("<line class='grafo-arco' data-s='%d' data-t='%d' "
-                 "x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' "
-                 "marker-end='url(#grafo-freccia)'/>"
-                 % (arco["source"], arco["target"], partenza["x"],
-                    partenza["y"], arrivo["x"] - dx * arretra,
-                    arrivo["y"] - dy * arretra))
     # La vista ad anelli, calcolata qui: il JavaScript la applica e non
-    # la ricalcola (R48).
+    # la ricalcola (R48). Serve prima degli archi, perche' ogni arco
+    # pubblica ENTRAMBE le geometrie — le due viste sono due e note.
     anelli = disposizione_ad_anelli(
         [nodo["clicks"] for nodo in nodi],
         float(grafo["width"]), float(grafo["height"]))
+    for arco in grafo["links"]:
+        partenza, arrivo = nodi[arco["source"]], nodi[arco["target"]]
+        forze = geometria_arco((partenza["x"], partenza["y"]),
+                               (arrivo["x"], arrivo["y"]), arrivo["r"])
+        ad_anelli = geometria_arco(anelli[arco["source"]],
+                                   anelli[arco["target"]], arrivo["r"])
+        # Le quattro coordinate della vista ad anelli in UN attributo,
+        # separate da spazi come un `viewBox`: quattro attributi
+        # costavano 76 caratteri per arco contro 32, e su un grafo al
+        # massimo della sua dimensione — 60 nodi, 180 archi — la
+        # differenza misurata e' 7,9 KB. Il JavaScript le separa, e
+        # separare non e' calcolare.
+        p.append("<line class='grafo-arco' data-s='%d' data-t='%d' "
+                 "x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' "
+                 "data-a='%.1f %.1f %.1f %.1f' "
+                 "marker-end='url(#grafo-freccia)'/>"
+                 % ((arco["source"], arco["target"]) + forze + ad_anelli))
+    vicini, incidenti = vicinato(grafo["links"], len(nodi))
     if len(nodi) <= GRAFO_ETICHETTA_TUTTI:
         etichettati = set(range(len(nodi)))
     else:
@@ -2806,12 +2856,15 @@ def _grafo_html(referto: dict, p: List[str],
                 int(nodo["clicks"]), "click", "click", lang)
         p.append("<circle class='grafo-nodo %s' data-i='%d' data-r='%.1f' "
                  "data-c='%s' data-ax='%.1f' data-ay='%.1f' "
+                 "data-v='%s' data-e='%s' "
                  "cx='%.1f' cy='%.1f' r='%.1f'>"
                  "<title>%s — %s, %s, %s</title>"
                  "</circle>"
                  % (classe, i, nodo["r"],
                     "" if nodo["clicks"] is None else nodo["clicks"],
                     anelli[i][0], anelli[i][1],
+                    ",".join(str(v) for v in vicini[i]),
+                    ",".join(str(k) for k in incidenti[i]),
                     nodo["x"], nodo["y"], nodo["r"], _e(nodo["label"]),
                     t("%s in entrata", lang) % _plurale(
                         int(nodo["incoming"]), "link", "link", lang),
@@ -2820,8 +2873,9 @@ def _grafo_html(referto: dict, p: List[str],
                     _e(dove)))
         if i in etichettati:
             p.append("<text class='grafo-etichetta' data-i='%d' x='%.1f' "
-                     "y='%.1f'>%s</text>"
+                     "y='%.1f' data-ax='%.1f' data-ay='%.1f'>%s</text>"
                      % (i, nodo["x"] + nodo["r"] + 3, nodo["y"] + 4,
+                        anelli[i][0] + nodo["r"] + 3, anelli[i][1] + 4,
                         _e(nodo["label"])))
     p.append("</svg>")
     p.append("<p class='grafo-comandi' id='grafo-comandi' hidden>"
@@ -3186,80 +3240,86 @@ REFERTO_JS = """
   if (!nodi.length) { return; }
   var comandi = document.getElementById("grafo-comandi");
   var stato = document.getElementById("grafo-stato");
-  var etichette = {};
-  [].forEach.call(svg.querySelectorAll(".grafo-etichetta"), function (t) {
-    etichette[t.getAttribute("data-i")] = t;
-  });
+  /* Le etichette non sono una per nodo: oltre una certa dimensione il
+     grafo ne mostra solo le piu' linkate. Si tengono come ELENCO,
+     perche' ciascuna porta gia' le proprie due posizioni e non serve
+     piu' risalire al nodo che la possiede. */
+  var etichetteVive = [].slice.call(
+    svg.querySelectorAll(".grafo-etichetta"));
   var vbase = svg.getAttribute("viewBox").split(" ").map(Number);
-  var raggi = nodi.map(function (n) { return +n.getAttribute("data-r") || 6; });
-  var lati = archi.map(function (l) {
-    return [+l.getAttribute("data-s"), +l.getAttribute("data-t")];
+  /* Le DUE viste sono entrambe calcolate in Python: quella a forze sta
+     negli attributi di partenza, quella ad anelli nei `data-a*`. Il
+     layout di partenza si fotografa al caricamento perche' e' cio' a
+     cui "Reimposta" riporta: fotografare non e' calcolare. */
+  function istantanea(elementi, attributi) {
+    return elementi.map(function (el) {
+      return attributi.map(function (a) { return el.getAttribute(a); });
+    });
+  }
+  var nodiForze = istantanea(nodi, ["cx", "cy"]);
+  var archiForze = istantanea(archi, ["x1", "y1", "x2", "y2"]);
+  var testiForze = etichetteVive.map(function (e) {
+    return [e.getAttribute("x"), e.getAttribute("y")];
   });
-  /* Il layout calcolato in Python e' la posizione di partenza, e ci si
-     torna con "Reimposta": la vista ad anelli non lo distrugge. */
-  var partenza = nodi.map(function (n) {
-    return [+n.getAttribute("cx"), +n.getAttribute("cy")];
-  });
-  var pos = partenza.map(function (c) { return c.slice(); });
 
-  function ridisegna() {
-    var i, k, s, t, dx, dy, lung, arretra;
-    for (i = 0; i < nodi.length; i += 1) {
-      nodi[i].setAttribute("cx", pos[i][0].toFixed(1));
-      nodi[i].setAttribute("cy", pos[i][1].toFixed(1));
-      var e = etichette[String(i)];
-      if (e) {
-        e.setAttribute("x", (pos[i][0] + raggi[i] + 3).toFixed(1));
-        e.setAttribute("y", (pos[i][1] + 4).toFixed(1));
-      }
-    }
-    for (k = 0; k < archi.length; k += 1) {
-      s = lati[k][0];
-      t = lati[k][1];
-      dx = pos[t][0] - pos[s][0];
-      dy = pos[t][1] - pos[s][1];
-      lung = Math.sqrt(dx * dx + dy * dy) || 1;
-      arretra = (raggi[t] + 3) / lung;
-      archi[k].setAttribute("x1", pos[s][0].toFixed(1));
-      archi[k].setAttribute("y1", pos[s][1].toFixed(1));
-      archi[k].setAttribute("x2", (pos[t][0] - dx * arretra).toFixed(1));
-      archi[k].setAttribute("y2", (pos[t][1] - dy * arretra).toFixed(1));
-    }
+  /* Applicare, non ricalcolare: l'aritmetica della geometria e' uscita
+     di qui perche' nessun test la eseguiva -- quattro ne guardavano la
+     stringa -- e in Python la suite di sempre la verifica (R48). Al
+     JavaScript restano gli eventi, le classi e lo zoom, che dipendono
+     dal gesto e non si possono precalcolare. */
+  function applica(elementi, attributi, valori) {
+    elementi.forEach(function (el, i) {
+      attributi.forEach(function (a, k) {
+        if (valori[i][k] !== null) { el.setAttribute(a, valori[i][k]); }
+      });
+    });
   }
 
   /* Vista per distanza: un anello per click dalla home, gli orfani
      sul cerchio piu' esterno. Dice a colpo d'occhio quanto e'
      profondo il sito, che il layout a forze non mostra. */
-  /* La disposizione la calcola Python (disposizione_ad_anelli): qui
-     si applica soltanto. Ventisei righe di aritmetica sono uscite di
-     qui perche' nessun test le eseguiva -- quattro ne guardavano la
-     stringa -- e in Python la suite di sempre le verifica (R48). */
   function anelli() {
-    nodi.forEach(function (n, i) {
-      pos[i] = [+n.getAttribute("data-ax"), +n.getAttribute("data-ay")];
-    });
-    ridisegna();
+    applica(nodi, ["cx", "cy"], istantanea(nodi, ["data-ax", "data-ay"]));
+    /* Le quattro coordinate dell'arco viaggiano in un attributo solo,
+       come un `viewBox`: qui si separano, e separare non e' calcolare. */
+    applica(archi, ["x1", "y1", "x2", "y2"], archi.map(function (a) {
+      return (a.getAttribute("data-a") || "").split(" ");
+    }));
+    applica(etichetteVive, ["x", "y"],
+            istantanea(etichetteVive, ["data-ax", "data-ay"]));
   }
 
   function forze() {
-    pos = partenza.map(function (c) { return c.slice(); });
-    ridisegna();
+    applica(nodi, ["cx", "cy"], nodiForze);
+    applica(archi, ["x1", "y1", "x2", "y2"], archiForze);
+    applica(etichetteVive, ["x", "y"], testiForze);
   }
 
   /* Evidenziazione: il nodo, i suoi archi e i suoi vicini restano
      accesi, il resto si spegne. Su un grafo di sessanta nodi e' la
      sola cosa che rende leggibile un groviglio. */
+  /* Vicini e archi incidenti li dichiara il nodo (`data-v`, `data-e`):
+     non dipendono dal gesto, sono una proprieta' del grafo, e Python
+     la conosce. Prima si scandivano TUTTI gli archi a ogni passaggio
+     del puntatore. */
+  function insieme(el, attributo) {
+    var dentro = {};
+    (el.getAttribute(attributo) || "").split(",").forEach(function (x) {
+      if (x !== "") { dentro[x] = true; }
+    });
+    return dentro;
+  }
+
   function evidenzia(i) {
-    var vicini = {};
-    vicini[i] = true;
-    lati.forEach(function (st, k) {
-      var acceso = st[0] === i || st[1] === i;
-      archi[k].classList.toggle("acceso", acceso);
-      archi[k].classList.toggle("spento", !acceso);
-      if (acceso) { vicini[st[0]] = true; vicini[st[1]] = true; }
+    var vicini = insieme(nodi[i], "data-v");
+    var incidenti = insieme(nodi[i], "data-e");
+    archi.forEach(function (a, k) {
+      var acceso = incidenti[String(k)] === true;
+      a.classList.toggle("acceso", acceso);
+      a.classList.toggle("spento", !acceso);
     });
     nodi.forEach(function (n, k) {
-      n.classList.toggle("spento", !vicini[k]);
+      n.classList.toggle("spento", vicini[String(k)] !== true);
     });
     if (stato) {
       var t = nodi[i].querySelector("title");

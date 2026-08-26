@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R48 | Dal JavaScript del grafo esce anche la geometria | 2026-08-26 |
 | R46 | Il conteggio delle istanze è canonico; lo sforzo ci scala | 2026-08-26 |
 | R40 | Tre difetti di `mars_seo` (categoria, testi, item) | 2026-08-26 |
 | R39 | `alertRef` non veniva mai raggiunto; migrazione di chiavi | 2026-08-26 |
@@ -2359,6 +2360,58 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R48 — ✅ CHIUSA (2026-08-26): dal JavaScript esce anche la geometria
+*(la seconda metà. La prima — la disposizione ad anelli — è nella voce
+«R48 — RIDOTTO» più sotto, e resta il racconto di come la voce si era
+rimpicciolita)*
+
+**Che cosa restava.** Dopo il primo passo il JavaScript non calcolava più il
+layout ad anelli, ma `ridisegna()` ricalcolava a ogni cambio di vista le due
+estremità di **ogni arco** — radice quadrata compresa — e la posizione di ogni
+etichetta; `evidenzia()` scandiva **tutti** gli archi a ogni passaggio del
+puntatore per trovare i vicini di un nodo. Aritmetica che nessun test eseguiva.
+
+**Perché era precalcolabile, e non un'ottimizzazione.** Le viste sono **due e
+note**: il layout a forze, che sta già negli attributi `x1..y2`, e quello ad
+anelli, che Python calcola dal primo passo. Il vicinato non dipende dal gesto:
+è una proprietà del grafo. Nessuna delle tre cose dipende da che cosa
+l'utente fa, quindi nessuna ha ragione di stare in uno script.
+
+Ora ogni arco porta anche `data-a` — quattro coordinate in un attributo solo —
+ogni etichetta `data-ax`/`data-ay`, e ogni nodo `data-v` (i vicini, sé stesso
+compreso) e `data-e` (gli archi che lo toccano). `anelli()`, `forze()` ed
+`evidenzia()` applicano attributi; `Math.sqrt` è uscito dallo script, e un test
+lo presidia.
+
+**Tre funzioni nuove in `mars_report`, tutte pure**: `geometria_arco()` — che
+la chiamano due volte per arco, una per vista, dove prima la stessa aritmetica
+viveva in due linguaggi — e `vicinato()`. Le verifica `pytest` come qualunque
+altra funzione.
+
+**Il prezzo misurato smentisce la ricognizione.** Il TO-DO prevedeva 4-5 KB su
+un grafo da 60 nodi. Misurato sulla prima stesura: **15,3 KB**, perché la
+previsione contava i nodi (60) e non gli archi (180, con quattro numeri
+ciascuno). Comprimendo le quattro coordinate in un attributo solo — 32
+caratteri per arco invece di 76, come un `viewBox` — il costo scende a **9,2
+KB**: 5,8 per gli archi, 3,4 per il vicinato. Resta il doppio del previsto, ed
+è dichiarato in [CONTRIBUTING.md](CONTRIBUTING.md) invece di essere lasciato
+scoprire.
+
+**Un test asseriva l'opposto, e lo diceva.**
+`test_i_nodi_del_grafo_portano_la_posizione_ad_anelli` conteneva
+`assert "Math.sqrt" in REFERTO_JS` con la spiegazione «resta: è la lunghezza
+dell'arco in `ridisegna`, cioè il gesto, che R48 non porta via». Il gesto non
+era: era geometria, e questa metà la porta via.
+
+**Verifiche.** 1083 test verdi (erano 1077), `flake8` a zero, golden HTML
+rigenerati e diff riletto. **`tools/banco_grafo.py` rilanciato**: nove
+controlli su nove verdi in un browser vero, compresi i due che questa metà
+riscrive — «gli archi seguono i nodi» e «si torna esattamente al layout
+calcolato in Python». **Otto mutazioni su otto** fanno rosso; **una sfuggiva
+alla prima esecuzione**: un vicino elencato due volte, che il golden non può
+rivelare perché non ha due pagine che si linkano a vicenda. È il caso vero — un
+menu reciproco — e ora ha un test suo.
 
 ### R46 — ✅ RISOLTO (2026-08-26): il conteggio delle istanze è canonico, e lo sforzo ci scala
 

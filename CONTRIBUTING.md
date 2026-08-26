@@ -62,15 +62,25 @@ non su un clone appena fatto è la trappola già pagata con
 che fa girare lo script su un DOM finto e controlla nove comportamenti.
 Esce 0 se sono tutti verdi, 2 se `node` non c'è.
 
-**R48 ha ridotto il perimetro, non lo ha chiuso** (2026-08-26). La
-disposizione ad anelli era ventisei righe di aritmetica dentro il
-JavaScript: ora la calcola `disposizione_ad_anelli()` in
-`mars_report.py` e il disegno la riceve in `data-ax`/`data-ay`, quindi
-`pytest` la verifica come qualunque altra funzione. Al JavaScript
-restano gli **eventi**: il fuoco, l'evidenziazione dei vicini, lo zoom,
-il ritorno al layout di partenza. Quelli il banco continua a essere
-l'unico a provarli, e va rilanciato lo stesso — il porting toglie il
-calcolo, non il gesto.
+**R48 ha tolto dal JavaScript tutto il calcolo** (2026-08-26, in due
+passi). La disposizione ad anelli era ventisei righe di aritmetica
+dentro lo script; poi lo sono state la geometria degli archi, la
+posizione delle etichette e il vicinato di ogni nodo. Ora le calcola
+`mars_report.py` — `disposizione_ad_anelli()`, `geometria_arco()`,
+`vicinato()` — e il disegno le riceve negli attributi (`data-ax`,
+`data-a`, `data-v`, `data-e`), quindi `pytest` le verifica come
+qualunque altra funzione.
+
+Al JavaScript resta il **gesto**: il fuoco, le classi che accendono e
+spengono, lo zoom — che dipende da quante volte si è cliccato e non si
+può precalcolare — e il ritorno al layout di partenza. Quelli il banco
+continua a essere l'unico a provarli, e **va rilanciato lo stesso**: il
+porting toglie il calcolo, non il gesto.
+
+Il prezzo è dichiarato: gli attributi in più costano **9,2 KB** su un
+grafo al massimo della sua dimensione (60 nodi, 180 archi), misurati.
+La ricognizione ne aveva previsti 4-5, e contava i soli nodi: gli archi
+sono tre volte tanti.
 
 **La concorrenza dell'API si prova a mano, per la stessa ragione.**
 

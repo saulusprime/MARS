@@ -794,19 +794,19 @@ Disallow:</pre>
 <path d='M0 0L8 4L0 8z'/>
 </marker>
 </defs>
-<line class='grafo-arco' data-s='0' data-t='1' x1='390.0' y1='270.0' x2='174.4' y2='516.6' marker-end='url(#grafo-freccia)'/>
-<circle class='grafo-nodo casa' data-i='0' data-r='5.0' data-c='0' data-ax='390.0' data-ay='270.0' cx='390.0' cy='270.0' r='5.0'>
+<line class='grafo-arco' data-s='0' data-t='1' x1='390.0' y1='270.0' x2='174.4' y2='516.6' data-a='390.0 270.0 390.0 156.8' marker-end='url(#grafo-freccia)'/>
+<circle class='grafo-nodo casa' data-i='0' data-r='5.0' data-c='0' data-ax='390.0' data-ay='270.0' data-v='0,1' data-e='0' cx='390.0' cy='270.0' r='5.0'>
 <title>/ — 0 link in entrata, 1 link in uscita, punto di partenza</title>
 </circle>
-<text class='grafo-etichetta' data-i='0' x='398.0' y='274.0'>/</text>
-<circle class='grafo-nodo raggiunta' data-i='1' data-r='6.8' data-c='1' data-ax='390.0' data-ay='147.0' cx='167.9' cy='524.0' r='6.8'>
+<text class='grafo-etichetta' data-i='0' x='398.0' y='274.0' data-ax='398.0' data-ay='274.0'>/</text>
+<circle class='grafo-nodo raggiunta' data-i='1' data-r='6.8' data-c='1' data-ax='390.0' data-ay='147.0' data-v='0,1' data-e='0' cx='167.9' cy='524.0' r='6.8'>
 <title>/servizi/ — 1 link in entrata, 0 link in uscita, 1 click dalla home</title>
 </circle>
-<text class='grafo-etichetta' data-i='1' x='177.7' y='528.0'>/servizi/</text>
-<circle class='grafo-nodo orfana' data-i='2' data-r='5.0' data-c='' data-ax='390.0' data-ay='24.0' cx='20.0' cy='16.0' r='5.0'>
+<text class='grafo-etichetta' data-i='1' x='177.7' y='528.0' data-ax='399.8' data-ay='151.0'>/servizi/</text>
+<circle class='grafo-nodo orfana' data-i='2' data-r='5.0' data-c='' data-ax='390.0' data-ay='24.0' data-v='2' data-e='' cx='20.0' cy='16.0' r='5.0'>
 <title>/faq/ — 0 link in entrata, 0 link in uscita, non raggiunta dalla home per link</title>
 </circle>
-<text class='grafo-etichetta' data-i='2' x='28.0' y='20.0'>/faq/</text>
+<text class='grafo-etichetta' data-i='2' x='28.0' y='20.0' data-ax='398.0' data-ay='28.0'>/faq/</text>
 </svg>
 <p class='grafo-comandi' id='grafo-comandi' hidden>
 <button type='button' id='grafo-forze' aria-pressed='true'>Per collegamenti</button> <button type='button' id='grafo-anelli' aria-pressed='false'>Per distanza</button> · <button type='button' id='grafo-piu'>Ingrandisci</button> <button type='button' id='grafo-meno'>Riduci</button> <button type='button' id='grafo-zero'>Reimposta</button>
@@ -1271,80 +1271,86 @@ Disallow:</pre>
   if (!nodi.length) { return; }
   var comandi = document.getElementById("grafo-comandi");
   var stato = document.getElementById("grafo-stato");
-  var etichette = {};
-  [].forEach.call(svg.querySelectorAll(".grafo-etichetta"), function (t) {
-    etichette[t.getAttribute("data-i")] = t;
-  });
+  /* Le etichette non sono una per nodo: oltre una certa dimensione il
+     grafo ne mostra solo le piu' linkate. Si tengono come ELENCO,
+     perche' ciascuna porta gia' le proprie due posizioni e non serve
+     piu' risalire al nodo che la possiede. */
+  var etichetteVive = [].slice.call(
+    svg.querySelectorAll(".grafo-etichetta"));
   var vbase = svg.getAttribute("viewBox").split(" ").map(Number);
-  var raggi = nodi.map(function (n) { return +n.getAttribute("data-r") || 6; });
-  var lati = archi.map(function (l) {
-    return [+l.getAttribute("data-s"), +l.getAttribute("data-t")];
+  /* Le DUE viste sono entrambe calcolate in Python: quella a forze sta
+     negli attributi di partenza, quella ad anelli nei `data-a*`. Il
+     layout di partenza si fotografa al caricamento perche' e' cio' a
+     cui "Reimposta" riporta: fotografare non e' calcolare. */
+  function istantanea(elementi, attributi) {
+    return elementi.map(function (el) {
+      return attributi.map(function (a) { return el.getAttribute(a); });
+    });
+  }
+  var nodiForze = istantanea(nodi, ["cx", "cy"]);
+  var archiForze = istantanea(archi, ["x1", "y1", "x2", "y2"]);
+  var testiForze = etichetteVive.map(function (e) {
+    return [e.getAttribute("x"), e.getAttribute("y")];
   });
-  /* Il layout calcolato in Python e' la posizione di partenza, e ci si
-     torna con "Reimposta": la vista ad anelli non lo distrugge. */
-  var partenza = nodi.map(function (n) {
-    return [+n.getAttribute("cx"), +n.getAttribute("cy")];
-  });
-  var pos = partenza.map(function (c) { return c.slice(); });
 
-  function ridisegna() {
-    var i, k, s, t, dx, dy, lung, arretra;
-    for (i = 0; i < nodi.length; i += 1) {
-      nodi[i].setAttribute("cx", pos[i][0].toFixed(1));
-      nodi[i].setAttribute("cy", pos[i][1].toFixed(1));
-      var e = etichette[String(i)];
-      if (e) {
-        e.setAttribute("x", (pos[i][0] + raggi[i] + 3).toFixed(1));
-        e.setAttribute("y", (pos[i][1] + 4).toFixed(1));
-      }
-    }
-    for (k = 0; k < archi.length; k += 1) {
-      s = lati[k][0];
-      t = lati[k][1];
-      dx = pos[t][0] - pos[s][0];
-      dy = pos[t][1] - pos[s][1];
-      lung = Math.sqrt(dx * dx + dy * dy) || 1;
-      arretra = (raggi[t] + 3) / lung;
-      archi[k].setAttribute("x1", pos[s][0].toFixed(1));
-      archi[k].setAttribute("y1", pos[s][1].toFixed(1));
-      archi[k].setAttribute("x2", (pos[t][0] - dx * arretra).toFixed(1));
-      archi[k].setAttribute("y2", (pos[t][1] - dy * arretra).toFixed(1));
-    }
+  /* Applicare, non ricalcolare: l'aritmetica della geometria e' uscita
+     di qui perche' nessun test la eseguiva -- quattro ne guardavano la
+     stringa -- e in Python la suite di sempre la verifica (R48). Al
+     JavaScript restano gli eventi, le classi e lo zoom, che dipendono
+     dal gesto e non si possono precalcolare. */
+  function applica(elementi, attributi, valori) {
+    elementi.forEach(function (el, i) {
+      attributi.forEach(function (a, k) {
+        if (valori[i][k] !== null) { el.setAttribute(a, valori[i][k]); }
+      });
+    });
   }
 
   /* Vista per distanza: un anello per click dalla home, gli orfani
      sul cerchio piu' esterno. Dice a colpo d'occhio quanto e'
      profondo il sito, che il layout a forze non mostra. */
-  /* La disposizione la calcola Python (disposizione_ad_anelli): qui
-     si applica soltanto. Ventisei righe di aritmetica sono uscite di
-     qui perche' nessun test le eseguiva -- quattro ne guardavano la
-     stringa -- e in Python la suite di sempre le verifica (R48). */
   function anelli() {
-    nodi.forEach(function (n, i) {
-      pos[i] = [+n.getAttribute("data-ax"), +n.getAttribute("data-ay")];
-    });
-    ridisegna();
+    applica(nodi, ["cx", "cy"], istantanea(nodi, ["data-ax", "data-ay"]));
+    /* Le quattro coordinate dell'arco viaggiano in un attributo solo,
+       come un `viewBox`: qui si separano, e separare non e' calcolare. */
+    applica(archi, ["x1", "y1", "x2", "y2"], archi.map(function (a) {
+      return (a.getAttribute("data-a") || "").split(" ");
+    }));
+    applica(etichetteVive, ["x", "y"],
+            istantanea(etichetteVive, ["data-ax", "data-ay"]));
   }
 
   function forze() {
-    pos = partenza.map(function (c) { return c.slice(); });
-    ridisegna();
+    applica(nodi, ["cx", "cy"], nodiForze);
+    applica(archi, ["x1", "y1", "x2", "y2"], archiForze);
+    applica(etichetteVive, ["x", "y"], testiForze);
   }
 
   /* Evidenziazione: il nodo, i suoi archi e i suoi vicini restano
      accesi, il resto si spegne. Su un grafo di sessanta nodi e' la
      sola cosa che rende leggibile un groviglio. */
+  /* Vicini e archi incidenti li dichiara il nodo (`data-v`, `data-e`):
+     non dipendono dal gesto, sono una proprieta' del grafo, e Python
+     la conosce. Prima si scandivano TUTTI gli archi a ogni passaggio
+     del puntatore. */
+  function insieme(el, attributo) {
+    var dentro = {};
+    (el.getAttribute(attributo) || "").split(",").forEach(function (x) {
+      if (x !== "") { dentro[x] = true; }
+    });
+    return dentro;
+  }
+
   function evidenzia(i) {
-    var vicini = {};
-    vicini[i] = true;
-    lati.forEach(function (st, k) {
-      var acceso = st[0] === i || st[1] === i;
-      archi[k].classList.toggle("acceso", acceso);
-      archi[k].classList.toggle("spento", !acceso);
-      if (acceso) { vicini[st[0]] = true; vicini[st[1]] = true; }
+    var vicini = insieme(nodi[i], "data-v");
+    var incidenti = insieme(nodi[i], "data-e");
+    archi.forEach(function (a, k) {
+      var acceso = incidenti[String(k)] === true;
+      a.classList.toggle("acceso", acceso);
+      a.classList.toggle("spento", !acceso);
     });
     nodi.forEach(function (n, k) {
-      n.classList.toggle("spento", !vicini[k]);
+      n.classList.toggle("spento", vicini[String(k)] !== true);
     });
     if (stato) {
       var t = nodi[i].querySelector("title");

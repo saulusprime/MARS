@@ -24,7 +24,7 @@
 > resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
 > segnali derivati. Il piano di interventi copre ora sette aree su nove.
 >
-> **Correzioni chiuse**: R1-R47, R49-R52. **R51 è chiusa il
+> **Correzioni chiuse**: R1-R52. **R51 è chiusa il
 > 2026-08-26**, e con essa **R37 per intero**: il `<meta name="googlebot">`
 > arriva ora separato dal meta globale (`meta_robots_by_agent`, una chiave
 > nuova nel contratto) e vale come il prefisso dell'`X-Robots-Tag`. R52 è
@@ -39,7 +39,11 @@
 > **R46 è chiusa il 2026-08-26**: `instances` è il nome canonico del conteggio
 > accanto a quelli parlanti, e lo sforzo scala di un gradino per volta restando
 > una stima dichiarata.
-> **Aperte**: R48 e R53 —
+> **R48 è chiusa il 2026-08-26**: dal JavaScript del grafo è uscita anche la
+> geometria — archi, etichette e vicinato — e allo script resta il solo gesto,
+> che `tools/banco_grafo.py` presidia come prima. Il costo in attributi è
+> misurato e dichiarato in [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Aperta**: R53 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -192,7 +196,7 @@ le fasi che non sono state fatte.
 
 ## Correzioni
 
-Le voci chiuse — R1-R47, R49-R52 — stanno in
+Le voci chiuse — R1-R52 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -238,29 +242,6 @@ ciascuno apre una decisione)*
 - [ ] Portare `explanation`, `displayValue` e `warnings` nel rilievo, decidendo
       in quale campo: `detail` è già occupato dalla `description`.
 - [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`.
-
-### R48 — ⚪ LIEVE: del JavaScript resta da verificare il GESTO
-*(l'aritmetica e' uscita di qui il 2026-08-26: vedi [AS-IS.md](AS-IS.md))*
-
-La disposizione ad anelli e' ora `disposizione_ad_anelli()` in
-`mars_report.py`, e `pytest` la verifica. Restano al JavaScript gli **eventi** —
-fuoco, evidenziazione dei vicini, zoom, ritorno al layout di partenza — che solo
-`tools/banco_grafo.py` prova, e non automaticamente: chi tocca `REFERTO_JS` deve
-lanciarlo a mano.
-
-Le due strade per chiudere restano quelle di prima, ma su una superficie molto
-piu' piccola:
-
-- **portare in Python anche archi, etichette e vicini** (`data-ax1..ay2`,
-  `data-v`): `ridisegna()` ed `evidenzia()` diventerebbero applicazione di
-  attributi, e sparirebbe la geometria oggi scritta due volte. Costo misurato in
-  ricognizione: 4-5 KB in piu' su un grafo da 60 nodi;
-- **`jsdom` in `requirements-dev`** con un test marcato: copre il gesto per
-  intero, ma allarga la suite a npm, e su un clone senza `node` e' sempre verde
-  perche' sempre saltato.
-
-- [ ] Scegliere fra le due, e nel frattempo non toccare `REFERTO_JS` senza
-      rilanciare `tools/banco_grafo.py`.
 
 ---
 

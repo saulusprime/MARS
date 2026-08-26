@@ -446,14 +446,21 @@ def test_i_nodi_del_grafo_portano_la_posizione_ad_anelli():
     assert "class='grafo-nodo" in html, "il golden non ha piu' un grafo"
 
     nodi = html.count("class='grafo-nodo")
-    assert html.count("data-ax=") == nodi
-    assert html.count("data-ay=") == nodi
+    etichette = html.count("class='grafo-etichetta")
+    # I nodi e le etichette portano entrambi la posizione ad anelli: le
+    # seconde non sono una per nodo — oltre una certa dimensione il
+    # grafo etichetta solo le piu' linkate — quindi i due conteggi si
+    # sommano invece di coincidere.
+    assert html.count("data-ax='") == nodi + etichette
+    assert html.count("data-ay='") == nodi + etichette
     # E l'aritmetica che il JS ha lasciato non deve tornarci.
     assert "Math.cos" not in mars_report.REFERTO_JS
     assert "Math.PI" not in mars_report.REFERTO_JS
-    # `Math.sqrt` resta: e' la lunghezza dell'arco in `ridisegna`, cioe'
-    # il gesto, che R48 non porta via.
-    assert "Math.sqrt" in mars_report.REFERTO_JS
+    # `Math.sqrt` era rimasta — la lunghezza dell'arco dentro
+    # `ridisegna` — e questo test lo asseriva. La seconda meta' di R48
+    # l'ha portata via: le due viste sono due e note, quindi entrambe
+    # le geometrie stanno negli attributi e il JavaScript le applica.
+    assert "Math.sqrt" not in mars_report.REFERTO_JS
 
 
 def _referto_citabilita(contesto, risultato):
@@ -2809,3 +2816,151 @@ def test_lo_script_non_c_e_dove_non_ha_nulla_da_fare(referto):
     """Un referto di una pagina sola non ha architettura da mostrare:
     non deve portarsi dietro codice inerte."""
     assert "<script" not in render_html(referto)
+
+
+# ----------------------------------------------------------------------
+# R48: archi, etichette e vicini escono dal JavaScript
+# ----------------------------------------------------------------------
+
+def _grafo_del_golden() -> str:
+    """L'SVG del grafo, dal golden completo: la fixture non ne ha uno."""
+    import json
+    percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "golden", "referto.json")
+    with open(percorso, encoding="utf-8") as fh:
+        html = render_html(json.load(fh))
+    inizio = html.index("<svg id='grafo'")
+    return html[inizio:html.index("</svg>", inizio)]
+
+
+def test_gli_archi_portano_anche_la_geometria_ad_anelli():
+    """R48: `ridisegna()` ricalcolava in JavaScript le due estremita' di
+    ogni arco — radice quadrata compresa — a ogni cambio di vista.
+
+    Le viste sono **due e conosciute**: il layout a forze, che sta gia'
+    negli attributi `x1..y2`, e quello ad anelli, che Python calcola dal
+    2026-08-26. Pubblicare anche la seconda geometria toglie al
+    JavaScript l'ultimo pezzo di aritmetica e lo riduce ad
+    applicazione di attributi."""
+    svg = _grafo_del_golden()
+    archi = re.findall(r"<line class='grafo-arco'[^>]*>", svg)
+    assert archi, "il golden ha un grafo con archi"
+    for arco in archi:
+        coordinate = re.search(r"data-a='([^']*)'", arco)
+        assert coordinate, arco
+        # Quattro numeri in un attributo solo, separati da spazi come
+        # un `viewBox`: quattro attributi distinti costavano 7,9 KB in
+        # piu' su un grafo al massimo della sua dimensione, misurati.
+        assert len(coordinate.group(1).split(" ")) == 4, arco
+    # E la geometria e' quella che Python calcola per la vista ad
+    # anelli, non un numero qualunque: si rifa' il conto sul primo arco.
+    nodi = re.findall(r"<circle class='grafo-nodo[^>]*>", svg)
+    per_indice = {int(re.search(r"data-i='(\d+)'", n).group(1)): n
+                  for n in nodi}
+
+    def anello(indice):
+        nodo = per_indice[indice]
+        return (float(re.search(r"data-ax='([^']*)'", nodo).group(1)),
+                float(re.search(r"data-ay='([^']*)'", nodo).group(1)))
+
+    primo = archi[0]
+    s = int(re.search(r"data-s='(\d+)'", primo).group(1))
+    d = int(re.search(r"data-t='(\d+)'", primo).group(1))
+    raggio = float(re.search(r"data-r='([^']*)'",
+                             per_indice[d]).group(1))
+    atteso = mars_report.geometria_arco(anello(s), anello(d), raggio)
+    letto = [float(x) for x in
+             re.search(r"data-a='([^']*)'", primo).group(1).split(" ")]
+    assert letto == [round(v, 1) for v in atteso]
+
+
+def test_le_etichette_portano_la_posizione_ad_anelli():
+    """Stessa ragione degli archi: la posizione dell'etichetta e' il
+    centro del nodo piu' il raggio, ed e' aritmetica."""
+    svg = _grafo_del_golden()
+    etichette = re.findall(r"<text class='grafo-etichetta'[^>]*>", svg)
+    assert etichette, "il golden ha etichette"
+    nodi = {int(re.search(r"data-i='(\d+)'", n).group(1)): n
+            for n in re.findall(r"<circle class='grafo-nodo[^>]*>", svg)}
+    for etichetta in etichette:
+        i = int(re.search(r"data-i='(\d+)'", etichetta).group(1))
+        nodo = nodi[i]
+        raggio = float(re.search(r"data-r='([^']*)'", nodo).group(1))
+        # L'etichetta sta a DESTRA del cerchio e non sul suo centro:
+        # e' lo scostamento che il JavaScript ricalcolava a ogni
+        # ridisegno, raggio compreso.
+        for asse, scarto in (("x", raggio + 3), ("y", 4)):
+            atteso = float(re.search(
+                r"data-a%s='([^']*)'" % asse, nodo).group(1)) + scarto
+            letto = float(re.search(
+                r"data-a%s='([^']*)'" % asse, etichetta).group(1))
+            assert letto == pytest.approx(atteso, abs=0.05), (i, asse)
+
+
+def test_ogni_nodo_dichiara_i_propri_vicini_e_i_propri_archi():
+    """`evidenzia()` scandiva tutti gli archi per trovare i vicini di un
+    nodo, a ogni passaggio del puntatore. La risposta non dipende dal
+    gesto: e' una proprieta' del grafo, e Python la conosce."""
+    svg = _grafo_del_golden()
+    nodi = re.findall(r"<circle class='grafo-nodo[^>]*>", svg)
+    assert nodi
+    for nodo in nodi:
+        assert "data-v='" in nodo, nodo
+        assert "data-e='" in nodo, nodo
+    # Il nodo di partenza ha almeno un vicino: un grafo di archi in cui
+    # nessuno confina con nessuno sarebbe un elenco, non un grafo.
+    assert any("data-v='" in n and n.split("data-v='")[1][0] != "'"
+               for n in nodi)
+
+
+def test_i_vicini_dichiarati_sono_quelli_degli_archi():
+    """L'invariante che lega i due dati: se `data-v` e `data-s`/`data-t`
+    divergessero, l'evidenziazione accenderebbe archi che non toccano il
+    nodo, e nessun test lo vedrebbe — e' un fatto di resa, non di
+    punteggio."""
+    svg = _grafo_del_golden()
+    archi = [(int(s), int(t)) for s, t in re.findall(
+        r"<line class='grafo-arco' data-s='(\d+)' data-t='(\d+)'", svg)]
+    atteso_v, atteso_e = {}, {}
+    for k, (s, t) in enumerate(archi):
+        for uno, altro in ((s, t), (t, s)):
+            atteso_v.setdefault(uno, {uno}).add(altro)
+            atteso_e.setdefault(uno, set()).add(k)
+    for nodo in re.findall(r"<circle class='grafo-nodo[^>]*>", svg):
+        i = int(re.search(r"data-i='(\d+)'", nodo).group(1))
+        vicini = re.search(r"data-v='([^']*)'", nodo).group(1)
+        incidenti = re.search(r"data-e='([^']*)'", nodo).group(1)
+        elencati = [int(x) for x in vicini.split(",") if x]
+        assert len(elencati) == len(set(elencati)), \
+            "un vicino elencato due volte accende due volte lo stesso nodo"
+        assert set(elencati) == atteso_v.get(i, {i}), i
+        assert {int(x) for x in incidenti.split(",") if x} == \
+            atteso_e.get(i, set()), i
+
+
+def test_due_pagine_che_si_linkano_a_vicenda_restano_un_vicino_solo():
+    """Il caso che il golden non ha: due archi fra la stessa coppia.
+
+    Due pagine che si linkano a vicenda producono `A->B` e `B->A`, e
+    senza il controllo B comparirebbe **due volte** fra i vicini di A.
+    Non e' un difetto di resa: `evidenzia()` accenderebbe due volte lo
+    stesso nodo, che oggi non si vede — le classi sono idempotenti — ma
+    e' un elenco che afferma una cosa falsa, e il giorno che qualcuno
+    ne contasse la lunghezza direbbe che A ha due vicini."""
+    archi = [{"source": 0, "target": 1}, {"source": 1, "target": 0},
+             {"source": 0, "target": 2}]
+    vicini, incidenti = mars_report.vicinato(archi, 3)
+    assert vicini == [[0, 1, 2], [0, 1], [0, 2]]
+    # Gli archi invece sono due davvero, e vanno accesi entrambi.
+    assert incidenti == [[0, 1, 2], [0, 1], [2]]
+
+
+def test_il_javascript_del_grafo_non_calcola_piu_una_geometria():
+    """Il presidio della decisione, non della resa.
+
+    R48 e' nata perche' `REFERTO_JS` conteneva aritmetica che nessun
+    test eseguiva. Lo zoom resta — dipende da quante volte si e'
+    cliccato, quindi non si puo' precalcolare — ma la geometria del
+    grafo no: se `Math.sqrt` torna qui dentro, e' tornata anche
+    l'aritmetica non verificata."""
+    assert "Math.sqrt" not in mars_report.REFERTO_JS

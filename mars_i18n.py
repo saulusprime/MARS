@@ -206,6 +206,34 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                "cited.",
         "example": '<meta name="robots" content="index, follow">',
     },
+    "tech.index.unavailable_after": {
+        "title": "%(pagine)d/%(totale)d pages whose unavailable_after "
+                 "has already passed: excluded from indexes as by a "
+                 "noindex",
+        "fix": "Remove `unavailable_after` or move the date forward: "
+               "the one declared has passed, and since then the page "
+               "is excluded from indexes as by a noindex.",
+        "example": '<meta name="robots" content="index, follow">',
+    },
+    "tech.index.nosnippet": {
+        "title": "%(pagine)d/%(totale)d pages indexed but not citable: "
+                 "no fragment of their text may appear in an answer "
+                 "(nosnippet or max-snippet:0)",
+        "fix": "Remove `nosnippet` and `max-snippet:0` from the pages "
+               "that must be cited: they stay in the indexes, but no "
+               "assistant may quote a single line of them.",
+        "example": '<meta name="robots" content="index, follow, '
+                   'max-snippet:-1">',
+    },
+    "tech.index.noarchive": {
+        "title": "%(pagine)d/%(totale)d pages forbid the cached copy "
+                 "(noarchive): the text stays citable, the archived "
+                 "version does not",
+        "fix": "Remove `noarchive` unless there is a legal or "
+               "contractual reason: it forbids the archived copy that "
+               "is used when the original is slow or unreachable.",
+        "example": '<meta name="robots" content="index, follow">',
+    },
     "tech.canonical.cross_host": {
         "title": "%(pagine)d pages with a canonical pointing to another "
                  "host: the content is credited elsewhere",

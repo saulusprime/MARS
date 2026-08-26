@@ -19,12 +19,15 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41-R45, R47.
-> **Aperte**: R28, R33, R35-R37, R39-R40, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R29-R32, R34, R36, R38, R41-R45, R47.
+> **Aperte**: R28, R33, R35, R37, R39-R40, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
-> della Fase 8 chiuso, **R49** sbloccata — e **R32** lo stesso giorno.
+> della Fase 8 chiuso, **R49** sbloccata — e **R32** lo stesso giorno. **R36**
+> è chiusa il 2026-08-26: `nosnippet`, `noarchive` e `unavailable_after` scaduto
+> sono tre rilievi nuovi dell'area 1, e la direttiva che pesa di più sulla
+> citabilità non è più muta.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -267,33 +270,6 @@ La correzione probabile è una riga (indicizzare `heading + testo` anche nel
 vettoriale), ma **cambia tutti i punteggi vettoriali**: va misurata prima e
 dopo su un sito reale, non applicata a intuito.
 
-### R36 — 🟡 MEDIO: `nosnippet` è invisibile, ed è la direttiva che conta di più
-*(trovata misurando, chiudendo R25 il 2026-08-20)*
-
-`direttive_robots()` ([mars_tech.py:171](mars_tech.py#L171)) legge ora tutte le
-direttive, ma `controlla_indicizzabilita` ne giudica due: `noindex` e
-`nofollow`. Restano mute proprio quelle che governano **l'estrazione del
-testo**, cioè il meccanismo con cui un assistente cita una pagina. Misurato,
-contro un riferimento senza direttive che vale 94:
-
-| direttiva | punteggio | rilievo |
-|---|---|---|
-| `nosnippet` | 94 | nessuno |
-| `max-snippet:0` | 94 | nessuno |
-| `noarchive` | 94 | nessuno |
-| `unavailable_after: 2020-01-01` | 94 | nessuno |
-
-Una pagina con `nosnippet` è regolarmente indicizzata e **non può essere
-citata**: nessun frammento del suo testo può comparire in una risposta. Per uno
-strumento che misura la citabilità è la direttiva più rilevante delle tre, e
-oggi non produce nulla. `unavailable_after` scaduto equivale a `noindex`, ma
-richiede di confrontare una data.
-
-- [ ] Rilievo per `nosnippet` / `max-snippet:0` (gravità alta: colpisce
-      direttamente la citabilità, che è l'oggetto del progetto).
-- [ ] Valutare `noarchive` (lieve) e `unavailable_after` scaduto (come
-      `noindex`, previo confronto di date).
-
 ### R37 — 🟢 LIEVE: il prefisso per agente dell'X-Robots-Tag viene ignorato
 *(trovata misurando, chiudendo R25 il 2026-08-20)*
 
@@ -316,6 +292,13 @@ per nome.
 
 - [ ] Separare il prefisso per agente e graduare la gravità: tutti i crawler,
       solo i motori tradizionali, o proprio quelli IA.
+
+R36 ha aggiunto accanto una ricucitura del valore delle direttive
+(`_DIRETTIVE_CON_VALORE`), scritta **per nome** proprio per non peggiorare
+questa voce: ricucire ogni `:` incollerebbe `googlebot:` a `noindex` e
+nasconderebbe la direttiva più grave che il modulo conosce. Un test lo
+presidia (`test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso`):
+chi chiude R37 lo troverà rosso se sbaglia da quella parte.
 
 ### R39 — 🟡 MEDIO: quattro difetti di `mars_wapt` trovati adeguandolo a U1.6
 *(trovati leggendo il modulo riga per riga per U1.6, il 2026-08-24. Nessuno è

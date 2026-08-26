@@ -10,7 +10,9 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Set
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Dict, List, Optional, Set
 from urllib.robotparser import RobotFileParser
 
 from mars_core import (USER_AGENT, Finding, norm_host,
@@ -46,8 +48,37 @@ CRAWLER_IA = {
 DIRETTIVE_NOINDEX = frozenset({"noindex", "none"})
 DIRETTIVE_NOFOLLOW = frozenset({"nofollow", "none"})
 
+# Il divieto di frammento. E' la direttiva che pesa di piu' sull'oggetto
+# di questo progetto: la pagina resta regolarmente indicizzata e non
+# puo' essere CITATA, perche' nessuna riga del suo testo puo' comparire
+# in una risposta. `max-snippet:0` e' `nosnippet` scritto diversamente.
+# `max-snippet:-1` e' l'opposto — nessun limite — e non sta qui.
+DIRETTIVE_NOSNIPPET = frozenset({"nosnippet", "max-snippet:0"})
+# `noarchive` vieta la copia in cache, non il frammento: il testo resta
+# citabile, quindi non e' la stessa cosa e non ha la stessa gravita'.
+DIRETTIVE_NOARCHIVE = frozenset({"noarchive"})
+
 # Le direttive sono una lista separata da virgole, con spazi liberi.
 _SEPARATORI = re.compile(r"[,\s]+")
+
+# Alcune direttive portano un valore dopo i due punti, e lo spazio
+# intorno ai due punti e' legale: `max-snippet: 0` si spezzerebbe nei
+# due token `max-snippet:` e `0`, che non corrispondono a nulla. Si
+# ricuciono per NOME, non su ogni `:`, perche' ricucire tutto
+# incollerebbe il prefisso per agente alla sua direttiva
+# (`googlebot:noindex`) e nasconderebbe un noindex — l'opposto di cio'
+# che serve. Le quattro con valore sono elencate per intero anche se
+# oggi il modulo ne giudica due: e' la stessa riga, e ometterle
+# lascerebbe il difetto in agguato per la prossima che si aggiunge.
+_DIRETTIVE_CON_VALORE = re.compile(
+    r"\b(max-snippet|max-image-preview|max-video-preview"
+    r"|unavailable_after)\s*:\s*")
+
+# La scadenza si legge dal GREZZO, non dai token: il suo valore e' una
+# data, e una data puo' contenere spazi e virgole — cioe' esattamente i
+# separatori delle direttive. Si cattura tutta la coda e si decide dopo
+# dove finisce, in `scadenza_dichiarata()`.
+_SCADENZA = re.compile(r"\bunavailable_after\s*:\s*(.*)", re.IGNORECASE)
 
 # Penalita' per gravita'. Sostituiscono il vecchio 100 - len(issues)*15,
 # che dava lo stesso peso a un noindex sull'intero sito e a un lastmod
@@ -168,6 +199,17 @@ def controlla_sitemap(context: dict) -> List[Finding]:
     return rilievi
 
 
+def _direttive_grezze(pagina: dict) -> str:
+    """Meta `robots` e `X-Robots-Tag` in una stringa sola.
+
+    Due funzioni leggono le direttive e devono guardare le **stesse**
+    fonti: se un giorno se ne aggiungesse una terza qui, una sola delle
+    due la vedrebbe, e la differenza non produrrebbe alcun errore.
+    """
+    return "%s,%s" % (pagina.get("meta_robots") or "",
+                      pagina.get("x_robots_tag") or "")
+
+
 def direttive_robots(pagina: dict) -> Set[str]:
     """Direttive robots di una pagina — meta e header insieme, come token.
 
@@ -181,10 +223,49 @@ def direttive_robots(pagina: dict) -> Set[str]:
     L'eventuale prefisso per agente dell'X-Robots-Tag
     (`googlebot: noindex`) resta fra i token e non nasconde la
     direttiva, che viene contata come prima.
+
+    Le direttive con valore (`max-snippet: 0`) arrivano come UN token,
+    valore compreso: vedi `_DIRETTIVE_CON_VALORE`.
     """
-    grezzo = "%s,%s" % (pagina.get("meta_robots") or "",
-                        pagina.get("x_robots_tag") or "")
-    return {t for t in _SEPARATORI.split(grezzo.lower()) if t}
+    grezzo = _DIRETTIVE_CON_VALORE.sub(
+        r"\1:", _direttive_grezze(pagina).lower())
+    return {t for t in _SEPARATORI.split(grezzo) if t}
+
+
+def scadenza_dichiarata(pagina: dict) -> Optional[datetime]:
+    """La data di `unavailable_after`, o `None` se assente o illeggibile.
+
+    Google ne documenta due formati, e vanno letti entrambi: ISO 8601
+    (`2020-09-21`) e RFC 850 (`Saturday, 21-Sep-2020 12:00:00 GMT`).
+    Il secondo contiene una virgola, che e' anche il separatore delle
+    direttive: tagliare sempre alla prima virgola lascerebbe
+    `Saturday`, e la data non si leggerebbe mai. Quindi si prova prima
+    la coda intera — il caso normale, la direttiva e' l'ultima — e solo
+    se non si legge si taglia alla virgola, che e' il caso di una ISO
+    seguita da altre direttive.
+
+    Il valore viene dal sito analizzato: e' dato ostile. Una data che
+    non si legge restituisce `None` e non produce alcun giudizio —
+    dedurne 'scaduta' sarebbe un rilievo critico su una misura che non
+    c'e'.
+
+    Una data senza fuso orario e' letta come UTC: la specifica non lo
+    dice, ma il confronto deve avvenire fra istanti confrontabili, e
+    l'alternativa e' l'ora locale della macchina che esegue l'audit.
+    """
+    trovato = _SCADENZA.search(_direttive_grezze(pagina))
+    if not trovato:
+        return None
+    coda = trovato.group(1).strip()
+    for candidato in (coda, coda.split(",")[0]):
+        for leggi in (datetime.fromisoformat, parsedate_to_datetime):
+            try:
+                quando = leggi(candidato.strip())
+            except (TypeError, ValueError):
+                continue
+            return (quando if quando.tzinfo
+                    else quando.replace(tzinfo=timezone.utc))
+    return None
 
 
 def controlla_indicizzabilita(context: dict) -> List[Finding]:
@@ -198,12 +279,35 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
     if not pages:
         return []
     noindex, nofollow, senza_canonical, canonical_altrove = [], [], [], []
+    nosnippet, noarchive, scadute = [], [], []
+    # Un solo istante per tutte le pagine: leggendo l'orologio dentro il
+    # ciclo, due pagine con la stessa data ai due lati di un secondo
+    # riceverebbero giudizi diversi, e l'audit non sarebbe riproducibile
+    # su se stesso.
+    adesso = datetime.now(timezone.utc)
     for url, dati in pages.items():
         direttive = direttive_robots(dati)
-        if direttive & DIRETTIVE_NOINDEX:
+        escluso = bool(direttive & DIRETTIVE_NOINDEX)
+        if escluso:
             noindex.append(url)
+        else:
+            # Una data passata e un `noindex` dicono lo stesso fatto:
+            # si conta il primo che c'e', non tutti e due.
+            scadenza = scadenza_dichiarata(dati)
+            if scadenza is not None and scadenza <= adesso:
+                scadute.append(url)
+                escluso = True
         if direttive & DIRETTIVE_NOFOLLOW:
             nofollow.append(url)
+        # Su una pagina gia' fuori dagli indici il divieto di frammento
+        # non toglie nulla che non fosse gia' tolto: contarlo anche li'
+        # farebbe pagare due volte lo stesso fatto — 80 punti su 100
+        # per un difetto solo, e `noindex, nosnippet` e' una scrittura
+        # reale, non un caso di laboratorio.
+        if not escluso and direttive & DIRETTIVE_NOSNIPPET:
+            nosnippet.append(url)
+        if direttive & DIRETTIVE_NOARCHIVE:
+            noarchive.append(url)
         canonical = (dati.get("canonical") or "").strip()
         if not canonical:
             senza_canonical.append(url)
@@ -219,6 +323,33 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      % (len(noindex), len(pages)),
             "tech.index.noindex",
             pagine=len(noindex), totale=len(pages), urls=sorted(noindex)))
+    if scadute:
+        # Stesso denominatore del divieto di frammento: le pagine non
+        # gia' dichiarate fuori dagli indici per altra via.
+        gravita = ("critico" if len(scadute) == len(pages) - len(noindex)
+                   else "grave")
+        rilievi.append(_rilievo(
+            gravita, "%d/%d pagine con unavailable_after gia' passato: "
+                     "escluse dagli indici come da un noindex"
+                     % (len(scadute), len(pages)),
+            "tech.index.unavailable_after",
+            pagine=len(scadute), totale=len(pages), urls=sorted(scadute)))
+    if nosnippet:
+        # Il denominatore della gravita' sono le pagine ancora
+        # CITABILI, non tutte: se le altre sono gia' escluse dagli
+        # indici il sito resta muto lo stesso, e chiamarlo `grave`
+        # direbbe che qualcosa si salva. `citabili` non e' mai zero
+        # qui, perche' le pagine escluse non entrano in `nosnippet`.
+        citabili = len(pages) - len(noindex)
+        gravita = "critico" if len(nosnippet) == citabili else "grave"
+        rilievi.append(_rilievo(
+            gravita, "%d/%d pagine indicizzate ma non citabili: nessun "
+                     "frammento del loro testo puo' comparire in una "
+                     "risposta (nosnippet o max-snippet:0)"
+                     % (len(nosnippet), len(pages)),
+            "tech.index.nosnippet",
+            pagine=len(nosnippet), totale=len(pages),
+            urls=sorted(nosnippet)))
     if canonical_altrove:
         rilievi.append(_rilievo(
             "grave", "%d pagine con canonical verso un altro host: il "
@@ -239,6 +370,14 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "(nofollow o none)" % (len(nofollow), len(pages)),
             "tech.index.nofollow",
             pagine=len(nofollow), totale=len(pages), urls=sorted(nofollow)))
+    if noarchive:
+        rilievi.append(_rilievo(
+            "lieve", "%d/%d pagine vietano la copia in cache "
+                     "(noarchive): il testo resta citabile, la versione "
+                     "archiviata no" % (len(noarchive), len(pages)),
+            "tech.index.noarchive",
+            pagine=len(noarchive), totale=len(pages),
+            urls=sorted(noarchive)))
     if senza_canonical:
         rilievi.append(_rilievo(
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"

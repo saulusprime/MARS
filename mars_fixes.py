@@ -170,6 +170,25 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "e' voluta, quelle pagine non saranno mai citate.",
         "example": '<meta name="robots" content="index, follow">',
     },
+    "tech.index.unavailable_after": {
+        "fix": "Togli `unavailable_after` o porta avanti la data: "
+               "quella dichiarata e' passata, e da allora la pagina e' "
+               "esclusa dagli indici come da un noindex.",
+        "example": '<meta name="robots" content="index, follow">',
+    },
+    "tech.index.nosnippet": {
+        "fix": "Togli `nosnippet` e `max-snippet:0` dalle pagine che "
+               "devono essere citate: restano negli indici, ma nessun "
+               "assistente puo' riportarne una riga.",
+        "example": '<meta name="robots" content="index, follow, '
+                   'max-snippet:-1">',
+    },
+    "tech.index.noarchive": {
+        "fix": "Togli `noarchive` se non c'e' una ragione legale o "
+               "contrattuale: vieta la copia archiviata, a cui si "
+               "attinge quando l'originale e' lento o irraggiungibile.",
+        "example": '<meta name="robots" content="index, follow">',
+    },
     "tech.index.nofollow": {
         "fix": "Togli `nofollow`: impedisce di seguire i link interni, "
                "quindi il resto del sito resta irraggiungibile da "

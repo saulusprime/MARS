@@ -2355,6 +2355,91 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R36 — ✅ RISOLTO (2026-08-26): `nosnippet` era invisibile, ed è la direttiva che conta di più
+**Il difetto, misurato prima di toccare il codice.** `direttive_robots()` leggeva
+tutte le direttive, ma `controlla_indicizzabilita` ne giudicava due — `noindex` e
+`nofollow`. Restavano mute proprio quelle che governano l'**estrazione del
+testo**, cioè il meccanismo con cui un assistente cita una pagina. Contro un
+riferimento senza direttive che vale 94:
+
+| direttiva | prima | dopo |
+|---|---|---|
+| `nosnippet` | 94 | 54 |
+| `max-snippet:0` | 94 | 54 |
+| `max-snippet: 0` (con spazio) | 94 | 54 |
+| `noarchive` | 94 | 91 |
+| `unavailable_after: 2020-01-01` | 94 | 54 |
+
+Una pagina con `nosnippet` è regolarmente indicizzata e **non può essere
+citata**: nessun frammento del suo testo può comparire in una risposta. Per uno
+strumento che misura la citabilità era la lacuna più grande dell'area 1.
+
+**La tokenizzazione nascondeva metà del difetto.** `_SEPARATORI` divide su
+virgole e spazi, e lo spazio dopo i due punti è legale: `max-snippet: 0`
+arrivava come i **due** token `max-snippet:` e `0`, che non corrispondono a
+nulla. Un `frozenset({"nosnippet", "max-snippet:0"})` avrebbe colto la forma
+compatta e mancato quella spaziata — cioè avrebbe funzionato sui test scritti a
+mano e non su metà dei siti veri. Il valore si ricuce al proprio nome
+(`_DIRETTIVE_CON_VALORE`), e si ricuce **per nome, non su ogni `:`**: ricucire
+tutto incollerebbe il prefisso per agente alla sua direttiva
+(`googlebot:noindex`) e nasconderebbe un `noindex` — l'opposto di ciò che serve.
+Le quattro direttive con valore sono elencate per intero benché il modulo ne
+giudichi due: è la stessa riga, e ometterle lascerebbe il difetto in agguato per
+la prossima che si aggiunge.
+
+**`unavailable_after` ha preso una chiave propria, non l'elenco del `noindex`.**
+Il TO-DO proponeva «come `noindex`». Rileggendo il codice prima di scegliere: il
+titolo di quel rilievo — `«…(noindex o none, in meta robots o X-Robots-Tag)»` —
+è sotto test come sottostringa in una decina di punti, è tradotto in inglese ed
+è congelato nei golden. Nominarvi una terza direttiva muoveva tutto quel
+materiale per un guadagno nullo, mentre `tech.index.unavailable_after` è
+puramente additiva: nessun testo esistente cambia, nessun golden si muove.
+
+**Tre decisioni che il codice porta scritte accanto a sé.**
+
+- **Il denominatore della gravità sono le pagine ancora *citabili*, non tutte.**
+  Se le altre sono già escluse dagli indici il sito resta muto lo stesso, e
+  chiamarlo `grave` direbbe che qualcosa si salva.
+- **Lo stesso fatto non si paga due volte.** `noindex, nosnippet` è una
+  scrittura reale: sommare le due penalità toglierebbe 80 punti su 100 per un
+  difetto solo. Una pagina già esclusa non entra nel conteggio del divieto di
+  frammento, e nemmeno in quello della scadenza — che dichiara lo stesso fatto
+  del `noindex` con altre parole.
+- **Una data illeggibile non è una data scaduta.** Il valore viene dal sito
+  analizzato, quindi è dato ostile: `scadenza_dichiarata()` restituisce `None` e
+  non produce alcun giudizio. Dedurne «scaduta» sarebbe un rilievo *critico*
+  fondato su una misura che non c'è.
+
+**Due formati di data, e la virgola che è anche un separatore.** Google
+documenta ISO 8601 (`2020-09-21`) e RFC 850
+(`Saturday, 21-Sep-2020 12:00:00 GMT`). Il secondo contiene una virgola, che è
+il separatore delle direttive: tagliare sempre lì lascerebbe `Saturday`, e la
+data non si leggerebbe mai. Si prova prima la coda intera — il caso normale,
+la direttiva è l'ultima — e solo se non si legge si taglia alla virgola, che è
+il caso di una ISO seguita da altre direttive. Verificato che
+`datetime.fromisoformat` e `email.utils.parsedate_to_datetime` coprano insieme
+entrambi i formati, RFC 850 con i trattini compreso e insensibile al maiuscolo.
+
+**L'orologio si legge una volta per audit.** Dentro il ciclo, due pagine con la
+stessa data ai due lati di un secondo riceverebbero giudizi diversi e l'audit
+non sarebbe riproducibile su se stesso. È presidiato da un test che **conta le
+letture**: spostare quella riga dentro il ciclo lascia verde ogni altra
+asserzione.
+
+**Verifiche.** 970 test verdi, `flake8` a zero, golden non toccati (i due
+referti sintetici non portano queste direttive). **Diciannove mutazioni su
+diciannove** fanno rosso, fra cui le quattro che distinguono le decisioni qui
+sopra: il valore tagliato sempre alla virgola, il valore mai tagliato, la
+gravità misurata su tutte le pagine, l'orologio letto nel ciclo. Un presidio in
+più sugli esempi: applicare l'`example` del catalogo — italiano e inglese — deve
+**chiudere** il rilievo che promette di correggere, e il caso che lo rende utile
+è `max-snippet:-1`, che sembra un limite ed è il suo contrario.
+
+**Che cosa resta fuori.** R37 — il prefisso per agente dell'X-Robots-Tag
+(`googlebot: noindex`) è ancora contato come se valesse per tutti — resta
+aperta: la ricucitura per nome è stata scritta in modo da non peggiorarla, e un
+test lo presidia.
+
 ### R47 — ✅ RISOLTO (2026-08-26): nessun rilievo dichiarava la pagina che lo aveva prodotto
 **Il difetto, misurato prima di toccare il codice.** `Finding.url` esisteva dal
 modello dati di U1 ed era vuoto quasi ovunque: sui due referti sintetici, 2

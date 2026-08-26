@@ -103,13 +103,25 @@ def _params_del_banco(monkeypatch) -> dict:
                 veri.setdefault(f["key"], f.get("params") or {})
 
     # Area 1: noindex, nofollow e canonical altrove sulla stessa pagina,
-    # piu' una sitemap illeggibile e senza lastmod.
+    # piu' una sitemap illeggibile e senza lastmod. La seconda pagina
+    # porta il divieto di frammento e la cache vietata, e li porta
+    # SENZA noindex: su una pagina esclusa dagli indici il rilievo del
+    # frammento non scatta, e il segnaposto resterebbe non esercitato.
     tech = {
         "url": "https://esempio.test/",
         "pages": {"https://esempio.test/": pagina(
             '<html><head><meta name="robots" content="noindex, nofollow">'
             '<link rel="canonical" href="https://altro.test/x">'
-            '</head><body><p>x</p></body></html>')},
+            '</head><body><p>x</p></body></html>'),
+            "https://esempio.test/b": pagina(
+            '<html><head><meta name="robots" content="nosnippet, '
+            'noarchive"></head><body><p>x</p></body></html>'),
+            # Terza pagina e non una direttiva in piu' sulla seconda:
+            # una pagina scaduta e' fuori dagli indici, e il divieto di
+            # frammento non vi scatterebbe piu'.
+            "https://esempio.test/c": pagina(
+            '<html><head><meta name="robots" content="unavailable_after: '
+            '2020-01-01"></head><body><p>x</p></body></html>')},
         "robots": {"found": True, "text": "User-agent: *\nAllow: /",
                    "sitemaps": []},
         "sitemap": {"found": True, "from_robots": True, "urls": 3,

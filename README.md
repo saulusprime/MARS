@@ -25,7 +25,10 @@ e crea il referto:
                                     Perplexity, Common Crawl, Google,
                                     Apple, ByteDance, Amazon, Meta;
                                     meta robots, X-Robots-Tag e
-                                    canonical su ogni pagina)
+                                    canonical su ogni pagina;
+                                    noindex, nofollow, nosnippet,
+                                    noarchive e unavailable_after
+                                    scaduto)
 2. SEO              (mars_seo)      utilizzando lighthouse: gli
                                     stessi undici controlli della
                                     sezione SEO di Lighthouse, non

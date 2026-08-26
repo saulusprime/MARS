@@ -264,6 +264,285 @@ def test_tech_all_non_e_una_restrizione():
     assert conflitto["findings_by_severity"].get("critico") == 1
 
 
+def test_tech_nosnippet_toglie_la_citabilita_pur_lasciando_l_indice():
+    """R36: `nosnippet` era invisibile, ed e' la direttiva che pesa di
+    piu' sull'oggetto di questo progetto.
+
+    Una pagina con `nosnippet` resta regolarmente indicizzata e **non
+    puo' essere citata**: nessun frammento del suo testo puo' comparire
+    in una risposta. Misurato prima della correzione, contro un
+    riferimento senza direttive che vale 94, valeva 94: cioe' nulla."""
+    aperto = mars_tech.audit(_contesto_tech())
+    zittita = mars_tech.audit(_contesto_tech(meta_robots="nosnippet"))
+    per_chiave = {f["key"]: f for f in zittita["findings"]}
+
+    assert "tech.index.nosnippet" in per_chiave
+    assert aperto["score"] - zittita["score"] >= 20
+    # Resta negli indici: e' l'altra meta' del difetto, e confonderla
+    # con `noindex` direbbe una cosa falsa su che cosa e' rotto.
+    assert "tech.index.noindex" not in per_chiave
+
+
+@pytest.mark.parametrize("direttiva", [
+    "nosnippet", "max-snippet:0", "max-snippet: 0", "NoSnippet",
+    "max-snippet:0, nofollow", "index, follow, nosnippet",
+])
+def test_tech_le_scritture_del_divieto_di_frammento_valgono_uguale(direttiva):
+    """`max-snippet:0` e' `nosnippet` scritto in un altro modo, e lo
+    spazio dopo i due punti e' legale.
+
+    Senza normalizzare il valore il token si spezza in `max-snippet:` e
+    `0`, e il confronto con l'insieme delle direttive non trova nulla:
+    misurato, e' il caso che un `frozenset({"max-snippet:0"})` manca."""
+    esito = mars_tech.audit(_contesto_tech(meta_robots=direttiva))
+    assert any(f["key"] == "tech.index.nosnippet" for f in esito["findings"])
+
+
+@pytest.mark.parametrize("direttiva", [
+    "max-snippet:-1", "max-snippet: 50", "max-image-preview:none",
+    "max-video-preview:0",
+])
+def test_tech_un_limite_di_frammento_diverso_da_zero_non_e_un_divieto(
+        direttiva):
+    """`max-snippet:-1` significa 'nessun limite' ed e' l'opposto del
+    divieto; `max-video-preview:0` non tocca il testo. Un confronto per
+    prefisso li tratterebbe tutti come `nosnippet`."""
+    esito = mars_tech.audit(_contesto_tech(meta_robots=direttiva))
+    assert not any(f["key"] == "tech.index.nosnippet"
+                   for f in esito["findings"])
+
+
+def test_tech_noarchive_pesa_ma_non_come_il_divieto_di_frammento():
+    """`noarchive` vieta la copia in cache, non il frammento: il testo
+    resta citabile, quindi e' un rilievo lieve. L'asserzione forte e'
+    l'ordine fra i tre punteggi, non l'esistenza del rilievo."""
+    aperto = mars_tech.audit(_contesto_tech())
+    archivio = mars_tech.audit(_contesto_tech(meta_robots="noarchive"))
+    frammento = mars_tech.audit(_contesto_tech(meta_robots="nosnippet"))
+    per_chiave = {f["key"]: f for f in archivio["findings"]}
+
+    assert per_chiave["tech.index.noarchive"]["source_severity"] == "lieve"
+    assert aperto["score"] > archivio["score"] > frammento["score"]
+
+
+def test_tech_su_una_pagina_esclusa_il_frammento_non_si_paga_due_volte():
+    """`noindex, nosnippet` e' una combinazione reale. La pagina e' gia'
+    fuori dagli indici: il divieto di frammento non toglie nulla che non
+    fosse gia' tolto, e sommare le due penalita' farebbe pagare due
+    volte lo stesso fatto — 80 punti su 100 per un difetto solo."""
+    solo_noindex = mars_tech.audit(_contesto_tech(meta_robots="noindex"))
+    insieme = mars_tech.audit(_contesto_tech(meta_robots="noindex, nosnippet"))
+
+    assert insieme["score"] == solo_noindex["score"]
+    assert not any(f["key"] == "tech.index.nosnippet"
+                   for f in insieme["findings"])
+
+
+def test_tech_il_divieto_di_frammento_su_tutto_il_sito_pesa_di_piu():
+    """Come per `noindex`, la gravita' segue la diffusione. Il
+    denominatore pero' sono le pagine **ancora citabili**, non tutte:
+    se le altre sono gia' escluse dagli indici, il sito e' muto lo
+    stesso, e chiamarlo `grave` direbbe che qualcosa si salva."""
+    def sito(*direttive):
+        ctx = _contesto_tech()
+        ctx["pages"] = {"https://esempio.test/p%d" % n: pagina(meta_robots=d)
+                        for n, d in enumerate(direttive)}
+        return {f["key"]: f for f in mars_tech.audit(ctx)["findings"]}
+
+    parziale = sito("", "nosnippet")["tech.index.nosnippet"]
+    totale = sito("nosnippet", "nosnippet")["tech.index.nosnippet"]
+    misto = sito("noindex", "nosnippet")["tech.index.nosnippet"]
+
+    assert parziale["source_severity"] == "grave"
+    assert parziale["params"]["pagine"] == 1
+    assert parziale["params"]["totale"] == 2
+    assert parziale["params"]["urls"] == ["https://esempio.test/p1"]
+    assert totale["source_severity"] == "critico"
+    assert misto["source_severity"] == "critico"
+
+
+def test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso():
+    """Unire `max-snippet` al suo valore serve; farlo per ogni `:`
+    incollerebbe `googlebot:` a `noindex` e nasconderebbe in silenzio
+    la direttiva piu' grave che il modulo conosce (R37 resta aperta,
+    ma il prefisso non deve peggiorare)."""
+    token = mars_tech.direttive_robots({"x_robots_tag": "googlebot: noindex"})
+    assert token >= {"googlebot:", "noindex"}
+
+    esito = mars_tech.audit(_contesto_tech(x_robots_tag="googlebot: noindex"))
+    assert any(f["key"] == "tech.index.noindex" for f in esito["findings"])
+
+
+def test_tech_una_pagina_scaduta_e_fuori_dagli_indici():
+    """R36: `unavailable_after` passato equivale a `noindex`, e valeva
+    zero. Chiave propria e non l'elenco del noindex: il titolo di
+    quel rilievo e' tradotto e congelato nei golden, e nominarvi una
+    terza direttiva muoverebbe testi che non c'entrano."""
+    aperto = mars_tech.audit(_contesto_tech())
+    scaduta = mars_tech.audit(_contesto_tech(
+        meta_robots="unavailable_after: 2020-01-01"))
+    per_chiave = {f["key"]: f for f in scaduta["findings"]}
+
+    assert per_chiave["tech.index.unavailable_after"]["source_severity"] \
+        == "critico"
+    assert aperto["score"] - scaduta["score"] >= 40
+    assert per_chiave["tech.index.unavailable_after"]["params"]["urls"] == \
+        ["https://esempio.test/"]
+
+
+def test_tech_una_scadenza_futura_non_e_un_rilievo():
+    """La direttiva e' una programmazione, non un difetto: finche' la
+    data non e' passata la pagina e' regolarmente indicizzata."""
+    futura = mars_tech.audit(_contesto_tech(
+        meta_robots="unavailable_after: 2099-01-01"))
+    assert futura["score"] == mars_tech.audit(_contesto_tech())["score"]
+
+
+@pytest.mark.parametrize("valore", [
+    "2020-09-21",                            # ISO 8601, come documentata
+    "2020-09-21T12:00:00Z",                  # ISO con ora e fuso
+    "Saturday, 21-Sep-2020 12:00:00 GMT",    # RFC 850, l'altra documentata
+    "Sat, 21 Sep 2020 12:00:00 GMT",         # RFC 2822
+    "saturday, 21-sep-2020 12:00:00 gmt",    # le direttive non hanno caso
+])
+def test_tech_i_formati_di_data_ammessi_si_leggono_tutti(valore):
+    """Google documenta ISO 8601 e RFC 850. La virgola di RFC 850 e'
+    anche il separatore delle direttive: se il valore si tagliasse
+    sempre li', 'Saturday' sarebbe tutto cio' che resta e la data non
+    si leggerebbe mai."""
+    esito = mars_tech.audit(_contesto_tech(
+        meta_robots="unavailable_after: %s" % valore))
+    assert any(f["key"] == "tech.index.unavailable_after"
+               for f in esito["findings"]), valore
+
+
+@pytest.mark.parametrize("valore", [
+    "", "domani", "25 dicembre", "0000-00-00", "2020-13-45",
+])
+def test_tech_una_scadenza_illeggibile_non_e_una_scadenza(valore):
+    """Il valore viene dal sito analizzato, quindi e' dato ostile: una
+    data che non si legge non produce un rilievo e non solleva. Dedurre
+    'scaduta' da una data illeggibile sarebbe un giudizio critico su
+    una misura che non c'e'."""
+    esito = mars_tech.audit(_contesto_tech(
+        meta_robots="unavailable_after: %s" % valore))
+    assert not any(f["key"] == "tech.index.unavailable_after"
+                   for f in esito["findings"]), valore
+
+
+def test_tech_la_scadenza_convive_con_le_altre_direttive():
+    """La coda dopo i due punti non e' tutta la data: quando la
+    direttiva non e' l'ultima, il valore finisce alla prima virgola."""
+    esito = mars_tech.audit(_contesto_tech(
+        meta_robots="nofollow, unavailable_after: 2020-09-21, noarchive"))
+    chiavi = {f["key"] for f in esito["findings"]}
+    assert {"tech.index.unavailable_after", "tech.index.nofollow",
+            "tech.index.noarchive"} <= chiavi
+
+
+def test_tech_su_una_pagina_gia_esclusa_la_scadenza_non_si_paga_due_volte():
+    """`noindex` e una data passata dicono lo stesso fatto. Come per il
+    divieto di frammento, il secondo non aggiunge penalita'."""
+    solo_noindex = mars_tech.audit(_contesto_tech(meta_robots="noindex"))
+    insieme = mars_tech.audit(_contesto_tech(
+        meta_robots="noindex, unavailable_after: 2020-01-01"))
+
+    assert insieme["score"] == solo_noindex["score"]
+    assert not any(f["key"] == "tech.index.unavailable_after"
+                   for f in insieme["findings"])
+
+
+def test_tech_una_pagina_scaduta_non_paga_anche_il_divieto_di_frammento():
+    """Una pagina scaduta e' gia' fuori dagli indici: il `nosnippet` che
+    porta con se' non toglie nulla che non fosse gia' tolto."""
+    esito = mars_tech.audit(_contesto_tech(
+        meta_robots="nosnippet, unavailable_after: 2020-01-01"))
+    chiavi = {f["key"] for f in esito["findings"]}
+
+    assert "tech.index.unavailable_after" in chiavi
+    assert "tech.index.nosnippet" not in chiavi
+
+
+def test_tech_la_gravita_della_scadenza_segue_la_diffusione():
+    """Come per `noindex`, e col denominatore del divieto di frammento:
+    le pagine non gia' escluse per altra via. L'ultimo caso e' quello
+    che distingue i due denominatori — una scaduta su due, ma l'altra
+    e' gia' noindex, quindi non resta nulla di indicizzato."""
+    def sito(*direttive):
+        ctx = _contesto_tech()
+        ctx["pages"] = {"https://esempio.test/p%d" % n: pagina(meta_robots=d)
+                        for n, d in enumerate(direttive)}
+        return {f["key"]: f for f in mars_tech.audit(ctx)["findings"]}
+
+    scaduta = "unavailable_after: 2020-01-01"
+    tutte = sito(scaduta, scaduta)["tech.index.unavailable_after"]
+    una = sito("", scaduta)["tech.index.unavailable_after"]
+    con_esclusa = sito("noindex", scaduta)["tech.index.unavailable_after"]
+
+    assert tutte["source_severity"] == "critico"
+    assert tutte["params"]["pagine"] == 2
+    assert una["source_severity"] == "grave"
+    assert con_esclusa["source_severity"] == "critico"
+
+
+def test_tech_l_orologio_si_legge_una_volta_sola_per_audit():
+    """Leggendo l'orologio dentro il ciclo, due pagine con la stessa
+    data ai due lati di un secondo riceverebbero giudizi diversi, e
+    l'audit non sarebbe riproducibile su se stesso.
+
+    Il commento nel codice lo dichiara; senza questo test nessuno lo
+    verificherebbe, perche' spostare la riga dentro il ciclo lascia
+    ogni altra asserzione verde."""
+    letture = []
+    vero = mars_tech.datetime
+
+    class OrologioContato(vero):          # type: ignore[misc, valid-type]
+        @classmethod
+        def now(cls, tz=None):
+            letture.append(tz)
+            return vero.now(tz)
+
+    ctx = _contesto_tech()
+    ctx["pages"] = {"https://esempio.test/p%d" % n:
+                    pagina(meta_robots="unavailable_after: 2020-01-01")
+                    for n in range(4)}
+    mars_tech.datetime = OrologioContato
+    try:
+        esito = mars_tech.audit(ctx)
+    finally:
+        mars_tech.datetime = vero
+
+    assert len(letture) == 1, "un audit, un istante: %d letture" % len(letture)
+    assert any(f["key"] == "tech.index.unavailable_after"
+               for f in esito["findings"])
+
+
+@pytest.mark.parametrize("chiave", [
+    "tech.index.nosnippet", "tech.index.noarchive",
+    "tech.index.unavailable_after",
+])
+def test_l_esempio_delle_direttive_chiude_davvero_il_rilievo(chiave):
+    """Lo stesso presidio di U3.1, sulle tre chiavi nuove: un esempio e'
+    la forma di ARRIVO, e se applicato non chiude il rilievo che
+    pretende di correggere e' peggio di nessun esempio.
+
+    Il caso che lo rende utile e' `max-snippet:-1`, che sembra un
+    limite ed e' il suo contrario: se finisse per errore fra le
+    direttive vietate, l'esempio del `nosnippet` accenderebbe proprio
+    il rilievo che chiude. L'esempio passa dal DOM vero, non da un
+    `meta_robots` scritto a mano."""
+    import mars_fixes
+    from mars_i18n import RILIEVI
+
+    for esempio in (mars_fixes.CATALOGO[chiave]["example"],
+                    RILIEVI["en"][chiave]["example"]):
+        ctx = _contesto_tech()
+        ctx["pages"] = {"https://esempio.test/": pagina(
+            "<html><head>%s</head><body><p>x</p></body></html>" % esempio)}
+        chiavi = {f["key"] for f in mars_tech.audit(ctx)["findings"]}
+        assert chiave not in chiavi, "%s: l'esempio non chiude" % esempio
+
+
 def test_tech_nofollow_su_tutto_il_sito_pesa_piu_che_su_una_pagina():
     """Un `nofollow` su una pagina e' una scelta legittima; su tutte,
     la scoperta dipende interamente dalla sitemap.
@@ -313,6 +592,8 @@ TECH_CHIAVI = {
     "tech.sitemap.missing", "tech.sitemap.not_in_robots",
     "tech.sitemap.unreadable", "tech.sitemap.no_lastmod",
     "tech.index.noindex", "tech.index.nofollow",
+    "tech.index.nosnippet", "tech.index.noarchive",
+    "tech.index.unavailable_after",
     "tech.canonical.cross_host", "tech.canonical.missing",
 }
 

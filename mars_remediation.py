@@ -147,6 +147,9 @@ SFORZO: Dict[str, str] = {
     # piu' pagine.
     "tech.index.noindex": ORE,
     "tech.index.nofollow": ORE,
+    "tech.index.nosnippet": ORE,
+    "tech.index.unavailable_after": ORE,
+    "tech.index.noarchive": ORE,
     "tech.canonical.missing": ORE,
     "tech.canonical.cross_host": ORE,
     "tech.sitemap.missing": ORE,

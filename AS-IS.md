@@ -77,6 +77,7 @@
 | R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
 | R30 | `VectorRetriever` moriva sul corpus vuoto, in un ramo su due | 2026-08-26 |
 | R31 | Un file di query vuoto era un successo muto; il rifiuto LLM non aveva un ramo | 2026-08-26 |
+| R29 | Un audit bloccava l'API per tutti gli altri client | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2494,6 +2495,49 @@ quindi senza il secondo test, quello che verifica che il ramo reale funzioni
 ancora *con* documenti, l'infedeltà sarebbe restata invisibile. Il finto imita
 ora la forma che il codice usa (`[0]` e poi `.tolist()`) invece di importare
 numpy, che non è una dipendenza della suite.
+
+### R29 — ✅ RISOLTO (2026-08-26): un audit bloccava l'API per tutti gli altri
+**Il difetto.** Tutti e dodici gli handler REST erano `async def`, ma fanno
+lavoro **sincrono bloccante**: `crawler.crawl()` con `session.get()` e
+`time.sleep()` per il rate limit, `subprocess.run(timeout=120)` per Lighthouse,
+il polling di ZAP fino a 900 secondi. In FastAPI un handler `async` gira
+**sull'event loop**, quindi un audit fermava l'intero server.
+
+**Riprodotto sull'applicazione vera**, non su un esempio: uvicorn, un
+`build_context` sostituito da una pausa di due secondi — interessa il modello
+di concorrenza, non la scansione — e due richieste in parallelo, l'audit lento
+e una `/users/me` che non fa nulla.
+
+```
+                       attesa di /users/me durante l'audit
+prima  (async def)     1,71 s   su 2 di audit
+dopo   (def)           0,01 s
+```
+
+**La soluzione.** Gli otto endpoint d'audit diventano `def`: FastAPI li sposta
+da sé su un threadpool. Con loro `/token`, che non fa I/O ma verifica una
+password bcrypt — **179 ms di CPU misurati** su questa macchina, tenuti fuori
+dall'event loop per la stessa ragione.
+
+**`root` e `/users/me` restano `async`**, e l'asimmetria è deliberata: non
+bloccano, e spostarle sul threadpool costerebbe un cambio di contesto per
+niente. C'è un'asserzione anche su questo verso, altrimenti il vincolo si
+leggerebbe come «mai `async`», che non è.
+
+**Il presidio serve perché il difetto non fa rumore.** Rimettere un `async def`
+lascia le risposte **corrette**: cambia solo che il server smette di servire
+chiunque altro mentre lavora, e nessun test sul contenuto se ne accorgerebbe.
+Un test parametrizzato pretende quindi che gli handler bloccanti non siano
+corutine, e un terzo confronta l'elenco scritto a mano con le **rotte che
+l'applicazione dichiara**: un endpoint d'audit nuovo che non entrasse
+nell'elenco fa fallire, invece di ereditare il vincolo da un'euristica.
+
+**Quattro mutazioni, quattro rosse.**
+
+**Il banco resta nel repository**, come `tools/banco_grafo.py` e per la stessa
+ragione: apre una porta e fa girare uvicorn, cioè esce dall'ambiente che la
+suite si è data. Dentro `pytest` il vincolo è statico; `tools/banco_concorrenza_api.py`
+è ciò che dimostra **perché** conti, ed è documentato in CONTRIBUTING.
 
 ### R31 — ✅ RISOLTO (2026-08-26): due diagnosi che dicevano la cosa sbagliata
 **Il primo difetto: un file di query senza righe utili era un successo

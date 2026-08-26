@@ -8,6 +8,7 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import inspect
 import json
 
 import pytest
@@ -115,6 +116,51 @@ def test_get_current_user_non_porta_mai_l_hash(token):
     assert isinstance(utente, mars_api.User)
     assert not isinstance(utente, mars_api.UserInDB)
     assert not hasattr(utente, "hashed_password")
+
+
+#: Gli handler che fanno lavoro BLOCCANTE, e che quindi non devono
+#: essere corutine. Scritto per nome invece che dedotto: un endpoint
+#: nuovo va deciso, non ereditato da un'euristica.
+HANDLER_BLOCCANTI = ("audit_tech", "audit_seo", "audit_lexical",
+                     "audit_semantic", "audit_schema", "audit_wcag",
+                     "audit_wapt", "audit_full", "login_for_access_token")
+
+
+@pytest.mark.parametrize("nome", HANDLER_BLOCCANTI)
+def test_gli_handler_bloccanti_non_sono_corutine(nome):
+    """R29: in FastAPI un handler `async` gira sull'event loop, quindi un
+    audit — crawl, `subprocess.run(timeout=120)`, polling ZAP fino a 900 s
+    — bloccherebbe il server per **tutti** gli altri client.
+
+    Misurato sull'applicazione vera con un `build_context` che dorme due
+    secondi: una `/users/me` concorrente attendeva 1,71 s con `async
+    def` e 0,01 s con `def`. Vale anche per `/token`, che verifica una
+    password bcrypt — 179 ms di CPU.
+
+    Il presidio serve perche' rimettere un `async def` **non farebbe
+    fallire nulla**: le risposte restano corrette, cambia solo che il
+    server smette di servire chiunque altro mentre lavora."""
+    assert not inspect.iscoroutinefunction(getattr(mars_api, nome)), \
+        "%s fa lavoro bloccante: deve essere `def`, non `async def`" % nome
+
+
+def test_gli_handler_leggeri_restano_corutine():
+    """L'altro verso: root e /users/me non bloccano, e spostarle sul
+    threadpool costerebbe un cambio di contesto per niente. Senza questa
+    asserzione il vincolo si leggerebbe come «mai async», che non e'."""
+    for nome in ("root", "read_users_me"):
+        assert inspect.iscoroutinefunction(getattr(mars_api, nome)), nome
+
+
+def test_ogni_handler_di_audit_e_nell_elenco_dei_bloccanti():
+    """L'elenco e' scritto a mano, quindi un endpoint d'audit nuovo
+    potrebbe non entrarci e nessuno se ne accorgerebbe. Le rotte le
+    conosce l'applicazione: si confrontano con l'elenco."""
+    dalle_rotte = {r.endpoint.__name__ for r in mars_api.app.routes
+                   if getattr(r, "path", "").startswith("/audit/")}
+    assert dalle_rotte <= set(HANDLER_BLOCCANTI), \
+        "endpoint d'audit fuori dall'elenco: %s" % (
+            dalle_rotte - set(HANDLER_BLOCCANTI))
 
 
 @pytest.mark.parametrize("intestazioni", [

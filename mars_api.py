@@ -296,7 +296,7 @@ async def root():
 
 
 @app.post("/token", response_model=Token, tags=["Authentication"])
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """
     Ottieni un token JWT per accedere agli endpoint protetti.
     Credenziali di default: username='admin', password='mars2026'
@@ -320,10 +320,35 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 # --- Endpoint Audit Specifici ---
+#
+# `def` e NON `async def`, e non e' una svista (R29). In FastAPI un
+# handler `async` gira **sull'event loop**: un audit — che scansiona il
+# sito con `session.get()`, dorme per il rate limit, lancia Lighthouse
+# con `subprocess.run(timeout=120)` e attende ZAP fino a 900 secondi —
+# bloccherebbe l'intero server per tutti gli altri client fino alla
+# fine della scansione. Un handler `def` FastAPI lo sposta invece su un
+# threadpool.
+#
+# Misurato sull'applicazione vera, con un `build_context` che dorme due
+# secondi e una `/users/me` concorrente:
+#
+#     async def : la richiesta banale attende  1,71 s
+#     def       : attende                      0,01 s
+#
+# Vale anche per `/token`, che non fa I/O ma verifica una password
+# bcrypt: 179 ms di CPU misurati su questa macchina, tenuti fuori
+# dall'event loop per la stessa ragione.
+#
+# `root` e `/users/me` restano `async`: non bloccano, e spostarle sul
+# threadpool costerebbe un cambio di contesto per niente.
+#
+# Un test presidia il vincolo, perche' reintrodurre un `async def` qui
+# non farebbe fallire nulla — il comportamento resta corretto, cambia
+# solo che il server smette di servire chiunque altro.
 
 
 @app.post("/audit/tech", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_tech(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_tech(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 1: Tecnica (robots.txt, sitemap, crawler IA)."""
     res = run_single_audit("mars_tech", build_context(req))
     return AuditResponse(module="mars_tech", score=res.get("score"),
@@ -331,7 +356,7 @@ async def audit_tech(req: AuditRequest, current_user: User = Depends(get_current
 
 
 @app.post("/audit/seo", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 2: SEO (Lighthouse)."""
     res = run_single_audit("mars_seo", build_context(req))
     return AuditResponse(module="mars_seo", score=res.get("score"),
@@ -339,14 +364,14 @@ async def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_
 
 
 @app.post("/audit/lexical", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_lexical(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_lexical(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 3: Lessicale (BM25 su title, heading, termini)."""
     res = run_single_audit("mars_lexical", build_context(req))
     return AuditResponse(module="mars_lexical", score=None, details=res)
 
 
 @app.post("/audit/semantic", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 4: Semantica (chunk answer-shaped, vector retrieval)."""
     res = run_single_audit("mars_semantic", build_context(req))
     # Si escludono scores/rank: sono array lunghi quanto il corpus e
@@ -359,7 +384,7 @@ async def audit_semantic(req: AuditRequest, current_user: User = Depends(get_cur
 
 
 @app.post("/audit/schema", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 5: Dati strutturati (JSON-LD / Schema.org)."""
     res = run_single_audit("mars_schema", build_context(req))
     return AuditResponse(module="mars_schema", score=res.get("score"),
@@ -367,7 +392,7 @@ async def audit_schema(req: AuditRequest, current_user: User = Depends(get_curre
 
 
 @app.post("/audit/wcag", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 6: Accessibilità (WCAG)."""
     res = run_single_audit("mars_wcag", build_context(req))
     return AuditResponse(module="mars_wcag", score=res.get("score"),
@@ -375,7 +400,7 @@ async def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current
 
 
 @app.post("/audit/wapt", response_model=AuditResponse, tags=["Audit Modules"])
-async def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue l'audit dell'Area 7: Sicurezza (WAPT via ZAP, o HTTP Headers).
 
     ZAP si raggiunge parlando la sua API JSON: non passa da `zap-cli`
@@ -388,7 +413,7 @@ async def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current
 
 
 @app.post("/audit/full", response_model=dict, tags=["Audit Modules"])
-async def audit_full(req: AuditRequest, current_user: User = Depends(get_current_user)):
+def audit_full(req: AuditRequest, current_user: User = Depends(get_current_user)):
     """Esegue tutti gli audit disponibili, calcolando anche la fusione RRF."""
     context = build_context(req)  # una volta sola, per tutti i moduli
     results = {}

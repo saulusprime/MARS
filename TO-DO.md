@@ -19,8 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R30-R32, R34, R38, R41, R44, R45, R47.
-> **Aperte**: R28-R29, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41, R44, R45, R47.
+> **Aperte**: R28, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -190,7 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R30-R32, R34, R38, R41, R44, R45, R47 — stanno
+Le voci chiuse — R1-R27, R29-R32, R34, R38, R41, R44, R45, R47 — stanno
 in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
@@ -219,18 +219,6 @@ dedurre*). Ordinate per gravità.
 - [ ] Gestire `OSError` con un codice di uscita distinto da `--fail-under`, e
       scrivere il referto prima dello storico.
 - [ ] Distinguere «0 su 0» (non misurato) da uno 0% reale, come già fa `overall_rate`.
-
-### R29 — 🟡 MEDIO: gli endpoint `async` bloccano l'event loop
-Tutti gli handler REST sono `async def` (12 in [mars_api.py](mars_api.py)) ma
-fanno lavoro **sincrono bloccante**: `crawler.crawl()` con `session.get()` e
-`time.sleep()` per il rate-limit ([mars_core.py:626](mars_core.py#L626)),
-`subprocess.run(timeout=120)` ([mars_seo.py:467](mars_seo.py#L467)), il polling
-ZAP fino a 900 s ([mars_wapt.py:471](mars_wapt.py#L471)). In FastAPI un handler
-`async` gira **sull'event loop**: un audit blocca l'intero server per tutti gli
-altri client fino a fine scansione.
-
-- [ ] Rendere `def` (non `async def`) gli handler bloccanti — FastAPI li sposta
-      su un threadpool — oppure delegare l'esecuzione a `run_in_threadpool`.
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**

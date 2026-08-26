@@ -61,6 +61,17 @@ che fa girare lo script su un DOM finto e controlla nove comportamenti.
 Esce 0 se sono tutti verdi, 2 se `node` non c'è. La voce **R48** del
 TO-DO tiene aperta la scelta di come portarlo dentro `pytest`.
 
+**La concorrenza dell'API si prova a mano, per la stessa ragione.**
+
+    python3 tools/banco_concorrenza_api.py
+
+fa girare l'applicazione vera con uvicorn e misura quanto attende una
+richiesta banale mentre un audit lavora. Apre una porta, quindi esce
+dall'ambiente che la suite si è data; dentro `pytest` il vincolo è
+un'asserzione statica — gli handler bloccanti non devono essere corutine
+— e questo banco è ciò che dimostra **perché** conti. Misurato chiudendo
+**R29**: 1,71 s con `async def`, 0,01 s con `def`.
+
 **`flake8 .` deve restare a zero avvisi.** La configurazione è in
 `setup.cfg`, non servono flag. `flake8 --select=F` è il minimo prima di
 ogni commit: è il controllo che ha rivelato il difetto più grave del

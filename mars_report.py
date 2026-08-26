@@ -570,6 +570,52 @@ def _squarify(valori: List[float], x: float, y: float, w: float,
     return rettangoli
 
 
+def disposizione_ad_anelli(livelli: List[Optional[int]],
+                           larghezza: float,
+                           altezza: float) -> List[Tuple[float, float]]:
+    """Un anello per distanza dalla home, con gli orfani fuori da tutti.
+
+    Era ventisei righe di JavaScript, e nessun test le eseguiva: quattro
+    ne guardavano la *stringa*. E' aritmetica pura, quindi qui e'
+    verificabile con la suite di sempre, senza allargare l'ambiente a
+    node e jsdom (R48). Al JavaScript resta il gesto — eventi, classi,
+    zoom — che il banco `tools/banco_grafo.py` continua a presidiare.
+
+    `None` e' una pagina che dalla home non si raggiunge seguendo i
+    link: va **fuori** da tutti gli anelli, non «prima» della home.
+    Non sta a una distanza minore: sta fuori dal percorso.
+    """
+    if not livelli:
+        return []
+    cx, cy = larghezza / 2.0, altezza / 2.0
+    massimo = max((liv for liv in livelli if liv is not None), default=0)
+    # Gli orfani prendono la corsia subito oltre l'ultimo livello vero.
+    quote = [massimo + 1 if liv is None else liv for liv in livelli]
+
+    gruppi: Dict[int, List[int]] = {}
+    for i, quota in enumerate(quote):
+        gruppi.setdefault(quota, []).append(i)
+
+    esterno = min(cx, cy) - 24.0
+    punti: List[Tuple[float, float]] = [(cx, cy)] * len(livelli)
+    for quota, gruppo in gruppi.items():
+        # Un grafo di soli orfani, o di sola home, non ha livelli veri:
+        # senza questo ramo il raggio sarebbe una divisione per uno e
+        # gli orfani finirebbero al centro insieme alla home.
+        if massimo <= 0:
+            raggio = esterno if quota > 0 else 0.0
+        else:
+            raggio = esterno * quota / (massimo + 1.0)
+        for k, i in enumerate(gruppo):
+            if not raggio:
+                punti[i] = (cx, cy)
+                continue
+            angolo = 2.0 * math.pi * k / len(gruppo) - math.pi / 2.0
+            punti[i] = (cx + raggio * math.cos(angolo),
+                        cy + raggio * math.sin(angolo))
+    return punti
+
+
 def ripartizione_pagine(referto: dict) -> Dict[str, int]:
     """I tre numeri del donut dell'hero: quanti URL, e in che stato.
 
@@ -2696,6 +2742,11 @@ def _grafo_html(referto: dict, p: List[str],
                  % (arco["source"], arco["target"], partenza["x"],
                     partenza["y"], arrivo["x"] - dx * arretra,
                     arrivo["y"] - dy * arretra))
+    # La vista ad anelli, calcolata qui: il JavaScript la applica e non
+    # la ricalcola (R48).
+    anelli = disposizione_ad_anelli(
+        [nodo["clicks"] for nodo in nodi],
+        float(grafo["width"]), float(grafo["height"]))
     if len(nodi) <= GRAFO_ETICHETTA_TUTTI:
         etichettati = set(range(len(nodi)))
     else:
@@ -2714,11 +2765,13 @@ def _grafo_html(referto: dict, p: List[str],
             dove = t("%s dalla home", lang) % _plurale(
                 int(nodo["clicks"]), "click", "click", lang)
         p.append("<circle class='grafo-nodo %s' data-i='%d' data-r='%.1f' "
-                 "data-c='%s' cx='%.1f' cy='%.1f' r='%.1f'>"
+                 "data-c='%s' data-ax='%.1f' data-ay='%.1f' "
+                 "cx='%.1f' cy='%.1f' r='%.1f'>"
                  "<title>%s — %s, %s, %s</title>"
                  "</circle>"
                  % (classe, i, nodo["r"],
                     "" if nodo["clicks"] is None else nodo["clicks"],
+                    anelli[i][0], anelli[i][1],
                     nodo["x"], nodo["y"], nodo["r"], _e(nodo["label"]),
                     t("%s in entrata", lang) % _plurale(
                         int(nodo["incoming"]), "link", "link", lang),
@@ -3120,29 +3173,13 @@ REFERTO_JS = """
   /* Vista per distanza: un anello per click dalla home, gli orfani
      sul cerchio piu' esterno. Dice a colpo d'occhio quanto e'
      profondo il sito, che il layout a forze non mostra. */
+  /* La disposizione la calcola Python (disposizione_ad_anelli): qui
+     si applica soltanto. Ventisei righe di aritmetica sono uscite di
+     qui perche' nessun test le eseguiva -- quattro ne guardavano la
+     stringa -- e in Python la suite di sempre le verifica (R48). */
   function anelli() {
-    var cx = vbase[2] / 2, cy = vbase[3] / 2;
-    var massimo = 0, gruppi = {}, chiavi = [];
     nodi.forEach(function (n, i) {
-      var c = n.getAttribute("data-c");
-      var liv = c === "" ? -1 : +c;
-      if (liv > massimo) { massimo = liv; }
-      if (!gruppi[liv]) { gruppi[liv] = []; chiavi.push(liv); }
-      gruppi[liv].push(i);
-    });
-    var esterno = Math.min(cx, cy) - 24;
-    chiavi.forEach(function (liv) {
-      var gruppo = gruppi[liv];
-      /* Gli orfani (-1) vanno fuori da tutti: non stanno "prima"
-         della home, stanno fuori dal percorso. */
-      var quota = liv < 0 ? massimo + 1 : liv;
-      var r = massimo <= 0 ? (liv < 0 ? esterno : 0)
-        : esterno * quota / (massimo + 1);
-      gruppo.forEach(function (i, k) {
-        if (r === 0) { pos[i] = [cx, cy]; return; }
-        var a = 2 * Math.PI * k / gruppo.length - Math.PI / 2;
-        pos[i] = [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-      });
+      pos[i] = [+n.getAttribute("data-ax"), +n.getAttribute("data-ay")];
     });
     ridisegna();
   }

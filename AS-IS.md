@@ -2355,6 +2355,43 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R48 — ✅ RIDOTTO (2026-08-26): l'aritmetica del grafo è uscita dal JavaScript
+*(la voce non si chiude: si rimpicciolisce, e il perimetro rimasto è scritto in
+[CONTRIBUTING.md](CONTRIBUTING.md))*
+
+**Il difetto.** `REFERTO_JS` era presidiato da quattro test, e tutti guardavano la
+**stringa**: che non contenga origini esterne, che non contenga dati del sito,
+che compaia solo dove c'è un grafo, che chiami `removeAttribute("hidden")`.
+Nessuno lo **eseguiva**. Ventisei righe di aritmetica — la disposizione ad anelli
+— vivevano lì dentro senza che nulla le verificasse.
+
+**Delle tre strade, la seconda.** `jsdom` in `requirements-dev` avrebbe allargato
+la suite a npm, e su un clone senza `node` un test marcato `skipif` è sempre
+verde perché sempre saltato: il TO-DO stesso lo chiamava «un presidio che non
+presidia». Il porting in Python porta il comportamento dentro `pytest` **senza**
+allargare l'ambiente, e per giunta riduce il JavaScript: `anelli()` scende da 26
+righe a 5, e la funzione non calcola più nulla — legge `data-ax`/`data-ay`.
+
+**Il costo, misurato.** Circa 24 caratteri per nodo nell'HTML. Il diff dei due
+golden è di 16 righe aggiunte e 48 tolte: il JavaScript si è accorciato più di
+quanto gli attributi abbiano allungato.
+
+**Quel che resta al JavaScript, e va detto.** Il **gesto**: il fuoco,
+l'evidenziazione dei vicini, lo zoom, il ritorno al layout di partenza. Il banco
+`tools/banco_grafo.py` resta l'unico a provarlo, e va rilanciato da chi tocca
+`REFERTO_JS` — il porting toglie il calcolo, non il gesto. Rilanciato dopo la
+modifica: **nove controlli su nove**, coi raggi `[0 123 123 246]` identici a
+quelli che `disposizione_ad_anelli()` produce in Python.
+
+**Una mutazione sfuggita al primo giro**, e vale registrarla: «tutti i nodi di un
+anello allo stesso angolo» passava. Il test verificava i **raggi**, che restano
+quelli giusti mentre i nodi finiscono uno sopra l'altro. Aggiunte due asserzioni
+— i punti dello stesso anello sono diversi, e il primo sta in alto — la mutazione
+diventa rossa.
+
+**Verifiche.** 1011 test verdi, `flake8` a zero, i due golden HTML rigenerati e
+il diff **riletto**. **Sei mutazioni su sei** fanno rosso, e il banco passa.
+
 ### R52 — ✅ RISOLTO (2026-08-26): tre difetti dell'incontro fra R36 e R37
 *(trovati lo stesso giorno in cui sono nati, correggendo un test che passava per
 la ragione sbagliata. Nessuno era nel TO-DO)*

@@ -756,15 +756,15 @@ Disallow:</pre>
 </marker>
 </defs>
 <line class='grafo-arco' data-s='0' data-t='1' x1='390.0' y1='270.0' x2='174.4' y2='516.6' marker-end='url(#grafo-freccia)'/>
-<circle class='grafo-nodo casa' data-i='0' data-r='5.0' data-c='0' cx='390.0' cy='270.0' r='5.0'>
+<circle class='grafo-nodo casa' data-i='0' data-r='5.0' data-c='0' data-ax='390.0' data-ay='270.0' cx='390.0' cy='270.0' r='5.0'>
 <title>/ — 0 link in entrata, 1 link in uscita, punto di partenza</title>
 </circle>
 <text class='grafo-etichetta' data-i='0' x='398.0' y='274.0'>/</text>
-<circle class='grafo-nodo raggiunta' data-i='1' data-r='6.8' data-c='1' cx='167.9' cy='524.0' r='6.8'>
+<circle class='grafo-nodo raggiunta' data-i='1' data-r='6.8' data-c='1' data-ax='390.0' data-ay='147.0' cx='167.9' cy='524.0' r='6.8'>
 <title>/servizi/ — 1 link in entrata, 0 link in uscita, 1 click dalla home</title>
 </circle>
 <text class='grafo-etichetta' data-i='1' x='177.7' y='528.0'>/servizi/</text>
-<circle class='grafo-nodo orfana' data-i='2' data-r='5.0' data-c='' cx='20.0' cy='16.0' r='5.0'>
+<circle class='grafo-nodo orfana' data-i='2' data-r='5.0' data-c='' data-ax='390.0' data-ay='24.0' cx='20.0' cy='16.0' r='5.0'>
 <title>/faq/ — 0 link in entrata, 0 link in uscita, non raggiunta dalla home per link</title>
 </circle>
 <text class='grafo-etichetta' data-i='2' x='28.0' y='20.0'>/faq/</text>
@@ -1227,29 +1227,13 @@ Disallow:</pre>
   /* Vista per distanza: un anello per click dalla home, gli orfani
      sul cerchio piu' esterno. Dice a colpo d'occhio quanto e'
      profondo il sito, che il layout a forze non mostra. */
+  /* La disposizione la calcola Python (disposizione_ad_anelli): qui
+     si applica soltanto. Ventisei righe di aritmetica sono uscite di
+     qui perche' nessun test le eseguiva -- quattro ne guardavano la
+     stringa -- e in Python la suite di sempre le verifica (R48). */
   function anelli() {
-    var cx = vbase[2] / 2, cy = vbase[3] / 2;
-    var massimo = 0, gruppi = {}, chiavi = [];
     nodi.forEach(function (n, i) {
-      var c = n.getAttribute("data-c");
-      var liv = c === "" ? -1 : +c;
-      if (liv > massimo) { massimo = liv; }
-      if (!gruppi[liv]) { gruppi[liv] = []; chiavi.push(liv); }
-      gruppi[liv].push(i);
-    });
-    var esterno = Math.min(cx, cy) - 24;
-    chiavi.forEach(function (liv) {
-      var gruppo = gruppi[liv];
-      /* Gli orfani (-1) vanno fuori da tutti: non stanno "prima"
-         della home, stanno fuori dal percorso. */
-      var quota = liv < 0 ? massimo + 1 : liv;
-      var r = massimo <= 0 ? (liv < 0 ? esterno : 0)
-        : esterno * quota / (massimo + 1);
-      gruppo.forEach(function (i, k) {
-        if (r === 0) { pos[i] = [cx, cy]; return; }
-        var a = 2 * Math.PI * k / gruppo.length - Math.PI / 2;
-        pos[i] = [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-      });
+      pos[i] = [+n.getAttribute("data-ax"), +n.getAttribute("data-ay")];
     });
     ridisegna();
   }

@@ -60,8 +60,17 @@ non su un clone appena fatto è la trappola già pagata con
     python3 tools/banco_grafo.py
 
 che fa girare lo script su un DOM finto e controlla nove comportamenti.
-Esce 0 se sono tutti verdi, 2 se `node` non c'è. La voce **R48** del
-TO-DO tiene aperta la scelta di come portarlo dentro `pytest`.
+Esce 0 se sono tutti verdi, 2 se `node` non c'è.
+
+**R48 ha ridotto il perimetro, non lo ha chiuso** (2026-08-26). La
+disposizione ad anelli era ventisei righe di aritmetica dentro il
+JavaScript: ora la calcola `disposizione_ad_anelli()` in
+`mars_report.py` e il disegno la riceve in `data-ax`/`data-ay`, quindi
+`pytest` la verifica come qualunque altra funzione. Al JavaScript
+restano gli **eventi**: il fuoco, l'evidenziazione dei vicini, lo zoom,
+il ritorno al layout di partenza. Quelli il banco continua a essere
+l'unico a provarli, e va rilanciato lo stesso — il porting toglie il
+calcolo, non il gesto.
 
 **La concorrenza dell'API si prova a mano, per la stessa ragione.**
 

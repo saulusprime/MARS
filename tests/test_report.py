@@ -352,6 +352,86 @@ def test_il_donut_delle_pagine_compare_nell_hero():
     assert riferimenti_esterni(uscita) == []
 
 
+def test_il_layout_ad_anelli_e_aritmetica_e_sta_in_python():
+    """R48: la disposizione ad anelli era 26 righe di JavaScript che
+    nessun test eseguiva — quattro test guardavano la STRINGA.
+
+    E' aritmetica pura: portarla in Python la rende verificabile con la
+    suite di sempre, senza allargare l'ambiente a node e jsdom. Il
+    GESTO — eventi, classi, zoom — resta al banco `tools/banco_grafo.py`,
+    e R48 non si chiude: si rimpicciolisce.
+    """
+    # Livelli: la home, due a un click, uno a due, due orfani.
+    livelli = [0, 1, 1, 2, None, None]
+    punti = mars_report.disposizione_ad_anelli(livelli, 400, 400)
+
+    assert len(punti) == len(livelli)
+    cx = cy = 200.0
+
+    def raggio(punto):
+        return ((punto[0] - cx) ** 2 + (punto[1] - cy) ** 2) ** 0.5
+
+    # La home sta al centro: e' il livello zero.
+    assert raggio(punti[0]) < 0.01
+    # Stesso livello, stesso raggio.
+    assert abs(raggio(punti[1]) - raggio(punti[2])) < 0.01
+    # Piu' lontano dalla home, piu' fuori.
+    assert raggio(punti[1]) < raggio(punti[3])
+    # Gli orfani stanno FUORI da tutti: non «prima» della home, fuori
+    # dal percorso.
+    assert raggio(punti[4]) > raggio(punti[3])
+    assert abs(raggio(punti[4]) - raggio(punti[5])) < 0.01
+
+    # Sullo stesso anello i nodi si DISTRIBUISCONO. Senza questa
+    # asserzione una mutazione che dia a tutti lo stesso angolo passa
+    # inosservata — i raggi restano quelli giusti e i nodi finiscono uno
+    # sopra l'altro. Misurato: sfuggiva al primo giro di mutazioni.
+    assert punti[1] != punti[2]
+    assert punti[4] != punti[5]
+    # E il primo di ogni anello sta in alto, non a destra: e' la
+    # rotazione di -90 gradi, che rende il disegno leggibile.
+    assert punti[1][1] < cy and abs(punti[1][0] - cx) < 0.01
+
+
+def test_il_layout_ad_anelli_regge_i_casi_degeneri():
+    """Un grafo di una pagina sola, e uno di soli orfani: il primo non
+    deve dividere per zero, il secondo non deve ammucchiare tutto al
+    centro."""
+    assert mars_report.disposizione_ad_anelli([], 400, 400) == []
+
+    sola = mars_report.disposizione_ad_anelli([0], 400, 400)
+    assert sola == [(200.0, 200.0)]
+
+    orfani = mars_report.disposizione_ad_anelli([None, None], 400, 400)
+    raggi = [((x - 200.0) ** 2 + (y - 200.0) ** 2) ** 0.5
+             for x, y in orfani]
+    assert all(r > 1.0 for r in raggi), "gli orfani non stanno al centro"
+
+
+def test_i_nodi_del_grafo_portano_la_posizione_ad_anelli():
+    """Il JavaScript non ricalcola piu' nulla: legge due attributi.
+
+    Si guarda il golden e non la fixture: la fixture non ha un grafo, e
+    cercare `grafo-nodo` nel suo HTML da' comunque un riscontro perche'
+    la stringa compare nel CSS — un test che passa per la ragione
+    sbagliata, cioe' quello che R33 ha appena finito di togliere."""
+    percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "golden", "referto.html")
+    with open(percorso, encoding="utf-8") as fh:
+        html = fh.read()
+    assert "class='grafo-nodo" in html, "il golden non ha piu' un grafo"
+
+    nodi = html.count("class='grafo-nodo")
+    assert html.count("data-ax=") == nodi
+    assert html.count("data-ay=") == nodi
+    # E l'aritmetica che il JS ha lasciato non deve tornarci.
+    assert "Math.cos" not in mars_report.REFERTO_JS
+    assert "Math.PI" not in mars_report.REFERTO_JS
+    # `Math.sqrt` resta: e' la lunghezza dell'arco in `ridisegna`, cioe'
+    # il gesto, che R48 non porta via.
+    assert "Math.sqrt" in mars_report.REFERTO_JS
+
+
 def _referto_citabilita(contesto, risultato):
     return build_report({"mars_citability": risultato}, dict(contesto))
 

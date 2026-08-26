@@ -19,8 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41, R43-R45, R47.
-> **Aperte**: R28, R33, R35-R37, R39-R40, R42, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41-R45, R47.
+> **Aperte**: R28, R33, R35-R37, R39-R40, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -190,8 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R29-R32, R34, R38, R41, R43-R45, R47 — stanno
-in
+Le voci chiuse — R1-R27, R29-R32, R34, R38, R41-R45, R47 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -419,28 +418,6 @@ testi.)*
 - [ ] Allineare il testo delle issues dei non applicabili a quello dei
       rilievi, rigenerando i golden.
 - [ ] Chiudere i tre buchi di `_descrivi_item`.
-
-### R42 — 🟢 LIEVE: la citabilità sparisce dalla vista testo quando fallisce
-*(trovato censendo i consumatori per U1.8, il 2026-08-24)*
-
-[mars_report.py:1391](mars_report.py#L1391) salta `mars_citability` nel ciclo
-delle aree, perché ha un blocco tutto suo in fondo — ma quel blocco è protetto
-da `if cit and cit.get("profiles")`. Quando i profili non ci sono, e cioè
-proprio quando qualcosa è andato storto, **la vista testo non stampa nulla**:
-né il nome dell'area, né il motivo. Misurato: con l'area in errore,
-`'plugin rotto' in testo` → `False` e `'Citabilit' in testo` → `False`.
-L'HTML invece la mostra (quadrante, scheda d'area, sezione dedicata).
-
-Sono i due rami dell'uscita anticipata («Richiede le altre aree») e dell'area
-fallita. È **R38 ancora aperto per una sola area su nove**, ed è anche
-l'ultimo punto di `render_text` che decide sul **nome del modulo** invece che
-sul dato — l'anti-pattern che R38 ha tolto per `mars_lexical`/`mars_semantic`.
-
-Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
-`cit.status.error`) mentre la vista testo continua a tacerla.
-
-- [ ] Far decidere la vista sul dato, non sul nome: stampare la riga d'area
-      quando il blocco dedicato non può girare. Rigenerando i golden (U2).
 
 ### R46 — ⚪ LIEVE: lo sforzo è editoriale e non scala col difetto
 *(lasciata aperta da U4, il 2026-08-24; la sezione è stata scritta il

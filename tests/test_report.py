@@ -31,7 +31,7 @@ from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          _plurale, _coda, link_graph_data,
                          _force_layout,
                          _correzioni_testo, _elenco_controlli,
-                         _etichetta_area, _quadrante, build_report,
+                         _etichetta_area, _area_di, _quadrante, build_report,
                          render_csv, render_html, render_json,
                          render_markdown, render_text, COLONNE_CSV)
 
@@ -185,6 +185,52 @@ def test_html_autoconsistente(referto):
     assert "data:%s;base64," % atteso in uscita
     assert atteso == "image/png", \
         "il file si chiama .ico ma e' un PNG: se cambia, cambia il referto"
+
+
+def _referto_citabilita(contesto, risultato):
+    return build_report({"mars_citability": risultato}, dict(contesto))
+
+
+def test_la_citabilita_fallita_compare_nella_vista_testo(contesto):
+    """R42: la vista testo saltava `mars_citability` sul NOME del modulo,
+    perché ha un blocco tutto suo in fondo — ma quel blocco è protetto
+    dai profili. Quando i profili non c'erano, e cioè proprio quando
+    qualcosa era andato storto, non si stampava **nulla**: né il nome
+    dell'area né il motivo, mentre l'HTML la mostrava.
+
+    Era R38 rimasta aperta per una sola area su nove."""
+    rotto = mars_core.errore_modulo(RuntimeError("plugin rotto"))
+    testo = render_text(_referto_citabilita(contesto, rotto))
+    assert "Citabilit" in testo, "l'area non deve sparire"
+    assert "plugin rotto" in testo, "né il motivo"
+
+
+def test_la_citabilita_senza_profili_compare_lo_stesso(contesto):
+    """Il secondo ramo: l'uscita anticipata, quando le altre aree non
+    hanno prodotto punteggi. Non è un guasto, ma tacerla lascia il
+    lettore senza sapere che l'area esiste."""
+    testo = render_text(_referto_citabilita(contesto, {
+        "score": None, "status": "unavailable",
+        "issues": ["Richiede le altre aree"], "findings": []}))
+    assert "Citabilit" in testo
+    assert "Richiede le altre aree" in testo
+
+
+def test_la_citabilita_riuscita_non_compare_due_volte(contesto, referto):
+    """L'altro verso, e il motivo per cui la condizione è UNA sola: se
+    la vista saltasse l'area sempre o mai, comparirebbe zero o due
+    volte. Con i profili presenti deve comparire una volta, nel blocco
+    dedicato."""
+    testo = render_text(referto)
+    assert "Profili di citabilità IA" in testo
+    # La riga d'area la produce `_riga_area` dall'etichetta del registro,
+    # che comincia col numero d'ordine: e' cio' che la distingue da
+    # «Citabilità stimata», che e' il giudizio LLM ed e' un'altra cosa.
+    # La prima stesura del test non le distingueva e falliva su quella.
+    etichetta = _etichetta_area(_area_di(referto, "mars_citability"))
+    righe = [r for r in testo.splitlines() if r.startswith("8. ")]
+    assert righe == [], "l'area comparirebbe due volte: %s" % righe
+    assert etichetta, "l'area deve esistere nel referto"
 
 
 def test_il_tipo_dell_icona_si_legge_dai_byte():

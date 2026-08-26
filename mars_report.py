@@ -1058,6 +1058,20 @@ def _verdetto(valore: Optional[float],
              else "critico", lang)
 
 
+def _ha_blocco_dedicato(area: dict, referto: dict) -> bool:
+    """Vero se quest'area ha gia' una sezione tutta sua, piu' sotto.
+
+    Una sola area ce l'ha, la citabilita', e **solo quando ha prodotto i
+    profili**: e' la stessa condizione che protegge quel blocco, letta
+    in un posto solo perche' le due non possano divergere. Se
+    divergessero, l'area comparirebbe due volte o nessuna — e il secondo
+    caso e' esattamente il difetto R42.
+    """
+    if area.get("module") != "mars_citability":
+        return False
+    return bool((referto.get("citability") or {}).get("profiles"))
+
+
 def _riga_complessivo(referto: dict,
                       lang: str = LINGUA_CANONICA) -> List[str]:
     """Il complessivo in testa, con che cosa lo compone.
@@ -1432,8 +1446,16 @@ def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     # le correzioni che lui non prende in carico.
     nel_piano = frozenset(v["key"] for v in referto.get("remediation") or [])
     for area in referto["areas"]:
-        if area["module"] == "mars_citability":
-            continue  # ha un blocco tutto suo, in fondo
+        # La citabilita' ha un blocco tutto suo in fondo — ma solo
+        # quando i profili ci sono. Si salta quindi sul DATO e non sul
+        # nome del modulo (R42): quando i profili non ci sono, e cioe'
+        # proprio quando qualcosa e' andato storto, la vista testo
+        # taceva del tutto — ne' il nome dell'area ne' il motivo,
+        # mentre l'HTML la mostrava. Era R38 rimasta aperta per una
+        # sola area su nove, e l'ultimo punto di `render_text` che
+        # decideva su un nome di modulo.
+        if _ha_blocco_dedicato(area, referto):
+            continue
         righe.append(_riga_area(area, lang))
         # Con che cosa e' stato misurato, per OGNI area e non piu' per
         # la sola accessibilita': senza, 100/100 dai soli header HTTP

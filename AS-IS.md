@@ -79,6 +79,7 @@
 | R31 | Un file di query vuoto era un successo muto; il rifiuto LLM non aveva un ramo | 2026-08-26 |
 | R29 | Un audit bloccava l'API per tutti gli altri client | 2026-08-26 |
 | R43 | La favicon dichiarava un MIME che non era il suo, e spariva in silenzio | 2026-08-26 |
+| R42 | La citabilità spariva dalla vista testo proprio quando falliva | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2496,6 +2497,42 @@ quindi senza il secondo test, quello che verifica che il ramo reale funzioni
 ancora *con* documenti, l'infedeltà sarebbe restata invisibile. Il finto imita
 ora la forma che il codice usa (`[0]` e poi `.tolist()`) invece di importare
 numpy, che non è una dipendenza della suite.
+
+### R42 — ✅ RISOLTO (2026-08-26): la citabilità spariva dalla vista testo
+**Il difetto.** `render_text` saltava `mars_citability` nel ciclo delle aree
+perché ha un blocco tutto suo in fondo — ma quel blocco è protetto da
+`if cit and cit.get("profiles")`. Quando i profili non c'erano, e cioè
+**proprio quando qualcosa era andato storto**, la vista testo non stampava
+nulla: né il nome dell'area né il motivo. L'HTML invece la mostrava.
+
+Riprodotto sui due rami che lo producono:
+
+```
+                     'Citabilità' nel testo    motivo nel testo
+area in ERRORE              False                   False
+uscita anticipata           False                   False
+```
+
+Era **R38 rimasta aperta per una sola area su nove**, e l'ultimo punto di
+`render_text` che decideva sul **nome del modulo** invece che sul dato — cioè
+l'anti-pattern che R38 aveva tolto per `mars_lexical` e `mars_semantic`.
+
+**La soluzione.** `_ha_blocco_dedicato(area, referto)` legge la **stessa
+condizione** che protegge il blocco, in un posto solo: se le due divergessero,
+l'area comparirebbe due volte o nessuna — e il secondo caso è esattamente R42.
+C'è un test per ciascuno dei due esiti sbagliati.
+
+**I golden non si sono mossi**, ed è corretto: in entrambi i dataset la
+citabilità produce i profili, quindi il ramo cambiato non è esercitato da
+nessuno dei due. È il caso in cui il golden non può fare da rete e il test
+mirato è l'unico presidio.
+
+**Tre mutazioni, tre rosse.**
+
+**Il primo test era troppo largo e ha pescato la cosa sbagliata**: cercava
+«Citabilit» in una riga con i due punti, e ha trovato «Citabilità stimata», che
+è il **giudizio LLM**. La riga d'area la produce `_riga_area` dall'etichetta
+del registro, che comincia col numero d'ordine: è quello a distinguerle.
 
 ### R43 — ✅ RISOLTO (2026-08-26): due cose che U2 aveva visto e non corretto
 **Il primo difetto: l'icona dichiarava un MIME che non era il suo.** Il file si

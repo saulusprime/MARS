@@ -2355,6 +2355,54 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R49 — ✅ RISOLTO (2026-08-26): il donut delle pagine, coi nomi che non affermano
+**Il ripiego che c'era.** La Fase 5 di UPGRADE.md prevedeva un donut «senza
+rilievi / con rilievi / scartate» e aveva ripiegato su due numeri — *pagine
+scansionate* e *URL scartati* — dichiarando il motivo: mancavano gli `url` sui
+rilievi. R47 li ha portati (`params["urls"]`, `pagine_del_rilievo()`), quindi il
+dato c'era.
+
+**Due vincoli misurati hanno cambiato i nomi del piano, non il taglio.**
+
+- **Nessuna area registra QUALI pagine ha guardato.** `mars_wcag` scrive
+  `pages_tested` come conteggio e axe si ferma alle prime del campione;
+  Lighthouse ne misura una. «Pulita» e «non guardata» non sono distinguibili dal
+  dato, quindi un settore chiamato «senza rilievi» affermerebbe ciò che nessuno
+  ha misurato — per giunta su un disegno che si legge come una ripartizione
+  esaustiva, cosa che la treemap non è. Il settore si chiama **«nessun rilievo le
+  cita»**, che è la frase già usata dalla treemap: una sola voce per un concetto.
+- **`skipped` non contiene pagine, contiene motivi**, e fra quelli ci sono un
+  altro host e un URL non analizzabile. Il terzo settore si chiama **«URL
+  scartati»**, non «pagine scartate», e il totale è **«URL incontrati»**: è ciò
+  che il crawler ha visto, non le sole pagine del sito.
+
+Il caveat sta così **dentro il disegno** invece che in una nota accanto — che era
+l'opzione che il TO-DO stesso sconsigliava, perché una nota non toglie
+l'affermazione dal grafico.
+
+**Il colore dice la stessa cosa dei nomi.** Il settore «nessun rilievo le cita»
+prende il grigio del binario e **non il verde**: è la stessa scelta per cui la
+treemap lascia neutro ciò che non sa (R21, R47). Le classi sono proprie
+(`con-rilievi`, `non-citate`, `scartati`) e non le `.bad`/`.muted` generiche, che
+altrove impostano `color` e non `stroke`: riusarle qui avrebbe legato due regole
+con significati diversi.
+
+**Un URL citato da un rilievo può non essere fra le pagine.** Gli strumenti
+esterni seguono i propri redirect, quindi il conteggio è l'**intersezione** con
+le pagine scansionate: contare i citati e basta gonfierebbe un settore oltre il
+totale. Un test lo presidia.
+
+**Non entra nel dato canonico**, quindi `schema_version` resta **2** e json, txt,
+md e csv non si muovono: la ripartizione è derivabile per intero da `pages`,
+`skipped` e `params["urls"]`, come la geometria della treemap. Verificato — il
+diff tocca i due soli `referto*.html`.
+
+**Verifiche.** 1004 test verdi (erano 1001), `flake8` a zero. I due golden HTML
+rigenerati e il diff **riletto**: esce la tessera a due numeri, entra il donut
+con i suoi tre conteggi (3 con rilievi, 0 non citate, 4 URL scartati, totale 7) e
+le quattro regole CSS. **Otto mutazioni su otto** fanno rosso, comprese quelle
+che rimettono i nomi del piano e quella che colora di verde le non citate.
+
 ### R35 — ✅ RISOLTO (2026-08-26): i due recuperatori leggevano contenuti diversi
 **Il difetto.** R10 aveva lavorato perché i due ranghi si riferissero alle stesse
 **unità**. Nessuno aveva poi controllato che leggessero lo stesso **contenuto** di

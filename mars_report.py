@@ -570,6 +570,42 @@ def _squarify(valori: List[float], x: float, y: float, w: float,
     return rettangoli
 
 
+def ripartizione_pagine(referto: dict) -> Dict[str, int]:
+    """I tre numeri del donut dell'hero: quanti URL, e in che stato.
+
+    Il totale e' cio' che il crawler ha **incontrato**, non le sole
+    pagine: gli URL scartati fanno parte del giro e sparirebbero da
+    una ripartizione delle sole pagine.
+
+    I nomi dei settori portano il caveat dentro il disegno, e non in una
+    nota accanto:
+
+    - **`non_citate` non significa «pulite».** Nessuna area registra
+      QUALI pagine ha guardato — Lighthouse ne misura una, axe le prime
+      del campione — quindi un settore chiamato «senza rilievi»
+      affermerebbe cio' che nessuno ha misurato, per giunta su un
+      disegno che si legge come esaustivo. E' la stessa ragione per cui
+      la treemap non colora di verde (R21, R47);
+    - **`scartati` non sono pagine.** `skipped` contiene MOTIVI, e fra
+      quelli ci sono un altro host e un URL non analizzabile: chiamarli
+      «pagine scartate» direbbe che sono pagine del sito.
+
+    Non entra nel dato canonico: e' derivabile per intero da `pages`,
+    `skipped` e `areas[].findings[].params["urls"]`, e scriverlo accanto
+    sarebbe una seconda copia che diverge da sola — come la geometria
+    della treemap.
+    """
+    scansionate = {str(p.get("url") or "") for p in (referto.get("pages") or [])}
+    # L'intersezione, non il conteggio dei citati: un rilievo puo'
+    # nominare un URL che non e' fra le pagine — gli strumenti esterni
+    # seguono i propri redirect — e contarlo qui gonfierebbe un settore
+    # oltre il totale.
+    con_rilievi = len(set(gravita_per_pagina(referto)) & scansionate)
+    return {"con_rilievi": con_rilievi,
+            "non_citate": len(scansionate) - con_rilievi,
+            "scartati": len(referto.get("skipped") or [])}
+
+
 def gravita_per_pagina(referto: dict) -> Dict[str, Dict[str, object]]:
     """Per ogni pagina citata da un rilievo, la gravita' PEGGIORE e quanti.
 
@@ -1773,6 +1809,14 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
+svg.donut { width:100%; max-width:8.5rem; height:auto; }
+svg.donut circle.settore { stroke:var(--muted); }
+svg.donut circle.settore.con-rilievi { stroke:var(--bad); }
+/* Grigio del binario e non verde: «nessun rilievo le cita» non vuol
+   dire «a posto» — nessuna area registra quali pagine ha guardato.
+   Stessa scelta per cui la treemap lascia neutro cio' che non sa. */
+svg.donut circle.settore.non-citate { stroke:var(--track); }
+svg.donut circle.settore.scartati { stroke:var(--muted); }
 svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
 svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
@@ -1966,19 +2010,7 @@ def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
                        "</span><span class='meta'>%s</span></div>"
                        % (classe, conteggi.get(gravita, 0),
                           t(etichetta, lang)))
-    # Pagine: due numeri e non un anello. Un anello li colorerebbe con
-    # la scala dei punteggi, e la quota di URL scartati NON e' un voto —
-    # un PDF o un altro host sono scarti legittimi. UPGRADE.md prevede
-    # qui un donut «senza rilievi / con rilievi / scartate», che pero'
-    # richiede i `url` valorizzati sui Finding: finche' non ci sono,
-    # questo e' il taglio onesto.
-    saltati = len(referto.get("skipped") or [])
-    caselle.append("<div class='tessera'><span class='grande'>%d</span>"
-                   "<span class='meta'>%s</span>"
-                   "<span class='meta'>%s</span></div>"
-                   % (referto.get("pages_crawled") or 0,
-                      t("pagine scansionate", lang),
-                      t("%d URL scartati", lang) % saltati))
+    caselle.append(_donut_pagine(referto, lang))
 
     return (
         "<section class='hero'>"
@@ -1995,6 +2027,59 @@ def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
              "%d-%d · buono da %d", lang)
            % (SOGLIA_MEDIO, SOGLIA_MEDIO, SOGLIA_BUONO - 1, SOGLIA_BUONO),
            "".join(caselle)))
+
+
+# I tre settori del donut delle pagine, nell'ordine in cui si leggono.
+# I nomi NON sono «senza rilievi / con rilievi / scartate» come il piano
+# prevedeva: portano il caveat dentro il disegno — vedi
+# `ripartizione_pagine()` per il perche'. «nessun rilievo le cita» e' la
+# stessa frase che usa la treemap: una sola voce per un solo concetto.
+SETTORI_PAGINE = (
+    ("con_rilievi", "con rilievi", "con-rilievi"),
+    ("non_citate", "nessun rilievo le cita", "non-citate"),
+    ("scartati", "URL scartati", "scartati"),
+)
+
+
+def _donut_pagine(referto: dict, lang: str = LINGUA_CANONICA) -> str:
+    """L'anello degli URL incontrati, in tre settori.
+
+    Stessa tecnica dei quadranti — `stroke-dasharray` su una
+    circonferenza, nessuno script — quindi il referto resta un file
+    solo. Gli archi si concatenano tenendo l'offset di quello prima.
+
+    Con zero URL non si disegna nulla: un anello vuoto si leggerebbe
+    come una ripartizione, e non c'e' niente da ripartire.
+    """
+    quote = ripartizione_pagine(referto)
+    totale = sum(quote.values())
+    if not totale:
+        return ""
+
+    archi, voci, scorso = [], [], 0.0
+    for chiave, etichetta, classe in SETTORI_PAGINE:
+        quanti = quote[chiave]
+        voci.append("<span class='meta'><b>%d</b> %s</span>"
+                    % (quanti, t(etichetta, lang)))
+        if not quanti:
+            continue
+        pieno = _CIRCONFERENZA * quanti / totale
+        archi.append(
+            "<circle class='settore %s' cx='60' cy='60' r='%d' fill='none' "
+            "stroke-width='9' stroke-dasharray='%.2f %.2f' "
+            "stroke-dashoffset='%.2f' transform='rotate(-90 60 60)'/>"
+            % (classe, _RAGGIO, pieno, _CIRCONFERENZA - pieno, -scorso))
+        scorso += pieno
+
+    return ("<div class='tessera'>"
+            "<svg class='donut' viewBox='0 0 120 120' role='img' "
+            "aria-label='%s'>%s"
+            "<text class='valore' x='60' y='60' text-anchor='middle' "
+            "dominant-baseline='central' fill='currentColor'>%d</text>"
+            "</svg><span class='meta'>%s</span>%s</div>"
+            % (_e(t("URL incontrati: %d", lang) % totale),
+               "".join(archi), totale, t("URL incontrati", lang),
+               "".join(voci)))
 
 
 # Quanti rilievi mostra il riquadro in testa. Cinque, come ogni altra

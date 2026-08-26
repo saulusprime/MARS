@@ -698,8 +698,14 @@ _CORNICE_EN: Dict[str, str] = {
     "[AVVISO]": "[WARNING]",
     "[INFO]": "[INFO]",
     "[OK]": "[OK]",
-    "pagine scansionate": "pages crawled",
-    "%d URL scartati": "%d URLs discarded",
+    "URL incontrati": "URLs encountered",
+    "URL incontrati: %d": "URLs encountered: %d",
+    # I tre settori del donut delle pagine. «nessun rilievo le cita» e
+    # non «senza rilievi»: il referto non sa quali pagine ogni area
+    # abbia guardato, e il nome porta il caveat dentro il disegno (R49).
+    "con rilievi": "with findings",
+    "nessun rilievo le cita": "no finding cites them",
+    "URL scartati": "URLs skipped",
     "Da dove cominciare": "Where to start",
 
     # --- Superficie -----------------------------------------------------

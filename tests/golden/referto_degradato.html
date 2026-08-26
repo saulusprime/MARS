@@ -149,6 +149,14 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
+svg.donut { width:100%; max-width:8.5rem; height:auto; }
+svg.donut circle.settore { stroke:var(--muted); }
+svg.donut circle.settore.con-rilievi { stroke:var(--bad); }
+/* Grigio del binario e non verde: «nessun rilievo le cita» non vuol
+   dire «a posto» — nessuna area registra quali pagine ha guardato.
+   Stessa scelta per cui la treemap lascia neutro cio' che non sa. */
+svg.donut circle.settore.non-citate { stroke:var(--track); }
+svg.donut circle.settore.scartati { stroke:var(--muted); }
 svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
 svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
@@ -239,9 +247,17 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='meta'>informativi</span>
 </div>
 <div class='tessera'>
-<span class='grande'>3</span>
-<span class='meta'>pagine scansionate</span>
-<span class='meta'>0 URL scartati</span>
+<svg class='donut' viewBox='0 0 120 120' role='img' aria-label='URL incontrati: 3'>
+<circle class='settore con-rilievi' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='351.86 0.00' stroke-dashoffset='-0.00' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>3</text>
+</svg>
+<span class='meta'>URL incontrati</span>
+<span class='meta'>
+<b>3</b> con rilievi</span>
+<span class='meta'>
+<b>0</b> nessun rilievo le cita</span>
+<span class='meta'>
+<b>0</b> URL scartati</span>
 </div>
 </div>
 </section>

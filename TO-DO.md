@@ -19,11 +19,11 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R38, R41-R45, R47, R50 — R37 a
+> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R50 — R37 a
 > metà: la metà aperta è **R51**. L'ultima
 > nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
 > confrontavano due rese e potevano cadere a cavallo di un secondo.
-> **Aperte**: R39 (una casella), R40, R46, R48, R49 e R51 —
+> **Aperte**: R39 (una casella), R40, R46, R48 e R51 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -412,28 +412,6 @@ allargare l'ambiente, ed è anche quella che riduce il JavaScript.
 
 - [ ] Scegliere fra le due rimaste, e nel frattempo non toccare
       `REFERTO_JS` senza rilanciare `tools/banco_grafo.py`.
-
-### R49 — ⚪ LIEVE: il donut delle pagine è rimasto al taglio di ripiego
-*(sbloccata chiudendo R47, il 2026-08-26)*
-
-La Fase 5 di UPGRADE.md prevedeva un donut dello stato pagine col taglio
-**senza rilievi / con rilievi / scartate**, e ha ripiegato su *scansionate vs
-scartate* dichiarando il motivo: «finché i Finding non portano `url`
-valorizzati dai moduli» ([UPGRADE.md:489](UPGRADE.md#L489)). Ora quel dato
-c'è — `params["urls"]`, letto da `pagine_del_rilievo()` — e la stessa mappa
-che colora la treemap (`gravita_per_pagina`, [mars_report.py:573](mars_report.py#L573))
-darebbe il taglio previsto senza calcolare nulla di nuovo.
-
-Resta il caveat che R47 ha reso esplicito, e che qui pesa più che sulla
-treemap: **«senza rilievi» non vuol dire «a posto»**. Lighthouse misura una
-pagina sola, axe le prime del campione, e un donut che mettesse quelle pagine
-in un settore chiamato «senza rilievi» affermerebbe ciò che nessuno ha
-misurato — su un disegno che si legge come una ripartizione esaustiva, cosa
-che la treemap non è. O il settore si chiama diversamente, o servono tre
-settori invece di due.
-
-- [ ] Decidere il taglio e come si chiamano i settori, poi renderlo.
-      Rigenerando i golden.
 
 ---
 

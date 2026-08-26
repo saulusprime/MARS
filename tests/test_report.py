@@ -280,6 +280,78 @@ def test_il_controllo_dell_autoconsistenza_vede_le_quattro_forme():
     assert riferimenti_esterni("<path marker-end='url(#grafo-freccia)'/>") == []
 
 
+def test_la_ripartizione_delle_pagine_non_afferma_cio_che_nessuno_ha_misurato():
+    """R49: il donut a tre settori, coi nomi che portano il caveat.
+
+    Il piano prevedeva «senza rilievi / con rilievi / scartate». Due
+    vincoli misurati lo hanno cambiato:
+
+    - nessuna area registra QUALI pagine ha guardato — Lighthouse ne
+      misura una, axe le prime del campione — quindi «senza rilievi»
+      affermerebbe ciò che nessuno ha misurato, su un disegno che si
+      legge come una ripartizione esaustiva. Il settore si chiama
+      «nessun rilievo le cita», che è la frase già usata dalla treemap;
+    - `skipped` non contiene pagine ma MOTIVI, e dentro ci sono un
+      altro host e un URL non analizzabile: il terzo settore si chiama
+      «URL scartati», non «pagine scartate».
+    """
+    referto = {
+        "pages": [{"url": "https://x/a"}, {"url": "https://x/b"},
+                  {"url": "https://x/c"}],
+        "skipped": ["altro host: https://altro/", "non HTML: https://x/d.pdf"],
+        "areas": [{"findings": [
+            {"severity": SEV_CRITICAL, "params": {"urls": ["https://x/a"]}},
+            {"severity": SEV_WARNING,
+             "params": {"urls": ["https://x/a", "https://x/b"]}},
+        ]}],
+    }
+    quote = mars_report.ripartizione_pagine(referto)
+
+    assert quote["con_rilievi"] == 2
+    assert quote["non_citate"] == 1
+    assert quote["scartati"] == 2
+    # Il totale e' cio' che il crawler ha INCONTRATO, non le sole pagine.
+    assert sum(quote.values()) == 5
+
+
+def test_la_ripartizione_ignora_gli_url_che_non_sono_stati_scansionati():
+    """Un rilievo puo' citare un URL che non e' fra le pagine — succede
+    con gli strumenti esterni, che seguono i propri redirect. Contarlo
+    fra le pagine con rilievi gonfierebbe un settore oltre il totale."""
+    referto = {
+        "pages": [{"url": "https://x/a"}],
+        "skipped": [],
+        "areas": [{"findings": [
+            {"severity": SEV_CRITICAL,
+             "params": {"urls": ["https://x/a", "https://altrove/z"]}}]}],
+    }
+    quote = mars_report.ripartizione_pagine(referto)
+
+    assert quote["con_rilievi"] == 1
+    assert quote["non_citate"] == 0
+    assert sum(quote.values()) == 1
+
+
+def test_il_donut_delle_pagine_compare_nell_hero():
+    """I tre settori arrivano fino al disegno, coi nomi decisi."""
+    referto = build_report(
+        {"mars_tech": {"score": 50, "issues": ["x"], "findings": [
+            {"area": "mars_tech", "key": "tech.x", "title": "x",
+             "severity": SEV_CRITICAL,
+             "params": {"urls": ["https://esempio.test/"]}}]}},
+        {"url": "https://esempio.test/", "market": "global",
+         "pages": {"https://esempio.test/": {}, "https://esempio.test/b": {}},
+         "chunks": [], "discovery": "sitemap",
+         "skipped": ["altro host: https://altro/"]})
+    uscita = render_html(referto)
+
+    assert "nessun rilievo le cita" in uscita
+    assert "con rilievi" in uscita
+    assert "URL scartati" in uscita
+    # Il disegno resta autoconsistente: nessuna origine esterna.
+    assert riferimenti_esterni(uscita) == []
+
+
 def _referto_citabilita(contesto, risultato):
     return build_report({"mars_citability": risultato}, dict(contesto))
 
@@ -1655,12 +1727,15 @@ def test_l_hero_mostra_voto_verdetto_e_scala(contesto):
 
 
 def test_l_hero_conta_i_rilievi_e_le_pagine(contesto):
+    """Dal 2026-08-26 (R49) gli URL scartati non sono piu' una riga di
+    testo ma un settore del donut, e il numero si legge accanto al suo
+    nome."""
     contesto["skipped"] = ["non HTML: https://x/a.pdf", "altro host"]
     contesto["results"] = {"mars_tech": {"score": 60, "issues": [],
                                          "findings": [_rilievo()]}}
     html = render_html(build_report(contesto["results"], contesto))
     assert "<span class='grande bad'>1</span>" in html
-    assert "<span class='meta'>2 URL scartati</span>" in html
+    assert "<b>2</b> URL scartati" in html
 
 
 def test_senza_complessivo_l_hero_non_compare(contesto):
@@ -1678,7 +1753,12 @@ def test_l_hero_riusa_il_quadrante_della_fascia(contesto):
     implementazioni della stessa cosa: l'hero usa `_quadrante`, e lo si
     vede dal fatto che il suo SVG e' quello."""
     html = render_html(_referto_complessivo(contesto))
-    assert html.count("viewBox='0 0 120 120'") == 3, "hero + due aree"
+    # Quattro dal 2026-08-26: il donut delle pagine (R49) condivide il
+    # viewBox perche' condivide la circonferenza — e' la stessa
+    # geometria, non una seconda implementazione.
+    assert html.count("viewBox='0 0 120 120'") == 4, \
+        "hero + donut delle pagine + due aree"
+    assert html.count("class='donut'") == 1
     assert ".hero .quadrante svg { width:8.5rem" in html
 
 

@@ -638,6 +638,10 @@ def _testi_dal_dato() -> set:
     testi |= {e for _, e in rp._BADGE_GRAVITA.values()}
     testi |= {e for _, e, _ in rp.TESSERE_GRAVITA}
     testi |= {e for _, e in rp.TREEMAP_GRAVITA.values()}
+    # I tre settori del donut delle pagine: le etichette stanno in una
+    # costante e arrivano a `t()` come variabile, quindi lo scanner dei
+    # letterali non le vede (R49).
+    testi |= {e for _, e, _ in rp.SETTORI_PAGINE}
     testi |= set(rp.COLONNE_CSV)
     # I segnali di pagina di mars_semantic, dalla funzione che li emette.
     import mars_semantic

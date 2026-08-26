@@ -6,7 +6,7 @@
 
 ## Complessivo
 
-**66/100** — da migliorare
+**60/100** — da migliorare
 
 Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
@@ -21,7 +21,7 @@ Media pesata di 7 misure; citabilità e giudizio LLM esclusi. Scala dichiarata: 
 | 5. Dati Strutturati | 90/100 |  |
 | 6. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
 | 7. Sicurezza | 57/100 | ZAP (passiva) |
-| 8. Citabilità IA | 66/100 |  |
+| 8. Citabilità IA | 61/100 |  |
 | 9. Giudizio LLM | 61/100 |  |
 
 ## Superficie
@@ -41,11 +41,11 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 | Area | Prima | Dopo | Variazione |
 |---|---|---|---|
-| Complessivo | 61 | 66 | +5 |
+| Complessivo | 61 | 60 | -1 |
 | tech | 40 | 57 | +17 |
 | schema | 100 | 90 | -10 |
 | llm_judge | 55 | 61 | +6 |
-| citability | 60 | 66 | +6 |
+| citability | 60 | 61 | +1 |
 
 **Risolti (1)**
 
@@ -235,11 +235,11 @@ Mercato: eu
 
 | Assistente | Indice |
 |---|---|
-| Claude | 68.9 |
-| ChatGPT/Perplexity | 63.4 |
-| Qwen | 66.7 |
-| Kimi | 66.7 |
-| **Indice composito** | **65.6** |
+| Claude | 62.3 |
+| ChatGPT/Perplexity | 59.5 |
+| Qwen | 62.0 |
+| Kimi | 62.0 |
+| **Indice composito** | **60.7** |
 
 *stime euristiche dichiarate, non comportamento documentato dai vendor*
 
@@ -256,7 +256,7 @@ I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il
 | Query | Consenso | Passaggio migliore |
 |---|---|---|
 | drenaggio linfatico | 3/3 | https://esempio.test/ § Che cos'e' il drenaggio linfatico? |
-| quanto costa una seduta di drenaggio linfatico | 2/3 | https://esempio.test/ § Che cos'e' il drenaggio linfatico? |
+| quanto costa una seduta di drenaggio linfatico | 3/3 | https://esempio.test/ § Quanto dura una seduta? |
 | parcheggio riservato | nessun riscontro | — |
 
 ## Cosa non è stato guardato

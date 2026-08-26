@@ -2826,6 +2826,55 @@ def _ctx_r23(queries):
             "credentials": {}, "market": "global"}
 
 
+def _ctx_heading(query):
+    """Un corpus dove la parola cercata sta SOLO nell'heading."""
+    return {"chunks": [
+        {"url": "https://x/a", "heading": "Servizi di consulenza",
+         "text": "Lavoriamo con aziende di ogni dimensione da molti anni."},
+        {"url": "https://x/b", "heading": "Chi siamo",
+         "text": "La nostra storia comincia nel duemila con tre persone."}],
+        "queries": [query], "pages": {}, "embeddings_model": "x",
+        "force_proxy": True, "lang": "it"}
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_i_due_recuperatori_leggono_lo_STESSO_contenuto(modulo):
+    """R35: R10 aveva lavorato perche' i due ranghi si riferissero alle
+    stesse UNITA'. Nessuno aveva poi controllato che leggessero lo
+    stesso CONTENUTO di quelle unita'.
+
+    `mars_lexical` indicizzava heading + testo, `mars_semantic` il solo
+    testo. Misurato prima della correzione, con la parola cercata
+    presente solo nell'heading: lessicale `matched=True`, vettoriale
+    `matched=False`. Su un sito con le FAQ nei titoli i due erano in
+    disaccordo **per costruzione**, e il consenso RRF ne usciva depresso
+    per una ragione che non riguarda il sito.
+    """
+    voce = modulo.audit(_ctx_heading("servizi"))["per_query"][0]
+    assert voce["matched"] is True
+    assert voce["top_chunk"] is not None
+    assert "/a" in voce["top_chunk"]
+
+
+def test_semantic_l_heading_non_conta_due_volte_nei_segnali():
+    """La correzione tocca il corpus del RECUPERATORE, non i segnali.
+
+    `question_signals` riceve gia' l'heading a parte, e `MIN_PAROLE`
+    conta le parole del testo: dare a entrambi un testo che comincia
+    con l'heading lo conterebbe due volte e sposterebbe una soglia che
+    non c'entra con R35."""
+    ctx = _ctx_heading("servizi")
+    ctx["chunks"] = [{"url": "https://x/a", "heading": "Come funziona?",
+                      "text": "Bastano tre passi."}]
+    esito = mars_semantic.audit(ctx)
+    # Un solo chunk, un solo segnale di domanda: se l'heading finisse
+    # anche nel testo, `question_signals` lo vedrebbe due volte.
+    conteggi = esito.get("signals") or esito.get("segnali") or {}
+    for nome, quante in (conteggi.items() if hasattr(conteggi, "items") else []):
+        assert quante <= 1, "%s contato %d volte" % (nome, quante)
+
+
 @pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
                          ids=lambda m: m.__name__)
 def test_query_senza_riscontro_e_dichiarata(modulo):

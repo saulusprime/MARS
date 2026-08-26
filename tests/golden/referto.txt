@@ -4,7 +4,7 @@
 =======================================================
 
 I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).
-COMPLESSIVO          :  66/100  (da migliorare)
+COMPLESSIVO          :  60/100  (da migliorare)
   media pesata di 7 misure; citabilità e giudizio LLM esclusi
 -------------------------------------------------------
 1. Tecnica           :  57/100
@@ -43,11 +43,11 @@ SUPERFICIE
   (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
 -------------------------------------------------------
 RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
-  Complessivo          +5  (61 → 66)
+  Complessivo          -1  (61 → 60)
   tech                 +17  (40 → 57)
   schema               -10  (100 → 90)
   llm_judge            +6  (55 → 61)
-  citability           +6  (60 → 66)
+  citability           +1  (60 → 61)
   1 risolti:
     · Nessuna sitemap dichiarata
   15 nuovi:
@@ -75,19 +75,19 @@ PIANO DI INTERVENTI  : 16 interventi (6 critici, 10 avvertenze)
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
   · ... e altri 11 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
-Simulazione RRF      : Consenso Top-3 = 3/3 su 4 chunk
+Simulazione RRF      : Consenso Top-3 = 2/3 su 4 chunk
   aggregato su 3 query
 Top Chunk Ibrido     : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
   drenaggio linfatico                3/3
-  quanto costa una seduta di drenagg 2/3
+  quanto costa una seduta di drenagg 3/3
   parcheggio riservato               nessun riscontro
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: eu)
-  Claude                68.9  █████████████
-  ChatGPT/Perplexity    63.4  ████████████
-  Qwen                  66.7  █████████████
-  Kimi                  66.7  █████████████
-  INDICE COMPOSITO      65.6
+  Claude                62.3  ████████████
+  ChatGPT/Perplexity    59.5  ███████████
+  Qwen                  62.0  ████████████
+  Kimi                  62.0  ████████████
+  INDICE COMPOSITO      60.7
   (stime euristiche dichiarate, non comportamento documentato dai vendor)
   · Segnale debole: Qualità SEO (27/100)
   · Segnale debole: Accessibilità (37/100)

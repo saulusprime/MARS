@@ -2355,6 +2355,64 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R35 — ✅ RISOLTO (2026-08-26): i due recuperatori leggevano contenuti diversi
+**Il difetto.** R10 aveva lavorato perché i due ranghi si riferissero alle stesse
+**unità**. Nessuno aveva poi controllato che leggessero lo stesso **contenuto** di
+quelle unità: `mars_lexical` indicizzava heading + testo, `mars_semantic` il solo
+testo. Riprodotto con la parola cercata presente solo nell'heading:
+
+```
+lessicale  -> matched = True    (indicizza heading + testo)
+vettoriale -> matched = False   (indicizza il solo testo)
+```
+
+Su un sito con le FAQ nei titoli i due erano in disaccordo **per costruzione**, e
+il consenso RRF ne usciva depresso per una ragione che non riguarda il sito.
+
+**Il punteggio SCENDE, e non perché il sito sia peggiorato.** È il fatto che
+conta, e va letto due volte prima di allarmarsi:
+
+| | prima | dopo |
+|---|---|---|
+| Recuperabilità ibrida (consenso RRF) | 100,0 | 66,7 |
+| Complessivo | 66,3 | 60,1 |
+| Citabilità IA | 65,6 | 60,7 |
+| query «quanto costa una seduta…» | 2/3 | **3/3** |
+| aggregato su tutte le query | 3/3 | 2/3 |
+
+La **singola query migliora** — il vettoriale ora trova il chunk giusto, «Quanto
+dura una seduta?», che l'heading rendeva riconoscibile — mentre **l'aggregato
+peggiora**. Il 100 di prima era un consenso perfetto ottenuto confrontando due
+indici **diversi**: sembrava ottimo e non significava quello che diceva. Il 66,7
+di adesso è un consenso vero fra due recuperatori che guardano lo stesso testo.
+Nel referto il quadrante «Recuperabilità» passa da `ok` a `warn` per la stessa
+ragione.
+
+**Chi legge lo storico va avvisato.** Il riquadro «RISPETTO A PRIMA» mostra
+`Complessivo -1 (61 → 60)` e `citability +1 (60 → 61)`: su un archivio già
+scritto, il confronto fra un'esecuzione di prima e una di dopo misura un
+**cambio di strumento**, non un cambio del sito. Chi guarda una serie storica a
+cavallo di questo commit deve saperlo.
+
+**`testi` e `corpus` restano due cose diverse.** Il corpus è ciò che il
+recuperatore indicizza; i testi sono ciò su cui girano i segnali answer-shaped, e
+lì l'heading arriva già a parte a `question_signals` — unirli anche lì lo
+conterebbe due volte e sposterebbe `MIN_PAROLE`, che con R35 non c'entra. Un test
+lo presidia.
+
+**Quel che il TO-DO chiedeva e non è stato fatto.** La voce diceva «va misurata
+prima e dopo su un sito reale, non applicata a intuito». La misura su un sito
+reale **non è stata fatta**: la suite non può darla, perché `force_proxy` esclude
+il modello vero e la rete è vietata. Quanto sopra è misurato sui due referti
+sintetici col proxy char-TFIDF, che pesa un heading corto pochissimo — quindi
+**sottostima** l'effetto, non lo sovrastima. Resta da verificare su un sito con
+le FAQ nei titoli e `sentence-transformers` attivo.
+
+**Verifiche.** 1001 test verdi (erano 998), `flake8` a zero. I quattro golden non
+degradati rigenerati e il diff **riletto**: solo valori numerici e le classi CSS
+che ne dipendono, nessuna chiave nuova o rimossa, nessun testo tradotto toccato.
+Tre mutazioni su tre fanno rosso.
+
 ### R37 — ✅ RISOLTO A METÀ (2026-08-26): tre casi diversi, un giudizio solo
 *(la metà che resta — il `<meta name="googlebot">` — è una voce nuova, R51)*
 

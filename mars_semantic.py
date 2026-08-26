@@ -146,9 +146,26 @@ def page_signals(pagina: Optional[dict], lingua: str = "") -> List[str]:
 
 def audit(context: dict) -> dict:
     chunks = context["chunks"]
+    # `testi` e `corpus` sono due cose diverse, e la differenza e' R35.
+    #
+    # Il CORPUS e' cio' che il recuperatore indicizza, e deve essere lo
+    # stesso di `mars_lexical` — heading + testo. R10 aveva lavorato
+    # perche' i due ranghi si riferissero alle stesse UNITA'; nessuno
+    # aveva controllato che leggessero lo stesso CONTENUTO di quelle
+    # unita'. Con la parola solo nell'heading il lessicale trovava e il
+    # vettoriale no: su un sito con le FAQ nei titoli i due erano in
+    # disaccordo per costruzione, e il consenso RRF usciva depresso per
+    # una ragione che non riguarda il sito.
+    #
+    # I TESTI restano il solo testo: `question_signals` riceve gia'
+    # l'heading a parte, e `MIN_PAROLE` conta le parole del passaggio.
+    # Unirli anche li' conterebbe l'heading due volte.
     testi = [c.get("text") or "" for c in chunks]
+    corpus = [" ".join(p for p in ((c.get("heading") or ""),
+                                   (c.get("text") or "")) if p)
+              for c in chunks]
     vec = VectorRetriever(
-        testi, context["embeddings_model"], context["force_proxy"],
+        corpus, context["embeddings_model"], context["force_proxy"],
         hf_token=(context.get("credentials") or {}).get("hf_token"))
     queries = context.get("queries") or []
     per_query = []

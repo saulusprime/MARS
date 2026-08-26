@@ -19,11 +19,11 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R34, R36-R37, R38, R41-R45, R47, R50 — R37 a
+> **Correzioni chiuse**: R1-R38, R41-R45, R47, R50 — R37 a
 > metà: la metà aperta è **R51**. L'ultima
 > nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
 > confrontavano due rese e potevano cadere a cavallo di un secondo.
-> **Aperte**: R35, R37, R39-R40, R46, R48 e R49 —
+> **Aperte**: R39 (una casella), R40, R46, R48, R49 e R51 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -211,34 +211,6 @@ avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R35 — 🟡 MEDIO: i due recuperatori indicizzano contenuti diversi
-*(trovata misurando, chiudendo R23 il 2026-08-20)*
-
-`mars_lexical` costruisce il corpus con **heading + testo** del chunk
-([mars_lexical.py:29](mars_lexical.py#L29)); `mars_semantic` indicizza il
-**solo testo** ([mars_semantic.py:149](mars_semantic.py#L149)). I due
-recuperatori ordinano quindi le stesse unità partendo da contenuti diversi.
-
-**R10** aveva lavorato perché i due ranghi si riferissero alle **stesse
-unità** — è la condizione perché l'RRF significhi quello che il README dice.
-Nessuno ha poi controllato che leggessero lo **stesso contenuto** di quelle
-unità. Misurato, con `servizi` presente solo nell'heading:
-
-```
-lessicale  -> matched = True    (indicizza heading + testo)
-vettoriale -> matched = False   (indicizza il solo testo)
-```
-
-L'heading è spesso la forma in cui la domanda è posta — è la ragione per cui
-`mars_lexical` lo include, scritta nel suo stesso commento. Il recuperatore
-vettoriale ne è cieco, quindi su un sito con FAQ nei titoli i due sono in
-disaccordo per costruzione, e il consenso RRF ne esce depresso per una ragione
-che non riguarda il sito.
-
-La correzione probabile è una riga (indicizzare `heading + testo` anche nel
-vettoriale), ma **cambia tutti i punteggi vettoriali**: va misurata prima e
-dopo su un sito reale, non applicata a intuito.
 
 ### R51 — ⚪ LIEVE: il `<meta name="googlebot">` non ha un agente
 *(la metà di R37 che non si è chiusa il 2026-08-26)*

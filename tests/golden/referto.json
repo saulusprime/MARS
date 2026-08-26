@@ -959,7 +959,7 @@
     {
       "module": "mars_citability",
       "label": "8. Citabilità IA",
-      "score": 65.6,
+      "score": 60.7,
       "status": null,
       "issues": [
         "Segnale debole: Qualità SEO (27/100)",
@@ -1098,9 +1098,9 @@
     },
     {
       "query": "quanto costa una seduta di drenaggio linfatico",
-      "consensus_top3": 2,
+      "consensus_top3": 3,
       "consensus_out_of": 3,
-      "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
+      "top_chunk": "https://esempio.test/ § Quanto dura una seduta?",
       "top_chunk_url": "https://esempio.test/",
       "matched": true
     },
@@ -1115,7 +1115,7 @@
   ],
   "rrf_aggregate": {
     "query": "(aggregato su tutte le query)",
-    "consensus_top3": 3,
+    "consensus_top3": 2,
     "consensus_out_of": 3,
     "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
     "top_chunk_url": "https://esempio.test/",
@@ -1127,7 +1127,7 @@
     ]
   },
   "citability": {
-    "score": 65.6,
+    "score": 60.7,
     "status": null,
     "issues": [
       "Segnale debole: Qualità SEO (27/100)",
@@ -1225,10 +1225,10 @@
     ],
     "market": "eu",
     "profiles": {
-      "Claude": 68.9,
-      "ChatGPT/Perplexity": 63.4,
-      "Qwen": 66.7,
-      "Kimi": 66.7
+      "Claude": 62.3,
+      "ChatGPT/Perplexity": 59.5,
+      "Qwen": 62.0,
+      "Kimi": 62.0
     },
     "signals": {
       "Accesso e indicizzabilità": 57.0,
@@ -1236,7 +1236,7 @@
       "Dati strutturati": 90.0,
       "Accessibilità": 37.0,
       "Sicurezza": 57.0,
-      "Recuperabilità ibrida (consenso RRF)": 100.0,
+      "Recuperabilità ibrida (consenso RRF)": 66.66666666666667,
       "Contenuto in forma di risposta": 75.0
     },
     "disclaimer": "stime euristiche dichiarate, non comportamento documentato dai vendor"
@@ -1288,7 +1288,7 @@
     }
   },
   "overall": {
-    "score": 66.3,
+    "score": 60.1,
     "components": [
       {
         "name": "1. Tecnica",
@@ -1317,7 +1317,7 @@
       },
       {
         "name": "Recuperabilità",
-        "value": 100.0,
+        "value": 66.66666666666667,
         "weight": 1.5
       },
       {
@@ -2010,8 +2010,8 @@
       {
         "area": "mars_citability",
         "before": 60.0,
-        "after": 65.6,
-        "change": 5.6
+        "after": 60.7,
+        "change": 0.7
       },
       {
         "area": "mars_seo",
@@ -2034,8 +2034,8 @@
     ],
     "overall": {
       "before": 61.0,
-      "after": 66.3,
-      "change": 5.3
+      "after": 60.1,
+      "change": -0.9
     },
     "resolved": [
       {

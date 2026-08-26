@@ -19,8 +19,9 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R32, R34, R38, R41, R44, R45, R47.
-> **Aperte**: R28-R31, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R30, R32, R34, R38, R41, R44, R45, R47.
+> **Aperte**: R28-R29, R31, R33, R35-R37, R39-R40, R42-R43, R46, R48 e
+> R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -190,7 +191,8 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R32, R34, R38, R41, R44, R45, R47 — stanno in
+Le voci chiuse — R1-R27, R30, R32, R34, R38, R41, R44, R45, R47 — stanno
+in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -230,21 +232,6 @@ altri client fino a fine scansione.
 
 - [ ] Rendere `def` (non `async def`) gli handler bloccanti — FastAPI li sposta
       su un threadpool — oppure delegare l'esecuzione a `run_in_threadpool`.
-
-### R30 — 🟡 MEDIO: `VectorRetriever` con corpus vuoto
-> La prima metà della voce — `httpx` non dichiarato — è **chiusa con U1.9**:
-> `requirements-dev.txt` lo dichiara, e la fixture `nessuna_spesa` lo importa
-> esplicitamente per bloccare il transport HTTP, quindi non è più una
-> dipendenza transitiva. Resta la seconda.
-
-Nel ramo embeddings reali ([mars_core.py:1188](mars_core.py#L1188))
-`model.encode([])` seguito da `cosine_similarity`
-([:1245](mars_core.py#L1245)) solleva `ValueError`, mentre il proxy
-restituisce `[]`: la promessa che «il chiamante non deve sapere quale dei due
-sia attivo» si rompe con chunk vuoti, e `mars_semantic` muore invece di
-risultare non misurato.
-
-- [ ] Guardia sul corpus vuoto anche nel ramo embeddings reali.
 
 ### R31 — ⚪ LIEVE: casi limite e diagnosi imprecise
 - **`load_queries` con file vuoto = successo silenzioso.**

@@ -75,6 +75,7 @@
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
 | R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
+| R30 | `VectorRetriever` moriva sul corpus vuoto, in un ramo su due | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2449,6 +2450,49 @@ U8.3): erano corrette quando sono state scritte, e si leggono con la rinomina
 in mente. Non si riscrivono — un fatto registrato si annota.
 
 ---
+
+### R30 — ✅ RISOLTO (2026-08-26): `VectorRetriever` con corpus vuoto
+**Il difetto.** `get_scores` promette nella propria docstring che «il
+chiamante non deve sapere quale dei due sia attivo». Con un corpus vuoto quella
+promessa si rompeva, ed era l'unico punto in cui succedeva. Riprodotto sul
+modello vero, non dedotto:
+
+```
+proxy char-TFIDF       corpus vuoto -> []
+embeddings reali       corpus vuoto -> ValueError: Expected 2D array,
+                                       got 1D array instead
+```
+
+`mars_semantic` moriva quindi invece di risultare **non misurato**, e un sito
+di sole pagine senza testo indicizzabile non è un caso di laboratorio.
+
+**La soluzione.** Una guardia in testa a `get_scores`, che è la funzione che
+pubblica la promessa — non nel chiamante — e prima di `model.encode`, così non
+si paga nemmeno la codifica della query.
+
+**La guardia copre anche il proxy, che non ne aveva bisogno**, e la ragione è
+un precedente di questo stesso progetto. Misurato: sul proxy con corpus vuoto
+ogni query restituisce già `[]`, per qualunque testo. Ma quel `[]` è
+**emergente** — nasce da tre accidenti indipendenti: `q_norm` che risulta zero
+perché nessun n-gramma è in `df`, lo `zip` su due liste vuote, e la
+moltiplicazione `[0.0] * 0`. È esattamente la «protezione accidentale» che R6
+aveva trovato su `avgdl`, e che un refactor può togliere senza accorgersene.
+La guardia rende il contratto esplicito in un punto solo.
+
+**Tre mutazioni, due rosse.** La terza — far valere la guardia per il solo ramo
+reale — **non è colta, e non è un test mancante**: non cambia il comportamento
+di nessun ingresso, perché il proxy quel `[]` lo produce da sé. È la lezione di
+U8.4 in forma affine, e il contratto del proxy resta comunque pinnato da
+un'asserzione sua.
+
+**Il finto non era fedele, e il secondo test l'ha scoperto.** Il primo finto di
+`cosine_similarity` restituiva liste nude, ma il codice scrive
+`self._cosine(...)[0].tolist()`: `AttributeError`. Il test sul corpus vuoto
+**passava lo stesso**, perché la guardia corto-circuita prima di arrivarci —
+quindi senza il secondo test, quello che verifica che il ramo reale funzioni
+ancora *con* documenti, l'infedeltà sarebbe restata invisibile. Il finto imita
+ora la forma che il codice usa (`[0]` e poi `.tolist()`) invece di importare
+numpy, che non è una dipendenza della suite.
 
 ### R32 — ✅ RISOLTO (2026-08-26): deriva fra documentazione e codice
 **Il difetto.** Dieci punti in cui un documento affermava una cosa e il codice

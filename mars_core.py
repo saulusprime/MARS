@@ -1291,7 +1291,21 @@ class VectorRetriever:
         Coseno sugli embedding reali se disponibili, altrimenti sul
         proxy char-TFIDF: il chiamante non deve sapere quale dei due
         sia attivo.
+
+        **Corpus vuoto: lista vuota, da entrambi i rami** (R30). Era
+        l'unico punto in cui quella promessa si rompeva: il proxy
+        restituiva `[]`, mentre `cosine_similarity` su un array vuoto
+        solleva `ValueError: Expected 2D array, got 1D array instead` —
+        riprodotto — e `mars_semantic` moriva invece di risultare non
+        misurato. Un sito di sole pagine senza testo indicizzabile non
+        e' un caso di laboratorio.
+
+        La guardia sta qui e non nel chiamante perche' e' la funzione
+        che pubblica la promessa; e sta prima di `model.encode`, cosi'
+        non si paga nemmeno la codifica della query.
         """
+        if not self.corpus:
+            return []
         if self.use_real:
             q_emb = self.model.encode([query])
             return self._cosine(q_emb, self.embeddings)[0].tolist()

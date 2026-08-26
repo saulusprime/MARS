@@ -1251,6 +1251,76 @@ def test_finding_attraversa_il_confine_serializzato():
     assert Finding(area="a", severity=SEV_INFO, title="y").params == {}
 
 
+class _ModelloFinto:
+    """SentenceTransformer finto, FEDELE su cio' che il codice usa.
+
+    `encode` restituisce una lista di vettori, uno per testo — quindi su
+    una lista vuota una lista vuota, com'e' per il modello vero. Serve
+    per esercitare il ramo `use_real` senza caricare torch: la suite non
+    deve dipendere da sentence-transformers, ed e' cio' che `force_proxy`
+    garantisce ovunque tranne qui, dove il ramo lo si vuole proprio.
+    """
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def encode(self, testi):
+        return [[float(len(t)), 1.0] for t in testi]
+
+
+class _RigaFinta(list):
+    """Una riga di array numpy: una lista che sa fare `.tolist()`.
+
+    `get_scores` scrive `self._cosine(...)[0].tolist()`, quindi un finto
+    che restituisse liste nude fallirebbe con `AttributeError` — ed e'
+    successo scrivendo questo test. numpy non e' una dipendenza della
+    suite (sta in requirements-optional con torch), quindi si imita la
+    FORMA che il codice usa invece di importarlo.
+    """
+
+    def tolist(self):
+        return list(self)
+
+
+def _cosine_fedele(a, b):
+    """`cosine_similarity` di sklearn, fedele sui due casi che contano.
+
+    Su un array vuoto solleva `ValueError: Expected 2D array, got 1D
+    array instead` — verificato eseguendo quello vero prima di scrivere
+    questo finto. Un finto che restituisse `[[]]` renderebbe il test
+    vacuo: e' esattamente il difetto che R30 chiude.
+    """
+    if not len(b):
+        raise ValueError("Expected 2D array, got 1D array instead")
+    return [_RigaFinta([0.5] * len(b))]
+
+
+def test_vector_corpus_vuoto_da_lista_vuota_da_entrambi_i_rami(monkeypatch):
+    """R30: la promessa che «il chiamante non deve sapere quale dei due
+    sia attivo» si rompeva con un corpus vuoto.
+
+    Il proxy restituiva `[]`, il ramo embeddings reali sollevava
+    `ValueError` — riprodotto sul modello vero — e `mars_semantic` moriva
+    invece di risultare non misurato. Un sito di sole pagine senza testo
+    indicizzabile non e' un caso di laboratorio."""
+    assert VectorRetriever([], force_proxy=True).get_scores("x") == []
+
+    monkeypatch.setattr(mars_core, "load_sentence_transformers",
+                        lambda: (_ModelloFinto, _cosine_fedele))
+    reale = VectorRetriever([], force_proxy=False)
+    assert reale.use_real, "il test deve esercitare il ramo reale"
+    assert reale.get_scores("x") == []
+
+
+def test_vector_il_ramo_reale_funziona_ancora_con_un_corpus(monkeypatch):
+    """La guardia non deve spegnere il ramo che funzionava: con documenti
+    veri il coseno viene chiamato e i punteggi escono."""
+    monkeypatch.setattr(mars_core, "load_sentence_transformers",
+                        lambda: (_ModelloFinto, _cosine_fedele))
+    reale = VectorRetriever(["alfa", "beta"], force_proxy=False)
+    assert reale.get_scores("x") == [0.5, 0.5]
+
+
 def test_pagine_del_rilievo_regge_i_params_ostili():
     """Unico lettore della convenzione `params["urls"]`, e legge dati
     che attraversano il confine dei plugin: un modulo esterno puo'

@@ -162,6 +162,52 @@ def test_testo_mostra_il_disclaimer_sotto_i_numeri(referto):
         "il disclaimer deve stare accanto al numero, non in fondo"
 
 
+# Le quattro forme in cui un HTML puo' chiedere un file fuori da se'.
+# La prima era l'unica cercata fino a R33: le altre tre — CSS `url()`,
+# `@import`, `srcset` — restavano invisibili, e con esse quattro
+# regressioni dell'autoconsistenza.
+_RIFERIMENTI = re.compile(
+    r'(?:src|href)\s*=\s*[\'"]([^\'"]+)'
+    r'|srcset\s*=\s*[\'"]([^\'"]+)'
+    r'|url\(\s*[\'"]?([^)\'"]+)'
+    r'|@import\s+(?:url\(\s*)?[\'"]([^\'"]+)', re.I)
+
+
+def riferimenti_esterni(html: str) -> list:
+    """Gli URL che il referto andrebbe a cercare fuori da se stesso.
+
+    Restituisce la lista vuota su un referto autoconsistente: e' cio'
+    che i test asseriscono, e la lista non vuota dice *quale* origine
+    e' rientrata, che su un HTML da 300 KB e' l'unica diagnosi utile.
+    """
+    fuori = []
+    for src, srcset, in_url, importato in _RIFERIMENTI.findall(html):
+        if srcset:
+            # `srcset` e' l'unico attributo che porta piu' URL, separati
+            # da virgole, ed e' l'unico che si spezza. Spezzare TUTTI i
+            # candidati scavalcherebbe il filtro `data:` qui sotto: un
+            # data URI contiene una virgola per specifica, e a pezzi non
+            # comincia piu' per `data:` — sui golden uscirebbe `DIGEST`,
+            # sulla fixture l'intero base64 della favicon.
+            # Dentro `srcset` lo stesso problema non si pone: le virgole
+            # di un URL vanno percent-encoded, altrimenti l'attributo e'
+            # invalido, quindi qui la virgola separa e basta.
+            candidati = [c.strip().split()[0]
+                         for c in srcset.split(",") if c.strip()]
+        else:
+            candidati = [src or in_url or importato]
+        for candidato in candidati:
+            candidato = candidato.strip()
+            # Un frammento non esce dal file: `url(#grafo-freccia)` e' il
+            # marcatore delle frecce del grafo (`mars_report`), e gli
+            # `href="#..."` sono le ancore stabili dei rilievi. Senza
+            # questa esenzione i golden diventano rossi per la ragione
+            # sbagliata.
+            if candidato and not candidato.startswith(("data:", "#")):
+                fuori.append(candidato)
+    return fuori
+
+
 def test_html_autoconsistente(referto):
     """Nessuna origine esterna: il referto deve restare un file solo,
     apribile fra due anni da un archivio senza rete.
@@ -171,11 +217,12 @@ def test_html_autoconsistente(referto):
     allentamento: uno `<script src>` esce dal file, uno `<script>`
     inline no — e il vincolo vero era sempre stato il primo. Il
     presidio sul contenuto dello script sta nei due test qui sotto.
+
+    R33 ha esteso il controllo oltre `src`/`href`: cercava solo quelli,
+    e un `url()` nel `<style>`, un `@import` o un `srcset` passavano.
     """
-    import re
     uscita = render_html(referto)
-    esterni = re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:)([^\'"]+)', uscita)
-    assert esterni == []
+    assert riferimenti_esterni(uscita) == []
     # Il tipo si legge dai byte del file (R43), quindi il test lo chiede
     # alla stessa funzione invece di cablarlo: cablare `x-icon` era la
     # dichiarazione falsa che la voce ha chiuso.
@@ -185,6 +232,52 @@ def test_html_autoconsistente(referto):
     assert "data:%s;base64," % atteso in uscita
     assert atteso == "image/png", \
         "il file si chiama .ico ma e' un PNG: se cambia, cambia il referto"
+
+
+@pytest.mark.parametrize("nome", ["referto.html", "referto_degradato.html"])
+def test_i_golden_html_non_hanno_origini_esterne(nome):
+    """Lo stesso controllo sui due referti congelati, e non solo su
+    quello della fixture.
+
+    La fixture ha **una** pagina, **un** rilievo e un solo `href` in
+    tutto l'HTML: anche esteso, il controllo non attraversa i rami dove
+    una regressione ha piu' probabilita' di nascere — il grafo, la
+    treemap, il donut, le tabelle. I golden li attraversano tutti.
+    """
+    percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "golden", nome)
+    with open(percorso, encoding="utf-8") as fh:
+        assert riferimenti_esterni(fh.read()) == []
+
+
+def test_il_controllo_dell_autoconsistenza_vede_le_quattro_forme():
+    """R33: il controllo cercava `src` e `href`, e quattro modi su
+    cinque di uscire dal file gli passavano davanti.
+
+    Senza questo test l'estensione sarebbe verificabile solo
+    reintroducendo a mano la regressione che vuole impedire. Il caso
+    `data:` con la virgola e' il piu' insidioso: e' cio' che distingue
+    lo split fatto sul solo `srcset` da quello fatto su tutti i
+    candidati.
+    """
+    fuori = "https://cdn.example/x"
+    assert riferimenti_esterni('<script src="%s.js"></script>' % fuori)
+    assert riferimenti_esterni('<style>@font-face{src:url(%s.woff2)}</style>'
+                               % fuori)
+    assert riferimenti_esterni("<style>body{background:url('%s.png')}</style>"
+                               % fuori)
+    assert riferimenti_esterni('<style>@import "%s.css";</style>' % fuori)
+    assert riferimenti_esterni('<style>@import url("%s.css");</style>' % fuori)
+    assert riferimenti_esterni("<img srcset='%s/a.png 1x, /b.png 2x'>" % fuori)
+
+    # Il relativo dentro `srcset` esce anche lui: e' un file che non c'e'
+    # nel referto.
+    assert "/b.png" in riferimenti_esterni("<img srcset='/b.png 2x'>")
+
+    # E cio' che resta dentro il file non deve comparire.
+    assert riferimenti_esterni('<img src="data:image/png;base64,AAAA">') == []
+    assert riferimenti_esterni('<a href="#tech">x</a>') == []
+    assert riferimenti_esterni("<path marker-end='url(#grafo-freccia)'/>") == []
 
 
 def _referto_citabilita(contesto, risultato):

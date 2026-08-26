@@ -2355,6 +2355,72 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R33 — ✅ RISOLTO (2026-08-26): due presìdi che passavano per la ragione sbagliata
+**Il difetto, misurato prima di toccare il codice.** Lanciando `pytest` da una
+directory diversa dalla radice: **2 failure e 4 errori** — uno in più di quanti
+la voce ne dichiarasse, perché `test_api.py::test_esempio_valido_e_completo` si
+era aggiunto nel frattempo. E `test_url_obbligatorio` **passava a vuoto**: si
+limitava ad asserire `rc == 2`, ma da un'altra cwd quel 2 arrivava da Python
+(«can't open file .../mars_audit.py»), non da argparse. Un test verde che non
+aveva mai raggiunto il parser.
+
+**L'autoconsistenza dell'HTML era controllata su un quinto delle superfici.**
+La regex cercava solo `src`/`href` quotati. Iniettando nel referto le quattro
+forme che quella regex non vede, il conteggio dei riferimenti esterni **non
+cambiava**:
+
+| forma iniettata | vista prima | vista dopo |
+|---|---|---|
+| `@font-face{src:url(https://…)}` | no | sì |
+| `background:url('https://…')` | no | sì |
+| `@import "https://…"` | no | sì |
+| `srcset='https://… 1x'` | no | sì |
+| `<script src="https://…">` | sì | sì |
+
+**Percorsi assoluti, non una fixture `chdir`.** È l'idioma già in casa
+(`test_i18n`, `test_core`, `test_report`), e una `chdir` globale avrebbe
+nascosto la dipendenza invece di toglierla — oltre a collidere con
+`test_core.py`, che la cwd la cambia di proposito.
+
+**La trappola dello split, che è costata l'unico giro rosso.** Spezzare i
+candidati sulle virgole per gestire `srcset` **scavalca il filtro `data:`**: un
+data URI contiene una virgola per costruzione, e a pezzi non comincia più per
+`data:`. Misurato: sui golden sarebbe uscito `DIGEST`, sulla fixture l'intero
+base64 della favicon. Si spezza quindi il **solo** `srcset`, dove la stessa
+ambiguità non esiste — le virgole di un URL vanno percent-encoded, o
+l'attributo è invalido.
+
+**Un caso di test scritto male, corretto invece di piegare il codice.** Avevo
+asserito che `srcset="data:image/png;base64,AA,BB 1x"` non producesse
+riferimenti: è un input che l'HTML non ammette, quindi l'asserzione pretendeva
+una proprietà inesistente. È stato tolto il caso, non allargato il codice.
+
+**Il controllo gira anche sui due golden, non solo sulla fixture.** La fixture
+ha una pagina, un rilievo e un solo `href` in tutto l'HTML: non attraversa il
+grafo, la treemap, le tabelle — cioè i rami dove una regressione ha più
+probabilità di nascere. Serve un'esenzione per i frammenti `#…`, che non escono
+dal file: `url(#grafo-freccia)` è il marcatore delle frecce del grafo, e gli
+`href="#…"` sono le ancore dei rilievi (42 nel golden pieno).
+
+**Il terzo bullet non andava chiuso, e la misura lo dimostra.** La voce
+segnalava la fixture `CONTROLLI` «ferma a cinque campi su otto». Verificato sul
+sorgente: `_elenco_controlli` legge esattamente `id`, `title`, `passed`,
+`manual`, `items` — i cinque che la fixture ha. `score`, `weight`,
+`scoreDisplayMode` e `description` sono consumati **solo dentro `mars_seo`**,
+mai dal referto. Il ramo davvero delicato è un altro — il join fra controlli e
+rilievi via `params["rule"]`, che porta il `detail` sotto la voce — e i golden
+lo esercitano: in `referto.json`, 8 rilievi su 11 audit si agganciano, tutti
+con `detail`. La fixture resta minima perché è ciò che deve essere: esercita i
+tre stati della resa, il join lo copre U2 — esattamente come la voce prevedeva
+scrivendo «candidata a sparire dentro U2».
+
+**Verifiche.** 973 test verdi (erano 970), `flake8` a zero, golden non toccati:
+nessun file `mars_*.py` è stato modificato. **Sei mutazioni su sei** fanno
+rosso — le quattro forme di riferimento esterno nel CSS del referto, un `url()`
+iniettato dentro un golden congelato, e il `cwd=RADICE` tolto al sottoprocesso
+(quest'ultima verificata lanciando la suite da un'altra directory, che è
+l'unico posto dove quel difetto si manifesta).
+
 ### R36 — ✅ RISOLTO (2026-08-26): `nosnippet` era invisibile, ed è la direttiva che conta di più
 **Il difetto, misurato prima di toccare il codice.** `direttive_robots()` leggeva
 tutte le direttive, ma `controlla_indicizzabilita` ne giudicava due — `noindex` e

@@ -19,15 +19,18 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R29-R32, R34, R36, R38, R41-R45, R47.
-> **Aperte**: R28, R33, R35, R37, R39-R40, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R29-R34, R36, R38, R41-R45, R47.
+> **Aperte**: R28, R35, R37, R39-R40, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
 > della Fase 8 chiuso, **R49** sbloccata — e **R32** lo stesso giorno. **R36**
 > è chiusa il 2026-08-26: `nosnippet`, `noarchive` e `unavailable_after` scaduto
 > sono tre rilievi nuovi dell'area 1, e la direttiva che pesa di più sulla
-> citabilità non è più muta.
+> citabilità non è più muta. **R33** lo stesso giorno: la suite non dipende più
+> dalla directory da cui la si lancia, e l'autoconsistenza dell'HTML è
+> controllata su quattro forme in più — `url()`, `@import`, `srcset` — anche sui
+> due golden.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -221,26 +224,6 @@ dedurre*). Ordinate per gravità.
 - [ ] Gestire `OSError` con un codice di uscita distinto da `--fail-under`, e
       scrivere il referto prima dello storico.
 - [ ] Distinguere «0 su 0» (non misurato) da uno 0% reale, come già fa `overall_rate`.
-
-### R33 — ⚪ LIEVE: rifiniture dei test
-- **Seconda fixture di controlli scritta a mano.**
-  [tests/test_report.py:489](tests/test_report.py#L489) (`CONTROLLI`) ricalca
-  a mano le voci di `audits` che `mars_seo.estrai_audit` produce, e da U1.7 è
-  ferma a cinque campi su otto: invecchia da sola, senza che nulla diventi
-  rosso. Candidata a sparire dentro **U2**, che congela la resa con i golden.
-- **Dipendenza dalla cwd.** [tests/test_cli.py](tests/test_cli.py) (righe 22, 100,
-  107) e [tests/test_api.py:320](tests/test_api.py#L320) usano percorsi relativi:
-  eseguendo `pytest` da un'altra directory si hanno 1 failure e 4 errori, e
-  `test_url_obbligatorio` **passa vacuamente** (attende rc 2 da argparse, ma da cwd
-  sbagliata rc 2 arriva dal file non trovato).
-- **`test_html_autoconsistente` troppo debole.**
-  [tests/test_report.py:164](tests/test_report.py#L164) cerca riferimenti esterni
-  solo negli attributi `src`/`href` quotati: un `url(https://…)` nel `<style>`,
-  `@import` o `srcset` sfuggirebbero, lasciando verde una regressione che rompe
-  l'autoconsistenza.
-
-- [ ] Fissare la cwd al repo (fixture/`chdir`) e rendere non-vacuo il test URL.
-- [ ] Estendere il controllo a `url(`, `@import`, `srcset` (escludendo `data:`).
 
 ### R35 — 🟡 MEDIO: i due recuperatori indicizzano contenuti diversi
 *(trovata misurando, chiudendo R23 il 2026-08-20)*

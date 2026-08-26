@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -363,7 +364,10 @@ def test_lo_schema_dichiara_le_credenziali_writeonly(client):
 
 def test_esempio_valido_e_completo():
     """L'esempio deve restare allineato allo schema, e senza chiavi."""
-    with open("examples/audit_request.json", encoding="utf-8") as f:
+    percorso = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "examples", "audit_request.json")
+    with open(percorso, encoding="utf-8") as f:
         esempio = json.load(f)
     req = mars_api.AuditRequest(**{k: v for k, v in esempio.items()
                                    if not k.startswith("_")})

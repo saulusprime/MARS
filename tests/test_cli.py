@@ -19,10 +19,21 @@ import pytest
 import mars_audit
 from mars_citability import MERCATI
 
+# I sottoprocessi vanno lanciati dalla radice del repo, non dalla cwd di
+# chi invoca pytest: `mars_audit.py` e' un percorso relativo, e da
+# un'altra directory Python esce con rc 2 per «can't open file» — lo
+# stesso codice che argparse usa per un argomento mancante. Il test
+# dell'URL obbligatorio passava cosi' per la ragione sbagliata (R33).
+# Percorsi assoluti e non una fixture `chdir`: e' l'idioma gia' in casa
+# (test_i18n, test_core, test_report), e una chdir globale
+# colliderebbe con chi la cwd la cambia di proposito.
+RADICE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def _aiuto() -> str:
     esito = subprocess.run([sys.executable, "mars_audit.py", "--help"],
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, timeout=60,
+                           cwd=RADICE)
     assert esito.returncode == 0
     return esito.stdout
 
@@ -172,15 +183,30 @@ def test_aiuto_avverte_su_spesa_e_attacco(aiuto):
 
 def test_version():
     esito = subprocess.run([sys.executable, "mars_audit.py", "--version"],
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, timeout=60,
+                           cwd=RADICE)
     assert esito.returncode == 0
     assert mars_audit.__version__ in esito.stdout
 
 
 def test_url_obbligatorio():
+    """R33: il solo `rc == 2` non distingue due cause diverse.
+
+    Argparse esce con 2 per un argomento mancante, e Python esce con 2
+    anche per «can't open file»: da un'altra directory questo test
+    passava senza aver mai raggiunto il parser. Le due asserzioni sullo
+    stderr ancorano la causa, e restano rosse se qualcuno rimette il
+    percorso relativo.
+
+    Si asserisce sul metavar `URL`, che e' nostro, e non sulla prosa di
+    argparse, che passa da gettext e cambia con il locale.
+    """
     esito = subprocess.run([sys.executable, "mars_audit.py"],
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, timeout=60,
+                           cwd=RADICE)
     assert esito.returncode == 2
+    assert "URL" in esito.stderr
+    assert "can't open file" not in esito.stderr
 
 
 @pytest.mark.parametrize("argomenti", [

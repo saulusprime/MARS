@@ -227,10 +227,6 @@ def direttive_robots(pagina: dict) -> Set[str]:
     `noindex, nofollow` senza contenere "noindex", e cercare quella
     sottostringa bastava a mancare un sito interamente de-indicizzato.
 
-    L'eventuale prefisso per agente dell'X-Robots-Tag
-    (`googlebot: noindex`) resta fra i token e non nasconde la
-    direttiva, che viene contata come prima.
-
     Le direttive con valore (`max-snippet: 0`) arrivano come UN token,
     valore compreso: vedi `_DIRETTIVE_CON_VALORE`.
 
@@ -238,9 +234,51 @@ def direttive_robots(pagina: dict) -> Set[str]:
     assistenti**: le direttive senza prefisso piu' quelle mirate a un
     crawler di `CRAWLER_IA`. Una direttiva riservata a `googlebot` non
     compare qui — non toglie il sito agli assistenti — e viene
-    riportata a parte da `controlla_indicizzabilita`.
+    riportata a parte da `controlla_indicizzabilita`. Fino a R37 il
+    prefisso restava fra i token e la direttiva era contata come se
+    valesse per tutti: e' il difetto che quella voce ha chiuso, e la
+    riga che lo descriveva e' uscita di qui con esso.
     """
     return direttive_efficaci(*direttive_per_agente(pagina))
+
+
+def _iso(valore: str) -> datetime:
+    """`datetime.fromisoformat` con la Zulu minuscola ammessa.
+
+    Il crawler abbassa `meta_robots` e `x_robots_tag` con `.lower()`
+    (`mars_core`), quindi qui una `Z` maiuscola non arriva **mai** — e
+    `fromisoformat` rifiuta la minuscola con `ValueError`. Il risultato
+    era che l'unica forma che il crawler consegna davvero,
+    `2020-09-21t12:00:00z`, non si leggeva: il difetto e' stato
+    scoperto correggendo un test di R36 che esercitava la maiuscola,
+    cioe' un percorso gia' chiuso un livello piu' su.
+    """
+    if valore.endswith("z"):
+        valore = valore[:-1] + "Z"
+    return datetime.fromisoformat(valore)
+
+
+def _agente_del_pezzo(pezzo: str) -> Tuple[Optional[str], str]:
+    """Il prefisso per agente di un pezzo, e cio' che ne resta.
+
+    Un agente e' un token **senza spazi** seguito dai due punti. Il
+    vincolo non e' cosmetico: un'ora contiene i due punti e una data
+    RFC 850 le virgole, quindi
+    `unavailable_after: saturday, 21-sep-2020 12:00:00 gmt` si spezza
+    in due pezzi e il secondo ha i due punti dell'ora. Senza il
+    vincolo, `21-sep-2020 12` diventava un agente e con esso nasceva un
+    rilievo `agent_only` inventato — misurato.
+
+    E non e' un agente il nome di una direttiva con valore, o
+    `max-snippet: 0` creerebbe l'agente «max-snippet» facendo sparire
+    il divieto di frammento (R36).
+    """
+    testa, separatore, resto = pezzo.partition(":")
+    nome = testa.strip()
+    if (separatore and nome and " " not in nome
+            and nome not in NOMI_CON_VALORE):
+        return nome, resto.strip()
+    return None, pezzo
 
 
 def direttive_efficaci(globali: Set[str],
@@ -301,13 +339,12 @@ def direttive_per_agente(pagina: dict) -> Tuple[Set[str], Dict[str, Set[str]]]:
         pezzo = pezzo.strip()
         if not pezzo:
             continue
-        if ":" in pezzo:
-            testa, _, resto = pezzo.partition(":")
-            if testa.strip() not in NOMI_CON_VALORE:
-                agente = testa.strip()
-                pezzo = resto.strip()
-                if not pezzo:
-                    continue
+        nome, resto = _agente_del_pezzo(pezzo)
+        if nome is not None:
+            agente = nome
+            pezzo = resto
+            if not pezzo:
+                continue
         for token in _SEPARATORI.split(pezzo):
             if not token:
                 continue
@@ -316,6 +353,37 @@ def direttive_per_agente(pagina: dict) -> Tuple[Set[str], Dict[str, Set[str]]]:
             else:
                 globali.add(token)
     return globali, per_agente
+
+
+def _grezzo_efficace(pagina: dict) -> str:
+    """Il testo delle direttive che valgono per gli assistenti.
+
+    Il prefisso per agente vale anche per la SCADENZA, e questa
+    funzione e' l'unico modo per farglielo rispettare: la data si legge
+    dal grezzo con una regex — perche' puo' contenere spazi e virgole,
+    cioe' i separatori delle direttive — e una regex non sa nulla di
+    chi sia l'agente corrente.
+
+    Senza, `googlebot: unavailable_after: <passato>` produceva il
+    rilievo pieno PIU' `agent_only`, e il punteggio scendeva a 46:
+    peggio di una scadenza che vale per tutti, che ne fa 54. Una
+    restrizione a un solo agente non puo' pesare di piu' di quella che
+    vale per chiunque.
+    """
+    grezzo = _DIRETTIVE_CON_VALORE.sub(
+        r"\1:", _direttive_grezze(pagina).lower())
+    agente = None
+    tenuti = []
+    for pezzo in grezzo.split(","):
+        nome, resto = _agente_del_pezzo(pezzo)
+        if nome is not None:
+            agente, pezzo = nome, resto
+        if agente is None or agente in _CRAWLER_IA_MINUSCOLI:
+            tenuti.append(pezzo)
+    # Si ricompone il TESTO, non i token: una data occupa quattro token
+    # e ricostruirla da un insieme ne perderebbe l'ordine. La virgola
+    # con lo spazio e' quella che il grezzo aveva.
+    return ", ".join(p.strip() for p in tenuti if p.strip())
 
 
 def scadenza_dichiarata(pagina: dict) -> Optional[datetime]:
@@ -339,12 +407,12 @@ def scadenza_dichiarata(pagina: dict) -> Optional[datetime]:
     dice, ma il confronto deve avvenire fra istanti confrontabili, e
     l'alternativa e' l'ora locale della macchina che esegue l'audit.
     """
-    trovato = _SCADENZA.search(_direttive_grezze(pagina))
+    trovato = _SCADENZA.search(_grezzo_efficace(pagina))
     if not trovato:
         return None
     coda = trovato.group(1).strip()
     for candidato in (coda, coda.split(",")[0]):
-        for leggi in (datetime.fromisoformat, parsedate_to_datetime):
+        for leggi in (_iso, parsedate_to_datetime):
             try:
                 quando = leggi(candidato.strip())
             except (TypeError, ValueError):

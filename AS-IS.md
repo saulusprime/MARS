@@ -2355,6 +2355,61 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R52 — ✅ RISOLTO (2026-08-26): tre difetti dell'incontro fra R36 e R37
+*(trovati lo stesso giorno in cui sono nati, correggendo un test che passava per
+la ragione sbagliata. Nessuno era nel TO-DO)*
+
+R36 legge la scadenza dal **testo grezzo**, con una regex, perché una data
+contiene spazi e virgole — i separatori delle direttive. R37 separa i prefissi
+per agente lavorando **sui pezzi**. Le due letture non si conoscevano, e nel
+punto in cui si toccano c'erano tre difetti. Misurati:
+
+| `X-Robots-Tag` | prima | dopo |
+|---|---|---|
+| `unavailable_after: 2020-09-21t12:00:00z` | **94**, nessun rilievo | 54, scaduta |
+| `unavailable_after: saturday, 21-sep-2020 12:00:00 gmt` | 46, **+ agente `21-sep-2020 12`** | 54, scaduta |
+| `googlebot: unavailable_after: 2020-01-01` | **46** | 86, `agent_only` |
+| `gptbot: unavailable_after: 2020-01-01` | 54 | 54 |
+
+**1. La Zulu minuscola non si leggeva, ed è la sola che arriva.** Il crawler
+scrive `meta_robots` e `x_robots_tag` con `.strip().lower()` (`mars_core`),
+quindi una `Z` maiuscola **non arriva mai** al modulo — e
+`datetime.fromisoformat` rifiuta la minuscola con `ValueError`. Il formato ISO
+con fuso, che Google documenta, non veniva letto affatto.
+
+Il difetto era **mascherato da un mio test**: `test_tech_i_formati_di_data_
+ammessi_si_leggono_tutti` parametrizzava `"2020-09-21T12:00:00Z"`, cioè
+presidiava un percorso che il crawler ha già chiuso un livello più su, mentre il
+solo caso reale restava scoperto. I parametri sono ora tutti minuscoli, e il
+difetto è emerso appena il test è diventato fedele.
+
+**2. Una data diventava un agente.** Un'ora contiene i due punti e una data RFC
+850 le virgole: `unavailable_after: saturday, 21-sep-2020 12:00:00 gmt` si spezza
+in due pezzi, e il secondo ha i due punti dell'ora. Letto come prefisso creava
+l'agente `21-sep-2020 12` e con esso un rilievo `agent_only` **inventato**. Un
+nome di crawler non contiene spazi: è il criterio che distingue le due cose, e
+ora sta in `_agente_del_pezzo()`, un punto solo per entrambi i lettori.
+
+**3. La scadenza ignorava il prefisso.** `googlebot: unavailable_after:
+<passato>` produceva il rilievo pieno **più** `agent_only`, e il punteggio
+scendeva a 46 — cioè **peggio** di una scadenza che vale per tutti, che ne fa 54.
+Una restrizione a un solo agente non può pesare più di quella che vale per
+chiunque. `_grezzo_efficace()` ricompone ora il testo delle sole direttive che
+valgono per gli assistenti, e la regex della data legge quello.
+
+**Ricomporre il testo, non i token.** Il primo tentativo ricostruiva il grezzo
+unendo i token: una data ne occupa quattro, e un insieme ne perde l'ordine — due
+test delle date sono diventati rossi subito. Si ricompone il testo, con `", "`:
+senza lo spazio la data si legge ancora, ma **solo** per un dettaglio
+implementativo di `email._parseaddr`, che cerca l'ultima virgola dentro il primo
+token. Appoggiarsi a quello vorrebbe dire smettere di leggere le date il giorno
+in cui CPython lo cambia, senza che nulla diventi rosso. Un test fissa la
+ricomposizione — la mutazione che toglie lo spazio era l'unica sfuggita al primo
+giro.
+
+**Verifiche.** 1011 test verdi, `flake8` a zero, golden fermi. **Sette mutazioni
+su sette** fanno rosso.
+
 ### R49 — ✅ RISOLTO (2026-08-26): il donut delle pagine, coi nomi che non affermano
 **Il ripiego che c'era.** La Fase 5 di UPGRADE.md prevedeva un donut «senza
 rilievi / con rilievi / scartate» e aveva ripiegato su due numeri — *pagine

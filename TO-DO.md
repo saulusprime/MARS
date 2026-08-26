@@ -19,7 +19,7 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R50 — R37 a
+> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R50, R52 — R37 a
 > metà: la metà aperta è **R51**. L'ultima
 > nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
 > confrontavano due rese e potevano cadere a cavallo di un secondo.

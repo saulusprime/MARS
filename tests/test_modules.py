@@ -389,6 +389,73 @@ def test_tech_le_due_ricuciture_dei_due_punti_non_si_confondono():
     assert globali == set()
 
 
+def test_tech_una_data_non_diventa_un_agente():
+    """Un'ora contiene i due punti, e una data RFC 850 le virgole.
+
+    `unavailable_after: saturday, 21-sep-2020 12:00:00 gmt` si spezza
+    sulle virgole in due pezzi, e il secondo — ` 21-sep-2020 12:00:00
+    gmt` — ha i due punti dell'ORA: letto come prefisso creava l'agente
+    `21-sep-2020 12` e con esso un rilievo `agent_only` inventato.
+    Misurato. Un nome di crawler non contiene spazi, ed e' il criterio
+    che distingue le due cose.
+    """
+    _, agenti = mars_tech.direttive_per_agente(
+        {"x_robots_tag": "unavailable_after: saturday, "
+                         "21-sep-2020 12:00:00 gmt"})
+    assert agenti == {}, "una data e' diventata un agente: %s" % sorted(agenti)
+
+    esito = mars_tech.audit(_contesto_tech(
+        x_robots_tag="unavailable_after: saturday, 21-sep-2020 "
+                     "12:00:00 gmt"))
+    chiavi = {f["key"] for f in esito["findings"]}
+    assert "tech.index.agent_only" not in chiavi
+    assert "tech.index.unavailable_after" in chiavi
+
+
+def test_tech_il_grezzo_efficace_ricompone_la_spaziatura_di_partenza():
+    """Il testo si ricompone con `, `, non con `,`.
+
+    Senza lo spazio, `saturday,21-sep-2020 12:00:00 gmt` si legge
+    ancora — ma solo per un dettaglio implementativo di
+    `email._parseaddr`, che cerca l'ultima virgola dentro il primo
+    token. Appoggiarsi a quello significa che la data smetterebbe di
+    leggersi il giorno in cui CPython lo cambia, senza che nulla qui
+    diventi rosso."""
+    grezzo = mars_tech._grezzo_efficace(
+        {"x_robots_tag": "unavailable_after: saturday, "
+                         "21-sep-2020 12:00:00 gmt"})
+    assert grezzo == "unavailable_after:saturday, 21-sep-2020 12:00:00 gmt"
+
+    # E i pezzi di un agente altrui non entrano affatto.
+    solo_ia = mars_tech._grezzo_efficace(
+        {"x_robots_tag": "googlebot: noindex, gptbot: nofollow"})
+    assert "noindex" not in solo_ia
+    assert "nofollow" in solo_ia
+
+
+def test_tech_una_scadenza_per_un_altro_agente_non_scade_per_tutti():
+    """Il prefisso per agente vale anche per la SCADENZA.
+
+    `scadenza_dichiarata()` legge la data dal grezzo con una regex, e
+    fino a qui ignorava il prefisso: `googlebot: unavailable_after:
+    <passato>` produceva il rilievo pieno **piu'** `agent_only`, e il
+    punteggio scendeva a 46 — cioe' **peggio** di una scadenza che vale
+    per tutti (54). Una direttiva meno grave riceveva un giudizio piu'
+    grave: e' l'incoerenza fra R36, che legge il grezzo, e R37, che
+    separa gli agenti.
+    """
+    globale = mars_tech.audit(_contesto_tech(
+        x_robots_tag="unavailable_after: 2020-01-01"))
+    altrui = mars_tech.audit(_contesto_tech(
+        x_robots_tag="googlebot: unavailable_after: 2020-01-01"))
+    chiavi = {f["key"] for f in altrui["findings"]}
+
+    assert "tech.index.unavailable_after" not in chiavi
+    assert "tech.index.agent_only" in chiavi
+    assert altrui["score"] > globale["score"], \
+        "una restrizione a un solo agente non puo' pesare di piu'"
+
+
 def test_tech_una_pagina_scaduta_e_fuori_dagli_indici():
     """R36: `unavailable_after` passato equivale a `noindex`, e valeva
     zero. Chiave propria e non l'elenco del noindex: il titolo di
@@ -416,20 +483,54 @@ def test_tech_una_scadenza_futura_non_e_un_rilievo():
 
 @pytest.mark.parametrize("valore", [
     "2020-09-21",                            # ISO 8601, come documentata
-    "2020-09-21T12:00:00Z",                  # ISO con ora e fuso
-    "Saturday, 21-Sep-2020 12:00:00 GMT",    # RFC 850, l'altra documentata
-    "Sat, 21 Sep 2020 12:00:00 GMT",         # RFC 2822
-    "saturday, 21-sep-2020 12:00:00 gmt",    # le direttive non hanno caso
+    "2020-09-21t12:00:00z",                  # ISO con ora e fuso
+    "saturday, 21-sep-2020 12:00:00 gmt",    # RFC 850, l'altra documentata
+    "sat, 21 sep 2020 12:00:00 gmt",         # RFC 2822
 ])
 def test_tech_i_formati_di_data_ammessi_si_leggono_tutti(valore):
     """Google documenta ISO 8601 e RFC 850. La virgola di RFC 850 e'
     anche il separatore delle direttive: se il valore si tagliasse
     sempre li', 'Saturday' sarebbe tutto cio' che resta e la data non
-    si leggerebbe mai."""
+    si leggerebbe mai.
+
+    **I valori sono minuscoli perche' il crawler li abbassa.**
+    `mars_core` scrive `meta_robots` e `x_robots_tag` con `.lower()`,
+    quindi una `Z` maiuscola non arriva mai qui: esercitarla — come
+    faceva la prima stesura di questo test — avrebbe presidiato un
+    percorso che il crawler ha gia' chiuso un livello piu' su, mentre
+    il solo caso reale restava scoperto."""
     esito = mars_tech.audit(_contesto_tech(
         meta_robots="unavailable_after: %s" % valore))
     assert any(f["key"] == "tech.index.unavailable_after"
                for f in esito["findings"]), valore
+
+
+def test_tech_la_scadenza_si_legge_anche_dall_header():
+    """Tutti i casi qui sopra passano dal meta. L'header e' l'altra
+    fonte, e senza un caso che la eserciti si potrebbe smettere di
+    leggerla senza che nulla diventi rosso."""
+    esito = mars_tech.audit(_contesto_tech(
+        x_robots_tag="unavailable_after: 2020-01-01"))
+    per_chiave = {f["key"]: f for f in esito["findings"]}
+
+    assert "tech.index.unavailable_after" in per_chiave
+    assert per_chiave["tech.index.unavailable_after"]["source_severity"] \
+        == "critico"
+
+
+def test_tech_la_scadenza_di_un_crawler_ia_vale_come_globale():
+    """`gptbot: unavailable_after: <passato>` e' il caso che questo
+    progetto misura: la scadenza mirata proprio a un assistente.
+
+    Deve produrre il rilievo pieno e non `agent_only`, ed e' il gemello
+    obbligatorio del test qui sopra — senza, il ramo IA del parser per
+    agente resta scoperto sulla scadenza."""
+    esito = mars_tech.audit(_contesto_tech(
+        x_robots_tag="gptbot: unavailable_after: 2020-01-01"))
+    chiavi = {f["key"] for f in esito["findings"]}
+
+    assert "tech.index.unavailable_after" in chiavi
+    assert "tech.index.agent_only" not in chiavi
 
 
 @pytest.mark.parametrize("valore", [

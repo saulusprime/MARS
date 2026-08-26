@@ -971,6 +971,11 @@ class Crawler:
             # architettura da mostrare. Costa un attraversamento del
             # DOM gia' in memoria.
             uscenti = self.estrai_link(soup, url)
+            # I meta robots si estraggono in una funzione perche' li
+            # legge anche il banco di prova: riscriverli li'
+            # congelerebbe nei golden un'estrazione che in produzione
+            # non esiste.
+            meta_globali, meta_per_agente = estrai_meta_robots(soup)
             self.pages[url] = {
                 "title": title,
                 # Distanza in click dalla home, o None se la pagina
@@ -986,11 +991,11 @@ class Crawler:
                     "script", type="application/ld+json")],
                 # Indicizzabilita': meta robots, canonical e l'header
                 # X-Robots-Tag, che agisce come il meta ma non e' nel DOM.
-                "meta_robots": " ".join(
-                    (m.get("content") or "").strip().lower()
-                    for m in soup.find_all("meta")
-                    if (m.get("name") or "").strip().lower()
-                    in ("robots", "googlebot")),
+                "meta_robots": meta_globali,
+                # Le direttive riservate a un solo crawler: il
+                # `<meta name="googlebot">` sta al meta come il
+                # prefisso sta all'X-Robots-Tag (R51).
+                "meta_robots_by_agent": meta_per_agente,
                 "canonical": (lambda t: (t.get("href") or "").strip()
                               if t else "")(
                     soup.find("link", rel=lambda v: v and "canonical" in
@@ -1064,6 +1069,50 @@ def link_interni(soup: BeautifulSoup, base: str, base_host: str,
                 and host_matches(url, base_host):
             trovati.append(url)
     return trovati
+
+
+# I nomi di `<meta>` che portano direttive robots. `robots` vale per
+# ogni crawler; ogni altro nome dell'elenco vale per il SOLO crawler
+# che nomina, esattamente come il prefisso dell'`X-Robots-Tag` (R37).
+#
+# L'elenco e' questo e non «qualunque nome»: `<meta name="description">`
+# non e' una direttiva, per quanto il suo testo possa somigliarle.
+# Allargarlo ai crawler degli assistenti — un `<meta name="gptbot">` —
+# vorrebbe dire prima verificare che quei crawler leggano davvero il
+# meta, e oggi non e' verificato: **il limite si dichiara invece di
+# assumerlo**, ed e' un rilievo in meno, non uno sbagliato in piu'.
+META_ROBOTS_AGENTI = ("googlebot",)
+
+
+def estrai_meta_robots(soup: BeautifulSoup) -> Tuple[str, Dict[str, str]]:
+    """I meta robots: quelli che valgono per tutti, e quelli per agente.
+
+    Restituisce `(globali, {agente: direttive})`. La separazione e' il
+    dato che mancava: i `content` di piu' meta finivano in **una**
+    stringa sola, e quale meta li portasse era perduto prima di
+    arrivare al modulo — `<meta name="googlebot" content="noindex">`
+    riceveva percio' lo stesso giudizio di `<meta name="robots">`,
+    benche' escluda il solo Google. E' la meta' di R37 che l'header
+    aveva gia' chiuso col suo prefisso, e il DOM no (R51).
+
+    I meta dello stesso agente si uniscono con la **virgola**, che e' il
+    separatore della grammatica in cui il prefisso viene poi letto; i
+    globali con lo spazio, com'erano. Nessun giudizio: le direttive
+    escono grezze e minuscole, decidere che cosa significhino tocca al
+    modulo.
+    """
+    globali: List[str] = []
+    per_agente: Dict[str, List[str]] = {}
+    for meta in soup.find_all("meta"):
+        nome = (meta.get("name") or "").strip().lower()
+        contenuto = (meta.get("content") or "").strip().lower()
+        if nome == "robots":
+            globali.append(contenuto)
+        elif nome in META_ROBOTS_AGENTI:
+            per_agente.setdefault(nome, []).append(contenuto)
+    return (" ".join(globali),
+            {agente: ", ".join(pezzi)
+             for agente, pezzi in per_agente.items()})
 
 
 def estrai_struttura(soup: BeautifulSoup) -> dict:

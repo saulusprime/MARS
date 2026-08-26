@@ -24,11 +24,13 @@
 > resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
 > segnali derivati. Il piano di interventi copre ora sette aree su nove.
 >
-> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R50, R52 — R37 a
-> metà: la metà aperta è **R51**. L'ultima
-> nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
-> confrontavano due rese e potevano cadere a cavallo di un secondo.
-> **Aperte**: R39 (una casella), R40, R46, R48 e R51 —
+> **Correzioni chiuse**: R1-R38, R41-R45, R47, R49-R52. **R51 è chiusa il
+> 2026-08-26**, e con essa **R37 per intero**: il `<meta name="googlebot">`
+> arriva ora separato dal meta globale (`meta_robots_by_agent`, una chiave
+> nuova nel contratto) e vale come il prefisso dell'`X-Robots-Tag`. R52 è
+> l'ultima nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test
+> i18n confrontavano due rese e potevano cadere a cavallo di un secondo.
+> **Aperte**: R39 (una casella), R40, R46 e R48 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -181,39 +183,17 @@ le fasi che non sono state fatte.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R29-R32, R34, R38, R41-R45, R47 — stanno in
+Le voci chiuse — R1-R27, R29-R38, R41-R45, R47, R49-R52 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
-Le voci **R28-R33** qui sotto vengono da una **revisione sistematica del
-2026-08-20** (lettura integrale di codice e documentazione, con verifica
-avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
-osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
-verifica e vanno riprodotte prima di correggerle (regola *verificare, non
+Le quattro voci qui sotto vengono tutte dall'**adeguamento dei moduli alle
+fasi UPGRADE**, non dalla revisione sistematica del 2026-08-20, che è
+esaurita: leggere un modulo riga per riga per cambiarne la forma ne ha
+rivelato i difetti, e nessuno è stato corretto lì dentro perché tutti
+spostano punteggi o testi — cioè esattamente ciò che un adeguamento di forma
+non deve fare. Vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R51 — ⚪ LIEVE: il `<meta name="googlebot">` non ha un agente
-*(la metà di R37 che non si è chiusa il 2026-08-26)*
-
-R37 ha separato il prefisso per agente dell'`X-Robots-Tag`, e il DOM ha
-l'equivalente: `<meta name="googlebot" content="noindex">` vale per il solo
-Google, mentre `<meta name="robots">` vale per tutti. Oggi ricevono lo stesso
-giudizio, perché il crawler unisce i `content` di più meta in **una stringa
-sola** (`mars_core`) e quale meta li portasse è perduto prima di arrivare al
-modulo — `direttive_per_agente()` non può separarli, e lo dichiara nella propria
-docstring.
-
-Chiuderla vuol dire una chiave nuova nella pagina prodotta dal crawler, cioè il
-contratto documentato in [.claude/contratto-moduli.md](.claude/contratto-moduli.md):
-è la ragione per cui non è stata fatta insieme a R37, dove sarebbe finita in un
-commit che cambiava anche il crawler.
-
-Il comportamento di oggi è **fissato da un test**
-(`test_tech_il_meta_per_agente_resta_fuori_e_lo_si_dichiara`), che diventerà
-rosso quando questa voce si chiuderà: è esattamente quando va riscritto.
-
-- [ ] Conservare l'agente del meta nella pagina, e trattarlo come il prefisso
-      dell'header.
 
 ### R39 — 🟡 MEDIO: `alertRef` non viene mai raggiunto
 *(le caselle 2 e 3 sono chiuse il 2026-08-26 e stanno in [AS-IS.md](AS-IS.md):

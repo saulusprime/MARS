@@ -207,14 +207,24 @@ def controlla_sitemap(context: dict) -> List[Finding]:
 
 
 def _direttive_grezze(pagina: dict) -> str:
-    """Meta `robots` e `X-Robots-Tag` in una stringa sola.
+    """Meta `robots`, `X-Robots-Tag` e meta per agente, in una stringa.
 
     Due funzioni leggono le direttive e devono guardare le **stesse**
-    fonti: se un giorno se ne aggiungesse una terza qui, una sola delle
-    due la vedrebbe, e la differenza non produrrebbe alcun errore.
+    fonti: se un giorno se ne aggiungesse una quarta qui, una sola
+    delle due la vedrebbe, e la differenza non produrrebbe alcun
+    errore.
+
+    I meta per agente vanno **in coda**, ciascuno col proprio prefisso.
+    La posizione non e' un dettaglio: in questa stringa il prefisso
+    vale fino al prossimo, quindi un blocco per agente messo in mezzo
+    colorerebbe di quell'agente tutto cio' che lo segue. In coda ogni
+    blocco apre col proprio nome e nessuno eredita.
     """
-    return "%s,%s" % (pagina.get("meta_robots") or "",
-                      pagina.get("x_robots_tag") or "")
+    pezzi = [pagina.get("meta_robots") or "",
+             pagina.get("x_robots_tag") or ""]
+    pezzi += ["%s: %s" % (agente, contenuto) for agente, contenuto
+              in sorted((pagina.get("meta_robots_by_agent") or {}).items())]
+    return ",".join(pezzi)
 
 
 def direttive_robots(pagina: dict) -> Set[str]:
@@ -321,16 +331,26 @@ def direttive_per_agente(pagina: dict) -> Tuple[Set[str], Dict[str, Set[str]]]:
     divieto di frammento senza un errore.
 
     Il meta `robots` non ha prefisso e finisce tutto fra le globali. Il
-    `<meta name="googlebot">` e' l'equivalente nel DOM ma resta fuori:
-    il crawler unisce i `content` di piu' meta in una stringa sola, e
-    quale meta li portasse e' gia' perduto prima di qui. Separarlo
-    vuole una chiave nuova nella pagina, cioe' il contratto dei plugin
-    — la meta' di R37 che resta aperta.
+    `<meta name="googlebot">` e' l'equivalente nel DOM, e dal 2026-08-26
+    (R51) arriva separato: il crawler lo pubblica in
+    `meta_robots_by_agent`, e qui vale come il prefisso dell'header.
+    Non passa pero' dallo stesso parser posizionale, e non e' una
+    scorciatoia: nel DOM ogni meta e' un elemento a se', quindi il suo
+    agente e' **noto**, non dedotto dalla posizione. Farlo dedurre da
+    una stringa unita rimetterebbe in gioco proprio la confusione che
+    la chiave nuova toglie.
     """
     globali = {t for t in _SEPARATORI.split(
         _DIRETTIVE_CON_VALORE.sub(
             r"\1:", (pagina.get("meta_robots") or "").lower())) if t}
     per_agente: Dict[str, Set[str]] = {}
+
+    for agente, contenuto in (pagina.get("meta_robots_by_agent")
+                              or {}).items():
+        testo = _DIRETTIVE_CON_VALORE.sub(r"\1:", (contenuto or "").lower())
+        for token in _SEPARATORI.split(testo):
+            if token:
+                per_agente.setdefault(agente.lower(), set()).add(token)
 
     grezzo = _DIRETTIVE_CON_VALORE.sub(
         r"\1:", (pagina.get("x_robots_tag") or "").lower())

@@ -25,7 +25,10 @@ e crea il referto:
                                     Perplexity, Common Crawl, Google,
                                     Apple, ByteDance, Amazon, Meta;
                                     meta robots, X-Robots-Tag e
-                                    canonical su ogni pagina;
+                                    canonical su ogni pagina, con le
+                                    direttive rivolte a un solo
+                                    agente tenute distinte da quelle
+                                    che valgono per tutti;
                                     noindex, nofollow, nosnippet,
                                     noarchive e unavailable_after
                                     scaduto)

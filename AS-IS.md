@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R51 | Il `<meta name="googlebot">` non aveva un agente | 2026-08-26 |
 | U13 | Le due aree di classifica non avevano un solo controllo | 2026-08-26 |
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
 | R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
@@ -2355,6 +2356,87 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R51 — ✅ RISOLTO (2026-08-26): il `<meta name="googlebot">` non aveva un agente
+*(la metà di R37 che era rimasta aperta)*
+
+**Il difetto.** R37 aveva separato il prefisso per agente dell'`X-Robots-Tag`:
+`googlebot: noindex` esclude il solo Google, non gli assistenti, e i due casi
+non possono ricevere lo stesso giudizio. Il DOM ha l'equivalente —
+`<meta name="googlebot" content="noindex">` — e lì la distinzione non c'era: il
+crawler univa i `content` di `robots` e `googlebot` in **una stringa sola**, e
+quale meta li portasse era perduto prima di arrivare al modulo.
+`direttive_per_agente()` non poteva separarli, e lo dichiarava nella propria
+docstring.
+
+Conseguenza misurata su un sito servito in locale: una pagina col solo
+`<meta name="googlebot" content="noindex">` produceva `tech.index.noindex`,
+gravità **critica**, cioè «il sito è invisibile agli assistenti» — su una
+direttiva che agli assistenti non si rivolge affatto.
+
+**Perché non si era chiusa con R37.** Chiuderla vuol dire una chiave nuova
+nella pagina prodotta dal crawler, cioè il contratto documentato in
+[.claude/contratto-moduli.md](.claude/contratto-moduli.md): sarebbe finita in
+un commit che cambiava anche il crawler.
+
+**La soluzione.** `mars_core.estrai_meta_robots(soup)` restituisce
+`(globali, {agente: direttive})`; la pagina porta `meta_robots` — d'ora in poi
+**solo** i `<meta name="robots">` — e `meta_robots_by_agent`. `mars_tech` legge
+la chiave nuova in `direttive_per_agente()` e la tratta come il prefisso
+dell'header: `googlebot` non è in `CRAWLER_IA`, quindi il rilievo diventa
+`tech.index.agent_only`, di gravità media. Verificato end-to-end: la stessa
+pagina passa da un critico inventato a «1/2 pagine con direttive riservate a un
+agente che non è un assistente IA (googlebot): noindex».
+
+**Le decisioni, con il loro perché.**
+
+**Il meta non passa dal parser posizionale dell'header, ed è deliberato.**
+Nell'`X-Robots-Tag` il prefisso vale *fino al prossimo* perché `requests`
+concatena più header in una stringa; nel DOM ogni meta è un elemento a sé,
+quindi il suo agente è **noto**, non dedotto. Unire i meta in una stringa
+prefissata per riusare quel parser rimetterebbe in gioco proprio la confusione
+che la chiave nuova toglie: due meta consecutivi si contaminerebbero, e nella
+grammatica non esiste un token che riporti a «globale».
+
+**I blocchi per agente vanno in coda a `_direttive_grezze()`.** Quella stringa
+*è* posizionale — la legge `_grezzo_efficace()` per far rispettare il prefisso
+anche alla scadenza (R37) — quindi un blocco per agente messo in mezzo
+colorerebbe di quell'agente tutto ciò che segue, e una `unavailable_after`
+globale sparirebbe. In coda ogni blocco apre col proprio nome e nessuno eredita.
+È presidiato da un test suo.
+
+**`META_ROBOTS_AGENTI` è corto per scelta.** Contiene `googlebot` e basta, cioè
+esattamente i nomi che il crawler già raccoglieva. Allargarlo ai crawler degli
+assistenti — un `<meta name="gptbot">` — vorrebbe dire prima **verificare** che
+quei crawler leggano davvero il meta, e non è verificato: si dichiara il limite
+invece di assumerlo. È un rilievo in meno, non uno sbagliato in più.
+
+**Una seconda copia dell'estrazione è sparita per strada.**
+`tests/conftest.py::pagina()` riscriveva a mano la lettura dei meta, mentre due
+righe più sotto due commenti spiegavano perché `link_targets` ed
+`estrai_struttura` vengono invece *dalla funzione del crawler* — «se le due
+divergessero i controlli girerebbero nei test su una struttura che in
+produzione non esiste». Ora anche i meta passano di lì.
+
+**Un test riscritto e uno corretto.**
+`test_tech_il_meta_per_agente_resta_fuori_e_lo_si_dichiara` fissava il
+comportamento di allora **dichiarando** che sarebbe diventato rosso il giorno
+in cui la voce si fosse chiusa: è quel giorno, e ora asserisce l'opposto.
+`test_tech_direttive_da_piu_meta_tag` misurava l'unione con lo spazio fra un
+meta `robots` e uno `googlebot`; l'invariante che gli appartiene davvero è **lo
+spazio come separatore**, che due meta `robots` sulla stessa pagina producono
+ancora, e il test ora usa quelli.
+
+**Verifiche.** 1039 test verdi (erano 1032), `flake8` a zero, golden **non
+toccati** — nessuna pagina dei due referti sintetici porta un meta per agente,
+e questo è il modo in cui il dataset dichiara di non coprire il caso. Referto
+end-to-end su un sito locale con `<meta name="googlebot" content="noindex">` e
+`<meta name="robots" content="nofollow">` insieme: il primo diventa
+`agent_only`, il secondo resta globale. **Nove mutazioni su nove** fanno rosso
+alla prima esecuzione, fra cui le tre che distinguono le decisioni qui sopra:
+il meta per agente contato anche come globale (cioè il difetto stesso), il
+prefisso tolto al blocco nel grezzo, e i blocchi messi in testa invece che in
+coda.
 
 ### U13 — ✅ RISOLTO (2026-08-26): le due aree di classifica non avevano un solo controllo
 

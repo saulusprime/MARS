@@ -68,10 +68,11 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
             "script", type="application/ld+json")],
         "images": [{"alt": i.get("alt"), "aria-label": i.get("aria-label")}
                    for i in soup.find_all("img")],
-        "meta_robots": " ".join((m.get("content") or "").strip().lower()
-                                for m in soup.find_all("meta")
-                                if (m.get("name") or "").strip().lower()
-                                in ("robots", "googlebot")),
+        # Dalla funzione del crawler, non riscritta: era una seconda
+        # copia dell'estrazione, ed e' proprio la forma di divergenza
+        # che le due note qui sotto evitano per link e struttura.
+        **dict(zip(("meta_robots", "meta_robots_by_agent"),
+                   mars_core.estrai_meta_robots(soup))),
         "canonical": (canonical.get("href") or "").strip() if canonical else "",
         "x_robots_tag": "",
         # Dalla funzione del crawler, come `estrai_struttura` qui

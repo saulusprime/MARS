@@ -1055,6 +1055,59 @@ def test_pagina_del_crawler_porta_la_struttura():
     assert dati["heading_levels"] == [1, 2, 4]
 
 
+# ----------------------------------------------------------------------
+# estrai_meta_robots: l'agente del meta non si perde (R51)
+# ----------------------------------------------------------------------
+
+HTML_META = """<html lang="it"><head><title>t</title>
+<meta name="robots" content="Nofollow">
+<meta name="GoogleBot" content="noindex">
+<meta name="googlebot" content="NOARCHIVE">
+<meta name="description" content="noindex non e' una direttiva qui">
+</head><body><p>x</p></body></html>"""
+
+
+def test_estrai_meta_robots_separa_il_globale_dal_per_agente():
+    """R51: il crawler univa i `content` di piu' meta in una stringa
+    sola, e quale meta li portasse era perduto prima di arrivare al
+    modulo. `<meta name="googlebot" content="noindex">` riceveva quindi
+    lo stesso giudizio di `<meta name="robots">`, benche' escluda il
+    solo Google — che e' la meta' che R37 aveva chiuso sull'header.
+
+    Il test sta sul PRODUTTORE: mars_tech ha i propri, ma passerebbero
+    anche con un'estrazione coerente e sbagliata.
+    """
+    globali, per_agente = mars_core.estrai_meta_robots(
+        BeautifulSoup(HTML_META, "lxml"))
+
+    assert globali == "nofollow", "solo name=robots, e minuscolo"
+    # Nome e contenuto arrivano minuscoli: e' il produttore a
+    # normalizzare, cosi' chi confronta con `CRAWLER_IA` non deve
+    # rifarlo — e chi lo rifacesse non saprebbe di essere il secondo.
+    # Piu' meta per lo stesso agente si uniscono con la virgola, che e'
+    # il separatore della grammatica in cui il prefisso viene letto.
+    assert per_agente == {"googlebot": "noindex, noarchive"}
+
+
+def test_estrai_meta_robots_non_guarda_i_meta_che_non_sono_direttive():
+    """`<meta name="description">` non e' una direttiva, per quanto il
+    suo testo somigli a una."""
+    globali, per_agente = mars_core.estrai_meta_robots(
+        BeautifulSoup('<html><head><meta name="description" '
+                      'content="noindex"></head></html>', "lxml"))
+    assert (globali, per_agente) == ("", {})
+
+
+def test_pagina_del_crawler_porta_l_agente_del_meta():
+    """Il punto d'integrazione: la funzione puo' essere giusta e non
+    essere chiamata."""
+    crawler = _crawler_finto({
+        "http://esempio.test/": (HTML_META, "text/html")})
+    dati = crawler.crawl()["http://esempio.test/"]
+    assert dati["meta_robots"] == "nofollow"
+    assert dati["meta_robots_by_agent"] == {"googlebot": "noindex, noarchive"}
+
+
 def test_build_context_pubblica_il_delay_effettivo(monkeypatch):
     """R26: audit() leggeva context["delay"], che non esisteva.
 

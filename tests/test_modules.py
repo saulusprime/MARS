@@ -752,27 +752,70 @@ def test_tech_una_direttiva_con_valore_non_e_un_prefisso(direttiva):
     assert "tech.index.agent_only" not in chiavi
 
 
-def test_tech_il_meta_per_agente_resta_fuori_e_lo_si_dichiara():
-    """R37 si chiude a META', e la meta' che resta e' dichiarata qui.
-
-    `<meta name="googlebot" content="noindex">` e' l'equivalente nel
-    DOM, ma il crawler unisce i `content` di piu' meta in una stringa
-    sola e l'informazione su QUALE meta li portava e' gia' persa
-    (`mars_core`): separarla richiede una chiave nuova nella pagina,
-    cioe' il contratto dei plugin, che e' un altro commit.
-
-    Questo test non e' un desiderio: fissa il comportamento di oggi, e
-    diventera' rosso il giorno in cui qualcuno chiudera' l'altra meta'
-    — che e' esattamente quando va riscritto."""
-    p = pagina(html='<html lang="it"><head>'
-                    '<meta name="googlebot" content="noindex">'
-                    '</head><body><p>x</p></body></html>')
+def _tech_su(html: str) -> dict:
+    """L'audit tecnico su una pagina sola, costruita dal suo HTML."""
     ctx = _contesto_tech()
-    ctx["pages"] = {"https://esempio.test/": p}
-    chiavi = {f["key"] for f in mars_tech.audit(ctx)["findings"]}
+    ctx["pages"] = {"https://esempio.test/": pagina(html=html)}
+    return mars_tech.audit(ctx)
 
-    assert "tech.index.noindex" in chiavi, \
-        "il meta per agente e' ancora contato come globale: e' la meta' aperta"
+
+def test_tech_il_meta_per_agente_vale_come_il_prefisso_dell_header():
+    """R51, cioe' la meta' di R37 che era rimasta aperta.
+
+    `<meta name="googlebot" content="noindex">` esclude il SOLO Google,
+    esattamente come `X-Robots-Tag: googlebot: noindex`, e Google non e'
+    un assistente IA: il rilievo giusto e' `agent_only`, di gravita'
+    media, non il `noindex` pieno che dichiarerebbe il sito invisibile.
+
+    **Questo test asseriva l'opposto** — `tech.index.noindex in chiavi`
+    — e fissava il comportamento di allora dichiarando che sarebbe
+    diventato rosso il giorno in cui la voce si fosse chiusa. E' quel
+    giorno."""
+    esito = _tech_su('<html lang="it"><head>'
+                     '<meta name="googlebot" content="noindex">'
+                     '</head><body><p>x</p></body></html>')
+    rilievi = {f["key"]: f for f in esito["findings"]}
+
+    assert "tech.index.noindex" not in rilievi, \
+        "una direttiva per il solo Google non esclude il sito dagli assistenti"
+    assert rilievi["tech.index.agent_only"]["params"]["agents"] == ["googlebot"]
+    assert rilievi["tech.index.agent_only"]["params"]["directives"] == \
+        ["noindex"]
+
+
+def test_tech_il_meta_globale_e_quello_per_agente_non_si_confondono():
+    """Due meta sulla stessa pagina, e l'agente del secondo non deve
+    colare sul primo ne' viceversa.
+
+    E' il difetto che la grammatica dell'header porta con se': li' il
+    prefisso vale per POSIZIONE, fino al prossimo. Nel DOM ogni meta e'
+    un elemento a se', e unirli in una stringa posizionale
+    ricreerebbe la confusione da un'altra parte."""
+    esito = _tech_su('<html lang="it"><head>'
+                     '<meta name="robots" content="nofollow">'
+                     '<meta name="googlebot" content="noindex">'
+                     '</head><body><p>x</p></body></html>')
+    rilievi = {f["key"]: f for f in esito["findings"]}
+
+    assert "tech.index.nofollow" in rilievi, "il meta globale vale per tutti"
+    assert "tech.index.noindex" not in rilievi
+    assert rilievi["tech.index.agent_only"]["params"]["directives"] == \
+        ["noindex"]
+
+
+def test_tech_la_scadenza_per_agente_non_scade_per_tutti():
+    """La stessa regola di R37 sulla scadenza, ora anche per il meta:
+    `unavailable_after` riservato a Google non toglie la pagina agli
+    assistenti, e produrre il rilievo pieno la peserebbe piu' di una
+    scadenza che vale per chiunque."""
+    esito = _tech_su('<html lang="it"><head>'
+                     '<meta name="googlebot" '
+                     'content="unavailable_after: 2020-01-01">'
+                     '</head><body><p>x</p></body></html>')
+    chiavi = {f["key"] for f in esito["findings"]}
+
+    assert "tech.index.unavailable_after" not in chiavi
+    assert "tech.index.agent_only" in chiavi
 
 
 def test_tech_nofollow_su_tutto_il_sito_pesa_piu_che_su_una_pagina():
@@ -798,14 +841,49 @@ def test_tech_nofollow_su_tutto_il_sito_pesa_piu_che_su_una_pagina():
     assert "2/2" in "".join(totale["issues"])
 
 
+def test_tech_una_scadenza_globale_non_si_perde_per_un_meta_altrui():
+    """La scadenza si legge dal GREZZO, dove le fonti sono unite e il
+    prefisso vale fino al prossimo: i blocchi per agente stanno percio'
+    in coda. Messi in testa, il loro agente colerebbe sul meta globale
+    e una scadenza che vale per tutti sparirebbe."""
+    esito = _tech_su('<html lang="it"><head>'
+                     '<meta name="robots" '
+                     'content="unavailable_after: 2020-01-01">'
+                     '<meta name="googlebot" content="noarchive">'
+                     '</head><body><p>x</p></body></html>')
+    chiavi = {f["key"] for f in esito["findings"]}
+
+    assert "tech.index.unavailable_after" in chiavi, \
+        "la scadenza e' del meta globale e vale per chiunque"
+    assert "tech.index.agent_only" in chiavi
+
+
+def test_tech_l_agente_del_meta_si_confronta_in_minuscolo():
+    """`direttive_per_agente` riceve un **dict**, che attraversa il
+    confine dei plugin: puo' arrivare da un modulo di terzi, non solo
+    dal crawler che normalizza. Un agente maiuscolo che non incontrasse
+    `CRAWLER_IA` renderebbe globale una direttiva mirata, senza errore."""
+    _, per_agente = mars_tech.direttive_per_agente(
+        {"meta_robots_by_agent": {"ClaudeBot": "noindex"}})
+    assert per_agente == {"claudebot": {"noindex"}}
+    assert mars_tech.direttive_efficaci(set(), per_agente) == {"noindex"}, \
+        "ClaudeBot E' un assistente: la direttiva lo riguarda davvero"
+
+
 def test_tech_direttive_da_piu_meta_tag():
     """Il crawler unisce con uno spazio i `content` di piu' meta
-    (`robots` e `googlebot`): le direttive vanno separate anche li',
-    non solo sulle virgole. Qui la pagina passa dal costruttore vero,
-    non da un dizionario scritto a mano."""
+    `robots`: le direttive vanno separate anche li', non solo sulle
+    virgole. Qui la pagina passa dal costruttore vero, non da un
+    dizionario scritto a mano.
+
+    I due meta erano `robots` e `googlebot` finche' il crawler li
+    univa; da R51 il secondo vive in `meta_robots_by_agent` e questo
+    test non lo riguarda piu' — lo riguardano i tre qui sopra. Cio' che
+    resta suo e' lo SPAZIO come separatore, che due meta `robots` sulla
+    stessa pagina producono ancora."""
     p = pagina(html='<html lang="it"><head>'
                     '<meta name="robots" content="noindex">'
-                    '<meta name="googlebot" content="nofollow">'
+                    '<meta name="robots" content="nofollow">'
                     '</head><body><p>x</p></body></html>')
     assert p["meta_robots"] == "noindex nofollow"
 

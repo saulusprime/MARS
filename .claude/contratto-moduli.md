@@ -34,11 +34,23 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
-`chunks`, `json_ld`, `images`, `meta_robots`, `canonical`,
-`x_robots_tag`, più la struttura che `estrai_struttura()` legge sullo
-stesso DOM: `heading_levels`, `form_fields`, `tables`, `links`,
-`tabindex`. Sono già estratti dal crawler: **non riparsare l'HTML** in
-un modulo, il DOM è già stato attraversato una volta.
+`chunks`, `json_ld`, `images`, `meta_robots`, `meta_robots_by_agent`,
+`canonical`, `x_robots_tag`, più la struttura che `estrai_struttura()`
+legge sullo stesso DOM: `heading_levels`, `form_fields`, `tables`,
+`links`, `tabindex`. Sono già estratti dal crawler: **non riparsare
+l'HTML** in un modulo, il DOM è già stato attraversato una volta.
+
+`meta_robots` porta **solo** i `<meta name="robots">`, quelli che
+valgono per ogni crawler. Le direttive rivolte a un agente solo —
+`<meta name="googlebot">` — stanno in `meta_robots_by_agent`, un dict
+`agente -> direttive`, e valgono come il prefisso dell'`X-Robots-Tag`:
+escludere Google non è escludere gli assistenti. Finché stavano nella
+stessa stringa i due casi ricevevano lo stesso giudizio, e quale meta
+portasse che cosa era perduto prima di arrivare al modulo — R51. Quali
+nomi di meta contino come agente lo dichiara `META_ROBOTS_AGENTI` in
+`mars_core`, ed è un elenco corto per scelta: che un `<meta
+name="gptbot">` sia letto da GPTBot non è verificato, e il limite si
+dichiara invece di assumerlo.
 
 Il crawler estrae **dati grezzi, non giudizi**: `role="presentation"` su
 una tabella arriva com'è, decidere che esenti dal criterio tocca al

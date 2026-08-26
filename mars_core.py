@@ -1429,9 +1429,18 @@ def load_queries(path: Optional[str] = None,
         try:
             with open(path, encoding="utf-8") as handle:
                 righe = [r.strip() for r in handle if r.strip()]
-            return righe[:max_queries], ""
         except OSError as exc:
             return [], "Impossibile leggere %s: %s" % (path, exc)
+        # Un file senza righe utili e' un ERRORE, non una lista vuota
+        # (R31). Restituirla faceva ripiegare l'audit sulle query
+        # generiche **senza dirlo**, e chi aveva passato --queries
+        # credeva di aver misurato le proprie. Il ramo `report_path`
+        # qui sotto un errore lo dava gia': erano le due meta' della
+        # stessa funzione a comportarsi in modo diverso.
+        if not righe:
+            return [], ("Nessuna query utile in %s: il file e' vuoto o "
+                        "contiene solo righe bianche" % path)
+        return righe[:max_queries], ""
 
     if report_path:
         try:

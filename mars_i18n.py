@@ -494,6 +494,9 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
     "llm.status.bad_call": {
         "title": "Invalid call",
     },
+    "llm.status.refused": {
+        "title": "Request declined by the model's classifiers",
+    },
     "llm.status.unreadable": {
         "title": "Judgement not interpretable",
     },

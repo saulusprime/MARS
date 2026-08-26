@@ -76,6 +76,7 @@
 | R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
 | R32 | Deriva fra documentazione e codice, dieci righe | 2026-08-26 |
 | R30 | `VectorRetriever` moriva sul corpus vuoto, in un ramo su due | 2026-08-26 |
+| R31 | Un file di query vuoto era un successo muto; il rifiuto LLM non aveva un ramo | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2493,6 +2494,55 @@ quindi senza il secondo test, quello che verifica che il ramo reale funzioni
 ancora *con* documenti, l'infedeltà sarebbe restata invisibile. Il finto imita
 ora la forma che il codice usa (`[0]` e poi `.tolist()`) invece di importare
 numpy, che non è una dipendenza della suite.
+
+### R31 — ✅ RISOLTO (2026-08-26): due diagnosi che dicevano la cosa sbagliata
+**Il primo difetto: un file di query senza righe utili era un successo
+muto.** `load_queries` restituiva `([], "")`, e `build_context` legge
+`list(queries) if queries else default_queries(pages)` — quindi l'audit
+ripiegava sulle **query generiche senza dirlo**, e chi aveva passato
+`--queries` credeva di aver misurato le proprie. Riprodotto su un file di zero
+byte e su uno di sole righe bianche: entrambi `([], '')`.
+
+Il ramo `report_path` della **stessa funzione** un errore lo dava già: erano le
+due metà a comportarsi in modo diverso davanti alla stessa condizione. Ora
+anche il ramo `path` lo dà, e la CLI esce con il codice d'uso. Una riga utile
+in mezzo a righe bianche resta un successo — è la differenza fra «file vuoto» e
+«file con dentro poco», e c'è un'asserzione per ciascuno dei tre casi.
+
+**Il secondo: il rifiuto dei classificatori non aveva un ramo suo.**
+`interroga()` sollevava un `RuntimeError` con un messaggio chiaro, che
+`audit()` catturava nel gruppo generico: la vista compatta diceva «Giudizio non
+interpretabile: RuntimeError», impreciso **due volte** — non c'è alcun giudizio
+da interpretare, e il nome di un'eccezione Python non dice niente a chi legge
+un referto. U1.9 aveva già portato il messaggio nel `detail`; la metà che
+mancava è questa.
+
+**Si distingue per tipo e non guardando il messaggio**, ed è la differenza con
+C2: là il `TypeError` viene dall'SDK e non lascia altra scelta, qui
+l'eccezione è **nostra**. `RichiestaDeclinata` resta sottoclasse di
+`RuntimeError` — chi catturava la vecchia continua a catturarla, e il ramo
+generico resta una rete — e nasce la chiave `llm.status.refused`, `info` come
+gli altri `llm.status.*` perché è un fatto sulla scansione e non si ripara
+cambiando il sito. La richiesta è comunque partita, quindi il conto dei
+passaggi e la stima dei token viaggiano col rilievo: sono proprio i rami che
+falliscono *dopo* l'invio quelli in cui la traccia della spesa non deve
+sparire.
+
+**Il ramo generico ha ora un caso suo**, un JSON che non si analizza — senza,
+`unreadable` sarebbe uscito dall'elenco dei rami provati e nessuno lo avrebbe
+più esercitato.
+
+**E qui il finto ha mostrato un limite.** Il primo tentativo passava la stringa
+`"non è JSON"` a `_risposta_llm`, che fa `json.dumps`: il risultato è `"non è
+JSON"` fra virgolette, cioè **JSON validissimo** — il modello avrebbe risposto
+con una stringa invece che con un oggetto, e `json.loads` non avrebbe
+protestato. Serve un secondo aiuto che metta il testo **verbatim**.
+
+**Cinque mutazioni, cinque rosse.**
+
+**Il terzo punto della voce resta fuori**, ed era già fuori dalla lista di
+spunta: il tetto alla dimensione della risposta HTTP è l'idea **I14**, non una
+correzione.
 
 ### R32 — ✅ RISOLTO (2026-08-26): deriva fra documentazione e codice
 **Il difetto.** Dieci punti in cui un documento affermava una cosa e il codice

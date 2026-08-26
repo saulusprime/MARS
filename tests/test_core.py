@@ -866,6 +866,32 @@ def test_load_queries_da_file(tmp_path):
     assert load_queries(path=str(f)) == (["prima", "seconda"], "")
 
 
+def test_load_queries_un_file_senza_righe_utili_e_un_errore(tmp_path):
+    """R31: restituire `([], "")` faceva ripiegare l'audit sulle query
+    generiche **senza dirlo**, e chi aveva passato `--queries` credeva di
+    aver misurato le proprie.
+
+    Il ramo `report_path` un errore lo dava gia': erano le due meta'
+    della stessa funzione a comportarsi in modo diverso."""
+    vuoto = tmp_path / "vuoto.txt"
+    vuoto.write_text("", encoding="utf-8")
+    query, errore = load_queries(path=str(vuoto))
+    assert query == []
+    assert "Nessuna query utile" in errore
+
+    bianche = tmp_path / "bianche.txt"
+    bianche.write_text("\n   \n\t\n", encoding="utf-8")
+    query, errore = load_queries(path=str(bianche))
+    assert query == [], "righe bianche non sono query"
+    assert "Nessuna query utile" in errore
+
+    # Una riga utile in mezzo a righe bianche resta un successo: e' la
+    # differenza fra «file vuoto» e «file con dentro poco».
+    mista = tmp_path / "mista.txt"
+    mista.write_text("\n\n  una domanda  \n\n", encoding="utf-8")
+    assert load_queries(path=str(mista)) == (["una domanda"], "")
+
+
 def test_load_queries_rispetta_il_tetto(tmp_path):
     f = tmp_path / "q.txt"
     f.write_text("\n".join("q%d" % i for i in range(30)), encoding="utf-8")

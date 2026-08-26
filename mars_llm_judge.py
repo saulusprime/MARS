@@ -156,6 +156,20 @@ def costo_stimato(prompt: str) -> Dict[str, int]:
             "token_massimi_output": MAX_TOKENS}
 
 
+class RichiestaDeclinata(RuntimeError):
+    """I classificatori del modello hanno rifiutato la richiesta.
+
+    Eccezione **nostra**, non dell'SDK, quindi si distingue per tipo e
+    non guardando il messaggio — al contrario del `TypeError` di C2, che
+    viene da fuori e non lascia altra scelta. E' un fatto diverso da
+    «giudizio non interpretabile»: li' il modello ha risposto e la
+    risposta non si legge, qui non ha risposto affatto.
+
+    Sottoclasse di `RuntimeError` perche' lo era gia': chi cattura la
+    vecchia continua a catturarla (R31).
+    """
+
+
 def interroga(client, prompt: str, model: str = MODEL) -> dict:
     """Unica funzione che tocca la rete. Restituisce il JSON validato."""
     resp = client.beta.messages.create(
@@ -172,7 +186,7 @@ def interroga(client, prompt: str, model: str = MODEL) -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
     if getattr(resp, "stop_reason", None) == "refusal":
-        raise RuntimeError("richiesta declinata dai classificatori")
+        raise RichiestaDeclinata("richiesta declinata dai classificatori")
     testo = next((b.text for b in resp.content if b.type == "text"), "")
     return json.loads(testo)
 
@@ -320,6 +334,26 @@ def audit(context: dict) -> dict:
                 "findings": [_stato("llm.status.bad_call",
                                     "Chiamata non valida",
                                     str(exc), **inviato)]}
+    except RichiestaDeclinata as exc:
+        # Ramo e status propri (R31). Prima finiva nel gruppo generico
+        # qui sotto, e la vista compatta diceva «Giudizio non
+        # interpretabile: RuntimeError» — che e' impreciso due volte:
+        # non c'e' alcun giudizio da interpretare, e il nome
+        # dell'eccezione Python non dice niente a chi legge un referto.
+        # U1.9 aveva gia' portato il messaggio nel `detail`; la meta'
+        # che mancava e' questa.
+        #
+        # Resta `info` come gli altri `llm.status.*`: e' un fatto sulla
+        # scansione, non un difetto del sito, e non si ripara cambiando
+        # il sito. La richiesta e' comunque partita, quindi `inviato`
+        # porta con se' il conto dei passaggi e la stima dei token.
+        return {"score": None, "status": "unavailable",
+                "issues": ["Richiesta declinata dai classificatori del "
+                           "modello"],
+                "findings": [_stato(
+                    "llm.status.refused",
+                    "Richiesta declinata dai classificatori del modello",
+                    str(exc), **inviato)]}
     except (RuntimeError, KeyError, StopIteration,
             json.JSONDecodeError) as exc:
         return {"score": None, "status": "unavailable",

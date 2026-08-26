@@ -3888,9 +3888,20 @@ def test_llm_seleziona_i_chunk_dall_rrf(contesto):
 
 def _risposta_llm(payload, stop="end_turn"):
     """Una risposta dell'SDK, nella forma che `interroga` legge."""
+    return _risposta_llm_grezza(json.dumps(payload), stop)
+
+
+def _risposta_llm_grezza(testo, stop="end_turn"):
+    """Come sopra, ma col testo VERBATIM invece che serializzato.
+
+    Serve per il ramo `unreadable`: passare una stringa a
+    `_risposta_llm` non lo esercita, perche' `json.dumps("x")` produce
+    `"x"`, che e' JSON validissimo — il modello risponderebbe con una
+    stringa e non con un oggetto, e `json.loads` non protesterebbe.
+    """
     class Blocco:
         type = "text"
-        text = json.dumps(payload)
+        text = testo
 
     class Risposta:
         content = [Blocco()]
@@ -3945,9 +3956,14 @@ def _rami_llm(contesto, monkeypatch):
                       TypeError("Could not resolve authentication method"))),
         ("llm.status.bad_call",
          lambda: _llm(dict(contesto), TypeError("kwarg ignoto 'foo'"))),
-        ("llm.status.unreadable",
+        ("llm.status.refused",
          lambda: _llm(dict(contesto),
                       _risposta_llm(GIUDIZIO, stop="refusal"))),
+        # Il ramo generico ha ora un caso suo, che non e' il rifiuto:
+        # un JSON che non si analizza. Senza, `unreadable` sarebbe
+        # uscito dall'elenco dei rami e nessuno lo proverebbe piu'.
+        ("llm.status.unreadable",
+         lambda: _llm(dict(contesto), _risposta_llm_grezza("non e' JSON"))),
         ("llm.status.no_score",
          lambda: _llm(dict(contesto),
                       _risposta_llm(dict(GIUDIZIO, citabilita=None)))),
@@ -4071,17 +4087,39 @@ def test_llm_una_chiamata_malformata_non_e_una_credenziale_mancante(
         "Chiamata non valida: unexpected keyword argument 'foo'"]
 
 
-def test_llm_il_rifiuto_dei_classificatori_arriva_nel_dato(contesto):
-    """Chiusura parziale di R31: la issue pubblica il solo tipo
-    (RuntimeError), e il motivo — l'unica diagnosi del rifiuto — si
-    perdeva. Ora sta in `detail`. La issue non cambia: e' la vista
-    congelata, e resta imprecisa."""
+def test_llm_il_rifiuto_dei_classificatori_ha_un_ramo_suo(contesto):
+    """R31, chiusa. U1.9 aveva portato il motivo nel `detail`; la vista
+    compatta continuava pero' a dire «Giudizio non interpretabile:
+    RuntimeError», impreciso due volte — non c'e' alcun giudizio da
+    interpretare, e il nome dell'eccezione Python non dice nulla a chi
+    legge un referto."""
     esito = _llm(contesto, _risposta_llm(GIUDIZIO, stop="refusal"))
     rilievo = esito["findings"][0]
-    assert rilievo["key"] == "llm.status.unreadable"
-    assert rilievo["detail"] == (
-        "RuntimeError: richiesta declinata dai classificatori")
-    assert esito["issues"] == ["Giudizio non interpretabile: RuntimeError"]
+    assert rilievo["key"] == "llm.status.refused"
+    assert rilievo["detail"] == "richiesta declinata dai classificatori"
+    assert esito["issues"] == [
+        "Richiesta declinata dai classificatori del modello"]
+    # La richiesta e' comunque partita: il conto di cio' che poteva
+    # essere fatturato non deve sparire proprio nei rami che falliscono
+    # DOPO l'invio.
+    assert rilievo["params"]["attempted"] is True
+    assert rilievo["params"]["chunks_sent"] >= 1
+
+
+def test_llm_il_rifiuto_resta_un_runtimeerror(contesto):
+    """`RichiestaDeclinata` e' sottoclasse di `RuntimeError`: un
+    chiamante esterno che catturasse la vecchia eccezione continua a
+    catturarla, e il ramo generico di `audit()` resta una rete."""
+    assert issubclass(mars_llm_judge.RichiestaDeclinata, RuntimeError)
+
+
+def test_llm_un_json_illeggibile_resta_non_interpretabile(contesto):
+    """L'altra meta' della distinzione: qui il modello HA risposto, e la
+    risposta non si legge. Sono due fatti diversi con due chiavi."""
+    esito = _llm(contesto, _risposta_llm_grezza("questo non e' JSON"))
+    assert esito["findings"][0]["key"] == "llm.status.unreadable"
+    assert esito["issues"] == [
+        "Giudizio non interpretabile: JSONDecodeError"]
 
 
 def test_llm_una_chiave_sbagliata_non_e_una_chiave_assente(contesto):

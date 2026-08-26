@@ -19,9 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R30, R32, R34, R38, R41, R44, R45, R47.
-> **Aperte**: R28-R29, R31, R33, R35-R37, R39-R40, R42-R43, R46, R48 e
-> R49 —
+> **Correzioni chiuse**: R1-R27, R30-R32, R34, R38, R41, R44, R45, R47.
+> **Aperte**: R28-R29, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -191,7 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R30, R32, R34, R38, R41, R44, R45, R47 — stanno
+Le voci chiuse — R1-R27, R30-R32, R34, R38, R41, R44, R45, R47 — stanno
 in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
@@ -232,29 +231,6 @@ altri client fino a fine scansione.
 
 - [ ] Rendere `def` (non `async def`) gli handler bloccanti — FastAPI li sposta
       su un threadpool — oppure delegare l'esecuzione a `run_in_threadpool`.
-
-### R31 — ⚪ LIEVE: casi limite e diagnosi imprecise
-- **`load_queries` con file vuoto = successo silenzioso.**
-  ([mars_core.py:1367](mars_core.py#L1367)) restituisce `([], "")`; l'audit
-  ripiega sulle query generiche ([:1527](mars_core.py#L1527)) **senza dirlo**, e
-  l'utente crede di aver misurato le proprie. Il ramo `report_path` invece un
-  errore lo dà.
-- **Rifiuto dei classificatori mal riportato.** `interroga()`
-  ([mars_llm_judge.py:174](mars_llm_judge.py#L174)) solleva `RuntimeError` con un
-  messaggio chiaro, ma `audit()` lo cattura nel gruppo generico
-  ([:323](mars_llm_judge.py#L323)) e stampa solo *«Giudizio non interpretabile:
-  RuntimeError»*, perdendo la spiegazione.
-- **Nessun tetto alla dimensione della risposta** (vedi anche I14):
-  `_get` ([mars_core.py:614](mars_core.py#L614)) scarica l'intero corpo senza
-  `stream` né limite; una pagina enorme a 200 viene letta tutta.
-
-- [ ] Errore anche per il file `--queries` senza righe utili.
-- [ ] Distinguere il `refusal` nel `mars_llm_judge`. *(Chiuso a metà da U1.9:
-      il messaggio arriva nel dato — `llm.status.unreadable` porta in `detail`
-      «RuntimeError: richiesta declinata dai classificatori». Le `issues` non
-      cambiano, quindi la vista compatta continua a dire «Giudizio non
-      interpretabile: RuntimeError», che resta impreciso. Resta da fare: un
-      ramo e uno `status` propri per il rifiuto.)*
 
 ### R33 — ⚪ LIEVE: rifiniture dei test
 - **Seconda fixture di controlli scritta a mano.**

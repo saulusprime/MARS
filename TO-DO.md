@@ -24,7 +24,7 @@
 > resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
 > segnali derivati. Il piano di interventi copre ora sette aree su nove.
 >
-> **Correzioni chiuse**: R1-R39, R41-R45, R47, R49-R52. **R51 è chiusa il
+> **Correzioni chiuse**: R1-R45 (tranne R46), R47, R49-R52. **R51 è chiusa il
 > 2026-08-26**, e con essa **R37 per intero**: il `<meta name="googlebot">`
 > arriva ora separato dal meta globale (`meta_robots_by_agent`, una chiave
 > nuova nel contratto) e vale come il prefisso dell'`X-Robots-Tag`. R52 è
@@ -34,7 +34,9 @@
 > sotto-variante, la penalità resta della regola e si ripartisce, i punteggi
 > non si muovono e la migrazione di chiavi è dichiarata nel referto
 > (`key_migrations`). `__version__` a **2.9.0**.
-> **Aperte**: R40, R46 e R48 —
+> **R40 è chiusa il 2026-08-26** — le sue tre caselle; i tre rilievi che
+> caselle non erano proseguono in **R53**.
+> **Aperte**: R46, R48 e R53 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -187,11 +189,11 @@ le fasi che non sono state fatte.
 
 ## Correzioni
 
-Le voci chiuse — R1-R38, R41-R45, R47, R49-R52 — stanno in
+Le voci chiuse — R1-R45 (tranne R46), R47, R49-R52 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
-Le tre voci qui sotto vengono tutte dall'**adeguamento dei moduli alle
+Le voci qui sotto vengono tutte dall'**adeguamento dei moduli alle
 fasi UPGRADE**, non dalla revisione sistematica del 2026-08-20, che è
 esaurita: leggere un modulo riga per riga per cambiarne la forma ne ha
 rivelato i difetti, e nessuno è stato corretto lì dentro perché tutti
@@ -199,65 +201,40 @@ spostano punteggi o testi — cioè esattamente ciò che un adeguamento di forma
 non deve fare. Vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
 
-### R40 — 🟡 MEDIO: sei difetti di `mars_seo` trovati adeguandolo a U1.7
-*(trovati leggendo il modulo e il sorgente di Lighthouse 13.4.1 per U1.7, il
-2026-08-24. Nessuno corretto lì: tutti sposterebbero punteggi, conteggi o
-testi.)*
+### R53 — ⚪ LIEVE: i tre residui di `mars_seo` che caselle non erano
+*(R40 aveva sei rilievi e tre caselle. Le caselle sono chiuse il 2026-08-26 e
+stanno in [AS-IS.md](AS-IS.md); questi tre non erano azioni ma osservazioni, e
+ciascuno apre una decisione)*
 
-- **Un solo audit in errore fa buttare via gli altri dieci.** Lighthouse
-  azzera il peso degli audit non applicabili, informativi e manuali prima di
-  scriverlo nel LHR, ma **non** quello di un audit andato in `error`
-  (`core/scoring.js`): il suo `score: null` sopravvive al filtro e annulla il
-  punteggio dell'intera categoria. `riassumi` esce allora al primo `if`
-  ([mars_seo.py:390](mars_seo.py#L390)) con «Lighthouse non ha calcolato la
-  categoria SEO», **senza mai chiamare `estrai_audit`** — mentre nel LHR ci
-  sono dieci controlli perfettamente misurati. Vanno distinti i due casi: non
-  calcolabile *e* nulla di leggibile, contro non calcolabile *ma* dieci audit
-  su undici validi. Attenzione: aggiungere `audits` a quel ramo cambia anche
-  la resa, perché l'HTML mostra l'elenco dei controlli **al posto** dei rilievi
-  ([mars_report.py:2201](mars_report.py#L2201)).
-- **«da verificare a mano» detto a un `notApplicable`.** Lighthouse usa
-  `failureTitle` solo quando `score < 0.9`, quindi un controllo non misurato
-  porta il titolo del **successo**: la issue di una pagina senza canonical
-  recita «da verificare a mano: Il documento ha un elemento `rel=canonical`
-  valido», che afferma il contrario del vero due volte. U1.7 ha corretto il
-  **titolo del rilievo** (prefissi «Non applicabile a questa pagina» / «Da
-  verificare a mano» / «Controllo non eseguito da Lighthouse»); le `issues`
-  sono rimaste com'erano perché cambiarle è una regressione di testo.
-- **`MODI_NON_MISURATI_VOCE` e `LH_MODI_NON_MISURATI` divergono di
-  proposito**, e la divergenza va tolta con una misura, non per simmetria.
-  La voce si ferma a `("manual", "notApplicable")`
-  ([mars_seo.py:44](mars_seo.py#L44)); `mars_core` comprende anche
-  `informative` ed `error`. Un `informative` ha `score: 1` per costruzione,
-  quindi oggi è contato fra i **superati**; un `error` fra i **falliti**.
-  Allargare la tupla della voce sposterebbe `passed`/`failed`/`manual`, la
-  riga «N superati, M falliti» del referto e la ripartizione delle issues.
-- **Tre buchi in `_descrivi_item`** ([mars_seo.py:236](mars_seo.py#L236)): il
-  `source` che è un `NodeValue` invece di una stringa — è il caso più pesante
-  della categoria, `is-crawlable` bloccato da un `<meta robots noindex>`,
-  dove [:250](mars_seo.py#L250) cerca `url`/`value` e non `selector`; gli item
-  `{index, line, message}` di `robots-txt`; i `subItems` di `hreflang`.
-  Correggerli cambia il testo delle issues.
+- **`MODI_NON_MISURATI_VOCE` e `LH_MODI_NON_MISURATI` divergono di proposito**,
+  e la divergenza va tolta con una misura, non per simmetria. La voce si ferma
+  a `("manual", "notApplicable")` ([mars_seo.py:55](mars_seo.py#L55));
+  `mars_core` comprende anche `informative` ed `error`. Un `informative` ha
+  `score: 1` per costruzione, quindi oggi è contato fra i **superati**; un
+  `error` fra i **falliti**. R40 ha chiuso la metà del **testo** — il prefisso
+  della issue ora si sceglie sul modo, quindi un `error` non si annuncia più
+  col titolo del successo — e ha lasciato aperta quella dei **conteggi**:
+  allargare la tupla sposterebbe `passed`/`failed`/`manual` e la riga «N
+  superati, M falliti» del referto. Un test tiene le due metà separate.
 - **`explanation`, `displayValue` e `warnings` di Lighthouse sono ignorati.**
-  *(Aggiornato il 2026-08-25: `description` **non** lo è più — U3.2 la porta in
-  `detail` e `_senza_link_markdown` la ripulisce dai link Markdown, che è la
-  funzione che questa voce dava per mancante. Restano gli altri tre, verificato:
-  zero occorrenze in `mars_seo.py`.)* Sono i testi che dicono *perché* un
-  controllo è fallito. Da notare `warnings` di `is-crawlable`: un audit che
-  **passa** pur avendo qualcosa da dire.
+  Sono i testi che dicono *perché* un controllo è fallito; verificato: zero
+  occorrenze in `mars_seo.py`. Da notare `warnings` di `is-crawlable`, che è un
+  audit che **passa** pur avendo qualcosa da dire — e oggi quel qualcosa non
+  arriva da nessuna parte.
 - **Il parametro `score` di `severita_lighthouse` non viene mai letto**
   ([mars_core.py:381](mars_core.py#L381)): la funzione decide su modo e peso.
-  Non è morto per svista — è il chiamante che deve filtrare i superati, e
-  senza quel filtro un sito perfetto produrrebbe nove `warning` — ma un
-  parametro inerte in una firma pubblica invita a crederlo significativo.
-  Renderlo significativo vuol dire introdurre `SEV_OK`, che oggi nessun
-  modulo usa: è una decisione della fase che renderà i controlli superati.
+  Non è morto per svista — è il chiamante che deve filtrare i superati, e senza
+  quel filtro un sito perfetto produrrebbe nove `warning` — ma un parametro
+  inerte in una firma pubblica invita a crederlo significativo. Renderlo
+  significativo vuol dire introdurre `SEV_OK`, che oggi nessun modulo usa: è la
+  decisione della fase che renderà i controlli superati, la stessa che **U13**
+  ha lasciato fuori dal proprio perimetro.
 
-- [ ] Distinguere «categoria non calcolabile» da «categoria non calcolabile ma
-      dieci audit su undici misurati».
-- [ ] Allineare il testo delle issues dei non applicabili a quello dei
-      rilievi, rigenerando i golden.
-- [ ] Chiudere i tre buchi di `_descrivi_item`.
+- [ ] Decidere se i conteggi seguono i quattro modi di `mars_core`, misurando
+      quanto si sposta la riga «N superati, M falliti».
+- [ ] Portare `explanation`, `displayValue` e `warnings` nel rilievo, decidendo
+      in quale campo: `detail` è già occupato dalla `description`.
+- [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`.
 
 ### R46 — ⚪ LIEVE: lo sforzo è editoriale e non scala col difetto
 *(lasciata aperta da U4, il 2026-08-24; la sezione è stata scritta il

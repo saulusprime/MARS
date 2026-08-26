@@ -2481,7 +2481,8 @@ def test_seo_senza_url_dichiarato_il_rilievo_non_ne_inventa_uno():
 def test_seo_issues_contengono_i_falliti_con_il_dettaglio():
     issues = mars_seo.riassumi(_lhr())["issues"]
     assert any("X-Robots-Tag: noindex" in i for i in issues)
-    assert any("da verificare a mano" in i for i in issues)
+    assert any(mars_seo.PREFISSO_NON_MISURATO["manual"] in i
+               for i in issues)
     assert not any("codice di stato HTTP valido" in i for i in issues), \
         "un controllo superato non e' un rilievo"
 
@@ -2646,12 +2647,15 @@ def test_seo_un_non_misurato_e_info_e_non_costa_punti():
 
 
 def test_seo_un_non_applicabile_non_e_un_manuale():
-    """Le issues li chiamano entrambi "da verificare a mano", ed e' una
-    frase falsa: Lighthouse dice "non applicabile", e usa il titolo del
-    SUCCESSO perche' `failureTitle` scatta solo sotto 0,9.
+    """Le issues li chiamavano entrambi "da verificare a mano", ed e'
+    una frase falsa: Lighthouse dice "non applicabile", e usa il titolo
+    del SUCCESSO perche' `failureTitle` scatta solo sotto 0,9 — quindi
+    la riga affermava il contrario del vero **due volte**.
 
-    Le issues restano com'erano — sono la vista congelata — ma il dato
-    nuovo non ha l'obbligo di ripetere un errore noto."""
+    U1.7 aveva corretto il titolo del rilievo e lasciato la issue
+    com'era, perche' cambiarla era una regressione di testo dentro un
+    commit di sola forma. **Questo test asseriva quella riga**; R40 la
+    corregge, e le due viste ora dicono la stessa cosa."""
     rilievi = _findings(_lhr())
     assert rilievi["seo.lh.canonical"]["params"]["mode"] == "notApplicable"
     assert rilievi["seo.lh.canonical"]["title"].startswith(
@@ -2659,10 +2663,12 @@ def test_seo_un_non_applicabile_non_e_un_manuale():
     assert rilievi["seo.lh.structured_data"]["params"]["mode"] == "manual"
     assert rilievi["seo.lh.structured_data"]["title"].startswith(
         "Da verificare a mano: ")
-    # E la issue, invece, resta la riga di sempre.
+    # E la issue dice lo stesso modo del rilievo, non piu' un altro.
     issues = mars_seo.riassumi(_lhr())["issues"]
-    assert any(i.startswith("[Lighthouse] da verificare a mano: Il documento "
-                            "ha un elemento") for i in issues)
+    assert any(i.startswith("[Lighthouse] Non applicabile a questa pagina: "
+                            "Il documento ha un elemento") for i in issues)
+    assert not any("da verificare a mano" in i for i in issues), \
+        "in minuscolo era la vecchia riga, quella che diceva il falso"
 
 
 def test_seo_un_audit_in_errore_non_e_un_difetto_del_sito():
@@ -2683,10 +2689,16 @@ def test_seo_un_audit_in_errore_non_e_un_difetto_del_sito():
     # E qui la divergenza deliberata fra le due viste, fissata perche'
     # non la si chiuda per distrazione: la VOCE lo classifica fallito,
     # perche' MODI_NON_MISURATI_VOCE si ferma a due modi. Allargarla
-    # sposterebbe i conteggi e il testo della issue.
+    # sposterebbe i CONTEGGI, ed e' una decisione a se'.
     esito = mars_seo.riassumi(lhr)
     assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 6, 2)
-    assert "[Lighthouse] Dati strutturati validi" in esito["issues"]
+    # Il TESTO invece si e' allineato con R40, e le due meta' vanno
+    # tenute distinte: la issue diceva "Dati strutturati validi" di un
+    # controllo mai eseguito, cioe' il titolo del successo — perche'
+    # `failureTitle` scatta solo sotto 0,9. Il conteggio resta dov'era,
+    # l'affermazione falsa no.
+    assert ("[Lighthouse] Controllo non eseguito da Lighthouse: "
+            "Dati strutturati validi") in esito["issues"]
 
 
 def test_seo_un_informative_resta_un_superato_nella_voce():
@@ -2812,6 +2824,145 @@ def test_seo_gli_elementi_incriminati_entrano_nei_params():
     assert mars_seo.MAX_ELEMENTI == 5
     assert rilievi["seo.lh.link_text"]["params"]["items"] == [
         "/p0", "/p1", "/p2", "/p3", "/p4"], "otto elementi, cinque riportati"
+
+
+# --- R40: la categoria non calcolabile, e i buchi di _descrivi_item ----
+
+def _lhr_con_audit_in_errore() -> dict:
+    """Un LHR reale nella forma che azzera la categoria.
+
+    Lighthouse toglie dalla media il peso degli audit non applicabili,
+    informativi e manuali, ma **non** quello di un audit andato in
+    `error` (`core/scoring.js`): il suo `score: null` sopravvive al
+    filtro e annulla il punteggio dell'intera categoria. Gli altri
+    dieci restano misurati perfettamente.
+    """
+    lhr = _lhr()
+    lhr["categories"]["seo"]["score"] = None
+    lhr["audits"]["hreflang"] = {
+        "title": "Il documento ha un `hreflang` valido",
+        "description": "Descrizione.",
+        "score": None, "scoreDisplayMode": "error",
+        "errorMessage": "Required Hreflang gatherer did not run."}
+    return lhr
+
+
+def test_seo_una_categoria_non_calcolata_non_butta_gli_audit_misurati():
+    """R40: `riassumi` usciva al primo `if` senza mai chiamare
+    `estrai_audit`, mentre nel LHR c'erano dieci controlli misurati.
+
+    Un audit in errore su undici azzera la CATEGORIA, non la
+    misurazione: buttare via anche gli altri dieci e' perdere dati che
+    Lighthouse ha prodotto e che sono gia' stati pagati col tempo del
+    run."""
+    esito = mars_seo.riassumi(_lhr_con_audit_in_errore())
+
+    # Il punteggio resta None: calcolarne uno dagli audit leggibili
+    # sarebbe inventare la categoria che Lighthouse si e' rifiutata di
+    # calcolare.
+    assert esito["score"] is None
+    assert esito["status"] == "unavailable"
+    assert len(esito["audits"]) == 11
+    chiavi = {f["key"] for f in esito["findings"]}
+    assert "seo.status.not_scored" in chiavi
+    assert "seo.lh.document_title" in chiavi, "i dieci misurati ci sono"
+
+
+def test_seo_una_categoria_non_calcolata_e_illeggibile_resta_muta():
+    """L'altro caso, che va tenuto distinto: non calcolabile **e** nulla
+    da leggere. Un `audits` vuoto nella scheda d'area non e' come un
+    `audits` con dieci controlli, e la vista HTML mostra l'elenco dei
+    controlli AL POSTO dei rilievi."""
+    esito = mars_seo.riassumi({"categories": {"seo": {"score": None}}})
+    assert esito["score"] is None
+    assert [f["key"] for f in esito["findings"]] == ["seo.status.not_scored"]
+    assert not esito.get("audits")
+
+
+def test_seo_le_issues_dei_non_misurati_dicono_il_modo_giusto():
+    """R40: «da verificare a mano» detto a un `notApplicable`.
+
+    Lighthouse usa `failureTitle` solo quando `score < 0.9`, quindi un
+    controllo non misurato porta il titolo del SUCCESSO: la issue di
+    una pagina senza canonical recitava «da verificare a mano: Il
+    documento ha un elemento `rel=canonical` valido», che afferma il
+    contrario del vero due volte. U1.7 aveva corretto il titolo del
+    RILIEVO; qui si allinea la issue, che e' la vista compatta dello
+    stesso fatto."""
+    issues = mars_seo.riassumi(_lhr())["issues"]
+    canonical = [i for i in issues if "rel=canonical" in i]
+    assert canonical, "il LHR fedele ne ha uno notApplicable"
+    assert canonical[0].startswith(
+        "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["notApplicable"])
+    manuali = [i for i in issues if "Dati strutturati" in i]
+    assert manuali[0].startswith(
+        "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["manual"])
+
+
+def test_seo_un_audit_in_errore_non_si_annuncia_come_riuscito():
+    """Lo stesso difetto della casella 2, sul modo `error`.
+
+    Un audit andato in errore ha `score: null`, quindi `failureTitle`
+    non scatta e il titolo e' quello del SUCCESSO: la issue recitava
+    «Il documento ha un `hreflang` valido» per un controllo che non e'
+    stato eseguito affatto. Il rilievo lo diceva gia' («Controllo non
+    eseguito da Lighthouse»), la issue no — ed e' esattamente
+    l'asimmetria che questa voce toglie.
+
+    Il modo NON entra in `MODI_NON_MISURATI_VOCE`: allargare quella
+    tupla sposterebbe i conteggi passed/failed/manual, che e' un'altra
+    decisione. Qui cambia solo il TESTO."""
+    esito = mars_seo.riassumi(_lhr_con_audit_in_errore())
+    riga = [i for i in esito["issues"] if "hreflang" in i][0]
+    assert riga.startswith(
+        "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["error"])
+    # I conteggi restano dov'erano: l'errore e' fra i falliti, com'era.
+    assert mars_seo.MODI_NON_MISURATI_VOCE == ("manual", "notApplicable")
+
+
+def test_seo_il_meta_che_blocca_la_scansione_non_e_piu_una_riga_vuota():
+    """R40, il buco piu' pesante: `is-crawlable` bloccato da un
+    `<meta robots noindex>` porta un `source` che e' un **NodeValue**,
+    non una stringa, e `_descrivi_item` vi cercava `url` e `value`.
+
+    Il campo giusto e' `snippet`, che Lighthouse sovrascrive proprio
+    con il tag incriminato (`handleMetaElement` in
+    core/audits/seo/is-crawlable.js): e' il caso piu' grave della
+    categoria, e usciva come stringa vuota."""
+    item = {"source": {"type": "node", "selector": "head > meta",
+                       "snippet": '<meta name="robots" content="noindex" />',
+                       "boundingRect": {"top": 0}}}
+    assert mars_seo._descrivi_item(item) == \
+        '<meta name="robots" content="noindex" />'
+
+
+def test_seo_un_errore_di_robots_txt_dice_riga_e_motivo():
+    """Gli item di `robots-txt` sono `{index, line, message}` e non
+    hanno ne' `source` ne' `node`: uscivano tutti come stringa vuota,
+    cioe' l'audit diceva «ci sono errori» e nessuno di quali."""
+    item = {"index": "12", "line": "Disallow /admin",
+            "message": "Syntax not understood"}
+    assert mars_seo._descrivi_item(item) == \
+        "12: Disallow /admin — Syntax not understood"
+
+
+def test_seo_gli_hreflang_invalidi_portano_le_proprie_ragioni():
+    """`hreflang` mette il MOTIVO nei `subItems`, non nella riga: senza,
+    resta il tag e non si sa che cosa abbia di sbagliato."""
+    item = {"source": '<link rel="alternate" hreflang="xx" href="/x" />',
+            "subItems": {"type": "subitems",
+                         "items": [{"reason": "Codice lingua non valido"},
+                                   {"reason": "URL non assoluto"}]}}
+    assert mars_seo._descrivi_item(item) == (
+        '<link rel="alternate" hreflang="xx" href="/x" /> '
+        "(Codice lingua non valido; URL non assoluto)")
+
+
+def test_seo_un_item_senza_nulla_da_dire_resta_vuoto():
+    """Il verso opposto: `_descrivi_item` non deve inventare un testo
+    da un item che non ne porta. La stringa vuota viene poi filtrata da
+    `estrai_audit`, ed e' il modo in cui l'elenco dice «non lo so»."""
+    assert mars_seo._descrivi_item({"boundingRect": {"top": 0}}) == ""
 
 
 @pytest.mark.parametrize("chiave, prepara", [

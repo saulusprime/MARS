@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R40 | Tre difetti di `mars_seo` (categoria, testi, item) | 2026-08-26 |
 | R39 | `alertRef` non veniva mai raggiunto; migrazione di chiavi | 2026-08-26 |
 | R51 | Il `<meta name="googlebot">` non aveva un agente | 2026-08-26 |
 | U13 | Le due aree di classifica non avevano un solo controllo | 2026-08-26 |
@@ -2357,6 +2358,88 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R40 — ✅ RISOLTO (2026-08-26): tre difetti di `mars_seo`, e uno trovato chiudendoli
+*(le tre caselle della voce. I tre rilievi che caselle non erano — la divergenza
+fra le due tuple dei modi, i testi `explanation`/`displayValue`/`warnings`, il
+parametro inerte di `severita_lighthouse` — proseguono in **R53**)*
+
+**Un solo audit in errore faceva buttare via gli altri dieci.** Lighthouse
+azzera il peso degli audit non applicabili, informativi e manuali prima di
+scriverlo nel LHR, ma **non** quello di un audit andato in `error`
+(`core/scoring.js`): il suo `score: null` sopravvive al filtro e annulla il
+punteggio dell'intera categoria. `riassumi` usciva allora al primo `if` **senza
+mai chiamare `estrai_audit`**, mentre nel LHR c'erano dieci controlli misurati
+perfettamente — dati già pagati col tempo del run.
+
+I due casi ora sono due: non calcolabile *e* nulla da leggere, contro non
+calcolabile *ma* dieci audit su undici validi. **Il punteggio resta `None` in
+entrambi**: ricavarne uno dagli audit leggibili sarebbe inventare la categoria
+che Lighthouse si è rifiutata di calcolare. `audits` è `None` e non una lista
+vuota quando non c'è nulla da leggere, perché la scheda d'area mostra l'elenco
+dei controlli **al posto** dei rilievi e i due casi si rendono diversamente.
+
+La conseguenza da conoscere: in quel ramo i rilievi portano una `penalty` ma
+l'area non ha un punteggio, quindi `certificato_area` dichiara «l'area non ha
+un punteggio» e il piano li mette in corsia `ignoto`. È la catena giusta, ed
+esisteva già.
+
+**«Da verificare a mano» detto a un `notApplicable` — e a un `error`.**
+Lighthouse usa `failureTitle` solo quando `score < 0.9`, quindi un controllo
+non misurato porta il titolo del **successo**: la issue di una pagina senza
+canonical recitava «da verificare a mano: Il documento ha un elemento
+`rel=canonical` valido», che afferma il contrario del vero due volte. U1.7
+aveva corretto il titolo del *rilievo* e lasciato la issue, perché cambiarla
+era una regressione di testo dentro un commit di sola forma.
+
+Chiudendola è emerso che il difetto era **più largo della voce**: il prefisso
+va scelto sul **modo**, non sul flag `manual`, altrimenti un audit in `error` —
+che `manual` non è, sta fra i falliti — continua ad annunciarsi col titolo del
+successo. Misurato: «[Lighthouse] Il documento ha un `hreflang` valido» per un
+gatherer che non era partito.
+
+Cambia **solo il testo**: `MODI_NON_MISURATI_VOCE` resta `("manual",
+"notApplicable")` e i conteggi `passed`/`failed`/`manual` non si muovono.
+Allargare quella tupla è la decisione che prosegue in R53, e le due metà
+vanno tenute distinte — un test le separa esplicitamente.
+
+**Tre buchi in `_descrivi_item`**, tutti verificati sui sorgenti di Lighthouse
+13.4.1 in `node_modules` invece che dedotti:
+
+- il `source` che è un **NodeValue** invece di una stringa. È il caso più
+  pesante della categoria — `is-crawlable` bloccato da un
+  `<meta robots noindex>` — e il ramo cercava `url` e `value`: usciva la
+  **stringa vuota** sul difetto più grave che quest'area sappia rilevare. Il
+  campo giusto è `snippet`, che `handleMetaElement` sovrascrive proprio col tag
+  incriminato; `selector` viene dopo, perché dice dove sta nel DOM e non che
+  cosa sia;
+- gli item `{index, line, message}` di `robots-txt`, senza né `source` né
+  `node`: uscivano tutti vuoti, cioè l'audit diceva «ci sono errori» e nessuno
+  di quali. Ora danno riga, contenuto e motivo;
+- i `subItems` di `hreflang`, dove sta il **motivo**: senza, restava il tag e
+  non si sapeva che cosa avesse di sbagliato — l'unica cosa che serve per
+  correggerlo.
+
+**Un imbuto invece di due copie.** Le issues e i rilievi dei controlli si
+costruivano dentro `riassumi`, e servivano ora a due rami: sono usciti in
+`_issues_dei_controlli` e `_rilievi_dei_controlli`. Due implementazioni della
+stessa cosa nello stesso file sono la forma di divergenza che questo progetto
+ha già pagato con `direttive_efficaci` (R37).
+
+**Due test riscritti con intenzione.**
+`test_seo_un_non_applicabile_non_e_un_manuale` asseriva la riga sbagliata
+dichiarando che le issues «restano com'erano — sono la vista congelata»: è la
+metà che questa voce chiude. `test_seo_un_audit_in_errore_non_e_un_difetto_del_sito`
+fissava la divergenza «perché non la si chiuda per distrazione», e infatti non
+si chiude per distrazione: si chiude **metà**, quella del testo, e il test ora
+separa le due metà invece di tenerle insieme.
+
+**Verifiche.** 1060 test verdi (erano 1052), `flake8` a zero, golden rigenerati
+e diff riletto: **tre righe**, i tre prefissi delle issues non misurate, e
+nessun punteggio mosso. **Nove mutazioni su nove** fanno rosso alla prima
+esecuzione, fra cui `snippet` scambiato con `selector` — che dà comunque una
+stringa non vuota, quindi sarebbe passata a un test che guardasse solo la
+lunghezza.
 
 ### R39 — ✅ RISOLTO (2026-08-26): `alertRef` non veniva mai raggiunto
 *(le caselle 2, 3 e 4 erano già chiuse; questa è la prima, quella che tocca i

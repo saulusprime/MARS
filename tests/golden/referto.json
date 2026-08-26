@@ -155,9 +155,9 @@
         "[Lighthouse] Il documento non ha una meta descrizione",
         "[Lighthouse] I link non hanno testo descrittivo (/p0, /p1, /p2, /p3, /p4)",
         "[Lighthouse] Gli elementi immagine non hanno attributi `[alt]` (body > img, body > img)",
-        "[Lighthouse] da verificare a mano: robots.txt è valido",
-        "[Lighthouse] da verificare a mano: Il documento ha un elemento `rel=canonical` valido",
-        "[Lighthouse] da verificare a mano: Dati strutturati validi"
+        "[Lighthouse] Non applicabile a questa pagina: robots.txt è valido",
+        "[Lighthouse] Non applicabile a questa pagina: Il documento ha un elemento `rel=canonical` valido",
+        "[Lighthouse] Da verificare a mano: Dati strutturati validi"
       ],
       "findings": [
         {

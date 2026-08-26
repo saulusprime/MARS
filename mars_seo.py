@@ -257,27 +257,64 @@ def _rilievo_audit(voce: dict, totale_pesi: float,
         params=params).as_dict()
 
 
+def _ragioni(item: dict) -> str:
+    """I motivi che stanno nei `subItems`, fra parentesi.
+
+    `hreflang` mette il TAG nella riga e il motivo in una sotto-riga
+    (`subItems: {type: "subitems", items: [{reason}]}`): senza, resta
+    il tag e non si sa che cosa abbia di sbagliato — che e' l'unica
+    cosa che serve per correggerlo.
+    """
+    sotto = item.get("subItems")
+    if not isinstance(sotto, dict):
+        return ""
+    motivi = [str(v.get("reason")) for v in (sotto.get("items") or [])
+              if isinstance(v, dict) and v.get("reason")]
+    return " (%s)" % "; ".join(motivi) if motivi else ""
+
+
 def _descrivi_item(item: object) -> str:
     """Un elemento incriminato in forma leggibile.
 
     Lighthouse li restituisce in forme diverse a seconda dell'audit:
     una sorgente testuale per is-crawlable, un nodo del DOM per
-    image-alt. Si prende cio' che identifica l'elemento e si scarta il
-    resto (coordinate, percorsi interni), che non aiuta chi legge.
+    image-alt, una riga di robots.txt col suo numero. Si prende cio'
+    che identifica l'elemento e si scarta il resto (coordinate,
+    percorsi interni), che non aiuta chi legge.
+
+    Le forme sono verificate sui sorgenti di Lighthouse 13.4.1 in
+    `node_modules`, non dedotte: un `source` puo' essere una stringa
+    (l'header che blocca), un `source-location` (la riga di robots.txt,
+    con `url`) oppure un **NodeValue** — il caso di `is-crawlable`
+    bloccato da un `<meta robots noindex>`, dove `handleMetaElement`
+    sovrascrive lo `snippet` col tag incriminato. Quel ramo cercava
+    `url` e `value` e restituiva la stringa vuota sul difetto piu'
+    grave della categoria (R40).
     """
     if not isinstance(item, dict):
         return str(item)
+    ragioni = _ragioni(item)
     sorgente = item.get("source")
     if isinstance(sorgente, str):
-        return sorgente
+        return sorgente + ragioni
     if isinstance(sorgente, dict):
-        return str(sorgente.get("url") or sorgente.get("value") or "")
+        # `snippet` prima di `selector`: il primo E' il tag incriminato,
+        # il secondo dice solo dove sta nel DOM.
+        return str(sorgente.get("url") or sorgente.get("value")
+                   or sorgente.get("snippet")
+                   or sorgente.get("selector") or "") + ragioni
     nodo = item.get("node")
     if isinstance(nodo, dict):
         return str(nodo.get("selector") or nodo.get("snippet") or "")
     for chiave in ("href", "text", "url", "value"):
         if isinstance(item.get(chiave), str):
-            return item[chiave]
+            return item[chiave] + ragioni
+    # Gli item di `robots-txt`: numero di riga, contenuto e motivo. Non
+    # hanno ne' `source` ne' `node`, quindi uscivano tutti vuoti —
+    # l'audit diceva "ci sono errori" e nessuno di quali.
+    if item.get("line") and item.get("message"):
+        return "%s: %s — %s" % (item.get("index") or "?",
+                                item["line"], item["message"])
     return ""
 
 
@@ -397,6 +434,76 @@ def punteggi_categorie(lhr: dict) -> Dict[str, Optional[float]]:
     return esito
 
 
+def _issues_dei_controlli(controlli: List[Dict[str, object]]) -> List[str]:
+    """La vista compatta dei controlli falliti e non misurati.
+
+    Il prefisso dei non misurati e' lo STESSO del titolo del rilievo
+    (`PREFISSO_NON_MISURATO`), e non piu' un «da verificare a mano»
+    detto a tutti. Lighthouse usa `failureTitle` solo quando
+    `score < 0.9`, quindi un controllo non misurato porta il titolo del
+    SUCCESSO: «da verificare a mano: Il documento ha un elemento
+    `rel=canonical` valido» affermava il contrario del vero due volte —
+    che il controllo fosse manuale, e che la pagina avesse il canonical
+    (R40). U1.7 aveva corretto il rilievo; la issue e' la vista
+    compatta dello stesso fatto e non puo' dirne un'altra.
+    """
+    def intitola(c: Dict[str, object]) -> str:
+        # Il prefisso si sceglie sul MODO, non sul flag `manual`: cosi'
+        # lo prende anche un audit in `error`, che `manual` non e' —
+        # sta fra i falliti — ma che porta il titolo del successo
+        # perche' `failureTitle` scatta solo sotto 0,9. La issue
+        # diceva «Il documento ha un `hreflang` valido» di un controllo
+        # mai eseguito.
+        prefisso = PREFISSO_NON_MISURATO.get(str(c["scoreDisplayMode"] or ""))
+        return "%s: %s" % (prefisso, c["title"]) if prefisso else c["title"]
+
+    issues = []
+    for c in controlli:
+        if c["passed"] or c["manual"]:
+            continue
+        elementi = c["items"]
+        issues.append("[Lighthouse] %s%s"
+                      % (intitola(c),
+                         " (%s)" % ", ".join(elementi) if elementi else ""))
+    for c in controlli:
+        if c["manual"]:
+            issues.append("[Lighthouse] %s" % intitola(c))
+    return issues
+
+
+def _rilievi_dei_controlli(lhr: dict,
+                           controlli: List[Dict[str, object]]) -> List[dict]:
+    """I rilievi dei controlli falliti e non misurati.
+
+    Nessun `sorted`: escono nello stesso ordine delle issues, dagli
+    stessi due elenchi. Ordinare per penalita' decrescente qui
+    scavalcherebbe i pari-merito — nove degli undici audit pesano
+    uguale — e le due viste racconterebbero lo stesso referto in due
+    ordini diversi. A riordinare sara' il piano di interventi, che ha
+    un criterio suo.
+
+    I superati NON diventano rilievi: sono gia' elencati per intero in
+    `audits`, che il referto rende, e un sito perfetto mostrerebbe
+    altrimenti nove voci da fare. Il filtro non e' un'ottimizzazione:
+    `severita_lighthouse` decide su modo e peso e NON guarda lo score,
+    quindi un superato a peso 1 uscirebbe `warning`.
+
+    Scritta una volta sola perche' la usano i due rami di `riassumi` —
+    categoria calcolata e categoria non calcolabile ma leggibile — e
+    due implementazioni della stessa cosa divergerebbero in silenzio.
+    """
+    # Il denominatore della penalita': la somma dei pesi che Lighthouse
+    # fa entrare nella media, cioe' quelli maggiori di zero
+    # (core/scoring.js scarta gli altri prima di mediare).
+    totale_pesi = sum(c["weight"] for c in controlli if c["weight"] > 0)
+    misurata = lhr.get("finalDisplayedUrl") or lhr.get("finalUrl") or ""
+    da_riportare = ([c for c in controlli
+                     if not c["passed"] and not c["manual"]]
+                    + [c for c in controlli if c["manual"]])
+    return [_rilievo_audit(c, totale_pesi, lingua_lhr(lhr), misurata)
+            for c in da_riportare]
+
+
 def riassumi(lhr: dict) -> dict:
     """Il risultato d'area a partire dal referto Lighthouse.
 
@@ -405,68 +512,58 @@ def riassumi(lhr: dict) -> dict:
     """
     punteggio = ((lhr.get("categories") or {}).get(CATEGORIA) or {}).get(
         "score")
+    controlli = estrai_audit(lhr)
     if punteggio is None:
         # Lo schema LHR ammette score null: il run e' riuscito, il JSON
         # e' valido, ma la categoria non e' calcolabile. E' un "non
         # misurato", non un errore di Lighthouse — e dirlo giusto vale
         # piu' che dirlo genericamente (lezione di R6).
+        #
+        # I due casi sono pero' DUE, e distinguerli e' R40. Lighthouse
+        # toglie dalla media il peso degli audit non applicabili,
+        # informativi e manuali, ma **non** quello di un audit andato in
+        # `error` (`core/scoring.js`): il suo `score: null` sopravvive
+        # al filtro e annulla la categoria intera. Gli altri dieci
+        # restano misurati perfettamente, e uscire qui li buttava via —
+        # dati gia' pagati col tempo del run.
+        #
+        # Il punteggio resta `None` in entrambi i casi: ricavarne uno
+        # dagli audit leggibili sarebbe inventare la categoria che
+        # Lighthouse si e' rifiutata di calcolare.
         return {"score": None, "status": "unavailable",
-                "issues": ["Lighthouse non ha calcolato la categoria SEO "
-                           "per questa pagina"],
-                "findings": [_stato(
+                "issues": (["Lighthouse non ha calcolato la categoria SEO "
+                            "per questa pagina"]
+                           + _issues_dei_controlli(controlli)),
+                "findings": ([_stato(
                     "seo.status.not_scored",
                     "Lighthouse non ha calcolato la categoria SEO per "
-                    "questa pagina")],
+                    "questa pagina")]
+                    + _rilievi_dei_controlli(lhr, controlli)),
+                # `None` e non una lista vuota quando non c'e' nulla da
+                # leggere: la scheda d'area mostra l'elenco dei
+                # controlli AL POSTO dei rilievi, quindi un elenco vuoto
+                # e un elenco assente si rendono in due modi diversi.
+                "audits": controlli or None,
                 # Le ALTRE categorie possono esserci lo stesso: il run
                 # e' riuscito, e' la sola categoria SEO a non essere
                 # calcolabile.
                 "lighthouse_scores": punteggi_categorie(lhr)}
 
-    controlli = estrai_audit(lhr)
     falliti = [c for c in controlli if not c["passed"] and not c["manual"]]
     superati = [c for c in controlli if c["passed"]]
     manuali = [c for c in controlli if c["manual"]]
 
-    issues = []
-    for c in falliti:
-        elementi = c["items"]
-        issues.append("[Lighthouse] %s%s"
-                      % (c["title"],
-                         " (%s)" % ", ".join(elementi) if elementi else ""))
-    for c in manuali:
-        issues.append("[Lighthouse] da verificare a mano: %s" % c["title"])
-
-    # Il denominatore della penalita': la somma dei pesi che Lighthouse
-    # fa entrare nella media, cioe' quelli maggiori di zero
-    # (core/scoring.js scarta gli altri prima di mediare).
-    totale_pesi = sum(c["weight"] for c in controlli if c["weight"] > 0)
-    # Nessun `sorted`: i rilievi escono nello stesso ordine delle issues,
-    # dagli stessi due elenchi. Ordinare per penalita' decrescente qui
-    # scavalcherebbe i pari-merito — nove degli undici audit pesano
-    # uguale — e le due viste racconterebbero lo stesso referto in due
-    # ordini diversi. A riordinare sara' il piano di interventi, che ha
-    # un criterio suo.
-    #
-    # I superati NON diventano rilievi: sono gia' elencati per intero in
-    # `audits`, che il referto rende, e un sito perfetto mostrerebbe
-    # altrimenti nove voci da fare. Il filtro non e' un'ottimizzazione:
-    # `severita_lighthouse` decide su modo e peso e NON guarda lo score,
-    # quindi un superato a peso 1 uscirebbe `warning`.
-    misurata = lhr.get("finalDisplayedUrl") or lhr.get("finalUrl")
-    rilievi = [_rilievo_audit(c, totale_pesi, lingua_lhr(lhr),
-                              misurata or "")
-               for c in falliti + manuali]
-
     impostazioni = lhr.get("configSettings") or {}
     return {
         "score": punteggio * 100,
-        "issues": issues,
-        "findings": rilievi,
+        "issues": _issues_dei_controlli(controlli),
+        "findings": _rilievi_dei_controlli(lhr, controlli),
         "tool": "Lighthouse %s" % (lhr.get("lighthouseVersion") or "?"),
         # Il tipo di dispositivo cambia i risultati e va dichiarato:
         # un referto mobile e uno desktop non sono confrontabili.
         "form_factor": impostazioni.get("formFactor"),
-        "audited_url": misurata,
+        "audited_url": (lhr.get("finalDisplayedUrl")
+                        or lhr.get("finalUrl")),
         "audits": controlli,
         # Le altre categorie dello stesso run: non le misura quest'area,
         # ma le ha pagate lei.

@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R46 | Il conteggio delle istanze è canonico; lo sforzo ci scala | 2026-08-26 |
 | R40 | Tre difetti di `mars_seo` (categoria, testi, item) | 2026-08-26 |
 | R39 | `alertRef` non veniva mai raggiunto; migrazione di chiavi | 2026-08-26 |
 | R51 | Il `<meta name="googlebot">` non aveva un agente | 2026-08-26 |
@@ -2358,6 +2359,76 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R46 — ✅ RISOLTO (2026-08-26): il conteggio delle istanze è canonico, e lo sforzo ci scala
+
+**Il difetto.** `SFORZO` è una mappa `chiave -> minuti|ore|giorni`: dipendeva
+dal **tipo** di controllo e non da quante volte il difetto ricorre. «1 immagine
+senza `alt`» e «400 immagini senza `alt`» hanno la stessa chiave, quindi lo
+stesso sforzo — `giorni` in entrambi i casi, che sul primo è una
+sopravvalutazione. Il dato per fare meglio c'era già, ma con un nome **diverso
+per area**: `immagini`, `campi`, `pagine`, `nodes`, `n`, scelti da chi ha
+scritto il modulo.
+
+**La decisione: un nome canonico accanto a quelli parlanti.** `instances` viene
+scritto da ogni modulo insieme al nome parlante, che resta perché lo usano i
+template di traduzione. L'alternativa — una mappa chiave → nome del conteggio
+in `mars_remediation` — sarebbe stata un secondo catalogo da tenere allineato a
+sei moduli, cioè la forma di divergenza silenziosa che questo progetto ha già
+pagato più volte.
+
+**Il numero si scrive una volta sola.** Gli imbuti dei moduli prendono una
+**coppia** `istanze=(nome parlante, conteggio)` e scrivono entrambi i nomi:
+`_rilievo(..., istanze=("pagine", len(noindex)))`. Due argomenti separati
+avrebbero significato assegnare lo stesso valore due volte allo stesso punto di
+chiamata, e due assegnazioni dello stesso valore prima o poi divergono.
+
+**L'assenza è un significato**, come per `params["urls"]` di R47: dice che il
+difetto **non ricorre**. `robots.txt` manca una volta sola; «nessun JSON-LD sul
+sito» è un fatto unico, non un'occorrenza — dichiarargli `instances: 1` lo
+farebbe scendere di un gradino insieme alle immagini singole, che è il
+contrario del vero. `mars_schema` lo omette esplicitamente con `ricorre=False`.
+
+**Che cosa conta come istanza, area per area**, e non è ovvio:
+
+- **axe**: i **nodi**, non le pagine. Sono gli elementi da correggere;
+- **Lighthouse**: il conteggio **vero** degli item, letto prima del troncamento
+  a `MAX_ELEMENTI`. `items` è la vista — cinque su otto — e far scalare una
+  stima su una scelta di impaginazione sarebbe assurdo;
+- **ZAP**: gli URL della **variante**, cioè le pagine su cui quell'alert va
+  chiuso;
+- **`sem.chunks.few` non lo dichiara**: «pochi passaggi» è un difetto che
+  cresce quando il numero **scende**, quindi scalarci sopra lo sforzo lo
+  invertirebbe.
+
+**Lo sforzo resta una stima, e lo dichiara.** `SFORZO` è ora il livello della
+**ricorrenza tipica**, e `GRADINI_ISTANZE` lo muove di un gradino per volta:
+una sola occorrenza scende, dieci salgono, cento salgono di due, e la scala si
+ferma agli estremi invece di girare. Il referto continua a scrivere `giorni` e
+non «3 giorni»: un ordine di grandezza è una stima, un numero sembra una
+misura. Le soglie stanno nel piano e non nei sei moduli, perché la scala è una
+proprietà del piano e non dell'area che ha misurato.
+
+Le famiglie dinamiche — axe, ZAP, Lighthouse — restano **senza** sforzo anche
+con mille occorrenze: un gradino sopra il nulla è ancora il nulla, e inventare
+lì un livello che il catalogo non dichiara sarebbe un'assenza travestita da
+stima.
+
+**Un lettore solo**: `istanze_del_rilievo()` in `mars_core`, accanto a
+`pagine_del_rilievo` e per la stessa ragione. Rifiuta zero, i negativi e i
+booleani — `True` in Python **è** un `int` che vale 1, e un booleano scritto
+per sbaglio farebbe scendere di un gradino lo sforzo di quel rilievo.
+
+**Verifiche.** 1077 test verdi (erano 1060), `flake8` a zero, golden rigenerati
+e diff riletto: cambiano **solo** le righe di sforzo dei difetti a una sola
+occorrenza — `1 campi di modulo senza etichetta` passa da `giorni` a `ore`, `1
+blocchi JSON-LD malformati` da `ore` a `minuti` — e nessun punteggio si muove.
+Il conteggio dei quick win resta invariato. **Dodici mutazioni su dodici** fanno
+rosso; **due sfuggivano alla prima esecuzione**, ed entrambe stavano su rami che
+i due referti sintetici non accendono: un conteggio a zero o booleano, che da
+`_sforzo` si comporta come un conteggio assente, e `sd.jsonld.missing` che
+dichiarasse un'istanza — un caso che i golden non hanno, perché entrambi i siti
+sintetici il JSON-LD ce l'hanno.
 
 ### R40 — ✅ RISOLTO (2026-08-26): tre difetti di `mars_seo`, e uno trovato chiudendoli
 *(le tre caselle della voce. I tre rilievi che caselle non erano — la divergenza

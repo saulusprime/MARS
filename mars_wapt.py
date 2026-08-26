@@ -180,6 +180,9 @@ def _rilievo_zap(voce: dict) -> Finding:
             "rule_risk": voce["rule_risk"],
             "urls": sorted(voce["urls"]),
             "n": voce["n"],
+            # Il conteggio canonico e' quello degli URL della VARIANTE:
+            # sono le pagine su cui quell'alert va chiuso (R46).
+            "instances": voce["n"],
             # La diffusione si misura sull'UNIONE degli URL della
             # regola, non su quelli della singola variante: e' la
             # regola a essere violata su N pagine.

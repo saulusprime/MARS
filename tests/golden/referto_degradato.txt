@@ -45,13 +45,13 @@ PIANO DI INTERVENTI  : 10 interventi (3 critici, 7 avvertenze)
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +16.18
      Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
-  2. [CRITICO · Accessibilità · giorni] 1 campi di modulo senza etichetta
+  2. [CRITICO · Accessibilità · ore] 1 campi di modulo senza etichetta
      +12 punti d'area (40 → 52) · indice +1.62
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-  3. [CRITICO · Accessibilità · giorni] 1/2 immagini prive di testo alternativo
+  3. [CRITICO · Accessibilità · ore] 1/2 immagini prive di testo alternativo
      +12 punti d'area (40 → 52) · indice +1.62
      Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
-  4. [AVVERTENZA · Dati Strutturati · ore] 1 blocchi JSON-LD malformati
+  4. [AVVERTENZA · Dati Strutturati · minuti] 1 blocchi JSON-LD malformati
      +10 punti d'area (90 → 100) · indice +3.26
      Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
   5. [AVVERTENZA · Sicurezza · giorni] CSP mancante

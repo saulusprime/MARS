@@ -98,6 +98,7 @@ PENALITA_IGNOTA = 5
 
 
 def _rilievo(gravita: str, testo: str, chiave: str,
+             istanze: Optional[Tuple[str, int]] = None,
              **params: object) -> Finding:
     """Un rilievo dell'area, come dato strutturato.
 
@@ -115,7 +116,18 @@ def _rilievo(gravita: str, testo: str, chiave: str,
     punteggio. Non e' `weight`, che vale 2.0/1.0 ed e' importanza
     relativa: senza il numero vero, la Fase 4 non potrebbe calcolare
     quanto risalirebbe il punteggio d'area se il rilievo fosse risolto.
+
+    `istanze` e' una COPPIA `(nome parlante, conteggio)`: il nome
+    parlante finisce nei params come sempre — i template di traduzione
+    lo usano — e lo stesso numero finisce in `instances`, il nome
+    canonico che il piano di interventi legge (R46). Una coppia e non
+    due argomenti perche' il numero si scrive UNA volta sola: due
+    assegnazioni dello stesso valore, prima o poi, divergono.
     """
+    if istanze is not None:
+        nome, quante = istanze
+        params[nome] = quante
+        params["instances"] = quante
     severita, peso = normalizza_severita("mars", gravita)
     return Finding(
         area="mars_tech", severity=severita, weight=peso,
@@ -163,7 +175,8 @@ def controlla_robots(context: dict) -> List[Finding]:
             # conteggio non e' troncato, quindi con sei crawler bloccati
             # il testo dice un numero ed elenca meno. Il dato canonico
             # non tronca — a troncare e' la vista compatta.
-            bloccati=sorted(bloccati), n=len(bloccati), elenco=elenco))
+            bloccati=sorted(bloccati), istanze=("n", len(bloccati)),
+            elenco=elenco))
     if not citati:
         rilievi.append(_rilievo(
             "lieve", "Nessuna regola esplicita per i crawler IA: passano "
@@ -537,7 +550,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "in meta robots o X-Robots-Tag)"
                      % (len(noindex), len(pages)),
             "tech.index.noindex",
-            pagine=len(noindex), totale=len(pages), urls=sorted(noindex),
+            istanze=("pagine", len(noindex)), totale=len(pages),
+            urls=sorted(noindex),
             **_agenti(agenti_di, "noindex")))
     if scadute:
         # Stesso denominatore del divieto di frammento: le pagine non
@@ -549,7 +563,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "escluse dagli indici come da un noindex"
                      % (len(scadute), len(pages)),
             "tech.index.unavailable_after",
-            pagine=len(scadute), totale=len(pages), urls=sorted(scadute)))
+            istanze=("pagine", len(scadute)), totale=len(pages),
+            urls=sorted(scadute)))
     if nosnippet:
         # Il denominatore della gravita' sono le pagine ancora
         # CITABILI, non tutte: se le altre sono gia' escluse dagli
@@ -564,7 +579,7 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "risposta (nosnippet o max-snippet:0)"
                      % (len(nosnippet), len(pages)),
             "tech.index.nosnippet",
-            pagine=len(nosnippet), totale=len(pages),
+            istanze=("pagine", len(nosnippet)), totale=len(pages),
             urls=sorted(nosnippet),
             **_agenti(agenti_di, "nosnippet")))
     if canonical_altrove:
@@ -573,7 +588,7 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "contenuto viene attribuito altrove"
                      % len(canonical_altrove),
             "tech.canonical.cross_host",
-            pagine=len(canonical_altrove), totale=len(pages),
+            istanze=("pagine", len(canonical_altrove)), totale=len(pages),
             urls=sorted(canonical_altrove)))
     if nofollow:
         # Un 'nofollow' non nasconde la pagina: impedisce di raggiungere
@@ -586,7 +601,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
             gravita, "%d/%d pagine non fanno seguire i propri link "
                      "(nofollow o none)" % (len(nofollow), len(pages)),
             "tech.index.nofollow",
-            pagine=len(nofollow), totale=len(pages), urls=sorted(nofollow),
+            istanze=("pagine", len(nofollow)), totale=len(pages),
+            urls=sorted(nofollow),
             **_agenti(agenti_di, "nofollow")))
     if noarchive:
         rilievi.append(_rilievo(
@@ -594,7 +610,7 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                      "(noarchive): il testo resta citabile, la versione "
                      "archiviata no" % (len(noarchive), len(pages)),
             "tech.index.noarchive",
-            pagine=len(noarchive), totale=len(pages),
+            istanze=("pagine", len(noarchive)), totale=len(pages),
             urls=sorted(noarchive),
             **_agenti(agenti_di, "noarchive")))
     if ristrette:
@@ -610,7 +626,8 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
                         ", ".join(sorted(agenti_altrui)),
                         ", ".join(sorted(direttive_altrui))),
             "tech.index.agent_only",
-            pagine=len(ristrette), totale=len(pages), urls=sorted(ristrette),
+            istanze=("pagine", len(ristrette)), totale=len(pages),
+            urls=sorted(ristrette),
             agents=sorted(agenti_altrui),
             directives=sorted(direttive_altrui)))
     if senza_canonical:
@@ -618,7 +635,7 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"
                      % (len(senza_canonical), len(pages)),
             "tech.canonical.missing",
-            pagine=len(senza_canonical), totale=len(pages),
+            istanze=("pagine", len(senza_canonical)), totale=len(pages),
             # L'unico controllo dell'area che sapeva su quali pagine
             # aveva guardato e non lo diceva: gli altri tre dichiarano
             # `urls` da sempre (R47).

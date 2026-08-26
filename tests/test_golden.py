@@ -661,3 +661,77 @@ def test_una_modifica_al_css_fa_fallire_il_golden_html(monkeypatch):
     assert diff, "un carattere di CSS e' passato inosservato"
     assert "--ok:#0cce6c" in diff
     assert max(len(r) for r in diff.splitlines()) < 400, "diff illeggibile"
+
+
+# ----------------------------------------------------------------------
+# R46: il conteggio delle istanze, canonico
+# ----------------------------------------------------------------------
+#
+# I due referti sintetici sono l'inventario: qui si vede quali controlli
+# dichiarano quante volte il difetto ricorre, e quali non lo fanno
+# perche' non ricorre affatto.
+
+ISTANZE_ATTESE = {
+    "lex.query.no_match", "lex.words.thin",
+    "sd.jsonld.block_malformed",
+    "sec.zap.10035", "sec.zap.10038_1", "sec.zap.10038_2", "sec.zap.40012",
+    "seo.lh.document_title", "seo.lh.image_alt", "seo.lh.is_crawlable",
+    "seo.lh.link_text",
+    "tech.canonical.missing", "tech.robots.ai_blocked",
+    "wcag.axe.color_contrast", "wcag.axe.image_alt", "wcag.axe.label",
+    "wcag.form.label_missing", "wcag.heading.skip", "wcag.img.alt_missing",
+    "wcag.link.generic", "wcag.table.th_missing",
+}
+
+
+def _rilievi_dei_due_referti(monkeypatch):
+    for costruisci in DATASET.values():
+        for area in costruisci(monkeypatch)["areas"]:
+            for rilievo in area["findings"]:
+                yield rilievo
+
+
+def test_chi_dichiara_le_istanze_e_chi_no(monkeypatch):
+    """L'inventario, non un campione.
+
+    `instances` e' il nome canonico del conteggio: i nomi parlanti —
+    `pagine`, `immagini`, `campi`, `nodes`, `n` — restano, perche' li
+    usano i template di traduzione, ma il piano di interventi ne
+    leggeva uno solo e doveva sapere quale. **L'assenza e' un
+    significato**: dice che il difetto non ricorre — robots.txt manca
+    una volta sola — e li' lo sforzo resta quello di base.
+
+    Un controllo nuovo che dovrebbe dichiararlo e non lo fa rende
+    questo test rosso invece di uscire dal piano con uno sforzo
+    sbagliato in silenzio."""
+    dichiarano = {r["key"] for r in _rilievi_dei_due_referti(monkeypatch)
+                  if "instances" in (r.get("params") or {})}
+    assert dichiarano == ISTANZE_ATTESE
+
+
+def test_le_istanze_sono_il_conteggio_vero_e_non_quello_troncato(monkeypatch):
+    """Due numeri che si potrebbero confondere, e uno e' una vista.
+
+    `seo.lh.link_text` ha OTTO elementi nel LHR e ne riporta cinque:
+    `MAX_ELEMENTI` e' il troncamento della lettura, e far scalare lo
+    sforzo su quello vorrebbe dire che una scelta di impaginazione
+    cambia una stima. `instances` porta gli otto veri."""
+    per_chiave = {r["key"]: r for r in _rilievi_dei_due_referti(monkeypatch)}
+    link = per_chiave["seo.lh.link_text"]["params"]
+    assert len(link["items"]) == 5 and link["instances"] == 8
+
+
+def test_le_istanze_non_sono_meno_delle_pagine_colpite(monkeypatch):
+    """L'invariante che lega i due conteggi di R47 e R46.
+
+    Un difetto che tocca N pagine ricorre almeno N volte: una pagina
+    elencata in `urls` che non porti un'istanza sarebbe un errore di
+    conteggio, e nessun altro test lo vedrebbe."""
+    for rilievo in _rilievi_dei_due_referti(monkeypatch):
+        params = rilievo.get("params") or {}
+        if "instances" not in params:
+            continue
+        assert isinstance(params["instances"], int), rilievo["key"]
+        assert params["instances"] >= 1, rilievo["key"]
+        assert params["instances"] >= len(params.get("urls") or []), \
+            rilievo["key"]

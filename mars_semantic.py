@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, VectorRetriever,
                        describe_chunk, normalizza_severita,
@@ -166,6 +166,7 @@ def page_signals(pagina: Optional[dict], lingua: str = "") -> List[str]:
 
 
 def _rilievo(gravita: str, testo: str, chiave: str,
+             istanze: Optional[Tuple[str, int]] = None,
              **params: object) -> Finding:
     """Imbuto unico dei rilievi dell'area (U13).
 
@@ -173,6 +174,10 @@ def _rilievo(gravita: str, testo: str, chiave: str,
     compare fra parentesi quadre nella vista compatta, e la scala
     canonica collassa "grave" e "medio" entrambe in `warning`.
     """
+    if istanze is not None:
+        nome, quante = istanze
+        params[nome] = quante
+        params["instances"] = quante
     severita, peso = normalizza_severita("mars", gravita)
     return Finding(
         area="mars_semantic", severity=severita, weight=peso,
@@ -219,6 +224,9 @@ def controlla_forma_di_risposta(quota: float, chunks: List[dict],
         % (quota, SOGLIA_ANSWER_SHAPED),
         "sem.answer_shaped.low", quota=round(quota, 1),
         soglia=SOGLIA_ANSWER_SHAPED, chunk=len(chunks),
+        # Le pagine senza una sola risposta: sono le unita' su cui si
+        # interviene, ed e' su di loro che lo sforzo scala (R46).
+        istanze=("pagine", len(senza)),
         # DOVE: le pagine che non portano un solo passaggio in forma di
         # risposta. Colorare l'intero sito direbbe il falso su quelle
         # che invece ne hanno (R47).
@@ -238,7 +246,7 @@ def controlla_query(per_query: List[dict]) -> List[Finding]:
         "grave",
         "%d/%d query senza un riscontro semantico" % (len(vuote),
                                                       len(per_query)),
-        "sem.query.no_match", senza_riscontro=len(vuote),
+        "sem.query.no_match", istanze=("senza_riscontro", len(vuote)),
         totale=len(per_query), esempi=" | ".join(vuote[:3]))]
 
 

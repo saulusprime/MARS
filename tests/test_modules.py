@@ -1111,6 +1111,28 @@ def test_tech_sitemap_assente_e_grave():
 # mars_schema (R6)
 # ----------------------------------------------------------------------
 
+def test_schema_un_sito_senza_json_ld_non_e_un_difetto_che_ricorre():
+    """R46: `instances` dice quante volte il difetto ricorre, e la sua
+    assenza e' un significato.
+
+    «Nessun JSON-LD sul sito» e' un fatto UNICO, non un'occorrenza che
+    capita una volta: dichiarare `instances: 1` lo farebbe scendere di
+    un gradino di sforzo insieme alle immagini singole, che e'
+    esattamente il contrario — un sito senza dati strutturati e'
+    lavoro, non una svista."""
+    vuoto = {"pages": {"https://x/": pagina(
+        html="<html><head></head><body><p>x</p></body></html>")}}
+    per_chiave = {f["key"]: f for f in mars_schema.audit(vuoto)["findings"]}
+    assert "instances" not in per_chiave["sd.jsonld.missing"]["params"]
+
+    rotto = {"pages": {"https://x/": pagina(
+        html='<html><head><script type="application/ld+json">{,}</script>'
+             "</head><body><p>x</p></body></html>")}}
+    malformato = {f["key"]: f
+                  for f in mars_schema.audit(rotto)["findings"]}
+    assert malformato["sd.jsonld.block_malformed"]["params"]["instances"] == 1
+
+
 @pytest.mark.parametrize("frammento, atteso", [
     ('<script type="application/ld+json">{"@type":"Organization"}</script>',
      None),

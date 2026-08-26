@@ -24,7 +24,7 @@
 > resta **fuori dal complessivo** perché le stesse due aree ci entrano già dai
 > segnali derivati. Il piano di interventi copre ora sette aree su nove.
 >
-> **Correzioni chiuse**: R1-R45 (tranne R46), R47, R49-R52. **R51 è chiusa il
+> **Correzioni chiuse**: R1-R47, R49-R52. **R51 è chiusa il
 > 2026-08-26**, e con essa **R37 per intero**: il `<meta name="googlebot">`
 > arriva ora separato dal meta globale (`meta_robots_by_agent`, una chiave
 > nuova nel contratto) e vale come il prefisso dell'`X-Robots-Tag`. R52 è
@@ -36,7 +36,10 @@
 > (`key_migrations`). `__version__` a **2.9.0**.
 > **R40 è chiusa il 2026-08-26** — le sue tre caselle; i tre rilievi che
 > caselle non erano proseguono in **R53**.
-> **Aperte**: R46, R48 e R53 —
+> **R46 è chiusa il 2026-08-26**: `instances` è il nome canonico del conteggio
+> accanto a quelli parlanti, e lo sforzo scala di un gradino per volta restando
+> una stima dichiarata.
+> **Aperte**: R48 e R53 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -189,7 +192,7 @@ le fasi che non sono state fatte.
 
 ## Correzioni
 
-Le voci chiuse — R1-R45 (tranne R46), R47, R49-R52 — stanno in
+Le voci chiuse — R1-R47, R49-R52 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -235,35 +238,6 @@ ciascuno apre una decisione)*
 - [ ] Portare `explanation`, `displayValue` e `warnings` nel rilievo, decidendo
       in quale campo: `detail` è già occupato dalla `description`.
 - [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`.
-
-### R46 — ⚪ LIEVE: lo sforzo è editoriale e non scala col difetto
-*(lasciata aperta da U4, il 2026-08-24; la sezione è stata scritta il
-2026-08-25 — fino ad allora la voce era **dichiarata aperta e non c'era nulla
-da leggere**, citata solo di sfuggita in [AS-IS.md](AS-IS.md))*
-
-`SFORZO` ([mars_remediation.py:135](mars_remediation.py#L135)) è una mappa
-`chiave -> minuti|ore|giorni` scritta a mano: dipende dal **tipo** di
-controllo e non da quante volte il difetto ricorre. «1 immagine senza `alt`» e
-«400 immagini senza `alt`» hanno la stessa chiave, quindi lo stesso sforzo —
-`giorni` in entrambi i casi, che sul primo è una sopravvalutazione e sul
-secondo forse una sottovalutazione.
-
-Il dato per fare meglio **c'è già**: ogni rilievo porta nei `params` il proprio
-conteggio di istanze (`immagini`, `campi`, `pagine`, `nodes`, `n`), ma i nomi
-sono **diversi per area**, scelti da chi ha scritto il modulo. Renderli
-canonici è il prerequisito, e non è gratis: significa o un nome comune in più
-accanto a quelli parlanti, o una mappa chiave → nome del conteggio, cioè un
-secondo catalogo da tenere allineato ai moduli.
-
-Finché quel conteggio non è canonico lo sforzo **resta editoriale, ed è
-dichiarato tale**: il referto scrive `sforzo: giorni` e non «3 giorni», e la
-differenza è voluta — un ordine di grandezza è una stima, un numero sembra una
-misura.
-
-- [ ] Decidere se il conteggio delle istanze diventa canonico, e con quale
-      nome. È il prerequisito, non un dettaglio dell'implementazione.
-- [ ] Solo dopo: far scalare lo sforzo col conteggio, e continuare a
-      dichiararlo come stima.
 
 ### R48 — ⚪ LIEVE: del JavaScript resta da verificare il GESTO
 *(l'aritmetica e' uscita di qui il 2026-08-26: vedi [AS-IS.md](AS-IS.md))*

@@ -241,6 +241,12 @@ def _rilievo_audit(voce: dict, totale_pesi: float,
     # sarebbe una pagina diversa da quella misurata.
     if url:
         params["urls"] = [url]
+    # Quante volte il difetto ricorre, dal conteggio VERO degli item —
+    # non da `items`, che e' troncato a MAX_ELEMENTI. Assente quando
+    # Lighthouse non elenca nulla: li' il controllo non «ricorre», e
+    # dichiarare 1 sarebbe inventare un'occorrenza (R46).
+    if voce.get("instances"):
+        params["instances"] = voce["instances"]
     dettaglio, riferimenti = _senza_link_markdown(str(voce["description"]))
     if riferimenti:
         params["references"] = riferimenti
@@ -363,9 +369,9 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
         modo = voce.get("scoreDisplayMode")
         manuale = modo in MODI_NON_MISURATI_VOCE
         dettagli = voce.get("details") or {}
+        grezzi = dettagli.get("items") or []
         elementi = [d for d in
-                    (_descrivi_item(i) for i in
-                     (dettagli.get("items") or [])[:MAX_ELEMENTI]) if d]
+                    (_descrivi_item(i) for i in grezzi[:MAX_ELEMENTI]) if d]
         esito.append({
             "id": ref.get("id"),
             "title": voce.get("title") or ref.get("id"),
@@ -384,6 +390,12 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
             "passed": bool(punteggio) and not manuale,
             "manual": manuale,
             "items": elementi,
+            # Quanti elementi Lighthouse ne ha trovati DAVVERO, prima
+            # del troncamento a MAX_ELEMENTI: `items` e' la vista, il
+            # conteggio e' il dato, ed e' su di lui che scala lo
+            # sforzo (R46). Il troncamento e' una scelta di lettura e
+            # non deve poter cambiare una stima.
+            "instances": len(grezzi),
             # I tre campi che prima si perdevano. `score` e
             # `scoreDisplayMode` vengono dall'audit, `weight` dal ref:
             # sono due sorgenti diverse dentro lo stesso LHR, e il ref

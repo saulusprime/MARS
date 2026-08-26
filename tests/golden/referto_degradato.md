@@ -39,21 +39,21 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +16.18* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
-- [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: giorni · +12 punti d'area · indice +1.62*
+- [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-- [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: giorni · +12 punti d'area · indice +1.62*
+- [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
-- [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: ore · +10 punti d'area · indice +3.26*
+- [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +3.26*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 - [ ] [AVVISO] CSP mancante — *Sicurezza · sforzo: giorni · +15 punti d'area · indice +2.02*
       Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
-- [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
+- [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: minuti · +12 punti d'area · indice +1.62*
       Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
-- [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
+- [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: minuti · +12 punti d'area · indice +1.62*
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 - [ ] [AVVISO] X-Frame-Options mancante — *Sicurezza · sforzo: minuti · +10 punti d'area · indice +1.35*
       Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.
-- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: giorni · +20 punti d'area*
+- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: ore · +20 punti d'area*
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
       Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.

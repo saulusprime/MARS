@@ -12,7 +12,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 import mars_citability
-from mars_core import SEV_CRITICAL, SEV_WARNING
+from mars_core import (SEV_CRITICAL, SEV_WARNING,
+                       istanze_del_rilievo)
 
 # ======================================================================
 # Il piano di interventi (U4 / Fase 4 di UPGRADE.md)
@@ -400,9 +401,56 @@ def _corsia(penalita: Optional[float], guadagno: Optional[int],
     return ("misurato", "")
 
 
+# I tre livelli in ordine crescente, per poterli SCALARE. Non e' una
+# ripetizione della riga sopra: li' sono tre nomi, qui sono una scala.
+_SCALA_SFORZO = (MINUTI, ORE, GIORNI)
+
+# Quante occorrenze spostano lo sforzo di un gradino, e di quanti.
+#
+# `SFORZO` da' il livello della **ricorrenza tipica**; il conteggio lo
+# muove. Una sola immagine senza `alt` si aggiusta e si verifica in
+# mezz'ora, quattrocento sono un lavoro editoriale: avevano la stessa
+# chiave, quindi lo stesso `giorni`, che sul primo era una
+# sopravvalutazione dichiarata in R46.
+#
+# Le soglie sono EDITORIALI, come i livelli che spostano, e restano un
+# ordine di grandezza: il referto scrive `giorni` e non «3 giorni»,
+# perche' un ordine di grandezza e' una stima e un numero sembra una
+# misura. Sono scritte qui e non in sei moduli perche' la scala e' una
+# proprieta' del piano, non dell'area che ha misurato.
+# Soglia -> gradini, crescenti; l'ultima raggiunta vince. La riga
+# `(2, 0)` non e' rumore: senza, «una sola» varrebbe anche per due, e
+# il gradino in meno si applicherebbe a tutto.
+GRADINI_ISTANZE = ((1, -1), (2, 0), (10, +1), (100, +2))
+
+
 def _sforzo(rilievo: dict) -> Optional[str]:
-    """Il livello di sforzo, o None se non lo dichiariamo."""
-    return SFORZO.get(rilievo.get("key") or "")
+    """Il livello di sforzo, o None se non lo dichiariamo.
+
+    Scala col conteggio delle istanze quando il rilievo lo dichiara
+    (R46). Se non lo dichiara resta il livello di base, e non e' un
+    ripiego: l'assenza significa che il difetto **non ricorre** — un
+    robots.txt manca una volta sola — quindi non c'e' nulla su cui
+    scalare.
+
+    Le famiglie dinamiche restano senza sforzo anche con mille
+    occorrenze: un gradino sopra il nulla e' ancora il nulla, e
+    inventare qui un livello che il catalogo non dichiara sarebbe
+    un'assenza travestita da stima.
+    """
+    base = SFORZO.get(rilievo.get("key") or "")
+    if base is None:
+        return None
+    quante = istanze_del_rilievo(rilievo)
+    if quante is None:
+        return base
+    # Le soglie sono crescenti e l'ultima raggiunta vince.
+    passo = 0
+    for soglia, gradini in GRADINI_ISTANZE:
+        if quante >= soglia:
+            passo = gradini
+    indice = _SCALA_SFORZO.index(base) + passo
+    return _SCALA_SFORZO[max(0, min(indice, len(_SCALA_SFORZO) - 1))]
 
 
 def build_remediation(referto: dict) -> List[dict]:

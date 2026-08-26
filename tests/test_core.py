@@ -1570,3 +1570,29 @@ def test_un_link_a_se_stessa_non_e_un_arco():
            '<html><body><a href="/x">io</a><a href="/x#top">io col '
            'frammento</a></body></html>'})
     assert crawler.crawl()["http://esempio.test/x"]["link_targets"] == []
+
+
+# ----------------------------------------------------------------------
+# istanze_del_rilievo (R46)
+# ----------------------------------------------------------------------
+
+def test_istanze_del_rilievo_legge_solo_conteggi_veri():
+    """`instances` viene dai params di un rilievo, che un plugin di
+    terzi puo' scrivere come vuole: e' dato esterno quanto un impact di
+    axe.
+
+    Zero e i negativi non sono conteggi — un difetto che ricorre zero
+    volte non e' un difetto — e `True` in Python **e'** un `int` che
+    vale 1: senza il controllo esplicito, un booleano scritto per
+    sbaglio farebbe scendere di un gradino lo sforzo di quel rilievo.
+    Nessuno dei due si vede da `_sforzo`, perche' li' un conteggio
+    fuori scala si comporta come un conteggio assente."""
+    def istanze(valore):
+        return mars_core.istanze_del_rilievo({"params": {"instances": valore}})
+
+    assert istanze(1) == 1
+    assert istanze(400) == 400
+    for non_conteggio in (0, -3, True, False, 1.5, "molte", None, []):
+        assert istanze(non_conteggio) is None, non_conteggio
+    assert mars_core.istanze_del_rilievo({}) is None
+    assert mars_core.istanze_del_rilievo({"params": None}) is None

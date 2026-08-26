@@ -107,8 +107,9 @@
             "bloccati": [
               "GPTBot"
             ],
-            "n": 1,
             "elenco": "GPTBot",
+            "n": 1,
+            "instances": 1,
             "penalty": 40.0
           }
         },
@@ -124,12 +125,13 @@
           "weight": 1.0,
           "source_severity": "lieve",
           "params": {
-            "pagine": 2,
             "totale": 3,
             "urls": [
               "https://esempio.test/faq/",
               "https://esempio.test/servizi/"
             ],
+            "pagine": 2,
+            "instances": 2,
             "penalty": 3.0
           }
         }
@@ -184,6 +186,7 @@
             "urls": [
               "https://esempio.test/"
             ],
+            "instances": 1,
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
             ],
@@ -214,6 +217,7 @@
             "urls": [
               "https://esempio.test/"
             ],
+            "instances": 1,
             "references": [
               "https://dequeuniversity.com/rules/axe/4.12/document-title"
             ],
@@ -276,6 +280,7 @@
             "urls": [
               "https://esempio.test/"
             ],
+            "instances": 8,
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
             ],
@@ -307,6 +312,7 @@
             "urls": [
               "https://esempio.test/"
             ],
+            "instances": 2,
             "references": [
               "https://dequeuniversity.com/rules/axe/4.12/image-alt"
             ],
@@ -417,6 +423,7 @@
           "items": [
             "X-Robots-Tag: noindex"
           ],
+          "instances": 1,
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 4.043478260869565,
@@ -430,6 +437,7 @@
           "items": [
             "html"
           ],
+          "instances": 1,
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -441,6 +449,7 @@
           "passed": false,
           "manual": false,
           "items": [],
+          "instances": 0,
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -452,6 +461,7 @@
           "passed": true,
           "manual": false,
           "items": [],
+          "instances": 0,
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -469,6 +479,7 @@
             "/p3",
             "/p4"
           ],
+          "instances": 8,
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -480,6 +491,7 @@
           "passed": true,
           "manual": false,
           "items": [],
+          "instances": 0,
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -491,6 +503,7 @@
           "passed": false,
           "manual": true,
           "items": [],
+          "instances": 0,
           "score": null,
           "scoreDisplayMode": "notApplicable",
           "weight": 0.0,
@@ -505,6 +518,7 @@
             "body > img",
             "body > img"
           ],
+          "instances": 2,
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -516,6 +530,7 @@
           "passed": true,
           "manual": false,
           "items": [],
+          "instances": 0,
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
@@ -527,6 +542,7 @@
           "passed": false,
           "manual": true,
           "items": [],
+          "instances": 0,
           "score": null,
           "scoreDisplayMode": "notApplicable",
           "weight": 0.0,
@@ -538,6 +554,7 @@
           "passed": false,
           "manual": true,
           "items": [],
+          "instances": 0,
           "score": null,
           "scoreDisplayMode": "manual",
           "weight": 0.0,
@@ -569,7 +586,6 @@
           "weight": 2.0,
           "source_severity": "grave",
           "params": {
-            "pagine": 3,
             "totale": 3,
             "soglia": 300,
             "media": 96,
@@ -578,6 +594,8 @@
               "https://esempio.test/faq/",
               "https://esempio.test/servizi/"
             ],
+            "pagine": 3,
+            "instances": 3,
             "penalty": 20.0
           }
         },
@@ -593,9 +611,10 @@
           "weight": 2.0,
           "source_severity": "grave",
           "params": {
-            "senza_riscontro": 1,
             "totale": 3,
             "esempi": "parcheggio riservato",
+            "senza_riscontro": 1,
+            "instances": 1,
             "penalty": 20.0
           }
         }
@@ -673,6 +692,7 @@
               "https://esempio.test/servizi/"
             ],
             "n": 1,
+            "instances": 1,
             "penalty": 10.0
           }
         }
@@ -735,6 +755,7 @@
           "params": {
             "rule": "image-alt",
             "nodes": 2,
+            "instances": 2,
             "pages": 1,
             "urls": [
               "https://esempio.test/"
@@ -757,6 +778,7 @@
           "params": {
             "rule": "color-contrast",
             "nodes": 1,
+            "instances": 1,
             "pages": 1,
             "urls": [
               "https://esempio.test/"
@@ -779,6 +801,7 @@
           "params": {
             "rule": "label",
             "nodes": 1,
+            "instances": 1,
             "pages": 1,
             "urls": [
               "https://esempio.test/servizi/"
@@ -799,11 +822,12 @@
           "weight": 2.0,
           "source_severity": "",
           "params": {
-            "immagini": 1,
             "totale": 2,
             "urls": [
               "https://esempio.test/"
             ],
+            "immagini": 1,
+            "instances": 1,
             "criterio": "1.1.1",
             "penalty": 0.0
           }
@@ -820,10 +844,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "salti": 1,
             "urls": [
               "https://esempio.test/servizi/"
             ],
+            "salti": 1,
+            "instances": 1,
             "criterio": "1.3.1",
             "penalty": 0.0
           }
@@ -840,10 +865,11 @@
           "weight": 2.0,
           "source_severity": "",
           "params": {
-            "campi": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "campi": 1,
+            "instances": 1,
             "criterio": "1.3.1/3.3.2",
             "penalty": 0.0
           }
@@ -860,10 +886,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "tabelle": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "tabelle": 1,
+            "instances": 1,
             "criterio": "1.3.1",
             "penalty": 0.0
           }
@@ -880,10 +907,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "link": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "link": 1,
+            "instances": 1,
             "criterio": "2.4.4",
             "penalty": 0.0
           }
@@ -933,6 +961,7 @@
               "https://esempio.test/servizi/"
             ],
             "n": 1,
+            "instances": 1,
             "rule_n": 1,
             "variants": 1,
             "rule_penalty": 27.500000000000004,
@@ -967,6 +996,7 @@
               "https://esempio.test/faq/"
             ],
             "n": 2,
+            "instances": 2,
             "rule_n": 2,
             "variants": 2,
             "rule_penalty": 12.0,
@@ -997,6 +1027,7 @@
               "https://esempio.test/"
             ],
             "n": 1,
+            "instances": 1,
             "rule_n": 2,
             "variants": 2,
             "rule_penalty": 12.0,
@@ -1027,6 +1058,7 @@
               "https://esempio.test/"
             ],
             "n": 1,
+            "instances": 1,
             "rule_n": 1,
             "variants": 1,
             "rule_penalty": 3.3000000000000003,
@@ -1454,8 +1486,9 @@
         "bloccati": [
           "GPTBot"
         ],
-        "n": 1,
         "elenco": "GPTBot",
+        "n": 1,
+        "instances": 1,
         "penalty": 40.0
       },
       "penalty": 40.0,
@@ -1500,6 +1533,7 @@
         "urls": [
           "https://esempio.test/"
         ],
+        "instances": 1,
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
         ],
@@ -1537,6 +1571,7 @@
       "params": {
         "rule": "image-alt",
         "nodes": 2,
+        "instances": 2,
         "pages": 1,
         "urls": [
           "https://esempio.test/"
@@ -1583,6 +1618,7 @@
           "https://esempio.test/servizi/"
         ],
         "n": 1,
+        "instances": 1,
         "rule_n": 1,
         "variants": 1,
         "rule_penalty": 27.500000000000004,
@@ -1624,10 +1660,11 @@
       "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
       "doc_url": "",
       "params": {
-        "campi": 1,
         "urls": [
           "https://esempio.test/"
         ],
+        "campi": 1,
+        "instances": 1,
         "criterio": "1.3.1/3.3.2",
         "penalty": 0.0
       },
@@ -1638,7 +1675,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "nullo",
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
@@ -1656,11 +1693,12 @@
       "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
       "doc_url": "",
       "params": {
-        "immagini": 1,
         "totale": 2,
         "urls": [
           "https://esempio.test/"
         ],
+        "immagini": 1,
+        "instances": 1,
         "criterio": "1.1.1",
         "penalty": 0.0
       },
@@ -1671,7 +1709,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "nullo",
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
@@ -1691,6 +1729,7 @@
       "params": {
         "rule": "color-contrast",
         "nodes": 1,
+        "instances": 1,
         "pages": 1,
         "urls": [
           "https://esempio.test/"
@@ -1732,6 +1771,7 @@
           "https://esempio.test/servizi/"
         ],
         "n": 1,
+        "instances": 1,
         "penalty": 10.0
       },
       "penalty": 10.0,
@@ -1746,7 +1786,7 @@
         "Kimi": 1.43
       },
       "market": "eu",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1776,6 +1816,7 @@
         "urls": [
           "https://esempio.test/"
         ],
+        "instances": 1,
         "references": [
           "https://dequeuniversity.com/rules/axe/4.12/document-title"
         ],
@@ -1824,6 +1865,7 @@
         "urls": [
           "https://esempio.test/"
         ],
+        "instances": 2,
         "references": [
           "https://dequeuniversity.com/rules/axe/4.12/image-alt"
         ],
@@ -1875,6 +1917,7 @@
         "urls": [
           "https://esempio.test/"
         ],
+        "instances": 8,
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
         ],
@@ -1957,6 +2000,7 @@
       "params": {
         "rule": "label",
         "nodes": 1,
+        "instances": 1,
         "pages": 1,
         "urls": [
           "https://esempio.test/servizi/"
@@ -2004,6 +2048,7 @@
           "https://esempio.test/faq/"
         ],
         "n": 2,
+        "instances": 2,
         "rule_n": 2,
         "variants": 2,
         "rule_penalty": 12.0,
@@ -2051,6 +2096,7 @@
           "https://esempio.test/"
         ],
         "n": 1,
+        "instances": 1,
         "rule_n": 2,
         "variants": 2,
         "rule_penalty": 12.0,
@@ -2089,9 +2135,10 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "senza_riscontro": 1,
         "totale": 3,
         "esempi": "parcheggio riservato",
+        "senza_riscontro": 1,
+        "instances": 1,
         "penalty": 20.0
       },
       "penalty": 20.0,
@@ -2101,7 +2148,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -2119,7 +2166,6 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "pagine": 3,
         "totale": 3,
         "soglia": 300,
         "media": 96,
@@ -2128,6 +2174,8 @@
           "https://esempio.test/faq/",
           "https://esempio.test/servizi/"
         ],
+        "pagine": 3,
+        "instances": 3,
         "penalty": 20.0
       },
       "penalty": 20.0,
@@ -2185,10 +2233,11 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "salti": 1,
         "urls": [
           "https://esempio.test/servizi/"
         ],
+        "salti": 1,
+        "instances": 1,
         "criterio": "1.3.1",
         "penalty": 0.0
       },
@@ -2199,7 +2248,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "nullo",
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
@@ -2217,10 +2266,11 @@
       "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
       "doc_url": "",
       "params": {
-        "tabelle": 1,
         "urls": [
           "https://esempio.test/"
         ],
+        "tabelle": 1,
+        "instances": 1,
         "criterio": "1.3.1",
         "penalty": 0.0
       },
@@ -2231,7 +2281,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "nullo",
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
@@ -2319,6 +2369,7 @@
           "urls": [
             "https://esempio.test/"
           ],
+          "instances": 1,
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
           ],
@@ -2343,6 +2394,7 @@
           "urls": [
             "https://esempio.test/"
           ],
+          "instances": 1,
           "references": [
             "https://dequeuniversity.com/rules/axe/4.12/document-title"
           ],
@@ -2393,6 +2445,7 @@
           "urls": [
             "https://esempio.test/"
           ],
+          "instances": 8,
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
           ],
@@ -2418,6 +2471,7 @@
           "urls": [
             "https://esempio.test/"
           ],
+          "instances": 2,
           "references": [
             "https://dequeuniversity.com/rules/axe/4.12/image-alt"
           ],
@@ -2430,7 +2484,6 @@
         "title": "3/3 pagine sotto le 300 parole",
         "severity": "warning",
         "params": {
-          "pagine": 3,
           "totale": 3,
           "soglia": 300,
           "media": 96,
@@ -2439,6 +2492,8 @@
             "https://esempio.test/faq/",
             "https://esempio.test/servizi/"
           ],
+          "pagine": 3,
+          "instances": 3,
           "penalty": 20.0
         }
       },
@@ -2448,9 +2503,10 @@
         "title": "1/3 query senza un riscontro lessicale",
         "severity": "warning",
         "params": {
-          "senza_riscontro": 1,
           "totale": 3,
           "esempi": "parcheggio riservato",
+          "senza_riscontro": 1,
+          "instances": 1,
           "penalty": 20.0
         }
       },
@@ -2476,6 +2532,7 @@
             "https://esempio.test/servizi/"
           ],
           "n": 1,
+          "instances": 1,
           "penalty": 10.0
         }
       },
@@ -2487,6 +2544,7 @@
         "params": {
           "rule": "image-alt",
           "nodes": 2,
+          "instances": 2,
           "pages": 1,
           "urls": [
             "https://esempio.test/"
@@ -2503,6 +2561,7 @@
         "params": {
           "rule": "color-contrast",
           "nodes": 1,
+          "instances": 1,
           "pages": 1,
           "urls": [
             "https://esempio.test/"
@@ -2519,6 +2578,7 @@
         "params": {
           "rule": "label",
           "nodes": 1,
+          "instances": 1,
           "pages": 1,
           "urls": [
             "https://esempio.test/servizi/"
@@ -2533,11 +2593,12 @@
         "title": "1/2 immagini prive di testo alternativo",
         "severity": "critical",
         "params": {
-          "immagini": 1,
           "totale": 2,
           "urls": [
             "https://esempio.test/"
           ],
+          "immagini": 1,
+          "instances": 1,
           "criterio": "1.1.1",
           "penalty": 0.0
         }
@@ -2548,10 +2609,11 @@
         "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
         "severity": "warning",
         "params": {
-          "salti": 1,
           "urls": [
             "https://esempio.test/servizi/"
           ],
+          "salti": 1,
+          "instances": 1,
           "criterio": "1.3.1",
           "penalty": 0.0
         }
@@ -2562,10 +2624,11 @@
         "title": "1 campi di modulo senza etichetta",
         "severity": "critical",
         "params": {
-          "campi": 1,
           "urls": [
             "https://esempio.test/"
           ],
+          "campi": 1,
+          "instances": 1,
           "criterio": "1.3.1/3.3.2",
           "penalty": 0.0
         }
@@ -2576,10 +2639,11 @@
         "title": "1 tabelle dati senza intestazioni <th>",
         "severity": "warning",
         "params": {
-          "tabelle": 1,
           "urls": [
             "https://esempio.test/"
           ],
+          "tabelle": 1,
+          "instances": 1,
           "criterio": "1.3.1",
           "penalty": 0.0
         }
@@ -2599,6 +2663,7 @@
             "https://esempio.test/servizi/"
           ],
           "n": 1,
+          "instances": 1,
           "rule_n": 1,
           "variants": 1,
           "rule_penalty": 27.500000000000004,
@@ -2627,6 +2692,7 @@
             "https://esempio.test/faq/"
           ],
           "n": 2,
+          "instances": 2,
           "rule_n": 2,
           "variants": 2,
           "rule_penalty": 12.0,
@@ -2651,6 +2717,7 @@
             "https://esempio.test/"
           ],
           "n": 1,
+          "instances": 1,
           "rule_n": 2,
           "variants": 2,
           "rule_penalty": 12.0,

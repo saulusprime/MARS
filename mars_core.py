@@ -485,6 +485,31 @@ class Finding:
         return asdict(self)
 
 
+def istanze_del_rilievo(rilievo: Dict[str, object]) -> Optional[int]:
+    """Quante volte il difetto ricorre, da `params["instances"]`.
+
+    Unico lettore della convenzione, accanto a chi la documenta, per la
+    stessa ragione di `pagine_del_rilievo`: due letture separate
+    divergerebbero in silenzio il giorno che un modulo scrivesse il
+    conteggio in un altro modo.
+
+    Il conteggio esiste gia' in ogni area, ma con un nome diverso
+    ciascuna — `immagini`, `campi`, `pagine`, `nodes`, `n` — scelto da
+    chi ha scritto il modulo: quei nomi restano, perche' li usano i
+    template di traduzione, e `instances` e' il nome CANONICO che li
+    accompagna (R46).
+
+    `None` quando il rilievo non lo dichiara, e l'assenza e' un
+    significato: il difetto non ricorre — un robots.txt manca una volta
+    sola — e chi scala qualcosa sul conteggio deve lasciare quel
+    rilievo dov'era invece di trattarlo come una singola occorrenza.
+    """
+    valore = (rilievo.get("params") or {}).get("instances")
+    if isinstance(valore, bool) or not isinstance(valore, int):
+        return None
+    return valore if valore >= 1 else None
+
+
 def pagine_del_rilievo(rilievo: Dict[str, object]) -> List[str]:
     """Le pagine che un rilievo dichiara, da `params["urls"]`.
 

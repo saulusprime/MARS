@@ -33,7 +33,7 @@ PENALITA = {"missing": 50, "malformed": 10, "empty": 5}
 
 
 def _rilievo(caso: str, testo: str, chiave: str, quante: int = 1,
-             **params: object) -> Finding:
+             ricorre: bool = True, **params: object) -> Finding:
     """Un rilievo dell'area, aggregato per CONTROLLO.
 
     Un controllo emette un solo Finding anche quando i blocchi difettosi
@@ -48,10 +48,15 @@ def _rilievo(caso: str, testo: str, chiave: str, quante: int = 1,
     significherebbe attribuire al modulo una scala che non pubblica.
     """
     severita, peso = normalizza_severita("mars", GRAVITA[caso])
+    # `instances` accanto a `n`, che resta perche' i template di
+    # traduzione lo usano (R46). `ricorre=False` lo omette, e l'assenza
+    # e' un significato: «nessun JSON-LD sul sito» e' un fatto unico,
+    # non un difetto che capita una volta.
+    canonico = {"instances": quante} if ricorre else {}
     return Finding(
         area="mars_schema", severity=severita, weight=peso,
         title=testo, key=chiave,
-        params=dict(params, n=quante,
+        params=dict(params, n=quante, **canonico,
                     penalty=float(PENALITA[caso] * quante)))
 
 
@@ -104,7 +109,7 @@ def audit(context: dict) -> dict:
         score -= PENALITA["missing"]
         rilievi.append(_rilievo(
             "missing", "Nessun JSON-LD / Schema.org trovato",
-            "sd.jsonld.missing", pagine=len(pages)))
+            "sd.jsonld.missing", ricorre=False, pagine=len(pages)))
     if malformati:
         rilievi.append(_rilievo(
             "malformed", "%d blocchi JSON-LD malformati" % len(malformati),

@@ -10,7 +10,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, LexicalRetriever, describe_chunk,
                        normalizza_severita, reciprocal_rank_fusion, tokenize)
@@ -41,6 +41,7 @@ PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
 
 
 def _rilievo(gravita: str, testo: str, chiave: str,
+             istanze: Optional[Tuple[str, int]] = None,
              **params: object) -> Finding:
     """Imbuto unico dei rilievi dell'area.
 
@@ -49,6 +50,10 @@ def _rilievo(gravita: str, testo: str, chiave: str,
     scala canonica collassa "grave" e "medio" entrambe in `warning`, e
     chi conosce la scala di MARS perderebbe la differenza.
     """
+    if istanze is not None:
+        nome, quante = istanze
+        params[nome] = quante
+        params["instances"] = quante
     severita, peso = normalizza_severita("mars", gravita)
     return Finding(
         area="mars_lexical", severity=severita, weight=peso,
@@ -68,7 +73,8 @@ def controlla_lunghezza(pages: dict) -> List[Finding]:
         "grave",
         "%d/%d pagine sotto le %d parole" % (len(sottili), len(parole),
                                              SOGLIA_PAROLE),
-        "lex.words.thin", pagine=len(sottili), totale=len(parole),
+        "lex.words.thin", istanze=("pagine", len(sottili)),
+        totale=len(parole),
         soglia=SOGLIA_PAROLE,
         media=sum(parole.values()) // len(parole),
         urls=sottili)]
@@ -95,8 +101,8 @@ def controlla_titoli(pages: dict) -> List[Finding]:
     return [_rilievo(
         "medio",
         "%d/%d pagine con un <title> ripetuto" % (len(coinvolte), len(pages)),
-        "lex.title.dup", titoli=len(ripetuti), pagine=len(coinvolte),
-        totale=len(pages),
+        "lex.title.dup", titoli=len(ripetuti),
+        istanze=("pagine", len(coinvolte)), totale=len(pages),
         esempi=" | ".join(sorted(ripetuti)[:3]),
         urls=coinvolte)]
 
@@ -117,7 +123,7 @@ def controlla_query(per_query: List[dict]) -> List[Finding]:
         "grave",
         "%d/%d query senza un riscontro lessicale" % (len(vuote),
                                                       len(per_query)),
-        "lex.query.no_match", senza_riscontro=len(vuote),
+        "lex.query.no_match", istanze=("senza_riscontro", len(vuote)),
         totale=len(per_query), esempi=" | ".join(vuote[:3]))]
 
 

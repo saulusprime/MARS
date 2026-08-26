@@ -102,8 +102,9 @@
             "bloccati": [
               "GPTBot"
             ],
-            "n": 1,
             "elenco": "GPTBot",
+            "n": 1,
+            "instances": 1,
             "penalty": 40.0
           }
         },
@@ -119,12 +120,13 @@
           "weight": 1.0,
           "source_severity": "lieve",
           "params": {
-            "pagine": 2,
             "totale": 3,
             "urls": [
               "https://esempio.test/faq/",
               "https://esempio.test/servizi/"
             ],
+            "pagine": 2,
+            "instances": 2,
             "penalty": 3.0
           }
         }
@@ -196,7 +198,6 @@
           "weight": 2.0,
           "source_severity": "grave",
           "params": {
-            "pagine": 3,
             "totale": 3,
             "soglia": 300,
             "media": 96,
@@ -205,6 +206,8 @@
               "https://esempio.test/faq/",
               "https://esempio.test/servizi/"
             ],
+            "pagine": 3,
+            "instances": 3,
             "penalty": 20.0
           }
         },
@@ -220,9 +223,10 @@
           "weight": 2.0,
           "source_severity": "grave",
           "params": {
-            "senza_riscontro": 1,
             "totale": 3,
             "esempi": "parcheggio riservato",
+            "senza_riscontro": 1,
+            "instances": 1,
             "penalty": 20.0
           }
         }
@@ -295,6 +299,7 @@
               "https://esempio.test/servizi/"
             ],
             "n": 1,
+            "instances": 1,
             "penalty": 10.0
           }
         }
@@ -334,11 +339,12 @@
           "weight": 2.0,
           "source_severity": "",
           "params": {
-            "immagini": 1,
             "totale": 2,
             "urls": [
               "https://esempio.test/"
             ],
+            "immagini": 1,
+            "instances": 1,
             "criterio": "1.1.1",
             "penalty": 12.0,
             "surface": true
@@ -356,10 +362,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "salti": 1,
             "urls": [
               "https://esempio.test/servizi/"
             ],
+            "salti": 1,
+            "instances": 1,
             "criterio": "1.3.1",
             "penalty": 12.0,
             "surface": true
@@ -377,10 +384,11 @@
           "weight": 2.0,
           "source_severity": "",
           "params": {
-            "campi": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "campi": 1,
+            "instances": 1,
             "criterio": "1.3.1/3.3.2",
             "penalty": 12.0,
             "surface": true
@@ -398,10 +406,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "tabelle": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "tabelle": 1,
+            "instances": 1,
             "criterio": "1.3.1",
             "penalty": 12.0,
             "surface": true
@@ -419,10 +428,11 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "link": 1,
             "urls": [
               "https://esempio.test/"
             ],
+            "link": 1,
+            "instances": 1,
             "criterio": "2.4.4",
             "penalty": 12.0,
             "surface": true
@@ -928,8 +938,9 @@
         "bloccati": [
           "GPTBot"
         ],
-        "n": 1,
         "elenco": "GPTBot",
+        "n": 1,
+        "instances": 1,
         "penalty": 40.0
       },
       "penalty": 40.0,
@@ -962,10 +973,11 @@
       "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
       "doc_url": "",
       "params": {
-        "campi": 1,
         "urls": [
           "https://esempio.test/"
         ],
+        "campi": 1,
+        "instances": 1,
         "criterio": "1.3.1/3.3.2",
         "penalty": 12.0,
         "surface": true
@@ -982,7 +994,7 @@
         "Kimi": 1.71
       },
       "market": "global",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1000,11 +1012,12 @@
       "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
       "doc_url": "",
       "params": {
-        "immagini": 1,
         "totale": 2,
         "urls": [
           "https://esempio.test/"
         ],
+        "immagini": 1,
+        "instances": 1,
         "criterio": "1.1.1",
         "penalty": 12.0,
         "surface": true
@@ -1021,7 +1034,7 @@
         "Kimi": 1.71
       },
       "market": "global",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1043,6 +1056,7 @@
           "https://esempio.test/servizi/"
         ],
         "n": 1,
+        "instances": 1,
         "penalty": 10.0
       },
       "penalty": 10.0,
@@ -1057,7 +1071,7 @@
         "Kimi": 2.86
       },
       "market": "global",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1112,10 +1126,11 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "salti": 1,
         "urls": [
           "https://esempio.test/servizi/"
         ],
+        "salti": 1,
+        "instances": 1,
         "criterio": "1.3.1",
         "penalty": 12.0,
         "surface": true
@@ -1132,7 +1147,7 @@
         "Kimi": 1.71
       },
       "market": "global",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1150,10 +1165,11 @@
       "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
       "doc_url": "",
       "params": {
-        "tabelle": 1,
         "urls": [
           "https://esempio.test/"
         ],
+        "tabelle": 1,
+        "instances": 1,
         "criterio": "1.3.1",
         "penalty": 12.0,
         "surface": true
@@ -1170,7 +1186,7 @@
         "Kimi": 1.71
       },
       "market": "global",
-      "effort": "ore",
+      "effort": "minuti",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1225,9 +1241,10 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "senza_riscontro": 1,
         "totale": 3,
         "esempi": "parcheggio riservato",
+        "senza_riscontro": 1,
+        "instances": 1,
         "penalty": 20.0
       },
       "penalty": 20.0,
@@ -1237,7 +1254,7 @@
       "index_gain": null,
       "profile_gains": null,
       "market": "global",
-      "effort": "giorni",
+      "effort": "ore",
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -1255,7 +1272,6 @@
       "example": "",
       "doc_url": "",
       "params": {
-        "pagine": 3,
         "totale": 3,
         "soglia": 300,
         "media": 96,
@@ -1264,6 +1280,8 @@
           "https://esempio.test/faq/",
           "https://esempio.test/servizi/"
         ],
+        "pagine": 3,
+        "instances": 3,
         "penalty": 20.0
       },
       "penalty": 20.0,

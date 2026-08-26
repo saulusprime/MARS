@@ -86,8 +86,21 @@ STATICI = {
 PENALITA_STATICA = 12
 
 
-def _statico(chiave: str, testo: str, **params: object) -> Finding:
-    """Un rilievo statico come dato, con il suo criterio WCAG."""
+def _statico(chiave: str, testo: str,
+             istanze: Optional[Tuple[str, int]] = None,
+             **params: object) -> Finding:
+    """Un rilievo statico come dato, con il suo criterio WCAG.
+
+    `istanze` e' una COPPIA `(nome parlante, conteggio)`: il nome
+    parlante resta nei params, perche' i template di traduzione lo
+    usano, e lo stesso numero finisce in `instances`, il nome canonico
+    che il piano di interventi legge (R46). Il numero si scrive UNA
+    volta sola.
+    """
+    if istanze is not None:
+        nome, quante = istanze
+        params[nome] = quante
+        params["instances"] = quante
     gravita, criterio = STATICI[chiave]
     severita, peso = normalizza_severita("mars", gravita)
     return Finding(area="mars_wcag", severity=severita, weight=peso,
@@ -143,7 +156,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
             "wcag.lang.missing",
             "%d pagine su %d senza attributo 'lang'"
             % (len(senza_lang), len(pages)),
-            pagine=len(senza_lang), totale=len(pages),
+            istanze=("pagine", len(senza_lang)), totale=len(pages),
             urls=sorted(senza_lang)))
 
     totale_img = mancanti = 0
@@ -166,7 +179,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
             "wcag.img.alt_missing",
             "%d/%d immagini prive di testo alternativo"
             % (mancanti, totale_img),
-            immagini=mancanti, totale=totale_img,
+            istanze=("immagini", mancanti), totale=totale_img,
             urls=dove.get("wcag.img.alt_missing") or []))
 
     salti = 0
@@ -220,31 +233,32 @@ def controlli_statici(pages: dict) -> List[Finding]:
         rilievi.append(_statico(
             "wcag.heading.skip",
             "%d salti nella gerarchia degli heading (es. h2 seguito da h4)"
-            % salti, salti=salti,
+            % salti, istanze=("salti", salti),
             urls=dove.get("wcag.heading.skip") or []))
     if input_senza_etichetta:
         rilievi.append(_statico(
             "wcag.form.label_missing",
             "%d campi di modulo senza etichetta" % input_senza_etichetta,
-            campi=input_senza_etichetta,
+            istanze=("campi", input_senza_etichetta),
             urls=dove.get("wcag.form.label_missing") or []))
     if tabelle_senza_th:
         rilievi.append(_statico(
             "wcag.table.th_missing",
             "%d tabelle dati senza intestazioni <th>" % tabelle_senza_th,
-            tabelle=tabelle_senza_th,
+            istanze=("tabelle", tabelle_senza_th),
             urls=dove.get("wcag.table.th_missing") or []))
     if link_generici:
         rilievi.append(_statico(
             "wcag.link.generic",
             "%d link con testo generico (\"clicca qui\", \"leggi tutto\")"
-            % link_generici, link=link_generici,
+            % link_generici, istanze=("link", link_generici),
             urls=dove.get("wcag.link.generic") or []))
     if tabindex_positivi:
         rilievi.append(_statico(
             "wcag.tabindex.positive",
             "%d elementi con tabindex positivo: alterano l'ordine di "
-            "navigazione" % tabindex_positivi, elementi=tabindex_positivi,
+            "navigazione" % tabindex_positivi,
+            istanze=("elementi", tabindex_positivi),
             urls=dove.get("wcag.tabindex.positive") or []))
     return rilievi
 
@@ -444,6 +458,10 @@ def score_from_violations(violations: List[dict],
             source_severity=("axe:%s" % voce["impact"]
                              if voce["impact_dichiarato"] else ""),
             params={"rule": voce["id"], "nodes": voce["nodes"],
+                    # Il conteggio canonico e' quello dei NODI e non
+                    # delle pagine: sono gli elementi da correggere, ed
+                    # e' la grandezza su cui scala lo sforzo (R46).
+                    "instances": voce["nodes"],
                     "pages": voce["pages"], "urls": list(voce["urls"]),
                     "penalty": voce["penalty"],
                     # Per REGOLA e non per area: un locale copre quasi

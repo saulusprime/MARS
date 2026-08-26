@@ -74,7 +74,7 @@ PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
   4. [CRITICO · Sicurezza · sforzo non dichiarato] Cross Site Scripting (Reflected)
      +28 punti d'area (57 → 85) · indice +1.76
      Convalida l'input e codifica l'output.
-  5. [CRITICO · Accessibilità · giorni] 1 campi di modulo senza etichetta
+  5. [CRITICO · Accessibilità · ore] 1 campi di modulo senza etichetta
      in questa esecuzione il controllo non entra nel punteggio dell'area
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
   · ... e altri 15 interventi (per intero nel JSON e nell'HTML)

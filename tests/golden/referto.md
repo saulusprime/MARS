@@ -86,13 +86,13 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
 - [ ] **[CRITICO]** Cross Site Scripting (Reflected) — *Sicurezza · sforzo: non dichiarato · +28 punti d'area · indice +1.76*
       Convalida l'input e codifica l'output.
-- [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: giorni*
+- [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: ore*
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-- [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: giorni*
+- [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: ore*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 - [ ] [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore — *Accessibilità · sforzo: non dichiarato · +18 punti d'area · indice +2.26*
       Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
-- [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: ore · +10 punti d'area · indice +1.58*
+- [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +1.58*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 - [ ] [AVVISO] Il documento non ha un elemento `<title>` — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
 - [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
@@ -104,15 +104,15 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Configura il server per impostare l'header CSP.
 - [ ] [AVVISO] CSP: Wildcard Directive — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Sostituisci il carattere jolly con le origini che servono davvero.
-- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: giorni · +20 punti d'area*
+- [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: ore · +20 punti d'area*
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
       Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
 - [ ] [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi — *Semantica · sforzo: giorni · +8 punti d'area*
       Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
-- [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: ore*
+- [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: minuti*
       Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
-- [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: ore*
+- [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: minuti*
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 
 ## Rilievi per area

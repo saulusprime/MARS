@@ -679,3 +679,66 @@ def test_il_riepilogo_non_pubblica_un_totale_dei_guadagni():
 def test_un_referto_senza_aree_da_un_piano_vuoto():
     assert rem.build_remediation({}) == []
     assert rem.riepilogo([], {})["total"] == 0
+
+
+# ----------------------------------------------------------------------
+# R46: lo sforzo scala col conteggio delle istanze
+# ----------------------------------------------------------------------
+
+def _voce_con(chiave, istanze=None, severita=SEV_CRITICAL):
+    params = {"penalty": 10.0}
+    if istanze is not None:
+        params["instances"] = istanze
+    return {"key": chiave, "severity": severita, "title": "T",
+            "params": params}
+
+
+@pytest.mark.parametrize("istanze, atteso", [
+    (1, rem.ORE),         # una sola immagine: si fa e si verifica subito
+    (2, rem.GIORNI),      # la ricorrenza tipica, cioe' la mappa com'e'
+    (9, rem.GIORNI),
+    (10, rem.GIORNI),     # gia' al tetto: non si sale oltre
+    (400, rem.GIORNI),
+    (None, rem.GIORNI),   # non dichiarato: lo sforzo di base
+])
+def test_lo_sforzo_scala_col_conteggio(istanze, atteso):
+    """R46: «1 immagine senza alt» e «400 immagini senza alt» avevano la
+    stessa chiave, quindi lo stesso sforzo — `giorni` in entrambi i
+    casi, che sul primo e' una sopravvalutazione.
+
+    La mappa `SFORZO` resta il livello della **ricorrenza tipica**, e il
+    conteggio lo muove di un gradino per volta. Resta una stima
+    dichiarata: il referto scrive `giorni`, non «3 giorni», e la
+    differenza e' voluta — un ordine di grandezza e' una stima, un
+    numero sembra una misura."""
+    assert rem._sforzo(_voce_con("wcag.img.alt_missing", istanze)) == atteso
+
+
+@pytest.mark.parametrize("istanze, atteso", [
+    (1, rem.MINUTI),
+    (3, rem.ORE),
+    (30, rem.GIORNI),
+    (300, rem.GIORNI),    # due gradini sopra ORE si ferma a GIORNI
+])
+def test_lo_sforzo_sale_e_scende_dal_livello_di_base(istanze, atteso):
+    """Il gradino si conta dal livello della chiave, non da zero:
+    `tech.canonical.missing` parte da ORE, `wcag.img.alt_missing` da
+    GIORNI, e lo stesso conteggio li muove in modo diverso."""
+    assert rem._sforzo(_voce_con("tech.canonical.missing", istanze)) == atteso
+
+
+def test_una_chiave_senza_sforzo_di_base_resta_senza():
+    """Le famiglie dinamiche — axe, ZAP, Lighthouse — non hanno uno
+    sforzo dichiarato, e il conteggio non puo' inventarne uno: un
+    gradino sopra il nulla e' ancora il nulla."""
+    assert rem._sforzo(_voce_con("wcag.axe.image_alt", 400)) is None
+
+
+def test_un_conteggio_assurdo_non_sposta_lo_sforzo():
+    """`instances` viene dai params di un rilievo, che un plugin di
+    terzi puo' scrivere come vuole: zero, negativo o non intero non
+    sono conteggi, e `istanze_del_rilievo` li rende None."""
+    for assurdo in (0, -3, "molte", None, True):
+        voce = _voce_con("wcag.img.alt_missing")
+        voce["params"]["instances"] = assurdo
+        assert rem._sforzo(voce) == rem.GIORNI, assurdo

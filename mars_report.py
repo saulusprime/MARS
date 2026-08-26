@@ -1524,20 +1524,59 @@ def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     return "\n".join(righe)
 
 
-def _favicon_data_uri() -> str:
-    """favicon.ico incorporata come data URI.
+#: Firma dei formati che l'icona puo' avere -> tipo MIME. Si guardano i
+#: BYTE e non l'estensione, ed e' R43: il file si chiama `favicon.ico`
+#: ma `file(1)` dice «PNG image data, 32 x 32», mentre il referto lo
+#: dichiarava `image/x-icon`. I browser lo digeriscono, ma la
+#: dichiarazione era falsa — e cablare `image/png` al suo posto
+#: sposterebbe soltanto la bugia al giorno in cui l'icona cambia.
+FIRME_ICONA = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\x00\x00\x01\x00", "image/x-icon"),
+    (b"GIF8", "image/gif"),
+    (b"<svg", "image/svg+xml"),
+    (b"<?xml", "image/svg+xml"),
+)
 
-    Si usa il .ico (2,8 KB) e non il .png (344 KB): il referto deve
+#: Quando i byte non dicono nulla. Un data URI senza tipo vale
+#: `text/plain`, che nessun browser disegnerebbe: meglio dichiarare
+#: un'immagine generica e lasciar decidere a lui.
+MIME_ICONA_IGNOTO = "application/octet-stream"
+
+
+def tipo_icona(dati: bytes) -> str:
+    """Il MIME dell'icona, letto dai suoi byte.
+
+    Funzione pura: si prova senza toccare il filesystem.
+    """
+    for firma, mime in FIRME_ICONA:
+        if dati.startswith(firma):
+            return mime
+    return MIME_ICONA_IGNOTO
+
+
+def _favicon_data_uri() -> str:
+    """L'icona del referto incorporata come data URI.
+
+    Si usa il file da 2,8 KB e non il PNG da 344 KB: il referto deve
     restare un file solo, ma non a costo di mezzo megabyte di icona.
+
+    Il tipo si legge dai byte (`tipo_icona`), non dall'estensione.
+
+    Stringa vuota se il file non c'e' o non si legge — e a differenza di
+    prima **chi rende lo dichiara**: il degrado era silenzioso, e su un
+    checkout parziale il referto perdeva l'icona senza che nessuno lo
+    sapesse (R43).
     """
     percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             FAVICON)
     try:
         with open(percorso, "rb") as handle:
-            dati = base64.b64encode(handle.read()).decode("ascii")
-        return "data:image/x-icon;base64,%s" % dati
+            grezzi = handle.read()
     except OSError:
         return ""
+    return "data:%s;base64,%s" % (tipo_icona(grezzi),
+                                  base64.b64encode(grezzi).decode("ascii"))
 
 
 def _e(valore: object) -> str:
@@ -3130,6 +3169,16 @@ def render_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     for nota in _nota_lingua(referto, lang):
         if nota:
             p.append("<p class='disclaimer'>%s</p>" % _e(nota))
+    if not icona:
+        # Il degrado non e' piu' silenzioso (R43). Compare SOLO quando
+        # succede — un checkout parziale, un file illeggibile — quindi
+        # un referto sano non guadagna una riga di rumore. E' la stessa
+        # regola di `wcag.status.no_fixes`: si dichiara la degradazione
+        # dove costa qualcosa, non ovunque per simmetria.
+        p.append("<p class='disclaimer'>%s</p>"
+                 % _e(t("Icona non incorporata: il file non è stato "
+                        "letto. Il referto resta valido e "
+                        "autoconsistente.", lang)))
 
     # Le ancore si calcolano UNA volta e si passano a chi le usa: la
     # scheda che le emette, il piano e il riquadro in testa che le

@@ -51,7 +51,11 @@ VERSIONE = "0.0.0"
 # diventerebbe illeggibile. Si sostituisce col digest, che cambia se
 # cambia l'icona e sparisce se l'icona sparisce: il fatto resta
 # rilevato, la riga resta leggibile.
-_ICONA = re.compile(r"data:image/x-icon;base64,[A-Za-z0-9+/=]+")
+# Il tipo NON e' cablato: da R43 lo legge `tipo_icona` dai byte del file,
+# e cablarlo qui riporterebbe nel banco di prova la stessa bugia che la
+# voce ha tolto dal referto — il golden congelerebbe `x-icon` e un
+# cambio d'icona lo farebbe passare inosservato invece che rilevare.
+_ICONA = re.compile(r"data:[a-z+/-]+;base64,[A-Za-z0-9+/=]+")
 
 # `render_html` e' un "".join(): tutto cio' che segue </style> e' una
 # riga sola da 13 KB. Si spezza fra un tag e l'altro PRIMA di scrivere
@@ -487,7 +491,7 @@ def _rendi(nome: str, monkeypatch) -> dict:
     referto["generated_at"] = GENERATED_AT
     referto["version"] = VERSIONE
     return {formato: LEGGIBILI.get(formato, lambda t: t)(
-        _ICONA.sub("data:image/x-icon;base64,DIGEST", render(referto)))
+        _ICONA.sub("data:ICONA;base64,DIGEST", render(referto)))
         for formato, render in RENDERERS.items()}
 
 

@@ -78,6 +78,7 @@
 | R30 | `VectorRetriever` moriva sul corpus vuoto, in un ramo su due | 2026-08-26 |
 | R31 | Un file di query vuoto era un successo muto; il rifiuto LLM non aveva un ramo | 2026-08-26 |
 | R29 | Un audit bloccava l'API per tutti gli altri client | 2026-08-26 |
+| R43 | La favicon dichiarava un MIME che non era il suo, e spariva in silenzio | 2026-08-26 |
 | C13 | File di progetto: git, CLAUDE.md, CONTRIBUTING, CoC | 2026-08-19 |
 | C1+C7 | Profili di citabilità IA; riuso dei risultati fra moduli | 2026-08-19 |
 | C2 | Giudizio LLM sulla citabilità (`mars_llm_judge.py`) | 2026-08-19 |
@@ -2495,6 +2496,41 @@ quindi senza il secondo test, quello che verifica che il ramo reale funzioni
 ancora *con* documenti, l'infedeltà sarebbe restata invisibile. Il finto imita
 ora la forma che il codice usa (`[0]` e poi `.tolist()`) invece di importare
 numpy, che non è una dipendenza della suite.
+
+### R43 — ✅ RISOLTO (2026-08-26): due cose che U2 aveva visto e non corretto
+**Il primo difetto: l'icona dichiarava un MIME che non era il suo.** Il file si
+chiama `favicon.ico`, ma `file(1)` dice «PNG image data, 32 x 32» — verificato
+anche sui byte, che cominciano con `89 50 4e 47` — mentre il referto lo
+incorporava come `data:image/x-icon`. I browser lo digeriscono, ma la
+dichiarazione era falsa, e in un progetto che misura l'onestà dei referti altrui
+è un difetto a casa propria.
+
+**Non si è cablato `image/png`**, che avrebbe soltanto spostato la bugia al
+giorno in cui l'icona cambia: il tipo si **legge dai byte**, con una tabella di
+firme dichiarata. Byte che non dicono nulla danno
+`application/octet-stream` e non un tipo inventato — un data URI *senza* tipo
+varrebbe `text/plain`, che nessun browser disegnerebbe.
+
+**Il secondo: il degrado era silenzioso.** `except OSError: return ""` faceva
+sparire la riga `<link rel='icon'>` senza traccia: su un checkout parziale il
+referto perdeva l'icona e nessuno lo sapeva. Ora chi rende lo dichiara, e la
+riga **compare solo quando succede** — un referto sano non guadagna rumore. È la
+regola di `wcag.status.no_fixes`: la degradazione si dichiara dove costa
+qualcosa, non ovunque per simmetria. C'è un'asserzione anche sul verso opposto,
+altrimenti il vincolo si leggerebbe come «la riga c'è sempre».
+
+**Il banco di prova portava la stessa bugia**, e andava tolta da lì per prima:
+il golden normalizzava l'icona con `data:image/x-icon;base64,DIGEST` **cablato**
+e un test cercava quella stringa. Cablarlo lì avrebbe congelato `x-icon` nel
+presidio dopo averlo tolto dal prodotto. Ora il golden normalizza il tipo
+qualunque esso sia — il digest resta ciò che rileva un cambio d'icona — e il
+test chiede il tipo alla stessa funzione, più un'asserzione che oggi valga
+`image/png`: se l'icona cambia, cambia il referto e si deve vedere.
+
+**Cinque mutazioni, cinque rosse**, comprese le due che accendono e spengono
+l'avviso nel verso sbagliato.
+
+Il golden si è mosso di **due righe**, i due segnaposto.
 
 ### R29 — ✅ RISOLTO (2026-08-26): un audit bloccava l'API per tutti gli altri
 **Il difetto.** Tutti e dodici gli handler REST erano `async def`, ma fanno

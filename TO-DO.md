@@ -19,8 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41, R44, R45, R47.
-> **Aperte**: R28, R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R27, R29-R32, R34, R38, R41, R43-R45, R47.
+> **Aperte**: R28, R33, R35-R37, R39-R40, R42, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -190,7 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R29-R32, R34, R38, R41, R44, R45, R47 — stanno
+Le voci chiuse — R1-R27, R29-R32, R34, R38, R41, R43-R45, R47 — stanno
 in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
@@ -441,23 +441,6 @@ Da U1.8 il dato canonico dice la verità (`cit.status.no_results`,
 
 - [ ] Far decidere la vista sul dato, non sul nome: stampare la riga d'area
       quando il blocco dedicato non può girare. Rigenerando i golden (U2).
-
-### R43 — ⚪ LIEVE: due cose che U2 ha visto e non ha corretto
-*(trovate costruendo i golden, il 2026-08-24)*
-
-- **La favicon dichiara un MIME che non e' il suo.** `file favicon.ico` dice
-  `PNG image data, 32 x 32`, mentre `_favicon_data_uri`
-  ([mars_report.py:1482](mars_report.py#L1482)) la incorpora come
-  `data:image/x-icon;base64,…` e la docstring parla di «.ico (2,8 KB)». I
-  browser lo digeriscono, ma la dichiarazione è falsa. Correggerla cambia il
-  golden HTML, quindi va fatta con la sua rigenerazione.
-- **Il degrado della favicon è silenzioso.** `except OSError: return ""` fa
-  sparire la riga `<link rel='icon'>` senza traccia: su un checkout parziale
-  il referto perde l'icona e nessuno lo saprebbe. Nel golden il fatto è
-  rilevato (il digest sparisce, il diff lo mostra), ma in produzione no.
-
-- [ ] Dichiarare il MIME vero, o convertire davvero l'icona in .ico.
-- [ ] Dire nel referto quando l'icona non è stata incorporata.
 
 ### R46 — ⚪ LIEVE: lo sforzo è editoriale e non scala col difetto
 *(lasciata aperta da U4, il 2026-08-24; la sezione è stata scritta il

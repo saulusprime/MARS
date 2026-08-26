@@ -176,7 +176,58 @@ def test_html_autoconsistente(referto):
     uscita = render_html(referto)
     esterni = re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:)([^\'"]+)', uscita)
     assert esterni == []
-    assert "data:image/x-icon;base64," in uscita
+    # Il tipo si legge dai byte del file (R43), quindi il test lo chiede
+    # alla stessa funzione invece di cablarlo: cablare `x-icon` era la
+    # dichiarazione falsa che la voce ha chiuso.
+    with open(os.path.join(os.path.dirname(os.path.abspath(mars_report.__file__)),
+                           mars_report.FAVICON), "rb") as fh:
+        atteso = mars_report.tipo_icona(fh.read())
+    assert "data:%s;base64," % atteso in uscita
+    assert atteso == "image/png", \
+        "il file si chiama .ico ma e' un PNG: se cambia, cambia il referto"
+
+
+def test_il_tipo_dell_icona_si_legge_dai_byte():
+    """R43: il file si chiama `favicon.ico` ma `file(1)` dice «PNG image
+    data, 32 x 32», e il referto lo dichiarava `image/x-icon`. I browser
+    lo digeriscono, ma la dichiarazione era falsa.
+
+    Si legge la firma invece di cablare `image/png`, altrimenti la bugia
+    si sposterebbe soltanto al giorno in cui l'icona cambia."""
+    assert mars_report.tipo_icona(b"\x89PNG\r\n\x1a\n resto") == "image/png"
+    assert mars_report.tipo_icona(b"\x00\x00\x01\x00 resto") == "image/x-icon"
+    assert mars_report.tipo_icona(b"GIF89a") == "image/gif"
+    assert mars_report.tipo_icona(b"<svg xmlns=") == "image/svg+xml"
+    # Byte che non dicono nulla: NON si finge un tipo. Un data URI senza
+    # tipo varrebbe text/plain, che nessun browser disegnerebbe.
+    assert mars_report.tipo_icona(b"boh") == "application/octet-stream"
+    assert mars_report.tipo_icona(b"") == "application/octet-stream"
+
+
+def test_l_icona_mancante_e_dichiarata(referto, monkeypatch):
+    """R43, seconda metà: `except OSError: return ""` faceva sparire la
+    riga `<link rel='icon'>` **senza traccia**. Su un checkout parziale
+    il referto perdeva l'icona e nessuno lo sapeva.
+
+    La riga compare solo quando succede: un referto sano non guadagna
+    rumore, ed è la regola di `wcag.status.no_fixes`."""
+    monkeypatch.setattr(mars_report, "FAVICON", "non-esiste.ico")
+    uscita = render_html(referto)
+    assert "<link rel='icon'" not in uscita
+    assert "Icona non incorporata" in uscita
+    # E il referto resta valido: nessun riferimento esterno comparso al
+    # posto dell'icona.
+    assert re.findall(r'(?:src|href)\s*=\s*[\'"](?!data:)([^\'"]+)',
+                      uscita) == []
+
+
+def test_l_icona_presente_non_dichiara_nulla(referto):
+    """L'altro verso: senza, il vincolo si leggerebbe come «la riga c'è
+    sempre», e un referto sano porterebbe un avviso che non gli
+    compete."""
+    uscita = render_html(referto)
+    assert "<link rel='icon'" in uscita
+    assert "Icona non incorporata" not in uscita
 
 
 def test_html_supporta_il_tema_scuro(referto):

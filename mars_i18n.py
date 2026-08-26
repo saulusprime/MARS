@@ -723,6 +723,10 @@ _CORNICE_EN: Dict[str, str] = {
     "sono nella tabella qui sotto.":
         "Surface treemap: %s, the largest is %s with %s. The figures "
         "are in the table below.",
+    "Icona non incorporata: il file non è stato letto. Il referto resta "
+    "valido e autoconsistente.":
+        "Icon not embedded: the file could not be read. The report is still "
+        "valid and self-contained.",
     "La superficie in tabella": "The surface as a table",
     "Rilievi": "Findings",
     "pagina": "page",

@@ -2355,6 +2355,43 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R50 — ✅ RISOLTO (2026-08-26): metà dei test i18n erano rossi a caso, e nessuno lo sapeva
+*(trovata chiudendo R28, non era nel TO-DO)*
+
+**Come è saltata fuori.** Durante R28 la suite è uscita rossa **una volta** su
+`test_una_lingua_sconosciuta_rende_come_l_italiano[html]`, e le cinque
+esecuzioni successive sono state verdi. Il primo sospetto — la trappola del
+bytecode, perché avevo appena sostituito `1.2.0` con `1.2.1`, **stessa
+lunghezza** — non ha retto: tre tentativi mirati di riprodurla non hanno
+prodotto nulla. Registrato come non spiegato invece che archiviato, e cercato
+nel codice.
+
+**La causa, dimostrata.** `generated_at` nasce da `time.strftime` **al secondo**
+(`mars_report.py`) e arriva fino alla resa: nell'HTML sta nella testata. Il
+`_resa()` di `tests/test_i18n.py` costruisce il referto **due volte** e
+confronta le due rese — «pt rende come it», «il JSON resta italiano in ogni
+lingua». Se le due costruzioni cadono su due secondi diversi, i due documenti
+differiscono di due righe e il test è rosso. Misurato: cambiando il solo
+`generated_at`, la resa cambia.
+
+Non è raro per caso: la probabilità è il rapporto fra la durata di una
+costruzione e un secondo. Ecco perché usciva una volta ogni tanto e non si
+riproduceva a comando.
+
+**La correzione era già scritta cinquanta righe più in là.**
+`tests/test_golden.py` fissa `referto["generated_at"] = GENERATED_AT` prima di
+rendere, **per la stessa ragione**, da sempre — e `test_i18n` importa già da
+quel file. Mancava solo la stessa riga in `_resa`.
+
+**Perché vale una voce e non una riga silenziosa.** Un rosso casuale non è
+rumore: insegna a rilanciare la suite invece di leggerla, ed è il modo in cui un
+difetto vero passa inosservato. Il presidio è un test che fa avanzare l'orologio
+di proposito a ogni lettura: senza il campo fissato è rosso **sempre**, invece
+che a caso — verificato togliendo la riga.
+
+**Verifiche.** 985 test verdi, `flake8` a zero, nessun `mars_*.py` toccato
+quindi golden fermi.
+
 ### R28 — ✅ RISOLTO (2026-08-26): un disco pieno valeva come un giudizio sul sito
 **Il difetto, riprodotto prima di toccare il codice** — con un provider finto,
 senza rete e senza spesa:

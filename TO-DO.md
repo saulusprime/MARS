@@ -19,7 +19,9 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R34, R36, R38, R41-R45, R47.
+> **Correzioni chiuse**: R1-R34, R36, R38, R41-R45, R47, R50 — l'ultima
+> nata e chiusa il 2026-08-26, trovata chiudendo R28: meta' dei test i18n
+> confrontavano due rese e potevano cadere a cavallo di un secondo.
 > **Aperte**: R35, R37, R39-R40, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.

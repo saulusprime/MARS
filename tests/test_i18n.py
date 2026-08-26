@@ -22,7 +22,7 @@ import mars_tech
 from conftest import pagina
 from mars_core import AREA_PREFIX
 from mars_i18n import LINGUE, RILIEVI, finding_texts, normalizza_lingua
-from test_golden import DATASET
+from test_golden import DATASET, GENERATED_AT
 
 # La radice del repo dal file, non dalla cwd: R33 registra che i test
 # con percorsi relativi passano vacuamente quando `pytest` gira da
@@ -724,8 +724,39 @@ PROSA = ("text", "html", "markdown", "csv")
 
 
 def _resa(monkeypatch, dataset: str, formato: str, lingua: str) -> str:
+    """Una resa del referto, con l'orario fissato.
+
+    `generated_at` nasce da `time.strftime` al SECONDO
+    (`mars_report.py`) e arriva fino alla resa. Meta' dei test qui
+    sotto confrontano DUE `_resa` — «pt rende come it», «il JSON resta
+    italiano» — e due costruzioni a cavallo di un secondo producono due
+    documenti diversi: rosso a caso, su un difetto che non c'e'.
+    `tests/test_golden.py` fissa lo stesso campo, per la stessa ragione,
+    da sempre.
+    """
     from mars_report import RENDERERS
-    return RENDERERS[formato](DATASET[dataset](monkeypatch), lingua)
+    referto = DATASET[dataset](monkeypatch)
+    referto["generated_at"] = GENERATED_AT
+    return RENDERERS[formato](referto, lingua)
+
+
+def test_due_rese_non_dipendono_dal_secondo_in_cui_girano(monkeypatch):
+    """Il confronto fra due rese non deve poter fallire per l'orologio.
+
+    Trovato chiudendo R28: `test_una_lingua_sconosciuta_rende_come_l_
+    italiano[html]` e' uscito rosso una volta su sei esecuzioni, e non
+    era riproducibile a comando — perche' serve che le due costruzioni
+    cadano su due secondi diversi. Qui l'orologio avanza di proposito a
+    ogni lettura: senza il campo fissato in `_resa` questo test e' rosso
+    sempre, invece che a caso.
+    """
+    import time
+    scatti = iter(["2026-01-01T00:00:0%d+0000" % n for n in range(9)])
+    monkeypatch.setattr(time, "strftime",
+                        lambda *a, **k: next(scatti))
+
+    assert _resa(monkeypatch, "referto", "html", "it") == \
+        _resa(monkeypatch, "referto", "html", "it")
 
 
 @pytest.mark.parametrize("formato", PROSA)

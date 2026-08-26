@@ -2355,6 +2355,47 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R39 (caselle 2 e 3) — ✅ RISOLTE (2026-08-26): un WAPT tentato e fallito taceva
+*(la casella 1 — raggruppare per `alertRef` — resta aperta per decisione: sposta i
+punteggi di ogni sito e migra le chiavi pubbliche, quindi vuole un commit suo)*
+
+**Il ripiego silenzioso.** Se `run_zap` restituiva `None` c'era **solo un
+`print`**, e il referto dichiarava «HTTP-Headers, superficie» senza mai dire che
+un daemon c'era e non aveva portato a termine la scansione. Chi legge il referto
+non ha la console davanti: vedeva un'area di sicurezza fatta di soli header e non
+poteva sapere che il WAPT era stato tentato. È lo stesso difetto di onestà che
+R38 ha chiuso altrove, e il principio 2 lo vieta.
+
+Ora il ripiego passa da `_ripiego_dopo_zap()`, che aggiunge `sec.status.zap_failed`
+**in testa** ai rilievi — come gli altri stati: è la premessa per leggere il
+punteggio, non una nota in fondo. Il punteggio degli header non si tocca, perché
+è la misura che è stata fatta davvero.
+
+**L'altra metà è presidiata:** senza daemon raggiungibile non c'è nulla da
+dichiarare, e un rilievo «ZAP ha fallito» sarebbe falso. Un test lo verifica,
+altrimenti la correzione avrebbe potuto aggiungere l'avviso sempre.
+
+**Le due diagnosi degli header.** Se HEAD sollevava e GET rispondeva ≥ 400,
+`errore` veniva riassegnato a `None` dal secondo giro e la diagnosi diventava il
+solo «HTTP 500»: il `ConnectionError` che spiegava il primo tentativo spariva. I
+due tentativi possono fallire per ragioni **diverse** — HEAD rifiutato dalla
+rete, GET accolto e andato in errore — e saperlo dice qualcosa che nessuna delle
+due dice da sola. Ora si conservano entrambe, deduplicate con `dict.fromkeys`
+perché due tentativi falliti allo stesso modo restino una diagnosi sola.
+
+**Una mutazione sfuggita alla prima esecuzione**, e vale la pena registrarla:
+«l'avviso finisce in coda invece che in testa» passava. Il ripiego finto del test
+restituiva `findings: []`, quindi la lista aveva **un elemento solo** e
+l'asserzione sulla posizione era vuota — verde per costruzione, non per merito.
+Corretto il test dando un rilievo proprio al ripiego finto, la mutazione diventa
+rossa.
+
+**Verifiche.** 989 test verdi (erano 985), `flake8` a zero, golden fermi: nessun
+punteggio si muove. **Otto mutazioni su otto** fanno rosso, dopo la correzione di
+cui sopra. La chiave nuova è tradotta in inglese; `sec.status.*` resta fuori da
+`mars_fixes` e `mars_remediation`, che escludono le chiavi di stato per
+costruzione — uno stato non è un difetto da riparare.
+
 ### R50 — ✅ RISOLTO (2026-08-26): metà dei test i18n erano rossi a caso, e nessuno lo sapeva
 *(trovata chiudendo R28, non era nel TO-DO)*
 

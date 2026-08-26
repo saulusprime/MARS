@@ -269,7 +269,10 @@ nasconderebbe la direttiva più grave che il modulo conosce. Un test lo
 presidia (`test_tech_la_normalizzazione_del_valore_non_ingoia_il_prefisso`):
 chi chiude R37 lo troverà rosso se sbaglia da quella parte.
 
-### R39 — 🟡 MEDIO: quattro difetti di `mars_wapt` trovati adeguandolo a U1.6
+### R39 — 🟡 MEDIO: `alertRef` non viene mai raggiunto
+*(le caselle 2 e 3 sono chiuse il 2026-08-26 e stanno in [AS-IS.md](AS-IS.md):
+il ripiego dopo un fallimento di ZAP ora si dichiara, e `audit_headers`
+conserva entrambe le diagnosi. Resta la prima casella, che sposta i punteggi)*
 *(trovati leggendo il modulo riga per riga per U1.6, il 2026-08-24. Nessuno è
 stato corretto lì: tutti cambierebbero punteggi o testi, cioè
 esattamente ciò che un adeguamento di forma non deve fare.)*
@@ -306,10 +309,13 @@ esattamente ciò che un adeguamento di forma non deve fare.)*
   perdendo il `ConnectionError` che spiegava il primo tentativo.
 
 - [ ] Raggruppare per `alertRef`, ritarando le penalità e dichiarando la
-      migrazione di chiavi.
-- [ ] Dire nel referto che ZAP era raggiungibile e ha fallito, invece di
-      ripiegare in silenzio.
-- [ ] Conservare entrambe le diagnosi in `audit_headers`.
+      migrazione di chiavi. **Deciso il 2026-08-26**: si ritara sulla REGOLA —
+      penalità calcolata sull'unione degli URL e ripartita fra le sotto-varianti,
+      così i tre rilievi CSP diventano distinti, ciascuno con la propria
+      `solution`, e la somma resta quella di oggi. Migrano solo le chiavi
+      (`sec.zap.10038` → `sec.zap.10038_1`), e la migrazione va dichiarata in
+      AS-IS e nel referto: per `compute_delta` è un «risolto» più un «comparso»
+      per ogni regola con sotto-varianti, contro gli archivi già scritti.
 
 ### R40 — 🟡 MEDIO: sei difetti di `mars_seo` trovati adeguandolo a U1.7
 *(trovati leggendo il modulo e il sorgente di Lighthouse 13.4.1 per U1.7, il

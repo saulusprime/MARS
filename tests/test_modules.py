@@ -3273,6 +3273,110 @@ def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
                             "owner_declaration": active})
 
 
+def test_wapt_un_daemon_che_fallisce_non_ripiega_in_silenzio(monkeypatch):
+    """R39: se `run_zap` restituiva `None` c'era solo un `print`, e il
+    referto dichiarava «HTTP-Headers, superficie» senza mai dire che un
+    daemon c'era e non aveva portato a termine la scansione.
+
+    Chi legge il referto non ha la console davanti: vede un'area di
+    sicurezza fatta di soli header e non sa che la vera scansione era
+    stata tentata ed e' fallita. E' lo stesso difetto di onesta' che
+    R38 ha chiuso altrove, e il principio 2 lo vieta — cio' che manca
+    si dichiara, non si tace.
+    """
+    monkeypatch.setattr(mars_wapt, "connect_zap",
+                        lambda credentials=None: _ZapFinto())
+    monkeypatch.setattr(mars_wapt, "run_zap",
+                        lambda url, client=None, active=False: None)
+    # Il ripiego porta un rilievo suo: senza, la lista avrebbe un
+    # elemento solo e l'asserzione sulla POSIZIONE sarebbe vuota —
+    # misurato, una mutazione che sposta l'avviso in coda passava.
+    monkeypatch.setattr(mars_wapt, "audit_headers",
+                        lambda url: {"score": 80, "status": "surface",
+                                     "tool": "HTTP-Headers",
+                                     "issues": ["manca CSP"],
+                                     "findings": [{"key": "sec.headers.csp_missing",
+                                                   "title": "manca CSP"}]})
+
+    esito = mars_wapt.audit({"url": "https://x/", "owner_declaration": False})
+    chiavi = [f["key"] for f in esito["findings"]]
+
+    assert len(chiavi) == 2, "serve piu' di un rilievo, o la posizione non dice nulla"
+
+    assert "sec.status.zap_failed" in chiavi
+    # In TESTA, come gli altri rilievi di stato: e' la premessa per
+    # leggere il punteggio, non una nota a pie' di pagina.
+    assert chiavi[0] == "sec.status.zap_failed"
+    assert "ZAP" in esito["issues"][0]
+    # Il ripiego resta un ripiego: il punteggio degli header non si
+    # tocca, e lo strumento dichiarato e' quello che ha misurato.
+    assert esito["score"] == 80
+    assert esito["tool"] == "HTTP-Headers"
+    assert esito["status"] == "surface"
+
+
+def test_wapt_senza_daemon_il_ripiego_resta_muto(monkeypatch):
+    """L'altra meta': se nessun daemon era raggiungibile non c'e' nulla
+    da dichiarare, e un rilievo «ZAP ha fallito» sarebbe falso.
+
+    Senza questo test la correzione potrebbe aggiungere l'avviso sempre,
+    e nessuno se ne accorgerebbe."""
+    monkeypatch.setattr(mars_wapt, "connect_zap",
+                        lambda credentials=None: None)
+    monkeypatch.setattr(mars_wapt, "audit_headers",
+                        lambda url: {"score": 80, "status": "surface",
+                                     "tool": "HTTP-Headers",
+                                     "issues": [], "findings": []})
+
+    esito = mars_wapt.audit({"url": "https://x/"})
+    assert not [f for f in esito["findings"]
+                if f["key"] == "sec.status.zap_failed"]
+
+
+def test_wapt_le_due_diagnosi_degli_header_non_si_perdono(monkeypatch):
+    """R39: se HEAD solleva e GET risponde >= 400, `errore` veniva
+    riassegnato a `None` e la diagnosi diventava il solo «HTTP 500».
+
+    Il `ConnectionError` che spiegava il primo tentativo spariva, e con
+    esso l'informazione piu' utile: i due tentativi sono falliti per
+    ragioni DIVERSE, il che dice qualcosa che nessuno dei due dice da
+    solo."""
+    def head(url, **kw):
+        raise requests.ConnectionError("niente HEAD")
+
+    class Risposta:
+        status_code = 500
+        headers = {}
+        url = "https://x/"
+
+    monkeypatch.setattr(mars_wapt.requests, "head", head)
+    monkeypatch.setattr(mars_wapt.requests, "get", lambda url, **kw: Risposta())
+
+    esito = mars_wapt.audit_headers("https://x/")
+    dettaglio = esito["findings"][0]["detail"]
+
+    assert esito["status"] == "unavailable"
+    assert esito["score"] is None
+    assert "ConnectionError" in dettaglio, "il primo errore e' andato perso"
+    assert "500" in dettaglio, "il secondo errore e' andato perso"
+
+
+def test_wapt_una_diagnosi_sola_resta_una_diagnosi_sola(monkeypatch):
+    """Conservare entrambe non deve diventare ripetere la stessa due
+    volte: quando i due tentativi falliscono allo stesso modo, il
+    dettaglio ne porta una."""
+    class Risposta:
+        status_code = 503
+        headers = {}
+        url = "https://x/"
+
+    monkeypatch.setattr(mars_wapt.requests, "head", lambda url, **kw: Risposta())
+    monkeypatch.setattr(mars_wapt.requests, "get", lambda url, **kw: Risposta())
+
+    dettaglio = mars_wapt.audit_headers("https://x/")["findings"][0]["detail"]
+    assert dettaglio.count("503") == 1, dettaglio
+
+
 def test_wapt_ogni_rilievo_zap_ha_una_chiave_stabile():
     """Tre segmenti e il prefisso d'area: e' cio' su cui poggeranno il
     confronto fra due esecuzioni e i cataloghi di traduzione."""

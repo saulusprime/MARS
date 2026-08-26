@@ -435,6 +435,10 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "ZAP scan timed out and was NOT stopped: it carries on "
                  "in the ZAP daemon, and the findings here are partial",
     },
+    "sec.status.zap_failed": {
+        "title": "ZAP was reachable but the scan did not complete: what "
+                 "follows are the HTTP headers alone",
+    },
 
     # --- Area 8: citabilita' -------------------------------------------
     # I sette segnali per due esiti. Le voci sono scritte una per una,

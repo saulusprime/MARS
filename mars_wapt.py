@@ -527,18 +527,27 @@ def audit_headers(url: str) -> dict:
     # quella risposta e concluderne che mancano tutti sarebbe un
     # verdetto falso dato con sicurezza.
     resp = None
+    diagnosi: List[str] = []
     for metodo in (requests.head, requests.get):
         try:
             tentativo = metodo(url, allow_redirects=True, timeout=10)
         except requests.RequestException as exc:
-            errore = type(exc).__name__
+            diagnosi.append(type(exc).__name__)
             continue
-        errore = None
         if tentativo.status_code < 400:
             resp = tentativo
             break
+        diagnosi.append("HTTP %d" % tentativo.status_code)
     if resp is None:
-        dettaglio = errore or "HTTP %d" % tentativo.status_code
+        # ENTRAMBE le diagnosi, non l'ultima. I due tentativi possono
+        # fallire per ragioni diverse — HEAD rifiutato dalla rete, GET
+        # accolto e andato in errore — e sapere che sono diverse dice
+        # qualcosa che nessuna delle due dice da sola. Prima `errore`
+        # veniva riassegnato a None dal secondo giro, e il
+        # ConnectionError del primo spariva (R39).
+        # `dict.fromkeys` deduplica conservando l'ordine: due tentativi
+        # falliti allo stesso modo restano una diagnosi sola.
+        dettaglio = " / ".join(dict.fromkeys(diagnosi)) or "nessuna risposta"
         return {"score": None, "status": "unavailable", "tool": "HTTP-Headers",
                 "issues": ["Header non leggibili: %s" % dettaglio],
                 # Anche un'area non misurata porta il proprio rilievo:
@@ -570,6 +579,28 @@ def audit_headers(url: str) -> dict:
             # ciclo, e riordinarne uno solo li farebbe raccontare la
             # stessa risposta in due ordini diversi.
             "findings": [f.as_dict() for f in rilievi]}
+
+
+def _ripiego_dopo_zap(url: str) -> dict:
+    """Gli header HTTP, dicendo che una scansione vera era stata tentata.
+
+    Il ripiego silenzioso era il difetto: il referto dichiarava
+    «HTTP-Headers, superficie» senza mai dire che un daemon c'era e non
+    aveva portato a termine la scansione. Chi legge non ha la console
+    davanti — vedeva un'area di sicurezza fatta di soli header e non
+    poteva sapere che il WAPT era stato tentato ed era fallito (R39).
+
+    Il rilievo va in TESTA come gli altri stati: e' la premessa per
+    leggere il punteggio, non una nota in fondo. Il punteggio degli
+    header non si tocca — sono la misura che e' stata fatta davvero.
+    """
+    esito = audit_headers(url)
+    avviso = ("ZAP era raggiungibile ma la scansione non e' andata a buon "
+              "fine: qui sotto ci sono i soli header HTTP")
+    esito["issues"] = [avviso] + list(esito.get("issues") or [])
+    esito["findings"] = ([_stato("sec.status.zap_failed", avviso).as_dict()]
+                         + list(esito.get("findings") or []))
+    return esito
 
 
 def audit(context: dict) -> dict:
@@ -646,4 +677,5 @@ def audit(context: dict) -> dict:
                                  + esito["findings"]
                                  + [f.as_dict() for f in coda])}
         print("  ZAP non ha completato: ripiego sui soli header HTTP.")
+        return _ripiego_dopo_zap(url)
     return audit_headers(url)

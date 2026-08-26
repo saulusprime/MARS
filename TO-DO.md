@@ -1,8 +1,14 @@
 # MARS Beacon — TO-DO
 
-> **Questo file contiene solo ciò che resta da fare.** Il lavoro completato e
-> verificato si sposta in [AS-IS.md](AS-IS.md), con difetto, soluzione e prove,
-> nello stesso commit che lo chiude.
+> **Questo file è la coda di lavoro, e contiene solo ciò che deve essere
+> fatto.** Il lavoro concluso si sposta in [AS-IS.md](AS-IS.md), con difetto,
+> soluzione e prove, nello stesso commit che lo chiude.
+>
+> **Che cosa merita una casella**, deciso il 2026-08-26: un difetto aperto
+> (`R##`), una fase del programma UPGRADE non dichiarata opzionale (`U##`), o
+> una **prova che manca** a ciò che il codice già dichiara (`C##`). Non una
+> proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
+> hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R53**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
@@ -13,127 +19,25 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Ripulito il 2026-08-26**, secondo giro: il primo, il 2026-08-25, aveva
-> tolto centoquattro righe di lavoro concluso e rinfrescato quarantasei
-> riferimenti di riga. Come allora, ogni voce aperta è stata **riverificata sul
-> codice**, non riletta, e **nove affermazioni non hanno retto**: tre premesse
-> false — due dichiaravano aperto un lavoro già fatto — tre riferimenti di riga
-> che non atterrano più dove dicono, due numeri invecchiati e un prerequisito
-> soddisfatto dal 2026-08-19. Ogni correzione è nella sua voce, e dice **che
-> cosa** diceva prima: è l'unica parte di questa pulizia che cambia una
-> decisione, e cancellarla senza traccia lascerebbe credere che la voce sia
-> sempre stata così.
+> **Otto caselle aperte.** Erano undici prima del 2026-08-26: sono uscite la
+> copertura dei test e la pipeline CI — verificato, il README non le promette,
+> quindi nessuno le deve — e **U12**, che il piano stesso dichiara opzionale.
+> Nessuna era sbagliata; nessuna doveva essere lavorata.
 >
-> Sono uscite **trentasette righe di annunci di chiusura**, riaccumulate in una
-> sola sessione dopo la potatura precedente, e le **cinquantadue righe della
-> filosofia**. Un cappello che annuncia le chiusure diventa un secondo AS-IS,
-> più corto e senza le prove, che invecchia per conto suo: le chiusure si
-> leggono là.
-
----
-
-## Filosofia di sviluppo da preservare
-
-I principi stanno in [.claude/principi.md](.claude/principi.md), che CLAUDE.md
-monta nel contesto di ogni sessione: qui ne restava una seconda copia, più
-lunga e non divergente — cioè il caso peggiore, perché nulla segnala quando le
-due smettono di dirsi la stessa cosa. Delle cinquantadue righe una sola non
-stava nell'altro file, la convenzione su `__version__`, `--version` e i codici
-di uscita espliciti, ed è andata dove serve davvero: dentro **I2**, la voce
-che la deve applicare.
-
-Resta la riga che parla di **questo elenco** e non del codice, e che il file
-dei principi quindi non può contenere: **nessuna voce di questo TO-DO deve
-violarli.** Una voce che per essere realizzata chiede di sostituire un
-algoritmo core con una libreria, o di rendere obbligatoria una dipendenza
-oggi opzionale, è una voce da riscrivere, non da eseguire.
-
----
-
-## Completamento
-
-Funzionalità **promesse dal README ma assenti nel codice**, in ordine di
-distanza tra promessa e realtà.
-
-### C4 — voce residua
-Il referto JSON e HTML è fatto — vedi [AS-IS.md](AS-IS.md). Resta un punto che
-non dipende dal codice.
-
-- [ ] **Verificare sul campo il giudizio LLM (C2)** con una credenziale
-      Anthropic reale: la chiamata non è mai stata eseguita, solo simulata.
-      Il referto JSON ora conserva per intero motivazione, punti forti e
-      deboli, quindi è il formato giusto per controllarne l'esito.
-
-### C12 — voci residue
-La suite esiste — vedi [AS-IS.md](AS-IS.md). Restano rifiniture. Il numero dei
-test non sta qui: cambia a ogni commit, e un numero che invecchia da solo dice
-meno del comando che lo produce.
-
-- [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
-      oggi si sa quali difetti sono protetti, non quanto codice è toccato.
-- [ ] `evaluate_answer` di `mars_citations.py` non è chiamata da alcun test.
-      *(La voce diceva «`mars_citations.py` non ha test propri»: falso dal
-      2026-08-26, quando R28 ha portato `tests/test_citations.py` — codici di
-      uscita, storico JSONL, `overall_rate`, il tasso non misurato. Delle tre
-      funzioni pure che nominava ne resta scoperta una, ed è quella che decide
-      se una risposta cita il sito: è una funzione pura, quindi verificabile
-      senza rete né chiavi.)*
-- [ ] Eseguire la suite in una pipeline, non solo a mano.
-
----
-
-## Programma UPGRADE — il referto al livello di marsbeacon
-
-Il piano completo sta in [UPGRADE.md](UPGRADE.md): 15 divari individuati
-confrontando sul codice `MARS/` (la versione definitiva) e `marsbeacon/` (il
-riferimento per la reportistica), ciascuno verificato in modo avversariale.
-**Undici sono colmati**, e il documento dichiara in testa quali fasi sono
-eseguite: resta il piano, non diventa un registro — è il termine di paragone
-rispetto a cui si legge una divergenza.
-
-Le **decisioni D1-D4**, il **quadro delle nove fasi chiuse** — che cosa ha
-fatto ciascuna, con quale versione, e che cosa ha lasciato aperto — e le
-convenzioni della lavorazione stanno in [AS-IS.md](AS-IS.md). Qui restano solo
-le fasi che non sono state fatte.
-
-### Fasi aperte
-
-- [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
-      Kimi accanto a Claude.
-- [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
-      U1.9 li ha lasciati fuori di proposito: sono prosa libera, senza chiave
-      stabile, diversi a ogni esecuzione (`thinking: adaptive`) e a ogni
-      modello, quindi né confrontabili (U7) né traducibili (U9) — e
-      `Finding.key` è proprio ciò su cui quelle due fasi poggiano. Il prezzo è
-      che l'**unica prosa orientata al miglioramento** dell'intero referto
-      (UPGRADE.md: «unica prosa orientata al miglioramento è quella libera del
-      giudice LLM») resta fuori dal piano U4 e da ogni esportazione basata sui
-      findings. Riaprirla richiede prima **una** delle due cose che oggi
-      mancano: *(a)* far etichettare al modello ogni punto debole con una
-      delle chiavi che le altre otto aree già producono — allora il rilievo è
-      un derivato di quella chiave, con la prosa in `detail` e
-      `params["derived"] = True` come in `mars_citability`, e la chiave resta
-      stabile perché il modello la sceglie da un vocabolario chiuso invece di
-      scriverla; *(b)* il giudizio multi-modello, dove la **concordanza** fra
-      modelli è la misura che oggi manca e che renderebbe il rilievo una
-      misura invece di un'opinione. Senza (a) o (b) resta prosa, e va lasciata
-      dov'è.
-- [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
-      accessibilità delle tabelle, brand nel footer.
-- [ ] **U12 — Ancore esterne alla simulazione** (G13, Fase 12) — *opzionale*:
-      Brave Search e confronto competitivo.
+> **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
+> CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
+> essere realizzata chiede di sostituire un algoritmo core con una libreria, o
+> di rendere obbligatoria una dipendenza oggi opzionale, è una voce da
+> riscrivere, non da eseguire.
 
 ---
 
 ## Correzioni
 
-**Nessuna voce GRAVE resta aperta**, e resta una voce sola. Viene
-dall'**adeguamento dei moduli alle fasi UPGRADE**, non dalla revisione
-sistematica del 2026-08-20, che è esaurita: leggere un modulo riga per riga
-per cambiarne la forma ne ha rivelato i difetti, e nessuno è stato corretto lì
-dentro perché tutti spostano punteggi o testi — cioè esattamente ciò che un
-adeguamento di forma non deve fare. Va riprodotta prima di correggerla (regola
-*verificare, non dedurre*).
+Una sola, e **nessuna voce GRAVE resta aperta**. Viene dall'adeguamento dei
+moduli alle fasi UPGRADE, non dalla revisione sistematica del 2026-08-20, che è
+esaurita. Va riprodotta prima di correggerla — regola *verificare, non
+dedurre*.
 
 ### R53 — ⚪ LIEVE: i tre residui di `mars_seo` che caselle non erano
 *(R40 aveva sei rilievi e tre caselle. Le caselle sono chiuse il 2026-08-26 e
@@ -172,148 +76,106 @@ ciascuno apre una decisione)*
 
 ---
 
+## Programma UPGRADE
+
+Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
+decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
+ha ragione AS-IS. Restano tre fasi, più **U12** (ancore esterne, Brave Search e
+confronto competitivo) che il piano dichiara **opzionale** e che per questo non
+ha una casella: se si decide di farla, la casella si aggiunge.
+
+- [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
+      Kimi accanto a Claude.
+- [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
+      U1.9 li ha lasciati fuori di proposito: sono prosa libera, senza chiave
+      stabile, diversi a ogni esecuzione (`thinking: adaptive`) e a ogni
+      modello, quindi né confrontabili (U7) né traducibili (U9) — e
+      `Finding.key` è proprio ciò su cui quelle due fasi poggiano. Il prezzo è
+      che l'**unica prosa orientata al miglioramento** dell'intero referto
+      resta fuori dal piano U4 e da ogni esportazione basata sui findings.
+      Riaprirla richiede prima **una** delle due cose che oggi mancano:
+      *(a)* far etichettare al modello ogni punto debole con una delle chiavi
+      che le altre otto aree già producono — allora il rilievo è un derivato di
+      quella chiave, con la prosa in `detail` e `params["derived"] = True` come
+      in `mars_citability`, e la chiave resta stabile perché il modello la
+      sceglie da un vocabolario chiuso invece di scriverla; *(b)* il giudizio
+      multi-modello, dove la **concordanza** fra modelli è la misura che oggi
+      manca e che renderebbe il rilievo una misura invece di un'opinione.
+      Senza (a) o (b) resta prosa, e va lasciata dov'è. Dipende quindi da U10,
+      o da una decisione che non richiede U10.
+- [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
+      accessibilità delle tabelle, brand nel footer.
+
+---
+
+## Completamento
+
+Le due voci `C##` rimaste non sono funzioni mancanti: sono **prove mancanti**.
+In entrambe il codice c'è, e nessuno ha verificato che faccia ciò che dichiara
+— è la regola 2, niente «funziona» senza prova. Il resto della famiglia è
+chiuso e sta in [AS-IS.md](AS-IS.md).
+
+- [ ] **Verificare sul campo il giudizio LLM (C4/C2)** con una credenziale
+      Anthropic reale: la chiamata non è mai stata eseguita, solo simulata, ed
+      è l'unica area del referto in questa condizione. Il README la promette
+      ([README.md:220](README.md#L220)). Il referto JSON conserva per intero
+      motivazione, punti forti e deboli, quindi è il formato giusto per
+      controllarne l'esito. **Bloccata su una chiave**, non sul codice.
+- [ ] **`evaluate_answer` di `mars_citations.py` non è chiamata da alcun
+      test.** È la funzione che decide se una risposta cita il sito — la
+      misura centrale dello strumento — ed è pura, quindi verificabile senza
+      rete né chiavi. Le altre due funzioni pure che la voce C12 nominava sono
+      coperte da `tests/test_citations.py` dal 2026-08-26 (R28).
+
+---
+
 ## Idee
 
-Proposte di sviluppo, non promesse dal README. Da valutare, **non** da eseguire
-senza conferma: alcune allargano il perimetro del progetto.
+**Proposte, non lavoro deciso: nessuna ha una casella, e nessuna si esegue
+senza conferma.** Una riga a testa; il ragionamento completo di ciascuna è
+nella storia di git, `git show 8e80211:TO-DO.md`. Quando una si decide,
+diventa una voce con la sua analisi e la sua casella.
 
-### I2 — Modalità CI con exit code e soglie
-`--fail-under 70` → exit code ≠ 0. Rende MARS utilizzabile come gate in una
-pipeline. Costo: una decina di righe.
+Due portano qui una **misura**, e non una proposta, perché rifarla costerebbe:
+sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
 
-**Metà è già fatta, ed è la metà che serviva a scoprire il costo vero.**
-`mars_citations.py` ha `--fail-under` e i codici di uscita espliciti; il posto
-per quello dell'audit è **riservato nel codice**, non da inventare:
-[mars_audit.py:27](mars_audit.py#L27) tiene libero il valore `1` proprio per
-questa idea, perché una pipeline non deve poter confondere «punteggio sotto
-la soglia» con «l'audit non è riuscito». Resta quindi solo `mars_audit`, e la
-convenzione da seguire è quella già scritta accanto.
-
-### I3 — Sensibilità del parametro `k` dell'RRF
-`k=60` è la predefinita di `reciprocal_rank_fusion`, dichiarata come `RRF_K`
-([mars_core.py:1684](mars_core.py#L1684)) — è il valore del paper Cormack
-2009, ma il progetto è *anche* didattico: esporre `--rrf-k` e mostrare come
-cambia il consenso al variare di `k` è esattamente il tipo di intuizione che
-il README vuole trasmettere. Quasi gratis da implementare. *(La voce lo diceva
-«hardcoded», e rimandava a una riga che oggi è dentro il caricamento delle
-query: la costante c'è, il flag no.)*
-
-### I4 — Ablation lessicale vs. vettoriale
-Riportare, accanto al risultato fuso, quanto ciascun retriever contribuisce al
-Top-N: quanti chunk vengono solo da BM25, quanti solo dal vettoriale, quanti dal
-consenso. È la dimostrazione empirica del perché l'ibrido batte i singoli —
-la tesi centrale del paper citato in bibliografia.
-
-*Verificato il 2026-08-26:* **il terzo numero c'è già.** `_consenso`
-([mars_report.py:1015](mars_report.py#L1015)) pubblica `consensus_top3`, che è
-la cardinalità dell'intersezione dei primi tre — e i due «solo» sono il
-complemento, quindi non è nemmeno una misura nuova: è una sottrazione che
-oggi il referto non fa. Ciò che manca davvero è **quali** chunk stiano fuori
-dall'intersezione, ed è la stessa cosa che manca a **I9**: le due idee sono
-una domanda sola vista da due lati, e chi ne apre una apra l'altra.
-
-### I5 — Crawling concorrente
-`ThreadPoolExecutor` sul fetch delle pagine (stdlib, nessuna dipendenza nuova).
-Con `--max-pages 40` e timeout di 10s il crawl seriale può richiedere minuti.
-Il rate limiting c'è già — R7, chiusa il 2026-08-19 — ed è **il vincolo, non
-il prerequisito**: `_get` serializza le richieste su `self._last_request`
-([mars_core.py:700](mars_core.py#L700)), quindi un pool che non passasse di lì
-violerebbe `Crawl-delay`, e uno che ci passa non guadagna niente. La voce va
-riscritta come «parallelizzare *ciò che sta attorno* al fetch» — parsing,
-estrazione — oppure chiusa: la sua formulazione attuale non è realizzabile
-senza rompere un principio.
-
-### I6 — Cache HTTP su disco
-Cache dei fetch (chiave: URL + ETag/Last-Modified) sotto `.mars-cache/`.
-Rende iterabile lo sviluppo dei moduli senza martellare il sito bersaglio — e
-rende i test di **C12** riproducibili.
-
-### I7 — Vista comparativa multi-sito
-`python3 mars_audit.py --compare a.com b.com c.com` con tabella affiancata.
-Utile per benchmark competitivo, ed è il caso d'uso naturale dei profili di
-citabilità (**C1**).
-
-### I8 — Estrarre le euristiche in un file di configurazione
-Pesi degli score, soglie, elenchi di crawler IA e termini "answer-shaped" sono
-oggi costanti sparse nel codice. Un `mars_weights.yaml` (o `.toml`, letto con
-`tomllib`, che è nella stdlib da Python 3.11 — `tomli` era in
-`requirements.txt` ed è stato rimosso con R11, perché nessun file lo importava)
-li renderebbe ispezionabili e regolabili senza toccare il codice — rafforzando
-il principio 6.
-
-### I9 — Report HTML con visualizzazione RRF
-Il grafico più espressivo è il *rank shift*: due colonne (BM25, vettoriale)
-collegate da linee ai rispettivi ranghi post-fusione. Mostra a colpo d'occhio
-il consenso. Da fare in SVG inline, senza librerie.
-
-*Aggiornata il 2026-08-20:* il rifacimento in stile Lighthouse ha portato nel
-referto una sezione **Simulazione RRF** con il consenso aggregato, la tabella
-per query e il passaggio più recuperabile, più un quadrante *Recuperabilità* —
-e ha dimostrato che l'SVG inline calcolato in Python basta, senza script né
-librerie. Il *rank shift* vero e proprio resta però da fare: oggi si legge
-**quanto** i due recuperatori concordano, non **su cosa** divergono.
-
-### I10 — Modulo performance (Core Web Vitals)
-Lighthouse viene già invocato per la categoria `seo`
-([mars_seo.py:22](mars_seo.py#L22)) e nella stessa risposta JSON restituisce
-anche `performance`, `accessibility` e `best-practices`.
-
-*Corretta il 2026-08-26, perché la premessa non regge più.* Diceva che quei
-dati erano «**già scaricati e buttati via**»: **falso da R45**, che li pubblica
-tutti (`punteggi_categorie`, `lighthouse_scores`) e che ha già realizzato la
-seconda metà dell'idea — la controprova fra l'`accessibility` di Lighthouse e
-`mars_wcag`, con la spiegazione del perché i due numeri differiscono. Restava
-dichiarata aperta un'idea per metà eseguita.
-
-Resta il **modulo**: oggi si pubblica il *punteggio* di categoria, non i
-controlli che lo compongono — LCP, CLS, INP e le loro soglie, che sono l'unica
-parte azionabile. Un `mars_perf.py` li leggerebbe dallo stesso LHR, senza un
-secondo Lighthouse, come `mars_wcag` già fa per l'accessibilità.
-
-### I11 — Verifica dei tipi Schema.org
-`mars_schema.py` oggi controlla solo che il JSON-LD sia sintatticamente valido.
-Verificare `@type` contro i tipi che gli assistenti IA usano davvero
-(`FAQPage`, `HowTo`, `Article`, `Organization`, `BreadcrumbList`) e la presenza
-delle proprietà richieste. Legame diretto con la citabilità (**C1**).
-
-### I12 — Dockerfile
-Il progetto ha prerequisiti pesanti e conflittuali: Node + Lighthouse + Chrome,
-ZAP, Playwright, torch. Il README dedica un intero paragrafo a risolvere
-conflitti di pacchetti a mano. Un'immagine con tutto preinstallato
-eliminerebbe la classe di problemi — a costo di un file, senza toccare il
-codice.
-
-### I14 — Tetto alla dimensione della risposta HTTP
-*(proposta dalla revisione del 2026-08-20)* `_get` scarica l'intero corpo senza
-`stream` né limite, e `crawl()` conserva la pagina sia parsata sia grezza in
-`pages[url]["html"]`: un endpoint che serve a 200 un file enorme o uno stream
-senza fine viene letto per intero (il `timeout` di `requests` copre solo
-l'attesa fra i byte). Un tetto su `Content-Length` o la lettura a chunk con
-limite (5-10 MB), oltre il quale la pagina va in `skipped` con motivo
-dichiarato, chiude la classe. Legata a **R15-R17** (robustezza del crawler).
-
-### I15 — Elisione italiana nella tokenizzazione
-*(proposta dalla revisione del 2026-08-20, misurata chiudendo R18)*
-`tokenize()` toglie la punteggiatura di **confine**, quindi `l'azienda` resta
-un token solo e una query per `azienda` non lo incontra. In italiano
-l'elisione è ovunque (`dell'anno`, `un'idea`, `all'inizio`), quindi la perdita
-non è marginale.
-
-La correzione ovvia — spezzare su ogni non-parola, `re.findall(r"\w+", …)` —
-è stata **misurata e scartata** chiudendo R18: manda in pezzi
-`info@esempio.it` (tre token), `3,14` (due) e `COVID-19`, e riempie l'indice
-di frammenti (`l`, `dell`, `un`, `s`) che gonfiano la lunghezza dei documenti,
-cioè la grandezza su cui BM25 normalizza. Serve qualcosa di più mirato:
-spezzare **solo** sull'apostrofo, e solo quando la parte a sinistra è un
-articolo o una preposizione elidibile — cioè un piccolo elenco dichiarato,
-non una regola generale. Da valutare con una misura, non a intuito.
-
-### I16 — Scegliere il dispositivo di Lighthouse (`--form-factor`)
-*(proposta il 2026-08-20, portando i controlli SEO nel referto)*
-Lighthouse misura per `mobile` come predefinito, e MARS lo dichiara nel
-referto. PageSpeed Insights espone invece entrambe le viste, e un referto
-`desktop` puo' dare punteggi diversi sugli stessi contenuti. Un flag
-`--form-factor {mobile,desktop}` — passato a Lighthouse come
-`--preset=desktop` — permetterebbe di confrontare like-for-like con il
-referto che il committente ha sotto gli occhi. Costo: un flag, un campo
-nel corpo API, e la propagazione fino a `mars_seo`.
+- **I2** — `--fail-under` per `mars_audit`, con exit code ≠ 0 sotto la soglia.
+  Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per
+  questo in [mars_audit.py:27](mars_audit.py#L27).
+- **I3** — esporre `--rrf-k` e mostrare come cambia il consenso al variare di
+  `k` (oggi `RRF_K = 60`, [mars_core.py:1684](mars_core.py#L1684)). Didattica,
+  quasi gratis.
+- **I4 + I9** — **quali** chunk stiano fuori dall'intersezione fra i due
+  recuperatori, non quanti: `consensus_top3` già dice quanti. Le due idee sono
+  una domanda sola vista da due lati, e chi ne apre una apra l'altra.
+- **I5** — crawling concorrente. *Misurato il 2026-08-26:* **non realizzabile
+  com'è scritta.** `_get` serializza le richieste su `self._last_request`
+  ([mars_core.py:700](mars_core.py#L700)) per rispettare `Crawl-delay`, quindi
+  un pool che non passa di lì viola robots.txt e uno che ci passa non guadagna
+  niente. Da riscrivere su ciò che sta *attorno* al fetch — parsing,
+  estrazione — oppure da chiudere.
+- **I6** — cache HTTP su disco (URL + ETag/Last-Modified): rende iterabile lo
+  sviluppo dei moduli senza martellare il sito bersaglio.
+- **I7** — `--compare a.com b.com c.com` con tabella affiancata.
+- **I8** — pesi, soglie ed elenchi (crawler IA, termini answer-shaped) in un
+  file di configurazione invece che costanti sparse nel codice.
+- **I10** — un `mars_perf.py` con i **controlli** dei Core Web Vitals, letti
+  dallo stesso LHR senza un secondo Lighthouse. I punteggi di categoria li
+  pubblica già R45: manca la parte azionabile, LCP, CLS, INP e le loro soglie.
+- **I11** — verificare gli `@type` del JSON-LD contro i tipi che gli
+  assistenti usano davvero, non solo la sintassi (lo dice
+  [mars_schema.py:67](mars_schema.py#L67)).
+- **I12** — un Dockerfile con Node, Lighthouse, Chrome, ZAP, Playwright e
+  torch preinstallati: il README dedica un paragrafo a risolverne a mano i
+  conflitti.
+- **I14** — tetto alla dimensione della risposta HTTP: `_get` scarica il corpo
+  intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
+  byte.
+- **I15** — elisione italiana nella tokenizzazione: `l'azienda` resta un token
+  solo. *Misurato chiudendo R18:* la correzione ovvia, `re.findall(r"\w+")`,
+  è **scartata** — manda in pezzi `info@esempio.it`, `3,14` e `COVID-19`, e
+  riempie l'indice di frammenti che gonfiano la lunghezza su cui BM25
+  normalizza. Serve un elenco dichiarato di articoli e preposizioni elidibili,
+  non una regola generale.
+- **I16** — `--form-factor {mobile,desktop}` per confrontare like-for-like con
+  il referto PageSpeed che il committente ha sotto gli occhi.

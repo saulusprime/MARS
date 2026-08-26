@@ -619,6 +619,7 @@ def _testi_dal_dato() -> set:
     testi |= set(rp._GRAVITA_TESTO.values())
     testi |= {e for _, e in rp._BADGE_GRAVITA.values()}
     testi |= {e for _, e, _ in rp.TESSERE_GRAVITA}
+    testi |= {e for _, e in rp.TREEMAP_GRAVITA.values()}
     testi |= set(rp.COLONNE_CSV)
     # I segnali di pagina di mars_semantic, dalla funzione che li emette.
     import mars_semantic

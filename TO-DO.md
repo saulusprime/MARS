@@ -19,10 +19,12 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45. **Aperte**:
-> R28-R33, R35-R37, R39-R40, R42-R43 e R46-R48 — trovate *adeguando* i moduli
-> alle Fasi 1-5, e non corrette lì dentro perché avrebbero spostato punteggi o
-> testi dentro un commit che cambiava la forma.
+> **Correzioni chiuse**: R1-R27, R34, R38, R41, R44, R45, R47. **Aperte**:
+> R28-R33, R35-R37, R39-R40, R42-R43, R46, R48 e R49 — trovate *adeguando* i
+> moduli alle Fasi 1-5, e non corrette lì dentro perché avrebbero spostato
+> punteggi o testi dentro un commit che cambiava la forma. **R47 è chiusa il
+> 2026-08-26**: ha portato lo schema JSON a `schema_version: 2` e chiuso il
+> passo 3 della Fase 8, e ha sbloccato **R49**.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -107,7 +109,7 @@ non dipende dal codice.
       deboli, quindi è il formato giusto per controllarne l'esito.
 
 ### C12 — voci residue
-La suite esiste — 900 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
+La suite esiste — 908 test, vedi [AS-IS.md](AS-IS.md). Restano rifiniture.
 
 - [ ] Misurare la copertura (`pytest --cov`) per trovare i rami mai eseguiti:
       oggi si sa quali difetti sono protetti, non quanto codice è toccato.
@@ -188,7 +190,7 @@ derivati non contribuiranno un solo `Finding`.
 
 ## Correzioni
 
-Le voci chiuse — R1-R27, R34, R38, R41, R44, R45 — stanno in
+Le voci chiuse — R1-R27, R34, R38, R41, R44, R45, R47 — stanno in
 [AS-IS.md](AS-IS.md) con difetto, soluzione e verifiche, e non si riassumono
 qui: **nessuna voce GRAVE resta aperta.**
 
@@ -586,48 +588,6 @@ misura.
 - [ ] Solo dopo: far scalare lo sforzo col conteggio, e continuare a
       dichiararlo come stima.
 
-### R47 — 🟡 MEDIO: nessun rilievo dichiara la pagina che lo ha prodotto
-*(trovata chiudendo U8.3, il 2026-08-25)*
-
-`Finding.url` esiste dal modello dati di U1 ed è **vuoto in otto aree su
-nove**. Nell'unica che lo valorizza, `mars_wcag`
-([mars_wcag.py:383](mars_wcag.py#L383)), porta `voce["help_url"]`, cioè il
-link alla **documentazione della regola axe** — non l'URL analizzato.
-Verificato sul golden completo: i due soli rilievi con `url` puntano a
-`dequeuniversity.com`, mentre le pagine scansionate sono su
-`esempio.test`. Il campo ha quindi due significati possibili e ne esercita
-uno solo, senza che la docstring di `Finding` dica quale sia — è l'unico
-campo del modello dati che la docstring non spiega.
-
-**Che cosa costa già.** U8.3 doveva colorare ogni rettangolo della treemap
-con la gravità peggiore dei rilievi che citano quella pagina (UPGRADE.md,
-Fase 8, passo 3). Applicata alla lettera, quella regola non trova **mai**
-una corrispondenza e dipinge ogni pagina di «nessun problema»: un via
-libera che nessuno ha misurato, cioè il difetto che R21 ha chiuso altrove.
-La treemap è quindi uscita neutra, e lo dichiara. Il costo lo paga anche il
-CSV, che ha una colonna `url` per rilievo quasi sempre vuota.
-
-**Non è una svista di `mars_wcag`**: axe riporta i nodi per pagina in
-`voce["pages"]`, che finisce in `params`, quindi il dato c'è e non è quello
-che il campo espone. La scelta è fra due strade:
-
-- **separare i due campi** — `url` per la pagina, e un `doc_url` (o
-  `reference`) per il link allo strumento — e valorizzare il primo dove i
-  moduli sanno su quale pagina hanno guardato (`mars_wcag`, `mars_tech`,
-  `mars_seo`, `mars_schema` lo sanno; `mars_wapt` per gli alert ZAP anche);
-- **lasciare un campo solo** e documentarlo come «riferimento», rinunciando
-  ad agganciare i rilievi alle pagine — ma allora la colorazione della
-  treemap va tolta da UPGRADE.md invece di restare un lavoro in sospeso.
-
-La prima è la sola che chiude anche il divario di Fase 8. Muove i golden
-(JSON e CSV) e tocca nove moduli, quindi è una voce a sé e non un
-di più di U8.
-
-- [ ] Scegliere fra le due strade e documentare `url` nella docstring di
-      `Finding`, che oggi lo elenca senza spiegarlo.
-- [ ] Se si separa: colorare la treemap, e togliere da `_treemap_html` la
-      nota «il colore non è un giudizio».
-
 ### R48 — ⚪ LIEVE: del JavaScript la suite verifica il testo, non il gesto
 *(trovata chiudendo U8.4, il 2026-08-25)*
 
@@ -668,6 +628,28 @@ allargare l'ambiente, ed è anche quella che riduce il JavaScript.
 
 - [ ] Scegliere fra le due rimaste, e nel frattempo non toccare
       `REFERTO_JS` senza rilanciare `tools/banco_grafo.py`.
+
+### R49 — ⚪ LIEVE: il donut delle pagine è rimasto al taglio di ripiego
+*(sbloccata chiudendo R47, il 2026-08-26)*
+
+La Fase 5 di UPGRADE.md prevedeva un donut dello stato pagine col taglio
+**senza rilievi / con rilievi / scartate**, e ha ripiegato su *scansionate vs
+scartate* dichiarando il motivo: «finché i Finding non portano `url`
+valorizzati dai moduli» ([UPGRADE.md:489](UPGRADE.md#L489)). Ora quel dato
+c'è — `params["urls"]`, letto da `pagine_del_rilievo()` — e la stessa mappa
+che colora la treemap (`gravita_per_pagina`, [mars_report.py:573](mars_report.py#L573))
+darebbe il taglio previsto senza calcolare nulla di nuovo.
+
+Resta il caveat che R47 ha reso esplicito, e che qui pesa più che sulla
+treemap: **«senza rilievi» non vuol dire «a posto»**. Lighthouse misura una
+pagina sola, axe le prime del campione, e un donut che mettesse quelle pagine
+in un settore chiamato «senza rilievi» affermerebbe ciò che nessuno ha
+misurato — su un disegno che si legge come una ripartizione esaustiva, cosa
+che la treemap non è. O il settore si chiama diversamente, o servono tre
+settori invece di due.
+
+- [ ] Decidere il taglio e come si chiamano i settori, poi renderlo.
+      Rigenerando i golden.
 
 ---
 

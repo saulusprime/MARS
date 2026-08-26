@@ -27,8 +27,9 @@ from mars_i18n import (LINGUA_CANONICA, finding_texts, normalizza_lingua,
                        t)
 from mars_core import (AREA_PREFIX, JSON_SCHEMA_VERSION, MODULES_REGISTRY,
                        RRF_FORMULA, RRF_K, SEV_CRITICAL, SEV_INFO, SEV_OK,
-                       SEV_WARNING, Finding, __version__, describe_chunk,
-                       normalizza_risultato, reciprocal_rank_fusion)
+                       SEV_WARNING, SEVERITA, Finding, __version__,
+                       describe_chunk, normalizza_risultato,
+                       pagine_del_rilievo, reciprocal_rank_fusion)
 
 FAVICON = "favicon.ico"
 
@@ -569,9 +570,42 @@ def _squarify(valori: List[float], x: float, y: float, w: float,
     return rettangoli
 
 
+def gravita_per_pagina(referto: dict) -> Dict[str, Dict[str, object]]:
+    """Per ogni pagina citata da un rilievo, la gravita' PEGGIORE e quanti.
+
+    Si legge dai rilievi e non si conserva nel referto canonico: e'
+    interamente derivabile da `areas[].findings[].params["urls"]`, e
+    scriverla accanto sarebbe una seconda copia che diverge da sola —
+    la stessa ragione per cui la geometria della treemap non entra nel
+    dato.
+
+    **Una pagina assente dalla mappa non e' una pagina pulita.** Puo'
+    essere una pagina che nessun modulo ha guardato: Lighthouse ne
+    misura una sola, axe le prime del campione. Chi legge questa mappa
+    deve distinguere «nessun rilievo la cita» da «nessun problema», ed
+    e' il motivo per cui la treemap in quel caso non colora invece di
+    colorare di verde (R21, R47).
+    """
+    peggiore: Dict[str, Dict[str, object]] = {}
+    for area in referto.get("areas") or []:
+        for rilievo in area.get("findings") or []:
+            gravita = str(rilievo.get("severity") or "")
+            if gravita not in SEVERITA:
+                continue
+            for url in pagine_del_rilievo(rilievo):
+                voce = peggiore.setdefault(url, {"severity": gravita,
+                                                 "findings": 0})
+                voce["findings"] = int(voce["findings"]) + 1
+                if (SEVERITA.index(gravita)
+                        < SEVERITA.index(str(voce["severity"]))):
+                    voce["severity"] = gravita
+    return peggiore
+
+
 def treemap_data(pagine: List[dict], width: float = TREEMAP_W,
                  height: float = TREEMAP_H,
-                 max_items: int = TREEMAP_MAX
+                 max_items: int = TREEMAP_MAX,
+                 gravita: Optional[Dict[str, Dict[str, object]]] = None
                  ) -> Optional[Dict[str, object]]:
     """La superficie pagina per pagina, come rettangoli.
 
@@ -581,16 +615,20 @@ def treemap_data(pagine: List[dict], width: float = TREEMAP_W,
     forma che si legge a colpo d'occhio e' quella di un sito che ha
     tutto il testo in una pagina sola.
 
-    **Nessun colore di gravita', e non e' una rinuncia estetica.**
-    UPGRADE.md prevedeva di colorare ogni pagina con la gravita'
-    peggiore dei rilievi che la citano, ma nessun rilievo cita una
-    pagina: `Finding.url` e' vuoto ovunque tranne in `mars_wcag`, dove
-    porta il link alla documentazione della regola axe, non l'URL
-    analizzato. Applicata alla lettera, quella regola non troverebbe
-    mai una corrispondenza e dipingerebbe **tutte** le pagine di
-    "nessun problema" — un via libera che nessuno ha misurato. Finche'
-    i rilievi non dichiarano la pagina che li ha prodotti, la treemap
-    parla di superficie e tace sulla qualita'.
+    **Il colore e' la gravita' peggiore dei rilievi che citano la
+    pagina**, da `gravita_per_pagina`. Era il passo 3 della Fase 8 di
+    UPGRADE.md, ed e' rimasto in sospeso fino a R47 perche' nessun
+    rilievo dichiarava una pagina: applicata allora, quella regola non
+    avrebbe trovato una corrispondenza e avrebbe dipinto **tutte** le
+    pagine di "nessun problema" — un via libera che nessuno ha
+    misurato.
+
+    Le pagine che **nessun rilievo cita** restano senza colore, e non
+    diventano verdi: potrebbero essere pulite come potrebbero non
+    essere state guardate — Lighthouse ne misura una sola, axe le
+    prime del campione. La distinzione e' la stessa di `score: None`
+    contro `score: 0`, e la vista la scrive a parole accanto al
+    disegno, perche' il colore da solo non la porta.
 
     None sotto le due pagine con testo: un rettangolo solo non e' una
     distribuzione, e' un quadrato che riempie lo spazio qualunque sia
@@ -607,14 +645,21 @@ def treemap_data(pagine: List[dict], width: float = TREEMAP_W,
     mostrate = ordinate[:max_items]
     rettangoli = _squarify([float(p["words"]) for p in mostrate],
                            0.0, 0.0, width, height)
+    gravita = gravita or {}
     voci: List[Dict[str, object]] = []
     for pagina, rettangolo in zip(mostrate, rettangoli):
-        percorso = urlsplit(str(pagina.get("url") or "")).path or "/"
+        url = str(pagina.get("url") or "")
+        percorso = urlsplit(url).path or "/"
+        citata = gravita.get(url) or {}
         voci.append({
             "url": pagina.get("url"),
             "label": _coda(percorso, 30),
             "words": int(pagina.get("words") or 0),
             "chunks": int(pagina.get("chunks") or 0),
+            # Vuoto quando nessun rilievo la cita: e' un'assenza di
+            # informazione, non un "ok", e le due non vanno confuse.
+            "severity": str(citata.get("severity") or ""),
+            "findings": int(citata.get("findings") or 0),
             "x": round(rettangolo["x"], 1), "y": round(rettangolo["y"], 1),
             "w": round(rettangolo["w"], 1), "h": round(rettangolo["h"], 1),
         })
@@ -1657,15 +1702,21 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
 .card { background:var(--card); border:1px solid var(--line);
         border-radius:.6rem; padding:1rem; margin:.6rem 0;
         box-shadow:var(--ombra); }
-/* La treemap: un solo colore, e non e' pigrizia — vedi treemap_data.
+/* La treemap. Il colore e' la gravita' PEGGIORE dei rilievi che citano
+   la pagina; il grigio pallido di serie e' «nessun rilievo la cita»,
+   che non e' «nessun problema» — vedi treemap_data. Il colore non e'
+   mai solo: il titolo del rettangolo e la tabella lo dicono a parole.
    Il bordo e' il fondo pagina, cosi' i rettangoli si separano anche
    quando due pagine hanno la stessa estensione. Il testo si stampa
    sopra un contorno del fondo per restare leggibile su qualunque
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
-svg.treemap rect { fill:var(--muted); fill-opacity:.35;
+svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
+svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
+svg.treemap rect.warn { fill:var(--warn); fill-opacity:.55; }
+svg.treemap rect.muted { fill:var(--muted); fill-opacity:.5; }
 svg.treemap text { font-size:11px; fill:var(--fg); stroke:var(--bg);
                    stroke-width:3; paint-order:stroke;
                    pointer-events:none; }
@@ -2301,6 +2352,35 @@ TREEMAP_MIN_W = 90.0
 TREEMAP_MIN_H = 26.0
 
 
+# Gravita' peggiore di una pagina -> (classe CSS, parola). Non e'
+# `_BADGE_GRAVITA`, che di proposito non ha `info`: li' un rilievo
+# informativo non merita un'etichetta accanto al titolo, qui invece la
+# casella e' colorata comunque e tacere che cosa sia il colore
+# lascerebbe indovinare. Non e' nemmeno `TESSERE_GRAVITA`, le cui
+# etichette sono plurali che contano ("3 critici").
+TREEMAP_GRAVITA = {SEV_CRITICAL: ("bad", "rilievo critico"),
+                   SEV_WARNING: ("warn", "avvertenza"),
+                   SEV_INFO: ("muted", "rilievo informativo")}
+
+
+def _rilievi_della_pagina(voce: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Che cosa dice il colore di un rettangolo, a parole.
+
+    Esiste perche' il colore non basta: e' l'invariante che il referto
+    tiene dovunque (il simbolo accompagna sempre il colore), e qui vale
+    doppio, perche' il grigio non e' un giudizio lieve — e' l'assenza
+    di un giudizio.
+    """
+    if not voce["severity"]:
+        return t("nessun rilievo la cita", lang)
+    _, parola = TREEMAP_GRAVITA[str(voce["severity"])]
+    quanti = int(voce["findings"])
+    if quanti > 1:
+        return t("%d rilievi, il peggiore: %s", lang) % (quanti,
+                                                         t(parola, lang))
+    return t(parola, lang)
+
+
 def _treemap_html(referto: dict, p: List[str],
                   lang: str = LINGUA_CANONICA) -> None:
     """La treemap della superficie: SVG statico, e la sua tabella.
@@ -2314,7 +2394,8 @@ def _treemap_html(referto: dict, p: List[str],
     `<title>` non compare — sarebbero un ostacolo travestito da
     accessibilita'.
     """
-    mappa = treemap_data(referto.get("pages") or [])
+    mappa = treemap_data(referto.get("pages") or [],
+                         gravita=gravita_per_pagina(referto))
     if not mappa:
         return
     voci = mappa["items"]
@@ -2331,13 +2412,19 @@ def _treemap_html(referto: dict, p: List[str],
                     % (_plurale(int(mappa["empty"]), "pagina", "pagine",
                                 lang),
                        t("ha" if mappa["empty"] == 1 else "hanno", lang)))
-    # Il colore non dice nulla, e va detto: un grigio uniforme dopo le
-    # barre gialle della distribuzione si legge come «tutto a posto»
-    # invece che come «non misurato», ed e' la confusione che il
-    # referto evita ovunque.
-    note.append(t("Il colore non è un giudizio: nessun rilievo dichiara "
-                  "la pagina che lo ha prodotto, quindi la treemap parla "
-                  "di superficie e tace sulla qualità.", lang))
+    # Che cosa sia il colore va detto, e va detto soprattutto che cosa
+    # NON sia il grigio: una pagina che nessun rilievo cita puo' essere
+    # pulita come puo' non essere stata guardata — Lighthouse ne misura
+    # una sola, axe le prime del campione. Leggerlo come «tutto a
+    # posto» e' la confusione che il referto evita ovunque.
+    citate = sum(1 for v in voci if v["severity"])
+    note.append(t("Il colore è la gravità peggiore dei rilievi che citano "
+                  "la pagina.", lang))
+    if citate < len(voci):
+        note.append(t("%s in grigio: nessun rilievo le cita, che non vuol "
+                      "dire che siano a posto — non tutte le aree guardano "
+                      "tutte le pagine.", lang)
+                    % _plurale(len(voci) - citate, "pagina", "pagine", lang))
     p.append("<p class='meta'>%s</p>" % _e(" ".join(note)))
     p.append("<svg class='treemap' viewBox='0 0 %d %d' role='img' "
              "aria-label='%s'>"
@@ -2349,13 +2436,20 @@ def _treemap_html(referto: dict, p: List[str],
                    _plurale(int(voci[0]["words"]), "parola", "parole",
                             lang))))
     for voce in voci:
-        p.append("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f'>"
-                 "<title>%s — %s, %s</title></rect>"
+        classe, _ = TREEMAP_GRAVITA.get(str(voce["severity"]), ("", ""))
+        p.append("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f'%s>"
+                 # Il colore non viaggia mai da solo: al passaggio del
+                 # mouse il titolo dice a parole che cosa significa, e
+                 # la tabella qui sotto lo dice a chi il mouse non lo
+                 # usa.
+                 "<title>%s — %s, %s, %s</title></rect>"
                  % (voce["x"], voce["y"], voce["w"], voce["h"],
+                    " class='%s'" % classe if classe else "",
                     _e(voce["label"]),
                     _plurale(int(voce["words"]), "parola", "parole", lang),
                     _plurale(int(voce["chunks"]), "passaggio", "passaggi",
-                             lang)))
+                             lang),
+                    _e(_rilievi_della_pagina(voce, lang))))
         if voce["w"] >= TREEMAP_MIN_W and voce["h"] >= TREEMAP_MIN_H:
             p.append("<text x='%.1f' y='%.1f'>%s</text>"
                      % (voce["x"] + 6, voce["y"] + 17,
@@ -2364,13 +2458,15 @@ def _treemap_html(referto: dict, p: List[str],
     p.append("</svg>")
     p.append("<details><summary>%s</summary>"
              "<table><tr><th>%s</th><th>%s</th>"
-             "<th>%s</th></tr>"
+             "<th>%s</th><th>%s</th></tr>"
              % (t("La superficie in tabella", lang), t("Pagina", lang),
-                t("Parole", lang), t("Passaggi", lang)))
+                t("Parole", lang), t("Passaggi", lang),
+                t("Rilievi", lang)))
     for voce in voci:
         p.append("<tr><td>%s</td><td class='num'>%d</td>"
-                 "<td class='num'>%d</td></tr>"
-                 % (_e(voce["url"]), voce["words"], voce["chunks"]))
+                 "<td class='num'>%d</td><td>%s</td></tr>"
+                 % (_e(voce["url"]), voce["words"], voce["chunks"],
+                    _e(_rilievi_della_pagina(voce, lang))))
     p.append("</table></details>")
 
 
@@ -3327,8 +3423,19 @@ def render_markdown(referto: dict,
 # Vista CSV: i rilievi come righe, per chi li lavora altrove (Fase 6)
 # ======================================================================
 
+# `pagine` e `riferimento` erano una colonna sola, `url`, e portava il
+# link alla documentazione della regola axe: nel referto completo era
+# l'unica valorizzata, con dentro dequeuniversity.com accanto a una
+# colonna `sito` che diceva un altro indirizzo. Sono due cose diverse e
+# ora sono due colonne (R47).
 COLONNE_CSV = ("sito", "area", "gravita", "peso", "titolo", "dettaglio",
-               "correzione", "url", "sforzo", "quick_win")
+               "correzione", "pagine", "riferimento", "sforzo", "quick_win")
+
+# Con che cosa si separano piu' pagine dentro una cella. Uno spazio e
+# non il punto e virgola, che e' il DELIMITATORE del file: `csv` la
+# cella la quoterebbe correttamente, ma chi apre il CSV in un foglio si
+# troverebbe il separatore dentro il testo e crederebbe a un errore.
+SEPARATORE_PAGINE = " "
 
 # L'intestazione e il «sì» si traducono come tutto il resto: passano da
 # `t()`, quindi stanno nel catalogo della cornice e non in una tabella
@@ -3385,7 +3492,8 @@ def render_csv(referto: dict, lang: str = LINGUA_CANONICA) -> str:
                 testi["title"],
                 testi["detail"],
                 testi["fix"],
-                rilievo.get("url") or "",
+                SEPARATORE_PAGINE.join(pagine_del_rilievo(rilievo)),
+                rilievo.get("doc_url") or "",
                 t(sforzo, lang) if sforzo else "",
                 t("sì", lang) if voce and voce.get("quick_win") else "",
             ])

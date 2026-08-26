@@ -69,6 +69,7 @@
 | R44 | Nel ramo axe il referto parlava inglese | 2026-08-25 |
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
+| R47 | Nessun rilievo dichiarava la pagina che lo aveva prodotto | 2026-08-26 |
 
 ---
 
@@ -4917,6 +4918,174 @@ dichiara quali strumenti hanno scritto in un'altra lingua, sta nella voce
 - [x] Tradurre i titoli axe, scegliendo fra le due strade.
 - [x] Rendere fedele `_violazioni_axe()` nello stesso commit.
 
+---
+
+### R47 — ✅ RISOLTO (2026-08-26): nessun rilievo dichiarava la pagina che lo aveva prodotto
+
+**Il difetto, misurato prima di toccare il codice.** `Finding.url` esisteva
+dal modello dati di U1 ed era vuoto quasi ovunque. Sui due referti sintetici:
+
+```
+tests/golden/referto.json            28 rilievi,  2 con `url`
+tests/golden/referto_degradato.json  19 rilievi,  0 con `url`
+
+i due valorizzati:
+   mars_wcag  wcag.axe.image_alt      https://dequeuniversity.com/rules/axe/4.13/image-alt
+   mars_wcag  wcag.axe.color_contrast https://dequeuniversity.com/rules/axe/4.13/color-contrast
+le pagine scansionate:
+   https://esempio.test/, /faq/, /servizi/
+```
+
+Il campo aveva due significati possibili — la pagina colpita e il riferimento
+allo strumento — ne esercitava uno solo, e la docstring di `Finding` non
+diceva quale: era l'unico campo del modello dati che non spiegava.
+
+**Che cosa costava.** Il passo 3 della Fase 8 di UPGRADE.md doveva colorare
+ogni rettangolo della treemap con la gravità peggiore dei rilievi che citano
+quella pagina. Applicata alla lettera, quella regola non trovava **mai** una
+corrispondenza e avrebbe dipinto ogni pagina di «nessun problema»: un via
+libera che nessuno ha misurato, cioè il difetto che R21 ha chiuso altrove. La
+treemap è quindi uscita neutra e lo dichiarava. Il costo lo pagava anche il
+CSV, che aveva una colonna `url` con dentro `dequeuniversity.com` accanto a
+una colonna `sito` che diceva un altro indirizzo.
+
+#### Le due strade del TO-DO erano tre, e la terza è quella presa
+
+La voce proponeva di *separare i due campi* (`url` per la pagina, `doc_url`
+per il riferimento) oppure di *lasciarne uno solo* rinunciando alla treemap.
+Rileggendo il codice prima di scegliere sono usciti due fatti che cambiano la
+domanda:
+
+- **`params["urls"]` era già la convenzione di fatto**, in quattro moduli su
+  nove: `mars_tech` (4 rilievi), `mars_schema` (2), `mars_wapt` (tutti gli
+  alert ZAP), `mars_wcag` (il controllo `lang`). La seconda strada avrebbe
+  quindi rinunciato a un dato che c'era;
+- **un campo scalare è vuoto per costruzione.** `mars_schema` lo dichiara nel
+  proprio codice da prima di questa voce: *un rilievo per CONTROLLO, anche
+  quando gli URL sono molti; la cardinalità è accoppiata al punteggio in tutta
+  MARS*. Un `url` singolo su un rilievo che aggrega venti pagine è vuoto, o è
+  una seconda copia di `urls[0]` che diverge da sola.
+
+Da qui la strada presa: **`params["urls"]` diventa il canone**, `url` viene
+rinominato `doc_url` — che è ciò che ha sempre contenuto — e la treemap si
+colora sull'unico dato che dice davvero dove.
+
+**Due affermazioni della voce non hanno retto alla lettura del sorgente**, e
+si annotano invece di riscriverle:
+
+- *«axe riporta i nodi per pagina in `voce["pages"]`, quindi il dato c'è»*.
+  `voce["pages"]` è un **contatore intero**. L'URL veniva buttato prima, in
+  `run_axe`, dove `violazioni.extend(esito or [])` appiattiva in una lista
+  sola le violazioni che axe restituisce pagina per pagina. Dopo quel ciclo il
+  dato non esisteva più: recuperarlo è stato lavoro, non una lettura;
+- *«`mars_seo` sa su quale pagina ha guardato»*. Lo sapeva e lo dichiarava
+  già, ma **solo a livello d'area** (`audited_url`): un rilievo letto staccato
+  dal referto — nel CSV, nel piano — non lo sapeva.
+
+#### La soluzione
+
+1. **`Finding.url` → `Finding.doc_url`** (`mars_core.py`), documentato come il
+   link alla documentazione della regola dello strumento, mai una pagina del
+   sito. La docstring dichiara ora anche la convenzione `params["urls"]` e
+   **perché** è una lista.
+2. **`JSON_SCHEMA_VERSION` 1 → 2.** Primo scatto da quando la chiave esiste,
+   ed è esattamente il caso per cui esiste: una chiave rinominata. Il
+   contenuto del campo non è cambiato — è il nome che prometteva un'altra
+   cosa.
+3. **`pagine_del_rilievo()` in `mars_core`**, unico lettore della convenzione,
+   accanto a chi la documenta: la treemap la usa per colorare, il CSV per
+   riempire una colonna, e due letture separate divergerebbero in silenzio.
+4. **I moduli colmano i buchi** dove la pagina la sanno:
+   - `mars_wcag.run_axe` etichetta ogni violazione con la sua pagina sotto
+     `CHIAVE_PAGINA`, e `score_from_violations` le raccoglie in
+     `params["urls"]`. Il contatore `pages` resta quello che decide il
+     punteggio: quanto e dove sono due domande diverse e convivono;
+   - i **sei controlli statici** di `mars_wcag` dichiarano su quali pagine
+     sono scattati (prima solo `wcag.lang.missing` lo faceva);
+   - `mars_seo` porta `audited_url` dentro ogni rilievo — l'URL che
+     **Lighthouse** dichiara di aver misurato, cioè l'arrivo dopo i redirect,
+     non quello che gli avevamo chiesto;
+   - `mars_tech.tech.canonical.missing`, l'unico dei quattro dell'area che
+     taceva le pagine;
+   - `mars_wapt._rilievo_header`, dall'URL a cui la risposta è arrivata.
+5. **La treemap si colora** (`gravita_per_pagina` + `treemap_data`): critico
+   rosso, avvertenza arancione, informativo grigio pieno. Le pagine che
+   **nessun rilievo cita restano senza colore e non diventano verdi** — non
+   tutte le aree guardano tutte le pagine, e la nota accanto al disegno lo
+   scrive a parole. Il colore non viaggia mai da solo (invariante 4 di
+   UPGRADE.md): il `<title>` del rettangolo e una nuova colonna della tabella
+   in `<details>` dicono quanti rilievi sono e qual è il peggiore.
+6. **Il CSV separa le due cose**: `url` diventa `pagine` (le pagine del sito,
+   separate da spazio) e `riferimento` (il link alla documentazione).
+
+#### Le verifiche
+
+- **Nessun punteggio si è mosso.** È la prova che la voce ha cambiato ciò che
+  il referto *dichiara* e non ciò che *misura*: nel diff dei sei golden non
+  compare una sola riga `score` o `penalty` modificata.
+- **La suite passa da 900 a 908 test**, `flake8 .` a zero.
+- **Il confronto fra due esecuzioni non si rompe**, ed era la domanda da
+  farsi prima di alzare `schema_version`: R39 avverte che una migrazione di
+  chiavi è, per U7, una sparizione di massa seguita da una comparsa di massa.
+  Qui non lo è, perché lo storico registra `key`, `title`, `severity` e
+  `params` e **non ha mai registrato `url`**. Verificato eseguendo
+  `compute_delta` fra una riga scritta con `schema_version: 1` e una con
+  `2`: `resolved` e `new` restano vuoti, i punteggi si confrontano, e
+  `by_title_fallback` resta `False`.
+- **Dodici mutazioni, dodici rosse** (`PYTHONDONTWRITEBYTECODE=1`, con il
+  controllo che il file resti importabile):
+
+| mutazione | esito |
+|---|---|
+| `run_axe` non etichetta più la violazione con la sua pagina | rosso |
+| la regola tiene solo l'ultima pagina invece di tutte | rosso |
+| il controllo statico sulle immagini smette di dire dove | rosso |
+| `mars_seo` dichiara una lista vuota invece della pagina misurata | rosso |
+| `tech.canonical.missing` torna a tacere le pagine | rosso |
+| l'accessore non restituisce mai una pagina | rosso |
+| l'accessore accetta una stringa come lista di URL | rosso |
+| la mappa tiene la gravità **migliore** invece della peggiore | rosso |
+| ogni rettangolo si colora di critico | rosso |
+| una pagina mai citata risulta comunque giudicata | rosso |
+| le due colonne del CSV si scambiano di posto | rosso |
+| l'URL dell'header perde la barra finale e non aggancia più | rosso |
+
+#### Due finti non erano fedeli, e la voce li ha scoperti
+
+È di nuovo la lezione dell'adattatore del `Crawler` e di R44: un banco di
+prova che somiglia a ciò che rimpiazza serve, uno che somiglia a un livello
+più sotto no.
+
+- `_Risposta` in `tests/test_modules.py` e il finto `requests.head` di
+  `tests/test_golden.py` non avevano `.url`, che una `requests.Response` vera
+  ha **sempre**. Sono saliti come `AttributeError`, cioè esattamente il
+  servizio che un finto fedele rende;
+- `_violazioni_axe()` in `tests/test_golden.py` è dichiaratamente «le
+  violazioni **come le manda axe**», ma sostituisce `run_axe`, non axe: senza
+  l'etichetta di pagina il golden avrebbe congelato un referto in cui i
+  rilievi axe non sanno dove stanno mentre in produzione lo sanno. Corretta
+  tenendo **una regola per pagina** e non la stessa due volte, perché axe le
+  riporta pagina per pagina e due voci avrebbero spostato la diffusione, cioè
+  il punteggio.
+
+#### Che cosa resta, e che cosa si sblocca
+
+- Le voci **R39** (`alertRef`) e **R40** (`mars_seo`) restano aperte: qui non
+  si è toccato nulla che sposti punteggi.
+- `mars_lexical` e `mars_semantic` non compaiono perché non emettono rilievi
+  (**U13**); `mars_citability` e `mars_llm_judge` non dichiarano pagine perché
+  non ne guardano una — i primi sono derivati da altre aree, i secondi
+  giudicano passaggi scelti dalla fusione.
+- **Si sblocca il donut della Fase 5** — «senza rilievi / con rilievi /
+  scartate» — che UPGRADE.md aveva rimandato proprio in attesa di questo dato.
+  Non è stato fatto qui: è una voce del TO-DO, non un di più di R47.
+- **Le voci di AS-IS anteriori a questa nominano il campo `url`** (U1.5,
+  U1.6, U1.9, U8.3): erano corrette quando sono state scritte, e si leggono
+  con la rinomina in mente. Non si riscrivono — un fatto registrato si
+  annota.
+
+---
+
 ### C13 — ✅ RISOLTO (2026-08-19): file di progetto mancanti
 Il repository non era sotto controllo di versione e mancavano i file che
 rendono un progetto utilizzabile da qualcuno che non l'ha scritto.
@@ -5829,4 +5998,3 @@ codici di uscita espliciti, docstring che spiegano il perché.
 La decisione è registrata come **principio 8** in [TO-DO.md](TO-DO.md), e
 l'allineamento graduale dei moduli esistenti è **R13**, ancora aperto.
 Lo stile cambia, la filosofia (principi 1-7) no.
-

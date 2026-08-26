@@ -451,7 +451,10 @@ def build_remediation(referto: dict) -> List[dict]:
                 "title": rilievo.get("title") or "",
                 "fix": rilievo.get("fix") or "",
                 "example": rilievo.get("example") or "",
-                "url": rilievo.get("url") or "",
+                # Il link alla documentazione della regola, non una
+                # pagina: quelle viaggiano dentro `params["urls"]`, che
+                # la voce copia insieme al resto (R47).
+                "doc_url": rilievo.get("doc_url") or "",
                 # I `params` viaggiano con la voce come ci viaggiano
                 # titolo e fix, e per la stessa ragione: la voce e' una
                 # COPIA del rilievo, non un rimando. Senza, un titolo

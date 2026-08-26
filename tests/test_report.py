@@ -26,7 +26,8 @@ from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
                          ancore_dei_rilievi,
                          conteggi_per_gravita, depth_distribution,
                          pagine_scansionate, segnali_derivati,
-                         surface_math, treemap_data, _squarify,
+                         surface_math, treemap_data, gravita_per_pagina,
+                         _squarify,
                          _plurale, _coda, link_graph_data,
                          _force_layout,
                          _correzioni_testo, _elenco_controlli,
@@ -683,7 +684,8 @@ def test_html_mostra_la_legenda_della_scala(referto):
 def _rilievo(**kw) -> dict:
     base = {"area": "mars_tech", "severity": SEV_CRITICAL, "title": "Titolo",
             "key": "tech.x.y", "detail": "", "fix": "", "example": "",
-            "url": "", "weight": 1.0, "source_severity": "", "params": {}}
+            "doc_url": "", "weight": 1.0, "source_severity": "",
+            "params": {}}
     base.update(kw)
     return base
 
@@ -1672,11 +1674,15 @@ def test_il_csv_lascia_vuoto_lo_sforzo_dove_non_e_azionabile(contesto):
     righe = list(csv.reader(
         io.StringIO(render_csv(build_report(contesto["results"], contesto))[1:]),
         delimiter=";"))
-    per_titolo = {r[4]: r for r in righe[1:]}
-    assert per_titolo["azionabile"][8] == "minuti"
-    assert per_titolo["azionabile"][9] == "sì"
-    assert per_titolo["informativo"][8] == ""
-    assert per_titolo["informativo"][9] == ""
+    # Per NOME di colonna e non per posizione: aggiungerne una in mezzo
+    # — `pagine` e `riferimento` al posto di `url`, R47 — faceva
+    # fallire questo test per una ragione che non lo riguarda.
+    colonna = {nome: i for i, nome in enumerate(righe[0])}
+    per_titolo = {r[colonna["titolo"]]: r for r in righe[1:]}
+    assert per_titolo["azionabile"][colonna["sforzo"]] == "minuti"
+    assert per_titolo["azionabile"][colonna["quick_win"]] == "sì"
+    assert per_titolo["informativo"][colonna["sforzo"]] == ""
+    assert per_titolo["informativo"][colonna["quick_win"]] == ""
 
 
 def test_il_csv_quota_le_celle_ostili(contesto):
@@ -2038,24 +2044,77 @@ def test_le_parole_della_pagina_sono_quelle_dei_suoi_passaggi(contesto):
         referto["surface_math"]["words"]
 
 
-def test_la_treemap_non_colora_cio_che_nessuno_ha_misurato(contesto):
-    """`Finding.url` porta il link alla documentazione della regola axe,
-    non l'URL analizzato: colorare con quella regola non troverebbe mai
-    una corrispondenza e dipingerebbe ogni pagina di «nessun problema»."""
+def _due_pagine(contesto):
+    """Il campione minimo perche' la treemap si disegni: sotto le due
+    pagine con testo `treemap_data` restituisce None."""
     contesto["pages"]["https://esempio.test/b/"] = dict(
         contesto["pages"]["https://esempio.test/"],
         chunks=[{"url": "https://esempio.test/b/", "heading": "",
                  "text": "una parola " * 40}])
     contesto["chunks"] = [c for p in contesto["pages"].values()
                           for c in p["chunks"]]
-    html = render_html(build_report({}, contesto))
+
+
+def _svg_treemap(html: str) -> str:
     sezione = html[html.index("<svg class='treemap'"):]
-    sezione = sezione[:sezione.index("</svg>")]
-    for colore in ("var(--bad)", "var(--warn)", "var(--ok)",
-                   "class='bad'", "class='warn'", "class='ok'"):
+    return sezione[:sezione.index("</svg>")]
+
+
+def test_la_treemap_non_colora_le_pagine_che_nessun_rilievo_cita(contesto):
+    """Il grigio non e' un via libera: una pagina che nessun rilievo cita
+    puo' essere pulita come puo' non essere stata guardata — Lighthouse
+    ne misura una sola, axe le prime del campione. Dipingerla di verde
+    sarebbe un giudizio che nessuno ha dato (R21, R47)."""
+    _due_pagine(contesto)
+    html = render_html(build_report({}, contesto))
+    sezione = _svg_treemap(html)
+    for colore in ("class='bad'", "class='warn'", "class='muted'",
+                   "class='ok'"):
         assert colore not in sezione, \
             "un colore di gravità su una gravità che nessuno ha misurato"
-    assert "Il colore non è un giudizio" in html
+    assert "nessun rilievo la cita" in html
+    assert "non vuol dire che siano a posto" in html
+
+
+def test_la_treemap_colora_la_pagina_che_il_rilievo_dichiara(contesto):
+    """Il passo 3 della Fase 8, che R47 ha sbloccato: la gravita'
+    peggiore dei rilievi che citano la pagina finisce sul rettangolo, e
+    **solo** su quello — l'altra pagina resta senza colore."""
+    _due_pagine(contesto)
+    contesto["results"] = {"mars_tech": {"score": 40, "issues": [],
+                                         "findings": [
+        _rilievo(key="tech.index.noindex", severity=SEV_CRITICAL,
+                 params={"penalty": 30.0,
+                         "urls": ["https://esempio.test/b/"]}),
+        _rilievo(key="tech.canonical.missing", severity=SEV_INFO,
+                 params={"penalty": 5.0,
+                         "urls": ["https://esempio.test/b/"]})]}}
+    html = render_html(build_report(contesto["results"], contesto))
+    sezione = _svg_treemap(html)
+    assert sezione.count("class='bad'") == 1, "solo la pagina citata"
+    assert "class='warn'" not in sezione
+    # Il colore non viaggia mai da solo: il titolo del rettangolo e la
+    # tabella dicono a parole quanti sono e qual e' il peggiore.
+    assert "2 rilievi, il peggiore: rilievo critico" in html
+    assert "nessun rilievo la cita" in html, "l'altra pagina resta muta"
+
+
+def test_la_treemap_tiene_la_gravita_peggiore_non_l_ultima(contesto):
+    """Due rilievi sulla stessa pagina in ordine crescente di gravita':
+    se la mappa tenesse l'ultimo letto invece del peggiore, il critico
+    sparirebbe sotto l'informativo."""
+    _due_pagine(contesto)
+    contesto["results"] = {"mars_tech": {"score": 40, "issues": [],
+                                         "findings": [
+        _rilievo(key="tech.canonical.missing", severity=SEV_INFO,
+                 params={"penalty": 5.0, "urls": ["https://esempio.test/"]}),
+        _rilievo(key="tech.index.noindex", severity=SEV_CRITICAL,
+                 params={"penalty": 30.0,
+                         "urls": ["https://esempio.test/"]})]}}
+    referto = build_report(contesto["results"], contesto)
+    mappa = gravita_per_pagina(referto)
+    assert mappa["https://esempio.test/"]["severity"] == SEV_CRITICAL
+    assert mappa["https://esempio.test/"]["findings"] == 2
 
 
 def test_i_rettangoli_non_sono_fermate_di_tabulazione(contesto):

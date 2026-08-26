@@ -206,15 +206,29 @@ def _violazioni_axe() -> list:
     fixture si chiudono nello stesso commit.
 
     I testi sono verbatim da axe-core 4.13.0.
+
+    `CHIAVE_PAGINA` invece **non** viene da axe: la scrive `run_axe`,
+    che e' cio' che questa fixture sostituisce, e senza di essa il
+    golden congelerebbe un referto in cui i rilievi axe non sanno su
+    che pagina stanno mentre in produzione lo sanno (R47). E' la stessa
+    regola di R44, applicata al campo invece che alla lingua: la
+    fixture deve somigliare a cio' che rimpiazza, non a cio' che sta un
+    livello piu' sotto.
+
+    Una regola per pagina, non le stesse due volte: axe le riporta
+    pagina per pagina, quindi lo stesso difetto su due pagine sarebbe
+    DUE voci — e ne sposterebbe la diffusione, cioe' il punteggio.
     """
     return [
         {"id": "image-alt", "impact": "critical",
+         mars_wcag.CHIAVE_PAGINA: BASE,
          "help": "Images must have alternative text",
          "description": "Ensure <img> elements have alternative text or a "
                         "role of none or presentation",
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
          "nodes": [{"target": ["img"]}, {"target": ["img:nth-child(2)"]}]},
         {"id": "color-contrast", "impact": "serious",
+         mars_wcag.CHIAVE_PAGINA: BASE,
          "help": "Elements must meet minimum color contrast ratio "
                  "thresholds",
          "description": "Ensure the contrast between foreground and "
@@ -223,6 +237,7 @@ def _violazioni_axe() -> list:
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
          "nodes": [{"target": ["a"]}]},
         {"id": "label", "impact": "moderate",
+         mars_wcag.CHIAVE_PAGINA: BASE + "servizi/",
          "help": "Form elements must have labels",
          "description": "Ensure every form element has a label",
          "nodes": [{"target": ["input"]}]},
@@ -449,8 +464,14 @@ def _referto_degradato(monkeypatch) -> dict:
                                 lambda credentials=None: None)
             monkeypatch.setattr(
                 modulo.requests, "head",
+                # `url` come lo porta una `requests.Response` vera: e'
+                # l'indirizzo a cui la risposta e' arrivata, ed e' cio'
+                # da cui il rilievo dichiara la pagina su cui gli
+                # header sono stati letti (R47). Un finto senza quel
+                # campo faceva sollevare AttributeError, che e'
+                # esattamente il servizio che un finto fedele rende.
                 lambda url, **kw: types.SimpleNamespace(
-                    status_code=200,
+                    status_code=200, url=url,
                     headers={"Strict-Transport-Security": "max-age=31536000"}))
         risultati[nome] = modulo.audit(contesto)
     return mars_report.build_report(risultati, contesto)

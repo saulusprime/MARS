@@ -884,12 +884,19 @@ def test_wcag_il_dato_axe_non_tronca_a_cinque():
 
 def test_wcag_axe_porta_l_helpurl_per_la_correzione():
     """axe fornisce `helpUrl` e finora veniva scartato: e' il link
-    alla spiegazione della regola, cioe' meta' del lavoro della Fase 3."""
+    alla spiegazione della regola, cioe' meta' del lavoro della Fase 3.
+
+    Sta in `doc_url` e non in `url`: e' la documentazione della regola,
+    non una pagina del sito. Finche' il campo si chiamava `url` era
+    l'unico valorizzato in tutto il referto, e prometteva la seconda
+    cosa mentre portava la prima (R47)."""
     esito = mars_wcag.score_from_violations(
         [{"id": "image-alt", "impact": "critical", "help": "H",
           "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
           "nodes": [0]}], 1)
-    assert esito["findings"][0]["url"].endswith("/image-alt")
+    finding = esito["findings"][0]
+    assert finding["doc_url"].endswith("/image-alt")
+    assert "url" not in finding, "il nome che prometteva la pagina"
 
 
 def _viol(rid="a", gravita="serious"):
@@ -973,6 +980,55 @@ def test_run_axe_conta_le_pagine_riuscite(monkeypatch):
 
     _playwright_finto(monkeypatch)
     assert mars_wcag.run_axe(urls)[1] == 3
+
+
+def test_run_axe_etichetta_ogni_violazione_con_la_sua_pagina(monkeypatch):
+    """axe restituisce le violazioni pagina per pagina e non dice di
+    quale: appiattirle in una lista sola buttava via l'unica occasione
+    di saperlo, e dopo il ciclo il dato non c'e' piu' (R47).
+
+    E' cio' su cui poggia la colorazione della treemap: senza
+    l'etichetta il rilievo axe non sa dove sta, e il rettangolo resta
+    grigio pur essendoci un critico sopra."""
+    urls = ["https://x/1", "https://x/2", "https://x/3"]
+    _playwright_finto(monkeypatch, falliscono=["https://x/2"])
+    violazioni, _ = mars_wcag.run_axe(urls)
+    assert [v[mars_wcag.CHIAVE_PAGINA] for v in violazioni] == [
+        "https://x/1", "https://x/3"], "la pagina fallita non ne porta"
+
+    # E la catena fino al rilievo: due pagine, una regola, `pages` che
+    # resta il contatore del punteggio e `urls` che dice dove.
+    esito = mars_wcag.score_from_violations(violazioni, 2)
+    finding = esito["findings"][0]
+    assert finding["params"]["urls"] == ["https://x/1", "https://x/3"]
+    assert finding["params"]["pages"] == 2
+
+
+def test_wcag_una_violazione_senza_etichetta_non_inventa_pagine():
+    """`score_from_violations` e' pubblica e pura: la si esercita anche
+    su violazioni che non vengono da `run_axe`. Li' l'etichetta non c'e',
+    e il rilievo deve dichiarare zero pagine invece di inventarne."""
+    esito = mars_wcag.score_from_violations([_viol()], 1)
+    assert esito["findings"][0]["params"]["urls"] == []
+
+
+def test_wcag_i_controlli_statici_dicono_su_quali_pagine(contesto):
+    """Il rilievo resta UNO per controllo — spezzarlo per pagina
+    moltiplicherebbe la penalita' — ma il conteggio e le pagine sono
+    due domande diverse, e finora rispondeva solo alla prima (R47)."""
+    pages = {
+        "https://x/a": {"lang": "it", "images": [{"src": "1.png"}],
+                        "tabindex": ["2"]},
+        "https://x/b": {"lang": "it", "images": [{"src": "2.png",
+                                                  "alt": "ok"}]},
+        "https://x/c": {"lang": "it", "images": [{"src": "3.png"}]},
+    }
+    per_chiave = {f.key: f for f in mars_wcag.controlli_statici(pages)}
+    assert per_chiave["wcag.img.alt_missing"].params["urls"] == [
+        "https://x/a", "https://x/c"], "non la pagina con l'alt a posto"
+    assert per_chiave["wcag.img.alt_missing"].params["immagini"] == 2
+    assert per_chiave["wcag.tabindex.positive"].params["urls"] == [
+        "https://x/a"]
 
 
 def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
@@ -1718,6 +1774,33 @@ def test_seo_riassume_con_conteggi_e_strumento():
     # Un referto mobile e uno desktop non sono confrontabili.
     assert esito["form_factor"] == "mobile"
     assert esito["audited_url"] == "https://esempio.test/"
+
+
+def test_seo_ogni_rilievo_dichiara_la_pagina_misurata():
+    """L'area la sapeva da sempre — `audited_url` — ma solo a livello
+    d'area: un rilievo letto staccato dal referto, nel CSV o nel piano,
+    non diceva a che pagina si riferisse (R47).
+
+    E' quella che LIGHTHOUSE dichiara di aver misurato, cioe' l'arrivo
+    dopo i redirect: scrivere l'URL di partenza significherebbe
+    attribuire la misura a una pagina diversa da quella misurata."""
+    esito = mars_seo.riassumi(_lhr())
+    assert esito["findings"], "senza rilievi il test passerebbe a vuoto"
+    for rilievo in esito["findings"]:
+        assert rilievo["params"]["urls"] == ["https://esempio.test/"]
+
+
+def test_seo_senza_url_dichiarato_il_rilievo_non_ne_inventa_uno():
+    """`finalDisplayedUrl` e `finalUrl` possono mancare entrambi: la
+    chiave allora non c'e', che e' diverso da una lista vuota — e da
+    una lista con dentro la stringa vuota, che il CSV renderebbe come
+    una pagina chiamata «»."""
+    lhr = _lhr()
+    lhr.pop("finalDisplayedUrl", None)
+    lhr.pop("finalUrl", None)
+    esito = mars_seo.riassumi(lhr)
+    assert esito["audited_url"] is None
+    assert all("urls" not in r["params"] for r in esito["findings"])
 
 
 def test_seo_issues_contengono_i_falliti_con_il_dettaglio():
@@ -2773,11 +2856,18 @@ class _Risposta:
     resp.headers`. Con un dict semplice il test verificherebbe un
     confronto che il codice reale non esegue — la stessa lezione
     dell'adattatore finto del Crawler in tests/test_core.py.
+
+    `url` per la stessa ragione: una `requests.Response` ce l'ha
+    sempre, ed e' l'URL a cui la risposta e' ARRIVATA — dopo i
+    redirect. `_risposte` lo riempie con l'URL richiesto quando il
+    copione non ne fissa uno; un test che voglia esercitare un redirect
+    lo passa esplicitamente.
     """
 
-    def __init__(self, status_code: int = 200, headers=()):
+    def __init__(self, status_code: int = 200, headers=(), url: str = ""):
         self.status_code = status_code
         self.headers = CaseInsensitiveDict(dict(headers))
+        self.url = url
 
 
 def _risposte(monkeypatch, *sequenza):
@@ -2793,6 +2883,8 @@ def _risposte(monkeypatch, *sequenza):
         esito = coda.pop(0)
         if isinstance(esito, Exception):
             raise esito
+        if not esito.url:
+            esito.url = url
         return esito
 
     monkeypatch.setattr(mars_wapt.requests, "head", servi)
@@ -3008,14 +3100,14 @@ def test_wapt_un_gruppo_con_piu_soluzioni_lo_dichiara():
 
 def test_wapt_le_reference_diventano_una_lista():
     """`reference` e' UNA stringa con dentro piu' URL: metterla in
-    `Finding.url`, che e' un link solo, ne mostrerebbe uno e
+    `Finding.doc_url`, che e' un link solo, ne mostrerebbe uno e
     nasconderebbe gli altri."""
     esito = mars_wapt.score_from_alerts(
         [_alert(reference="https://a/\r\nhttps://b/\nhttps://c/\n")])
     finding = esito["findings"][0]
     assert finding["params"]["references"] == ["https://a/", "https://b/",
                                                "https://c/"]
-    assert finding["url"] == "", "ambiguo fra pagina colpita e documentazione"
+    assert finding["doc_url"] == "", "ZAP non manda un link per regola"
 
 
 def test_wapt_gli_alert_refs_del_gruppo_non_si_perdono():

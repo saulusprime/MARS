@@ -22,6 +22,7 @@ from conftest import HTML_BASE
 from mars_core import (AREA_PREFIX, MAX_REDIRECT, MODULES_REGISTRY,
                        SEV_CRITICAL, SEV_INFO, SEV_WARNING, WEIGHTS, Crawler,
                        Finding, LexicalRetriever, VectorRetriever,
+                       pagine_del_rilievo,
                        chiave_esterna, chunk_page, decode_html,
                        default_queries, describe_chunk, estrai_struttura,
                        host_matches, load_external_module, load_queries,
@@ -1236,6 +1237,32 @@ def test_finding_attraversa_il_confine_serializzato():
     altro = Finding(area="mars_seo", severity=SEV_INFO, title="x")
     altro.params["solo_mio"] = 1
     assert Finding(area="a", severity=SEV_INFO, title="y").params == {}
+
+
+def test_pagine_del_rilievo_regge_i_params_ostili():
+    """Unico lettore della convenzione `params["urls"]`, e legge dati
+    che attraversano il confine dei plugin: un modulo esterno puo'
+    scriverci dentro qualunque cosa, e una sola eccezione qui
+    spegnerebbe la treemap e il CSV di un referto intero.
+
+    Lista vuota su tutto cio' che non e' una lista di pagine — che non
+    e' la stessa cosa di «nessuna pagina colpita», ed e' il motivo per
+    cui la treemap in quel caso non colora invece di colorare di
+    verde."""
+    assert pagine_del_rilievo({"params": {"urls": ["https://a/",
+                                                   "https://b/"]}}) == [
+        "https://a/", "https://b/"]
+    assert pagine_del_rilievo({}) == []
+    assert pagine_del_rilievo({"params": None}) == []
+    assert pagine_del_rilievo({"params": "non un dict"}) == []
+    assert pagine_del_rilievo({"params": {}}) == []
+    assert pagine_del_rilievo({"params": {"urls": None}}) == []
+    assert pagine_del_rilievo({"params": {"urls": "https://a/"}}) == [], \
+        "una stringa non e' una lista di URL: sarebbe una pagina per carattere"
+    # Le stringhe vuote spariscono: nel CSV sarebbero una pagina «», e
+    # nella treemap una chiave che non e' l'URL di nessuna pagina.
+    assert pagine_del_rilievo({"params": {"urls": ["https://a/", "", None]}}
+                              ) == ["https://a/"]
 
 
 def test_ogni_area_del_registro_ha_un_prefisso():

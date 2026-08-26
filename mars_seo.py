@@ -167,7 +167,7 @@ def _penalita(voce: dict, totale_pesi: float) -> Optional[float]:
 
 
 def _rilievo_audit(voce: dict, totale_pesi: float,
-                   text_lang: str = LOCALE) -> dict:
+                   text_lang: str = LOCALE, url: str = "") -> dict:
     """Un controllo Lighthouse non superato, come rilievo strutturato.
 
     `source_severity` resta VUOTO, ed e' il caso piu' netto di tutta la
@@ -217,6 +217,19 @@ def _rilievo_audit(voce: dict, totale_pesi: float,
         # che cosa non e' nella sua lingua invece di lasciarlo intuire.
         "text_lang": text_lang,
     }
+    # La pagina su cui il controllo e' stato misurato. Quest'area ne ha
+    # sempre e sola UNA — Lighthouse gira sull'URL di partenza — e la
+    # dichiarava solo a livello d'area, in `audited_url`: chi leggeva un
+    # rilievo staccato dal referto non sapeva a che pagina si
+    # riferisse (R47).
+    #
+    # E' l'URL che LIGHTHOUSE dichiara di aver misurato, cioe' l'arrivo
+    # dopo i redirect, non quello che gli abbiamo chiesto. Puo' quindi
+    # non coincidere con nessuna pagina del campione, e allora nessuno
+    # lo aggancia: e' preferibile a scrivere l'URL di partenza, che
+    # sarebbe una pagina diversa da quella misurata.
+    if url:
+        params["urls"] = [url]
     dettaglio, riferimenti = _senza_link_markdown(str(voce["description"]))
     if riferimenti:
         params["references"] = riferimenti
@@ -428,7 +441,9 @@ def riassumi(lhr: dict) -> dict:
     # altrimenti nove voci da fare. Il filtro non e' un'ottimizzazione:
     # `severita_lighthouse` decide su modo e peso e NON guarda lo score,
     # quindi un superato a peso 1 uscirebbe `warning`.
-    rilievi = [_rilievo_audit(c, totale_pesi, lingua_lhr(lhr))
+    misurata = lhr.get("finalDisplayedUrl") or lhr.get("finalUrl")
+    rilievi = [_rilievo_audit(c, totale_pesi, lingua_lhr(lhr),
+                              misurata or "")
                for c in falliti + manuali]
 
     impostazioni = lhr.get("configSettings") or {}
@@ -440,7 +455,7 @@ def riassumi(lhr: dict) -> dict:
         # Il tipo di dispositivo cambia i risultati e va dichiarato:
         # un referto mobile e uno desktop non sono confrontabili.
         "form_factor": impostazioni.get("formFactor"),
-        "audited_url": lhr.get("finalDisplayedUrl") or lhr.get("finalUrl"),
+        "audited_url": misurata,
         "audits": controlli,
         # Le altre categorie dello stesso run: non le misura quest'area,
         # ma le ha pagate lei.

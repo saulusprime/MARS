@@ -70,6 +70,18 @@ misurata** — strumento assente, sito irraggiungibile. Non è la stessa
 cosa di `score: 0`, che è un giudizio. Il referto le distingue e stampa
 `non misurato`.
 
+**Un rilievo è un CONTROLLO, non un'occorrenza**, e dichiara le pagine
+su cui è scattato in `params["urls"]`. Lo stesso difetto su venti
+pagine resta **un** rilievo: la cardinalità dei rilievi è accoppiata al
+punteggio in tutta MARS, e spezzarlo per pagina moltiplicherebbe la
+penalità per venti. Il conteggio (`pagine`, `immagini`, `nodes`…) dice
+quanto, `urls` dice dove — sono due domande diverse e convivono. Chi
+legge quella lista è `pagine_del_rilievo()` in `mars_core`, e la
+treemap del referto vi si colora sopra. Un modulo che la pagina la sa e
+non la dichiara toglie il rilievo dalla treemap **senza un errore** —
+vedi R47. Il campo `doc_url` è un'altra cosa: il link alla
+documentazione della regola dello strumento, mai una pagina del sito.
+
 ## Principi da non violare
 
 1. **Gli algoritmi core sono scritti a mano** — crawler, BM25, proxy

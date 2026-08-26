@@ -50,7 +50,12 @@ il punteggio. L'analisi generale di superficie guarda anche:
     ma nessuno le ha raggiunte seguendo i link;
   - la **treemap della superficie**: un rettangolo per pagina, area
     proporzionale alle parole recuperabili. Si legge a colpo d'occhio
-    un sito che ha tutto il testo in una pagina sola;
+    un sito che ha tutto il testo in una pagina sola. Il colore e' la
+    gravita' peggiore dei rilievi che citano quella pagina; il grigio
+    e' «nessun rilievo la cita», che NON vuol dire «a posto» — non
+    tutte le aree guardano tutte le pagine, Lighthouse ne misura una
+    sola e axe le prime del campione. Il colore non viaggia mai da
+    solo: il titolo del rettangolo e la tabella lo dicono a parole;
   - il **grafo dei link interni**: chi linka chi fra le pagine viste,
     con i nodi grandi quanto i link che ricevono e le pagine che dalla
     home non si raggiungono per link marcate come tali;
@@ -451,7 +456,10 @@ Formati del referto (--format, predefinito text):
               gravita' e' un marcatore testuale e non un colore
     csv       una riga per rilievo, con punto e virgola e BOM UTF-8: si
               apre in Excel o Fogli con gli accenti giusti e le colonne
-              separate
+              separate. Due colonne dicono cose diverse e vanno lette
+              come tali: `pagine` sono le pagine del sito su cui il
+              rilievo e' scattato, `riferimento` e' il link alla
+              documentazione della regola dello strumento (axe)
 
 Lingua del referto (--lang, predefinito it). Due lingue: **it** ed **en**.
 E' un livello dichiaratamente inferiore al riferimento a cinque lingue, e la
@@ -487,7 +495,12 @@ Il JSON dichiara la versione del proprio schema in `schema_version`, che è
 cosa diversa dalla versione del programma: sale **solo** su un cambiamento
 incompatibile — una chiave rimossa, rinominata, o il cui significato cambia —
 mentre le aggiunte sono additive e non la muovono. Chi consuma il referto da
-un programma legge quella, non `version`. Accanto ci sono i parametri che
+un programma legge quella, non `version`. È a **2**: la 2 ha rinominato
+`url` in `doc_url` su ogni rilievo, che è sempre stato il link alla
+documentazione della regola e mai la pagina analizzata. Le pagine di un
+rilievo stanno in `params["urls"]`, ed è una lista perché un rilievo è un
+CONTROLLO e non un'occorrenza — lo stesso difetto su venti pagine resta un
+rilievo solo, altrimenti la penalità si moltiplicherebbe per venti. Accanto ci sono i parametri che
 rendono il referto riproducibile: `rrf` con il k della fusione e la formula,
 e `thresholds`, oggi `null` perché le soglie non sono configurabili — due
 referti con soglie diverse non sarebbero confrontabili alla pari, e la chiave

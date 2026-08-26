@@ -1,7 +1,7 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
-  "schema_version": 1,
+  "schema_version": 2,
   "rrf": {
     "k": 60,
     "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
@@ -100,7 +100,7 @@
           "detail": "",
           "fix": "Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.",
           "example": "# robots.txt — il gruppo va CORRETTO, non aggiunto\n# prima:\n#   User-agent: GPTBot\n#   Disallow: /\n# dopo:\nUser-agent: GPTBot\nDisallow:",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "critico",
           "params": {
@@ -120,12 +120,16 @@
           "detail": "",
           "fix": "Dichiara <link rel=\"canonical\"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.",
           "example": "<link rel=\"canonical\" href=\"https://esempio.it/servizi/\">",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "lieve",
           "params": {
             "pagine": 2,
             "totale": 3,
+            "urls": [
+              "https://esempio.test/faq/",
+              "https://esempio.test/servizi/"
+            ],
             "penalty": 3.0
           }
         }
@@ -164,7 +168,7 @@
           "detail": "I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
@@ -177,6 +181,9 @@
               "X-Robots-Tag: noindex"
             ],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
             ],
@@ -191,7 +198,7 @@
           "detail": "Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -204,6 +211,9 @@
               "html"
             ],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://dequeuniversity.com/rules/axe/4.12/document-title"
             ],
@@ -218,7 +228,7 @@
           "detail": "Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -229,6 +239,9 @@
             "lh_weight_total": 11.043478260869566,
             "items": [],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
             ],
@@ -243,7 +256,7 @@
           "detail": "Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -260,6 +273,9 @@
               "/p4"
             ],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
             ],
@@ -274,7 +290,7 @@
           "detail": "Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull'attributo `alt`.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -288,6 +304,9 @@
               "body > img"
             ],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://dequeuniversity.com/rules/axe/4.12/image-alt"
             ],
@@ -302,7 +321,7 @@
           "detail": "Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -313,6 +332,9 @@
             "lh_weight_total": 11.043478260869566,
             "items": [],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt/"
             ]
@@ -326,7 +348,7 @@
           "detail": "I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. Scopri di più sui link canonici.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -337,6 +359,9 @@
             "lh_weight_total": 11.043478260869566,
             "items": [],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/canonical/"
             ]
@@ -350,7 +375,7 @@
           "detail": "Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -361,6 +386,9 @@
             "lh_weight_total": 11.043478260869566,
             "items": [],
             "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ],
             "references": [
               "https://developers.google.com/search/docs/appearance/structured-data/",
               "https://developer.chrome.com/docs/lighthouse/seo/structured-data/"
@@ -570,7 +598,7 @@
           "detail": "",
           "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
           "example": "// prima — la virgola finale rende il blocco invalido\n{\"@type\": \"Service\",}\n// dopo\n{\"@type\": \"Service\"}",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -617,7 +645,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -634,13 +662,16 @@
           "detail": "",
           "fix": "Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation",
           "example": "",
-          "url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
+          "doc_url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
           "weight": 2.0,
           "source_severity": "axe:critical",
           "params": {
             "rule": "image-alt",
             "nodes": 2,
             "pages": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "penalty": 37.5,
             "text_lang": "it"
           }
@@ -653,13 +684,16 @@
           "detail": "",
           "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
           "example": "",
-          "url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
+          "doc_url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
           "weight": 2.0,
           "source_severity": "axe:serious",
           "params": {
             "rule": "color-contrast",
             "nodes": 1,
             "pages": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "penalty": 18.0,
             "text_lang": "it"
           }
@@ -672,13 +706,16 @@
           "detail": "",
           "fix": "Ensure every form element has a label",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "axe:moderate",
           "params": {
             "rule": "label",
             "nodes": 1,
             "pages": 1,
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
             "penalty": 7.5,
             "text_lang": "en"
           }
@@ -691,12 +728,15 @@
           "detail": "",
           "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
           "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
             "immagini": 1,
             "totale": 2,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.1.1",
             "penalty": 0.0
           }
@@ -709,11 +749,14 @@
           "detail": "",
           "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "salti": 1,
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
             "criterio": "1.3.1",
             "penalty": 0.0
           }
@@ -726,11 +769,14 @@
           "detail": "",
           "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
           "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
             "campi": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.3.1/3.3.2",
             "penalty": 0.0
           }
@@ -743,11 +789,14 @@
           "detail": "",
           "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
           "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "tabelle": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.3.1",
             "penalty": 0.0
           }
@@ -760,11 +809,14 @@
           "detail": "",
           "fix": "Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.",
           "example": "<!-- invece di: <a href=\"/prezzi/\">clicca qui</a> -->\n<a href=\"/prezzi/\">Il listino dei trattamenti</a>",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "link": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "2.4.4",
             "penalty": 0.0
           }
@@ -800,7 +852,7 @@
           "detail": "Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo' farvi eseguire script arbitrario nel browser della vittima.",
           "fix": "Convalida l'input e codifica l'output.",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "ZAP:High",
           "params": {
@@ -831,7 +883,7 @@
           "detail": "Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.",
           "fix": "Configura il server per impostare l'header CSP.",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "ZAP:Medium",
           "params": {
@@ -860,7 +912,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "ZAP:Low",
           "params": {
@@ -886,7 +938,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -922,7 +974,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -944,7 +996,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -966,7 +1018,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -988,7 +1040,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -1090,7 +1142,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -1112,7 +1164,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -1134,7 +1186,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -1156,7 +1208,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -1289,7 +1341,7 @@
       "title": "robots.txt BLOCCA 1 crawler IA: GPTBot",
       "fix": "Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.",
       "example": "# robots.txt — il gruppo va CORRETTO, non aggiunto\n# prima:\n#   User-agent: GPTBot\n#   Disallow: /\n# dopo:\nUser-agent: GPTBot\nDisallow:",
-      "url": "",
+      "doc_url": "",
       "params": {
         "bloccati": [
           "GPTBot"
@@ -1326,7 +1378,7 @@
       "title": "L'indicizzazione della pagina è bloccata",
       "fix": "",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "is-crawlable",
         "mode": "binary",
@@ -1337,6 +1389,9 @@
           "X-Robots-Tag: noindex"
         ],
         "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ],
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
         ],
@@ -1370,11 +1425,14 @@
       "title": "Le immagini devono avere un testo alternativo",
       "fix": "Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation",
       "example": "",
-      "url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
+      "doc_url": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
       "params": {
         "rule": "image-alt",
         "nodes": 2,
         "pages": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "penalty": 37.5,
         "text_lang": "it"
       },
@@ -1406,7 +1464,7 @@
       "title": "Cross Site Scripting (Reflected)",
       "fix": "Convalida l'input e codifica l'output.",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "40012",
         "key_source": "pluginId",
@@ -1454,9 +1512,12 @@
       "title": "1 campi di modulo senza etichetta",
       "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
       "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
-      "url": "",
+      "doc_url": "",
       "params": {
         "campi": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.3.1/3.3.2",
         "penalty": 0.0
       },
@@ -1483,10 +1544,13 @@
       "title": "1/2 immagini prive di testo alternativo",
       "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
       "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
-      "url": "",
+      "doc_url": "",
       "params": {
         "immagini": 1,
         "totale": 2,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.1.1",
         "penalty": 0.0
       },
@@ -1513,11 +1577,14 @@
       "title": "Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore",
       "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
       "example": "",
-      "url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
+      "doc_url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
       "params": {
         "rule": "color-contrast",
         "nodes": 1,
         "pages": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "penalty": 18.0,
         "text_lang": "it"
       },
@@ -1549,7 +1616,7 @@
       "title": "1 blocchi JSON-LD malformati",
       "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
       "example": "// prima — la virgola finale rende il blocco invalido\n{\"@type\": \"Service\",}\n// dopo\n{\"@type\": \"Service\"}",
-      "url": "",
+      "doc_url": "",
       "params": {
         "urls": [
           "https://esempio.test/servizi/"
@@ -1585,7 +1652,7 @@
       "title": "Il documento non ha un elemento `<title>`",
       "fix": "",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "document-title",
         "mode": "binary",
@@ -1596,6 +1663,9 @@
           "html"
         ],
         "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ],
         "references": [
           "https://dequeuniversity.com/rules/axe/4.12/document-title"
         ],
@@ -1629,7 +1699,7 @@
       "title": "Gli elementi immagine non hanno attributi `[alt]`",
       "fix": "",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "image-alt",
         "mode": "binary",
@@ -1641,6 +1711,9 @@
           "body > img"
         ],
         "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ],
         "references": [
           "https://dequeuniversity.com/rules/axe/4.12/image-alt"
         ],
@@ -1674,7 +1747,7 @@
       "title": "I link non hanno testo descrittivo",
       "fix": "",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "link-text",
         "mode": "binary",
@@ -1689,6 +1762,9 @@
           "/p4"
         ],
         "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ],
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
         ],
@@ -1722,7 +1798,7 @@
       "title": "Il documento non ha una meta descrizione",
       "fix": "",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "meta-description",
         "mode": "binary",
@@ -1731,6 +1807,9 @@
         "lh_weight_total": 11.043478260869566,
         "items": [],
         "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ],
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
         ],
@@ -1764,11 +1843,14 @@
       "title": "Form elements must have labels",
       "fix": "Ensure every form element has a label",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "label",
         "nodes": 1,
         "pages": 1,
+        "urls": [
+          "https://esempio.test/servizi/"
+        ],
         "penalty": 7.5,
         "text_lang": "en"
       },
@@ -1800,7 +1882,7 @@
       "title": "Content Security Policy (CSP) Header Not Set",
       "fix": "Configura il server per impostare l'header CSP.",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "rule": "10038",
         "key_source": "pluginId",
@@ -1846,9 +1928,12 @@
       "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
       "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "salti": 1,
+        "urls": [
+          "https://esempio.test/servizi/"
+        ],
         "criterio": "1.3.1",
         "penalty": 0.0
       },
@@ -1875,9 +1960,12 @@
       "title": "1 tabelle dati senza intestazioni <th>",
       "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
       "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
-      "url": "",
+      "doc_url": "",
       "params": {
         "tabelle": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.3.1",
         "penalty": 0.0
       },
@@ -1973,6 +2061,9 @@
             "X-Robots-Tag: noindex"
           ],
           "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ],
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/"
           ],
@@ -1994,6 +2085,9 @@
             "html"
           ],
           "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ],
           "references": [
             "https://dequeuniversity.com/rules/axe/4.12/document-title"
           ],
@@ -2013,6 +2107,9 @@
           "lh_weight_total": 11.043478260869566,
           "items": [],
           "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ],
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
           ],
@@ -2038,6 +2135,9 @@
             "/p4"
           ],
           "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ],
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
           ],
@@ -2060,6 +2160,9 @@
             "body > img"
           ],
           "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ],
           "references": [
             "https://dequeuniversity.com/rules/axe/4.12/image-alt"
           ],
@@ -2088,6 +2191,9 @@
           "rule": "image-alt",
           "nodes": 2,
           "pages": 1,
+          "urls": [
+            "https://esempio.test/"
+          ],
           "penalty": 37.5,
           "text_lang": "it"
         }
@@ -2101,6 +2207,9 @@
           "rule": "color-contrast",
           "nodes": 1,
           "pages": 1,
+          "urls": [
+            "https://esempio.test/"
+          ],
           "penalty": 18.0,
           "text_lang": "it"
         }
@@ -2114,6 +2223,9 @@
           "rule": "label",
           "nodes": 1,
           "pages": 1,
+          "urls": [
+            "https://esempio.test/servizi/"
+          ],
           "penalty": 7.5,
           "text_lang": "en"
         }
@@ -2126,6 +2238,9 @@
         "params": {
           "immagini": 1,
           "totale": 2,
+          "urls": [
+            "https://esempio.test/"
+          ],
           "criterio": "1.1.1",
           "penalty": 0.0
         }
@@ -2137,6 +2252,9 @@
         "severity": "warning",
         "params": {
           "salti": 1,
+          "urls": [
+            "https://esempio.test/servizi/"
+          ],
           "criterio": "1.3.1",
           "penalty": 0.0
         }
@@ -2148,6 +2266,9 @@
         "severity": "critical",
         "params": {
           "campi": 1,
+          "urls": [
+            "https://esempio.test/"
+          ],
           "criterio": "1.3.1/3.3.2",
           "penalty": 0.0
         }
@@ -2159,6 +2280,9 @@
         "severity": "warning",
         "params": {
           "tabelle": 1,
+          "urls": [
+            "https://esempio.test/"
+          ],
           "criterio": "1.3.1",
           "penalty": 0.0
         }

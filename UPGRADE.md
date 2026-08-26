@@ -29,6 +29,12 @@ sta sul ramo `upgrade`, e ogni fase chiusa ha la propria voce in
 **U10** (giudizio LLM multi-modello), **U11** (deliverable rifinito) e **U12**
 (ancore esterne, opzionale); le voci aperte stanno in [TO-DO.md](TO-DO.md).
 
+Il passo 3 della **Fase 8** — la treemap colorata per gravità — era rimasto in
+sospeso ed è stato chiuso il 2026-08-26 da **R47**, insieme al passaggio dello
+schema JSON a `schema_version: 2`. Con lo stesso dato diventa possibile anche
+il donut «senza rilievi / con rilievi / scartate» che la **Fase 5** aveva
+rimandato: non è stato fatto lì, ed è una voce del TO-DO.
+
 **Questo documento resta il PIANO, e non diventa un registro**: la differenza
 conta, perché il piano è ciò rispetto a cui si misura una divergenza. Il testo
 delle nove fasi chiuse **non è stato potato** proprio per questo — trentacinque
@@ -44,9 +50,15 @@ questo documento va letto oggi:
   ([mars_report.py:1859](mars_report.py#L1859));
 - la Fase 8 prevedeva di **colorare ogni pagina della treemap** con la gravità
   peggiore dei rilievi che la citano. Applicata alla lettera, quella regola non
-  trova mai una corrispondenza e dipinge tutto di «nessun problema» — un via
-  libera che nessuno ha misurato. La treemap è uscita neutra e lo dichiara; il
-  divario è **R47** ([mars_report.py:585](mars_report.py#L585));
+  trovava mai una corrispondenza e dipingeva tutto di «nessun problema» — un
+  via libera che nessuno ha misurato. La treemap è uscita neutra e lo
+  dichiarava; **R47 ha chiuso il divario il 2026-08-26** e ora colora, ma non
+  come il piano dice: l'aggancio non passa da un `url` scalare sul rilievo —
+  che sarebbe vuoto per costruzione, perché un rilievo è un CONTROLLO e non
+  un'occorrenza — bensì da `params["urls"]`, che quattro moduli su nove già
+  dichiaravano. Dove la Fase 5 e la Fase 8 scrivono «finché i Finding non
+  portano `url` valorizzati», si legga oggi `params["urls"]`
+  ([mars_report.py:573](mars_report.py#L573));
 - la Fase 4 prevedeva una chiave `top_actions` accanto ai profili di
   citabilità. Non è stata aggiunta: sarebbe stata una seconda copia del piano,
   che diverge in silenzio dalla prima

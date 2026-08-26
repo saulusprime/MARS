@@ -117,8 +117,25 @@ def controlli_statici(pages: dict) -> List[Finding]:
     Lavora sui dati che il crawler ha gia' estratto — `images`,
     `heading_levels`, `form_fields`, `tables`, `links`, `tabindex` —
     e non riapre l'HTML: il DOM viene attraversato una volta sola.
+
+    Ogni rilievo dichiara in `params["urls"]` le pagine su cui e'
+    scattato. Il rilievo resta **uno per controllo**, come in tutta
+    MARS — spezzarlo per pagina moltiplicherebbe la penalita' — quindi
+    il conteggio e le pagine rispondono a due domande diverse e
+    convivono (R47).
     """
     rilievi = []
+    # Chiave del controllo -> pagine su cui e' scattato, nell'ordine
+    # del campione. Il contatore dice QUANTO, questo dice DOVE: sono
+    # due domande diverse, e finora il modulo rispondeva solo alla
+    # prima (R47). Non e' un set, perche' due esecuzioni sullo stesso
+    # sito devono dare lo stesso referto.
+    dove: Dict[str, List[str]] = {}
+
+    def segna(chiave: str, url: str) -> None:
+        pagine_del_controllo = dove.setdefault(chiave, [])
+        if url not in pagine_del_controllo:
+            pagine_del_controllo.append(url)
 
     senza_lang = [u for u, d in pages.items() if not d.get("lang")]
     if senza_lang:
@@ -130,7 +147,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
             urls=sorted(senza_lang)))
 
     totale_img = mancanti = 0
-    for dati in pages.values():
+    for url, dati in pages.items():
         immagini = dati.get("images") or []
         totale_img += len(immagini)
         # `alt is None` e non `not alt`: l'attributo ASSENTE e'
@@ -139,14 +156,18 @@ def controlli_statici(pages: dict) -> List[Finding]:
         # difetto penalizzava proprio chi aveva fatto la cosa giusta.
         # Il crawler la distinzione la conserva; era questo filtro a
         # buttarla via.
-        mancanti += sum(1 for i in immagini
+        senza_alt = sum(1 for i in immagini
                         if i.get("alt") is None and not i.get("aria-label"))
+        mancanti += senza_alt
+        if senza_alt:
+            segna("wcag.img.alt_missing", url)
     if mancanti:
         rilievi.append(_statico(
             "wcag.img.alt_missing",
             "%d/%d immagini prive di testo alternativo"
             % (mancanti, totale_img),
-            immagini=mancanti, totale=totale_img))
+            immagini=mancanti, totale=totale_img,
+            urls=dove.get("wcag.img.alt_missing") or []))
 
     salti = 0
     input_senza_etichetta = 0
@@ -154,7 +175,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
     link_generici = 0
     tabindex_positivi = 0
 
-    for dati in pages.values():
+    for url, dati in pages.items():
         # Nessun parse qui: la struttura arriva da estrai_struttura(),
         # che l'ha letta mentre il crawler aveva il DOM aperto. Questo
         # modulo decide cosa sia un difetto, non come si legge l'HTML.
@@ -162,6 +183,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
         for precedente, corrente in zip(livelli, livelli[1:]):
             if corrente > precedente + 1:
                 salti += 1
+                segna("wcag.heading.skip", url)
 
         for campo in dati.get("form_fields") or []:
             # I campi non interattivi non hanno un'etichetta da
@@ -171,22 +193,26 @@ def controlli_statici(pages: dict) -> List[Finding]:
                 continue
             if not campo.get("labelled"):
                 input_senza_etichetta += 1
+                segna("wcag.form.label_missing", url)
 
         for tabella in dati.get("tables") or []:
             if tabella.get("role") == "presentation":
                 continue
             if not tabella.get("has_th"):
                 tabelle_senza_th += 1
+                segna("wcag.table.th_missing", url)
 
         for ancora in dati.get("links") or []:
             testo = (ancora.get("text") or "").lower().strip(" .:>»→")
             if testo in TESTI_GENERICI and not ancora.get("aria-label"):
                 link_generici += 1
+                segna("wcag.link.generic", url)
 
         for valore in dati.get("tabindex") or []:
             try:
                 if int(valore) > 0:
                     tabindex_positivi += 1
+                    segna("wcag.tabindex.positive", url)
             except (TypeError, ValueError):
                 pass
 
@@ -194,27 +220,32 @@ def controlli_statici(pages: dict) -> List[Finding]:
         rilievi.append(_statico(
             "wcag.heading.skip",
             "%d salti nella gerarchia degli heading (es. h2 seguito da h4)"
-            % salti, salti=salti))
+            % salti, salti=salti,
+            urls=dove.get("wcag.heading.skip") or []))
     if input_senza_etichetta:
         rilievi.append(_statico(
             "wcag.form.label_missing",
             "%d campi di modulo senza etichetta" % input_senza_etichetta,
-            campi=input_senza_etichetta))
+            campi=input_senza_etichetta,
+            urls=dove.get("wcag.form.label_missing") or []))
     if tabelle_senza_th:
         rilievi.append(_statico(
             "wcag.table.th_missing",
             "%d tabelle dati senza intestazioni <th>" % tabelle_senza_th,
-            tabelle=tabelle_senza_th))
+            tabelle=tabelle_senza_th,
+            urls=dove.get("wcag.table.th_missing") or []))
     if link_generici:
         rilievi.append(_statico(
             "wcag.link.generic",
             "%d link con testo generico (\"clicca qui\", \"leggi tutto\")"
-            % link_generici, link=link_generici))
+            % link_generici, link=link_generici,
+            urls=dove.get("wcag.link.generic") or []))
     if tabindex_positivi:
         rilievi.append(_statico(
             "wcag.tabindex.positive",
             "%d elementi con tabindex positivo: alterano l'ordine di "
-            "navigazione" % tabindex_positivi, elementi=tabindex_positivi))
+            "navigazione" % tabindex_positivi, elementi=tabindex_positivi,
+            urls=dove.get("wcag.tabindex.positive") or []))
     return rilievi
 
 
@@ -308,6 +339,13 @@ def testi_axe(lang: str = "it") -> Dict[str, Dict[str, str]]:
     return _leggi_locale_axe(percorso_locale_axe(lang))
 
 
+# Sotto quale chiave `run_axe` scrive la pagina dentro la violazione.
+# Il trattino basso segnala che non viene da axe: e' nostra, e sta
+# dentro la violazione perche' li' resta agganciata alla sua, mentre
+# una lista parallela si disallinea alla prima riga che filtra.
+CHIAVE_PAGINA = "_mars_url"
+
+
 def score_from_violations(violations: List[dict],
                           pagine_testate: int = 1,
                           lang: str = "it") -> dict:
@@ -320,6 +358,13 @@ def score_from_violations(violations: List[dict],
 
     La diffusione conta comunque: il peso va da 1x, se la regola tocca
     una pagina sola, a 2x se le tocca tutte.
+
+    **Quali** pagine, e non solo quante, finiscono in `params["urls"]`:
+    le violazioni arrivano gia' etichettate da `run_axe` sotto
+    `CHIAVE_PAGINA`. Il contatore `pages` resta quello che decide il
+    punteggio; `urls` e' cio' che permette al referto di dire dove
+    (R47). Una violazione senza etichetta — un test, un'altra sorgente
+    — conta e non aggiunge pagine, che e' il degrado giusto.
 
     Funzione pura: verificabile senza avviare un browser.
     """
@@ -342,10 +387,18 @@ def score_from_violations(violations: List[dict],
             "help": violazione.get("help") or chiave,
             "description": violazione.get("description") or "",
             "help_url": violazione.get("helpUrl") or "",
-            "nodes": 0, "pages": 0,
+            "nodes": 0, "pages": 0, "urls": [],
         })
         voce["nodes"] += len(violazione.get("nodes") or []) or 1
         voce["pages"] += 1
+        # Le PAGINE, non solo quante sono: `pages` resta il contatore
+        # su cui si calcola la diffusione — e quindi il punteggio —
+        # mentre `urls` e' cio' che permette di dire DOVE. Lista e non
+        # set: l'ordine di scansione e' quello del campione, e due
+        # esecuzioni sullo stesso sito devono dare lo stesso referto.
+        pagina = violazione.get(CHIAVE_PAGINA)
+        if pagina and pagina not in voce["urls"]:
+            voce["urls"].append(str(pagina))
 
     penalita = 0.0
     conteggio: Dict[str, int] = {}
@@ -380,14 +433,19 @@ def score_from_violations(violations: List[dict],
             # italiano lo era: e' il difetto R44.
             title=voce["titolo"],
             fix=tradotti.get("description") or voce["description"],
-            url=voce["help_url"],
+            # La documentazione della REGOLA, che e' cio' che axe manda
+            # in `helpUrl`. Stava in `url`, e quel nome la faceva
+            # sembrare la pagina colpita: le pagine sono in
+            # `params["urls"]` (R47).
+            doc_url=voce["help_url"],
             # Vuoto quando axe NON ha dichiarato l'impact: scrivere
             # "axe:minor" dove axe ha taciuto significherebbe
             # attribuirgli un giudizio che non ha espresso.
             source_severity=("axe:%s" % voce["impact"]
                              if voce["impact_dichiarato"] else ""),
             params={"rule": voce["id"], "nodes": voce["nodes"],
-                    "pages": voce["pages"], "penalty": voce["penalty"],
+                    "pages": voce["pages"], "urls": list(voce["urls"]),
+                    "penalty": voce["penalty"],
                     # Per REGOLA e non per area: un locale copre quasi
                     # tutte le regole ma non quelle aggiunte a mano, e
                     # dire "l'area e' in italiano" con dentro due
@@ -471,6 +529,17 @@ def run_axe(urls: List[str],
                         "async (tags) => (await axe.run(document, "
                         "{runOnly: {type: 'tag', values: tags}})).violations",
                         AXE_TAGS)
+                    # La PAGINA viaggia con la violazione. axe le
+                    # restituisce pagina per pagina, e appiattirle in
+                    # una lista sola buttava via l'unica occasione di
+                    # sapere dove il difetto stia: dopo il ciclo il
+                    # dato non c'e' piu' (R47). `score_from_violations`
+                    # legge questa chiave e non la trova quando le
+                    # violazioni arrivano da un test o da un'altra
+                    # sorgente, che e' un caso legittimo.
+                    for violazione in (esito or []):
+                        if isinstance(violazione, dict):
+                            violazione[CHIAVE_PAGINA] = url
                     violazioni.extend(esito or [])
                     analizzate += 1
                 except Exception:

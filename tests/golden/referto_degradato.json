@@ -1,7 +1,7 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
-  "schema_version": 1,
+  "schema_version": 2,
   "rrf": {
     "k": 60,
     "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
@@ -95,7 +95,7 @@
           "detail": "",
           "fix": "Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.",
           "example": "# robots.txt — il gruppo va CORRETTO, non aggiunto\n# prima:\n#   User-agent: GPTBot\n#   Disallow: /\n# dopo:\nUser-agent: GPTBot\nDisallow:",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "critico",
           "params": {
@@ -115,12 +115,16 @@
           "detail": "",
           "fix": "Dichiara <link rel=\"canonical\"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.",
           "example": "<link rel=\"canonical\" href=\"https://esempio.it/servizi/\">",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "lieve",
           "params": {
             "pagine": 2,
             "totale": 3,
+            "urls": [
+              "https://esempio.test/faq/",
+              "https://esempio.test/servizi/"
+            ],
             "penalty": 3.0
           }
         }
@@ -152,7 +156,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -204,7 +208,7 @@
           "detail": "MemoryError: corpus troppo grande",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {}
@@ -237,7 +241,7 @@
           "detail": "",
           "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
           "example": "// prima — la virgola finale rende il blocco invalido\n{\"@type\": \"Service\",}\n// dopo\n{\"@type\": \"Service\"}",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -280,12 +284,15 @@
           "detail": "",
           "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
           "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
             "immagini": 1,
             "totale": 2,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.1.1",
             "penalty": 12.0,
             "surface": true
@@ -299,11 +306,14 @@
           "detail": "",
           "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "salti": 1,
+            "urls": [
+              "https://esempio.test/servizi/"
+            ],
             "criterio": "1.3.1",
             "penalty": 12.0,
             "surface": true
@@ -317,11 +327,14 @@
           "detail": "",
           "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
           "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
             "campi": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.3.1/3.3.2",
             "penalty": 12.0,
             "surface": true
@@ -335,11 +348,14 @@
           "detail": "",
           "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
           "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "tabelle": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "1.3.1",
             "penalty": 12.0,
             "surface": true
@@ -353,11 +369,14 @@
           "detail": "",
           "fix": "Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.",
           "example": "<!-- invece di: <a href=\"/prezzi/\">clicca qui</a> -->\n<a href=\"/prezzi/\">Il listino dei trattamenti</a>",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "link": 1,
+            "urls": [
+              "https://esempio.test/"
+            ],
             "criterio": "2.4.4",
             "penalty": 12.0,
             "surface": true
@@ -392,13 +411,16 @@
           "detail": "",
           "fix": "Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.",
           "example": "# nginx — prima si osserva\nadd_header Content-Security-Policy-Report-Only \"default-src 'self'\" always;\n# poi, quando le violazioni sono a zero\nadd_header Content-Security-Policy \"default-src 'self'\" always;",
-          "url": "",
+          "doc_url": "",
           "weight": 2.0,
           "source_severity": "",
           "params": {
             "header": "Content-Security-Policy",
             "penalty": 15.0,
-            "surface": true
+            "surface": true,
+            "urls": [
+              "https://esempio.test/"
+            ]
           }
         },
         {
@@ -409,13 +431,16 @@
           "detail": "",
           "fix": "Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.",
           "example": "# nginx\nadd_header X-Frame-Options \"SAMEORIGIN\" always;",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
             "header": "X-Frame-Options",
             "penalty": 10.0,
-            "surface": true
+            "surface": true,
+            "urls": [
+              "https://esempio.test/"
+            ]
           }
         }
       ],
@@ -449,7 +474,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -472,7 +497,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -492,7 +517,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -513,7 +538,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -533,7 +558,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -555,7 +580,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -597,7 +622,7 @@
           "detail": "",
           "fix": "",
           "example": "",
-          "url": "",
+          "doc_url": "",
           "weight": 1.0,
           "source_severity": "",
           "params": {
@@ -637,7 +662,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -660,7 +685,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -680,7 +705,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -701,7 +726,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -721,7 +746,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -743,7 +768,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -791,7 +816,7 @@
         "detail": "",
         "fix": "",
         "example": "",
-        "url": "",
+        "doc_url": "",
         "weight": 1.0,
         "source_severity": "",
         "params": {
@@ -850,7 +875,7 @@
       "title": "robots.txt BLOCCA 1 crawler IA: GPTBot",
       "fix": "Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.",
       "example": "# robots.txt — il gruppo va CORRETTO, non aggiunto\n# prima:\n#   User-agent: GPTBot\n#   Disallow: /\n# dopo:\nUser-agent: GPTBot\nDisallow:",
-      "url": "",
+      "doc_url": "",
       "params": {
         "bloccati": [
           "GPTBot"
@@ -887,9 +912,12 @@
       "title": "1 campi di modulo senza etichetta",
       "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
       "example": "<label for=\"nome\">Nome</label>\n<input id=\"nome\" name=\"nome\" type=\"text\">",
-      "url": "",
+      "doc_url": "",
       "params": {
         "campi": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.3.1/3.3.2",
         "penalty": 12.0,
         "surface": true
@@ -922,10 +950,13 @@
       "title": "1/2 immagini prive di testo alternativo",
       "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
       "example": "<img src=\"/sala.jpg\" alt=\"La sala trattamenti\">\n<img src=\"/onda.svg\" alt=\"\">",
-      "url": "",
+      "doc_url": "",
       "params": {
         "immagini": 1,
         "totale": 2,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.1.1",
         "penalty": 12.0,
         "surface": true
@@ -958,7 +989,7 @@
       "title": "1 blocchi JSON-LD malformati",
       "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
       "example": "// prima — la virgola finale rende il blocco invalido\n{\"@type\": \"Service\",}\n// dopo\n{\"@type\": \"Service\"}",
-      "url": "",
+      "doc_url": "",
       "params": {
         "urls": [
           "https://esempio.test/servizi/"
@@ -994,11 +1025,14 @@
       "title": "CSP mancante",
       "fix": "Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.",
       "example": "# nginx — prima si osserva\nadd_header Content-Security-Policy-Report-Only \"default-src 'self'\" always;\n# poi, quando le violazioni sono a zero\nadd_header Content-Security-Policy \"default-src 'self'\" always;",
-      "url": "",
+      "doc_url": "",
       "params": {
         "header": "Content-Security-Policy",
         "penalty": 15.0,
-        "surface": true
+        "surface": true,
+        "urls": [
+          "https://esempio.test/"
+        ]
       },
       "penalty": 15.0,
       "recovery": 15,
@@ -1028,9 +1062,12 @@
       "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
       "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
       "example": "",
-      "url": "",
+      "doc_url": "",
       "params": {
         "salti": 1,
+        "urls": [
+          "https://esempio.test/servizi/"
+        ],
         "criterio": "1.3.1",
         "penalty": 12.0,
         "surface": true
@@ -1063,9 +1100,12 @@
       "title": "1 tabelle dati senza intestazioni <th>",
       "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
       "example": "<table>\n  <tr><th scope=\"col\">Trattamento</th><th scope=\"col\">Durata</th></tr>\n  <tr><td>Drenaggio</td><td>50 minuti</td></tr>\n</table>",
-      "url": "",
+      "doc_url": "",
       "params": {
         "tabelle": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
         "criterio": "1.3.1",
         "penalty": 12.0,
         "surface": true
@@ -1098,11 +1138,14 @@
       "title": "X-Frame-Options mancante",
       "fix": "Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.",
       "example": "# nginx\nadd_header X-Frame-Options \"SAMEORIGIN\" always;",
-      "url": "",
+      "doc_url": "",
       "params": {
         "header": "X-Frame-Options",
         "penalty": 10.0,
-        "surface": true
+        "surface": true,
+        "urls": [
+          "https://esempio.test/"
+        ]
       },
       "penalty": 10.0,
       "recovery": 10,

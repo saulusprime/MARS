@@ -244,7 +244,11 @@ def controlla_indicizzabilita(context: dict) -> List[Finding]:
             "lieve", "%d/%d pagine senza <link rel=\"canonical\">"
                      % (len(senza_canonical), len(pages)),
             "tech.canonical.missing",
-            pagine=len(senza_canonical), totale=len(pages)))
+            pagine=len(senza_canonical), totale=len(pages),
+            # L'unico controllo dell'area che sapeva su quali pagine
+            # aveva guardato e non lo diceva: gli altri tre dichiarano
+            # `urls` da sempre (R47).
+            urls=sorted(senza_canonical)))
     return rilievi
 
 

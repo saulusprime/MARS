@@ -139,15 +139,21 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
 .card { background:var(--card); border:1px solid var(--line);
         border-radius:.6rem; padding:1rem; margin:.6rem 0;
         box-shadow:var(--ombra); }
-/* La treemap: un solo colore, e non e' pigrizia — vedi treemap_data.
+/* La treemap. Il colore e' la gravita' PEGGIORE dei rilievi che citano
+   la pagina; il grigio pallido di serie e' «nessun rilievo la cita»,
+   che non e' «nessun problema» — vedi treemap_data. Il colore non e'
+   mai solo: il titolo del rettangolo e la tabella lo dicono a parole.
    Il bordo e' il fondo pagina, cosi' i rettangoli si separano anche
    quando due pagine hanno la stessa estensione. Il testo si stampa
    sopra un contorno del fondo per restare leggibile su qualunque
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
-svg.treemap rect { fill:var(--muted); fill-opacity:.35;
+svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
+svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
+svg.treemap rect.warn { fill:var(--warn); fill-opacity:.55; }
+svg.treemap rect.muted { fill:var(--muted); fill-opacity:.5; }
 svg.treemap text { font-size:11px; fill:var(--fg); stroke:var(--bg);
                    stroke-width:3; paint-order:stroke;
                    pointer-events:none; }
@@ -680,18 +686,18 @@ Disallow:</pre>
 </td>
 </tr>
 </table>
-<p class='meta'>Ogni rettangolo è una pagina, l&#x27;area è proporzionale alle parole recuperabili. Il colore non è un giudizio: nessun rilievo dichiara la pagina che lo ha prodotto, quindi la treemap parla di superficie e tace sulla qualità.</p>
+<p class='meta'>Ogni rettangolo è una pagina, l&#x27;area è proporzionale alle parole recuperabili. Il colore è la gravità peggiore dei rilievi che citano la pagina.</p>
 <svg class='treemap' viewBox='0 0 760 420' role='img' aria-label='Treemap della superficie: 3 pagine, la più estesa è / con 133 parole. I dati sono nella tabella qui sotto.'>
-<rect x='0.0' y='0.0' width='387.3' height='420.0'>
-<title>/ — 133 parole, 2 passaggi</title>
+<rect x='0.0' y='0.0' width='387.3' height='420.0' class='bad'>
+<title>/ — 133 parole, 2 passaggi, 16 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='6.0' y='17.0'>/</text>
-<rect x='387.3' y='0.0' width='372.7' height='210.0'>
-<title>/faq/ — 64 parole, 1 passaggio</title>
+<rect x='387.3' y='0.0' width='372.7' height='210.0' class='warn'>
+<title>/faq/ — 64 parole, 1 passaggio, 2 rilievi, il peggiore: avvertenza</title>
 </rect>
 <text x='393.3' y='17.0'>/faq/</text>
-<rect x='387.3' y='210.0' width='372.7' height='210.0'>
-<title>/servizi/ — 64 parole, 1 passaggio</title>
+<rect x='387.3' y='210.0' width='372.7' height='210.0' class='bad'>
+<title>/servizi/ — 64 parole, 1 passaggio, 5 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='393.3' y='227.0'>/servizi/</text>
 </svg>
@@ -702,21 +708,25 @@ Disallow:</pre>
 <th>Pagina</th>
 <th>Parole</th>
 <th>Passaggi</th>
+<th>Rilievi</th>
 </tr>
 <tr>
 <td>https://esempio.test/</td>
 <td class='num'>133</td>
 <td class='num'>2</td>
+<td>16 rilievi, il peggiore: rilievo critico</td>
 </tr>
 <tr>
 <td>https://esempio.test/faq/</td>
 <td class='num'>64</td>
 <td class='num'>1</td>
+<td>2 rilievi, il peggiore: avvertenza</td>
 </tr>
 <tr>
 <td>https://esempio.test/servizi/</td>
 <td class='num'>64</td>
 <td class='num'>1</td>
+<td>5 rilievi, il peggiore: rilievo critico</td>
 </tr>
 </table>
 </details>

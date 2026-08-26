@@ -36,7 +36,14 @@ __version__ = "2.8.0"
 # aggiunte sono additive e non la muovono, altrimenti a ogni fase del
 # programma UPGRADE ne servirebbe una nuova e il numero smetterebbe di
 # dire qualcosa. Chi consuma il JSON legge questo, non `version`.
-JSON_SCHEMA_VERSION = 1
+#
+# 2 (R47): `Finding.url` rinominato `doc_url`. E' il primo scatto da
+# quando la chiave esiste, ed e' esattamente il caso per cui esiste:
+# il campo non ha cambiato contenuto — ha sempre portato il link alla
+# documentazione della regola axe — ma il nome prometteva la pagina
+# analizzata, e chi lo leggeva come tale leggeva il falso. Le pagine
+# stanno in `params["urls"]`.
+JSON_SCHEMA_VERSION = 2
 
 # La versione compare nello User-Agent, in --version e nell'API:
 # tenerla in un posto solo evita che le tre divergano.
@@ -442,6 +449,24 @@ class Finding:
       scelta editoriale nostra o un valore assunto: dire `"axe:minor"`
       dove axe non ha detto nulla significherebbe attribuirgli un
       giudizio che non ha espresso.
+    - `doc_url` — il link alla **documentazione della regola** dello
+      strumento che ha prodotto il rilievo (la pagina di
+      dequeuniversity per una regola axe). E' un riferimento per chi
+      legge, **non** una pagina del sito analizzato. Si chiamava `url`,
+      e quel nome lo faceva sembrare la seconda cosa: nel referto
+      completo gli unici due rilievi con `url` valorizzato puntavano a
+      `dequeuniversity.com` mentre il sito stava altrove, e la treemap
+      che doveva colorarsi su quel campo e' uscita neutra — R47.
+
+    **Le pagine colpite non stanno qui: stanno in `params["urls"]`**, ed
+    e' una lista perche' un rilievo e' un CONTROLLO e non
+    un'occorrenza. Raggruppare per controllo e' deliberato in tutta
+    MARS — la cardinalita' dei rilievi *e'* il punteggio — quindi un
+    campo scalare sarebbe vuoto per costruzione ovunque il difetto
+    ricorra, che e' il caso normale. Ogni modulo che sappia su quali
+    pagine ha guardato dichiara `params["urls"]`; chi non lo sa (i
+    rilievi derivati di `mars_citability`, gli stati d'esecuzione) lo
+    omette, e omettere e' diverso da una lista vuota.
     """
 
     area: str
@@ -451,13 +476,39 @@ class Finding:
     detail: str = ""
     fix: str = ""
     example: str = ""
-    url: str = ""
+    doc_url: str = ""
     weight: float = 1.0
     source_severity: str = ""
     params: Dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, object]:
         return asdict(self)
+
+
+def pagine_del_rilievo(rilievo: Dict[str, object]) -> List[str]:
+    """Le pagine che un rilievo dichiara, da `params["urls"]`.
+
+    Unico lettore della convenzione, e sta qui accanto a chi la
+    documenta: la treemap la usa per colorare, il CSV per riempire una
+    colonna, e due letture separate divergerebbero in silenzio il
+    giorno che un modulo scrivesse la lista in un altro modo.
+
+    Prende un **dict**, non un `Finding`: a valle del confine dei
+    plugin i rilievi sono gia' serializzati, ed e' li' che serve.
+
+    Lista vuota quando il rilievo non dichiara pagine — un rilievo
+    derivato, uno stato d'esecuzione, un modulo che non sa dove ha
+    guardato. Non e' la stessa cosa di "nessuna pagina colpita", e chi
+    chiama non deve confonderle: la treemap infatti non colora, invece
+    di colorare di verde.
+    """
+    grezzo = (rilievo.get("params") or {})
+    if not isinstance(grezzo, dict):
+        return []
+    urls = grezzo.get("urls")
+    if not isinstance(urls, (list, tuple)):
+        return []
+    return [str(u) for u in urls if u]
 
 
 def _local_name(tag: str) -> str:

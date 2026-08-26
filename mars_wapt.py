@@ -191,7 +191,7 @@ def _rilievo_zap(voce: dict) -> Finding:
 
 
 def _rilievo_header(header: str, penalita: int, messaggio: str,
-                    gravita: str, chiave: str) -> Finding:
+                    gravita: str, chiave: str, url: str = "") -> Finding:
     """Un header di sicurezza mancante, come rilievo strutturato.
 
     `params["surface"]` dichiara nel DATO cio' che `status: "surface"`
@@ -199,14 +199,22 @@ def _rilievo_header(header: str, penalita: int, messaggio: str,
     letti tre header. Senza il marcatore, un elenco di soli findings
     mostrerebbe un `warning` come se un WAPT ci fosse stato — e' R21
     portato dentro il dato, come nel ripiego di mars_wcag.
+
+    `params["urls"]` porta la pagina da cui gli header sono stati
+    letti, come nel ramo ZAP: e' l'URL a cui la risposta e' arrivata,
+    quindi dopo i redirect, non quello che avevamo chiesto (R47).
     """
     severita, peso = normalizza_severita("mars", gravita)
+    params: Dict[str, object] = {"header": header,
+                                 "penalty": float(penalita),
+                                 "surface": True}
+    if url:
+        params["urls"] = [url]
     return Finding(area="mars_wapt", severity=severita, weight=peso,
                    title=messaggio, key=chiave,
                    # Vuoto: la gravita' l'abbiamo scelta noi, e le
                    # issues di questo ramo non pubblicano prefissi.
-                   params={"header": header, "penalty": float(penalita),
-                           "surface": True})
+                   params=params)
 
 
 def score_from_alerts(alerts: List[dict]) -> dict:
@@ -550,7 +558,7 @@ def audit_headers(url: str) -> dict:
             issues.append(messaggio)
             score -= penalita
             rilievi.append(_rilievo_header(header, penalita, messaggio,
-                                           gravita, chiave))
+                                           gravita, chiave, resp.url or ""))
     return {"score": max(0, score), "status": "surface",
             "tool": "HTTP-Headers", "issues": issues,
             # Nessun `sorted`: issues e findings escono dallo stesso

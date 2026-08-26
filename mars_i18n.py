@@ -704,17 +704,24 @@ _CORNICE_EN: Dict[str, str] = {
         "%s with no indexable text %s no surface to draw.",
     "ha": "has",
     "hanno": "have",
-    "Il colore non è un giudizio: nessun rilievo dichiara la pagina che "
-    "lo ha prodotto, quindi la treemap parla di superficie e tace "
-    "sulla qualità.":
-        "Colour is not a judgement: no finding declares the page that "
-        "produced it, so the treemap speaks of surface and says nothing "
-        "about quality.",
+    "Il colore è la gravità peggiore dei rilievi che citano la pagina.":
+        "Colour is the worst severity among the findings that cite the "
+        "page.",
+    "%s in grigio: nessun rilievo le cita, che non vuol dire che siano a "
+    "posto — non tutte le aree guardano tutte le pagine.":
+        "%s in grey: no finding cites them, which does not mean they are "
+        "fine — not every area looks at every page.",
+    "nessun rilievo la cita": "no finding cites it",
+    "%d rilievi, il peggiore: %s": "%d findings, the worst: %s",
+    "rilievo critico": "critical finding",
+    "avvertenza": "warning",
+    "rilievo informativo": "informational finding",
     "Treemap della superficie: %s, la più estesa è %s con %s. I dati "
     "sono nella tabella qui sotto.":
         "Surface treemap: %s, the largest is %s with %s. The figures "
         "are in the table below.",
     "La superficie in tabella": "The surface as a table",
+    "Rilievi": "Findings",
     "pagina": "page",
     "pagine": "pages",
     "parola": "word",
@@ -925,7 +932,8 @@ _CORNICE_EN: Dict[str, str] = {
     "titolo": "title",
     "dettaglio": "detail",
     "correzione": "fix",
-    "url": "url",
+    "pagine": "pages",
+    "riferimento": "reference",
     "sforzo": "effort",
     "quick_win": "quick_win",
     "sì": "yes",

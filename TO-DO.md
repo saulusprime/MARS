@@ -19,8 +19,8 @@
 > già il dettaglio — qui erano una seconda copia, e una seconda copia invecchia
 > per conto suo.
 >
-> **Correzioni chiuse**: R1-R27, R29-R34, R36, R38, R41-R45, R47.
-> **Aperte**: R28, R35, R37, R39-R40, R46, R48 e R49 —
+> **Correzioni chiuse**: R1-R34, R36, R38, R41-R45, R47.
+> **Aperte**: R35, R37, R39-R40, R46, R48 e R49 —
 > trovate *adeguando* i moduli alle Fasi 1-5, e non corrette lì dentro perché
 > avrebbero spostato punteggi o testi dentro un commit che cambiava la forma.
 > **R47 è chiusa il 2026-08-26** — schema JSON a `schema_version: 2`, passo 3
@@ -30,7 +30,9 @@
 > citabilità non è più muta. **R33** lo stesso giorno: la suite non dipende più
 > dalla directory da cui la si lancia, e l'autoconsistenza dell'HTML è
 > controllata su quattro forme in più — `url()`, `@import`, `srcset` — anche sui
-> due golden.
+> due golden. **R28** lo stesso giorno: `mars_citations` esce con 3 e non con 1
+> quando non riesce a scrivere, non perde piu' il referto se lo storico e'
+> illeggibile, e dice `null` invece di `0.0` quando non ha misurato nulla.
 >
 > **Programma UPGRADE** (U1-U12), che porta il referto al livello di
 > `marsbeacon/`: il piano sta in [UPGRADE.md](UPGRADE.md), il lavoro sul ramo
@@ -206,24 +208,6 @@ avversariale dei rilievi). Dove scritto *«riprodotto»* il difetto è stato
 osservato in esecuzione con la suite/venv; le altre voci sono uscite dalla
 verifica e vanno riprodotte prima di correggerle (regola *verificare, non
 dedurre*). Ordinate per gravità.
-
-### R28 — 🟡 MEDIO: `mars_citations`, scritture e monitoraggio non misurato
-- **`OSError` non gestita su `--output`/`--history`.** L'`open` di `--output`
-  ([mars_citations.py:564](mars_citations.py#L564)) e `append_history`
-  ([:404](mars_citations.py#L404), invocata a [:559](mars_citations.py#L559)) non
-  gestiscono `OSError`: un percorso non scrivibile termina con traceback ed
-  **exit 1** — lo stesso codice di `--fail-under`, quindi una pipeline scambia il
-  crash per «sotto soglia». Con `--history` il crash avviene **prima** di
-  stampare il referto: i risultati (pagati in chiamate API) vanno persi.
-- **Monitoraggio non misurato = `rate 0.0`.** Se tutte le query di un provider
-  falliscono, `run_monitor` scrive `"rate": 0.0`
-  ([mars_citations.py:348](mars_citations.py#L348)) — un *«0% di citazioni»* per
-  un dato mai misurato — indistinguibile da uno 0% reale nel referto e nello
-  storico JSONL.
-
-- [ ] Gestire `OSError` con un codice di uscita distinto da `--fail-under`, e
-      scrivere il referto prima dello storico.
-- [ ] Distinguere «0 su 0» (non misurato) da uno 0% reale, come già fa `overall_rate`.
 
 ### R35 — 🟡 MEDIO: i due recuperatori indicizzano contenuti diversi
 *(trovata misurando, chiudendo R23 il 2026-08-20)*

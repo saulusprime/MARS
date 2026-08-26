@@ -22,7 +22,18 @@ import requests
 from mars_core import host_matches, norm_host
 from mars_core import load_queries as core_load_queries
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
+
+# Codici di uscita. Non sono una scala nuova: `mars_audit.py` porta da
+# sempre il commento «allineati a quelli di mars_citations.py», che era
+# una promessa senza controparte — qui i valori erano `return 1/2/0`
+# nudi, e il 3 non esisteva affatto. Un guasto di scrittura usciva con
+# 1, cioe' con il codice di `--fail-under`: una pipeline leggeva un
+# disco pieno come un giudizio sul sito (R28).
+EXIT_OK = 0
+EXIT_SOTTO_SOGLIA = 1
+EXIT_USO = 2
+EXIT_SCRITTURA = 3
 
 DEFAULT_MODEL = "claude-opus-5"
 OPENAI_MODEL = "gpt-5.6"
@@ -345,8 +356,14 @@ def run_monitor(site: str, queries: Sequence[str],
             "answered": len(answered),
             "failed": len(rows) - len(answered),
             "site_cited": len(cited),
+            # `None` e non 0.0: se nessuna query ha ottenuto risposta
+            # non e' stato misurato nulla, e uno 0% inventato e'
+            # indistinguibile da uno 0% vero nel referto e nello
+            # storico. `overall_rate` diceva gia' `None`, quindi le due
+            # misure dello stesso non-dato si contraddicevano nella
+            # stessa riga JSONL (R28).
             "rate": round(100.0 * len(cited) / len(answered), 1)
-            if answered else 0.0,
+            if answered else None,
             "competitors_cited": comp_counts,
             "results": rows,
         }
@@ -388,8 +405,16 @@ def read_last_run(path: str, site_host: str) -> Optional[Dict[str, object]]:
         return None
 
 
-def append_history(path: str, payload: Dict[str, object]) -> None:
-    """Accoda l'esecuzione allo storico JSONL (senza i dettagli)."""
+def append_history(path: str, payload: Dict[str, object]) -> bool:
+    """Accoda l'esecuzione allo storico JSONL (senza i dettagli).
+
+    Restituisce `False` se non e' stato possibile scrivere, invece di
+    sollevare: lo storico e' un archivio, il referto e' il prodotto. Un
+    `OSError` qui buttava via un referto **gia' pagato in chiamate
+    API**, perche' la scrittura avviene prima del rendering. Perdere una
+    riga d'archivio non vale il codice di uscita — si dichiara e si va
+    avanti, come fa gia' `mars_history.appendi_storico` (R28).
+    """
     compact = {
         "generated_at": payload["generated_at"],
         "site": payload["site"],
@@ -401,8 +426,12 @@ def append_history(path: str, payload: Dict[str, object]) -> None:
             for name, stats in payload["providers"].items()
         },
     }
-    with open(path, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(compact, ensure_ascii=False) + "\n")
+    try:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(compact, ensure_ascii=False) + "\n")
+    except OSError:
+        return False
+    return True
 
 
 # --------------------------------------------------------------------
@@ -417,9 +446,11 @@ def render_text(payload: Dict[str, object],
     lines.append("=" * 70)
     for name, stats in payload["providers"].items():
         lines.append("")
-        lines.append("[%s]  citato in %d risposte su %d (%.1f%%)"
+        lines.append("[%s]  citato in %d risposte su %d (%s)"
                      "%s" % (name, stats["site_cited"],
-                             stats["answered"], stats["rate"],
+                             stats["answered"],
+                             "%.1f%%" % stats["rate"]
+                             if stats["rate"] is not None else "n/d",
                              "  ·  %d query fallite" % stats["failed"]
                              if stats["failed"] else ""))
         for host, count in stats["competitors_cited"].items():
@@ -527,12 +558,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if len(args.competitors) > 3:
         print("Massimo 3 concorrenti con --competitor.",
               file=sys.stderr)
-        return 2
+        return EXIT_USO
 
     queries, err = load_queries(args)
     if err:
         print(err, file=sys.stderr)
-        return 2
+        return EXIT_USO
 
     provider_names = args.providers or ["anthropic"]
     providers: List[object] = []
@@ -547,7 +578,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 providers.append(PROVIDERS[name]())
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)
-            return 2
+            return EXIT_USO
 
     payload = run_monitor(args.site, queries, providers,
                           competitors=args.competitors,
@@ -556,13 +587,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     previous = None
     if args.history:
         previous = read_last_run(args.history, payload["site"])
-        append_history(args.history, payload)
+        if not append_history(args.history, payload):
+            print("Impossibile scrivere lo storico in %s" % args.history,
+                  file=sys.stderr)
 
     renderers = {"text": render_text, "json": render_json}
     report = renderers[args.format](payload, previous)
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as handle:
-            handle.write(report)
+        try:
+            with open(args.output, "w", encoding="utf-8") as handle:
+                handle.write(report)
+        except OSError as exc:
+            print("Impossibile scrivere %s: %s" % (args.output, exc),
+                  file=sys.stderr)
+            return EXIT_SCRITTURA
         print("Referto scritto in %s" % args.output, file=sys.stderr)
     else:
         print(report)
@@ -570,8 +608,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     rate = overall_rate(payload)
     if args.fail_under is not None and rate is not None \
             and rate < args.fail_under:
-        return 1
-    return 0
+        return EXIT_SOTTO_SOGLIA
+    return EXIT_OK
 
 
 if __name__ == "__main__":

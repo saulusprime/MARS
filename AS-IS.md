@@ -2355,6 +2355,61 @@ fase: questa tabella dice dove atterrare.
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
 
+### R28 — ✅ RISOLTO (2026-08-26): un disco pieno valeva come un giudizio sul sito
+**Il difetto, riprodotto prima di toccare il codice** — con un provider finto,
+senza rete e senza spesa:
+
+| caso | prima | dopo |
+|---|---|---|
+| `--output` su percorso non scrivibile | traceback, **exit 1** | exit **3**, motivo su stderr |
+| `--history` non scrivibile | traceback, exit 1, **referto perduto** | referto stampato, exit 0, guasto dichiarato |
+| tutte le query fallite | `"rate": 0.0` | `"rate": null` |
+| `overall_rate` nello stesso file | `null` | `null` |
+
+Exit 1 è il codice di `--fail-under`: una pipeline che distingue «sotto soglia»
+da «rotto» leggeva un guasto di scrittura come un **giudizio sul sito**. E con
+`--history` il crash arrivava prima del rendering, quindi buttava via un referto
+già pagato in chiamate API.
+
+**«0 su 0» non è «0%».** Le due misure dello stesso non-dato si contraddicevano
+nella stessa riga JSONL: `rate: 0.0` accanto a `overall_rate: null`. Ora dicono
+la stessa cosa. L'altra metà è presidiata da un test apposta: uno 0% **misurato**
+deve restare `0.0`, o la correzione avrebbe solo spostato la bugia.
+
+**Le due modifiche del tasso stanno nello stesso commit, e devono.** `render_text`
+formattava `rate` con `%.1f`: da sola, la prima avrebbe fatto sollevare
+`TypeError` alla vista testo. La parola per il non misurato — `n/d` — è quella
+che il totale usava già.
+
+**Il commento di `mars_audit` era una promessa senza controparte.** Diceva da
+sempre «Codici di uscita, allineati a quelli di `mars_citations.py`», mentre qui
+i valori erano `return 1/2/0` nudi e il 3 non esisteva. Ora ci sono le costanti,
+e un test è la controparte: se le due scale divergono, diventa rosso.
+
+**Una divergenza dalla lettera della casella, dichiarata.** Il TO-DO chiedeva
+«gestire `OSError` […] **e scrivere il referto prima dello storico**». Il
+riordino non è stato fatto, e la misura dice perché: con `append_history` che
+restituisce `False` invece di sollevare, il referto arriva comunque — è ciò che
+il test asserisce. Spostare la chiamata avrebbe inoltre **rotto il parallelo con
+`mars_audit`**, dove l'ordine è già dato → storico → render → output, e avrebbe
+cambiato l'ordine osservabile su stdout/stderr per chi ne fa parsing. La
+sostanza della richiesta — il referto non si perde — è soddisfatta; la lettera
+no, e non serviva.
+
+**Il modo di forzare l'errore è una directory, non un `chmod`.** `open()` su una
+directory solleva `IsADirectoryError` — sottoclasse di `OSError` — a prescindere
+dai permessi e anche da root, mentre un `chmod 0o500` sarebbe verde per caso in
+un container che gira da root: un test che non esercita nulla.
+
+**Verifiche.** `mars_citations` non aveva **un solo test**: ora ne ha undici, in
+`tests/test_citations.py`, tutti visti fallire sul codice di prima. 984 verdi in
+totale (erano 973), `flake8` a zero, golden non toccati. **Sette mutazioni su
+sette** fanno rosso, fra cui il codice di scrittura riportato a 1, lo storico che
+torna a sollevare, e quello che fallisce in silenzio. `__version__` a **1.2.1**:
+`rate` nullable e il codice 3 sono comportamento osservabile, e il README
+dichiara entrambi — comprese le righe di storico scritte prima, che portano
+ancora `0.0`.
+
 ### R33 — ✅ RISOLTO (2026-08-26): due presìdi che passavano per la ragione sbagliata
 **Il difetto, misurato prima di toccare il codice.** Lanciando `pytest` da una
 directory diversa dalla radice: **2 failure e 4 errori** — uno in più di quanti

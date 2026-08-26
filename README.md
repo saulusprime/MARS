@@ -560,6 +560,14 @@ Uso:
         --fail-under 30
 
 Codici di uscita: 0 ok; 1 tasso di citazione sotto --fail-under;
-2 errore d'uso o provider non configurato.
+2 errore d'uso o provider non configurato; 3 impossibile scrivere il file
+di --output. Un percorso di --history non scrivibile non e' fatale: lo
+storico e' un archivio, il referto viene stampato lo stesso e il guasto
+dichiarato su stderr.
+
+Il campo `rate` di un provider e' `null`, non 0.0, quando nessuna query ha
+ottenuto risposta: non e' stato misurato nulla, e uno 0% inventato sarebbe
+indistinguibile da uno 0% vero. Vale nel JSON e nella riga di storico; le
+righe scritte prima della versione 1.2.1 portano ancora 0.0.
 
 Licenza: Apache 2.0

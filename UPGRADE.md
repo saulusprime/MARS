@@ -61,8 +61,9 @@ questo documento va letto oggi:
   ([mars_report.py:573](mars_report.py#L573));
 - la Fase 4 prevedeva una chiave `top_actions` accanto ai profili di
   citabilità. Non è stata aggiunta: sarebbe stata una seconda copia del piano,
-  che diverge in silenzio dalla prima
-  ([AS-IS.md:3856](AS-IS.md#L3856)).
+  che diverge in silenzio dalla prima (vedi la voce **U4** in
+  [AS-IS.md](AS-IS.md) — il rimando è alla sezione e non alla riga, che la
+  potatura del 2026-08-26 ha mosso).
 
 Da qui la regola per chi riprende in mano il documento: **le fasi 1-9 si
 leggono insieme alla loro voce in AS-IS**, che dice che cosa è stato fatto

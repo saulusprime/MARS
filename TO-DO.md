@@ -308,9 +308,12 @@ un puntatore che atterra sulla riga sbagliata è peggio di nessun puntatore.
   `riskdesc`, che i referti tradizionali compongono e l'endpoint non emette.
   Il commento in `mars_wapt` è già riscritto da U1.6; restano la docstring di
   `test_zap_la_confidenza_non_e_una_gravita`
-  ([tests/test_core.py:1129](tests/test_core.py#L1129)) e
-  [AS-IS.md:221](AS-IS.md#L221), che dà il caso per **osservato** sul daemon
-  reale. Prima di correggere quella riga va ricontrollato da dove venisse
+  ([tests/test_core.py:1129](tests/test_core.py#L1129)) e le due righe di
+  [AS-IS.md](AS-IS.md) che danno il caso per **osservato** sul daemon reale —
+  la verifica di **R4** (`"High (Medium)"` fra i payload sintetici) e la
+  sequenza confermata in **C9** (`"Medium (High)"`). Il rimando è alla sezione
+  e non alla riga: la potatura del 2026-08-26 ha mosso i numeri, e un
+  puntatore che atterra sulla riga sbagliata è peggio di nessun puntatore. Prima di correggere quella riga va ricontrollato da dove venisse
   l'osservazione — un referto, `riskdesc`, un campo diverso: è un fatto
   registrato, e si annota, non si riscrive. Il comportamento in ogni caso non
   cambia: lo `split(" ")[0]` resta come difesa verso gli alert che non nascono

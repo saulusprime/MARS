@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R59**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R60**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,11 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R59 sono
-> tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
-> campo e non da una revisione — due da un sospetto su `--max-pages`, le altre
-> tre da un giudizio LLM che annunciava un invio mai partito. Restano il
-> programma UPGRADE e due prove mancanti.
+> **Sei caselle aperte**, di cui una correzione. Da R55 a R59 sono tutte
+> aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul campo e
+> non da una revisione — due da un sospetto su `--max-pages`, le altre tre da
+> un giudizio LLM che annunciava un invio mai partito. **R60** viene dalla
+> stessa sorgente: un referto vero, guardato da chi lo riceve.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -35,13 +35,60 @@
 
 ## Correzioni
 
-**Nessuna aperta.** Le tre dell'indagine del 2026-08-27 sono chiuse lo stesso
-giorno e stanno in [AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun**
-modo di passare una credenziale — `--credentials FILE`), **R58** (l'annuncio
-della spesa si stampava anche quando nulla sarebbe partito) e **R59**
-(diagnostica e referto sullo stesso canale). Chiudendo R59 si è misurato che la
-seconda voce che quella lasciava intravedere — le stampe di
-`mars_citations.py` — **non esisteva**: là i due canali erano già separati.
+Una, aperta il 2026-08-27 da un referto vero letto dall'utente. Le tre
+dell'indagine dello stesso giorno sono chiuse e stanno in
+[AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di passare una
+credenziale — `--credentials FILE`), **R58** (l'annuncio della spesa si
+stampava anche quando nulla sarebbe partito) e **R59** (diagnostica e referto
+sullo stesso canale). Chiudendo R59 si è misurato che la seconda voce che
+quella lasciava intravedere — le stampe di `mars_citations.py` — **non
+esisteva**: là i due canali erano già separati.
+
+### R60 — 🟠 SERIO: gli esempi di correzione si leggono come contenuto misurato
+
+Nella scheda «4. Semantica» di un referto reale su `lymphatechnologies.com`
+compare, sotto il rilievo, questo blocco:
+
+    <h2>Quanto dura una seduta?</h2>
+    <p>Una seduta dura circa cinquanta minuti, prima valutazione compresa.</p>
+
+Chi riceve il referto lo ha letto come **contenuto di un altro sito** finito
+dentro il suo. Non lo è: è l'`example` di `sem.answer_shaped.low`, cablato in
+[mars_fixes.py:268](mars_fixes.py#L268), cioè un esempio inventato di come si
+scrive un passaggio in forma di risposta.
+
+**Riprodotto il 2026-08-27** rilanciando l'audit dell'utente per intero (8
+pagine, `--llm on`, `--i-own-this-domain`, embedding reali): il blocco c'è, e
+**nel referto la parola «esempio» non compare nemmeno una volta**. Verificato
+nello stesso giro che il crawler **non** ha toccato host estranei — l'unico URL
+in tutto il referto è `https://www.lymphatechnologies.com`, quindi il difetto è
+di resa e non di perimetro.
+
+**Causa radice.** `_correzioni_html()` rende l'`example` come `<pre class='ex'>`
+dentro la scheda d'area, senza didascalia: il titolo «Come si aggiusta» sta
+sopra la prosa del `fix`, e fra questa e il blocco non c'è nulla che dica «da
+qui in giù è inventato». Un blocco `nginx` o un JSON-LD si riconoscono da soli;
+un esempio scritto in **prosa italiana plausibile** no — ed è quello che
+`sem.answer_shaped.low` deve mostrare, perché il rilievo parla proprio della
+forma della prosa. Vale anche per `wcag.alt.missing` (`alt="La sala
+trattamenti"`) e per gli altri esempi tratti dallo stesso sito immaginario: la
+classe è «esempio in prosa», non «questo esempio».
+
+**Perimetro.** HTML e Markdown rendono l'`example`; il testo no (dichiarato in
+[mars_report.py:1287](mars_report.py#L1287)), il CSV porta la sola `fix`, il
+JSON ha la chiave `example` e quindi si autodichiara. Ogni cambiamento di resa
+fa fallire i golden: si rigenera **e si rivede il diff**.
+
+**Da decidere prima di scrivere** — è la ragione per cui la casella è una sola:
+
+| | Opzione | Costo | Effetto |
+|---|---|---|---|
+| a | Didascalia sopra ogni blocco: «Esempio — non è contenuto del tuo sito» (HTML e Markdown, chiave i18n) | rendering + catalogo + golden | toglie l'ambiguità dovunque, esempi invariati |
+| b | Riscrivere gli esempi in prosa perché siano evidentemente fittizi | solo `mars_fixes.py` | non chiude la classe: un esempio utile *deve* somigliare a contenuto vero |
+| c | a + b | entrambi | massimo, ma b resta discutibile |
+
+- [ ] Rendere impossibile scambiare un esempio per una misura, scegliendo fra
+      le tre opzioni qui sopra e presidiando la scelta con un test.
 
 ---
 

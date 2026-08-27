@@ -199,6 +199,36 @@ def _params_del_banco(monkeypatch) -> dict:
     deboli["mars_lexical"] = {"rank": [3, 4, 5]}
     raccogli(mars_citability.audit({"results": deboli, "market": "global"}))
     raccogli(mars_citability.audit({"results": {"mars_tech": {}}}))
+
+    # Area 7: il perimetro dello spider, che i golden non accendono
+    # perche' vi girano senza dichiarazione di proprieta'. Serve un
+    # daemon finto: la chiave nasce solo dove lo spider parte davvero.
+    import mars_wapt
+
+    class _ZapPerIl18n:
+        def spider_scan(self, url, max_children=0):
+            return "1"
+
+        def spider_status(self, sid):
+            return 100
+
+        def ascan_scan(self, url):
+            return "2"
+
+        def ascan_status(self, sid):
+            return 100
+
+        def max_depth(self):
+            return 5
+
+        def alerts(self, baseurl):
+            return []
+
+    raccogli(mars_wapt.audit({"url": "https://esempio.test/",
+                              "urls": ["https://esempio.test/"],
+                              "_zap_client": _ZapPerIl18n(),
+                              "owner_declaration": True,
+                              "max_children": 10}))
     return veri
 
 

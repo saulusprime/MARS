@@ -379,3 +379,19 @@ def test_esempio_valido_e_completo():
     assert credenziali <= set(esempio["credentials"])
     assert all("SEGNAPOSTO" in v for k, v in esempio["credentials"].items()
                if k.endswith(("key", "token")))
+
+
+def test_api_max_children_arriva_al_contesto(client, auth, monkeypatch):
+    """R56: l'anello che sfuggiva alle mutazioni. L'API e' il secondo
+    consumatore degli stessi moduli (principio 4), e un campo che si
+    ferma al modello Pydantic e' indistinguibile da uno che funziona.
+    """
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_api, "core_build_context", finto)
+    client.post("/audit/full", json=dict(CORPO, max_children=19), headers=auth)
+    assert visti.get("max_children") == 19

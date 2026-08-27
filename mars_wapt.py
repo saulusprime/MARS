@@ -442,8 +442,15 @@ class ZapClient:
     def version(self) -> str:
         return str(self._get("core/view/version").get("version", ""))
 
-    def spider_scan(self, url: str) -> str:
-        return str(self._get("spider/action/scan", url=url).get("scan"))
+    def spider_scan(self, url: str, max_children: int = 0) -> str:
+        """Avvia lo spider. `max_children` e' l'UNICO tetto che l'API
+        accetta, ed e' per nodo: `spider/action/scan` prende
+        `url maxChildren recurse contextName subtreeOnly` e nulla che
+        limiti il totale delle pagine. Zero e' il default di ZAP e
+        significa illimitato.
+        """
+        return str(self._get("spider/action/scan", url=url,
+                             maxChildren=int(max_children)).get("scan"))
 
     def spider_status(self, scan_id: str) -> int:
         return int(self._get("spider/view/status",
@@ -469,6 +476,17 @@ class ZapClient:
 
     def ascan_stop(self, scan_id: str) -> None:
         self._get("ascan/action/stop", scanId=scan_id)
+
+    def max_depth(self) -> int:
+        """La profondita' massima che il daemon ha in configurazione.
+
+        Si LEGGE invece di supporla: e' un'impostazione del daemon, non
+        una nostra, e il referto la dichiara insieme al tetto che
+        chiediamo noi. Cablare il 5 predefinito direbbe il falso a chi
+        il proprio ZAP l'ha configurato.
+        """
+        return int(self._get("spider/view/optionMaxDepth")
+                   .get("MaxDepth", 0))
 
     def access_url(self, url: str) -> None:
         """Fa scaricare a ZAP un URL che abbiamo gia' scelto noi.
@@ -531,6 +549,20 @@ def _attendi(stato, scan_id: str, scadenza: float) -> bool:
     return False
 
 
+def _profondita(client) -> int:
+    """Il `MaxDepth` del daemon, o 0 se non si riesce a leggerlo.
+
+    Zero significa «non lo sappiamo» e il referto lo dice: un daemon
+    che non risponde a questa domanda non deve far cadere l'area, e
+    cablare il 5 predefinito direbbe il falso a chi il proprio ZAP
+    l'ha configurato.
+    """
+    try:
+        return int(client.max_depth())
+    except (requests.RequestException, ValueError, TypeError, AttributeError):
+        return 0
+
+
 def _attendi_passiva(client, scadenza: float) -> bool:
     """Attende che la coda della scansione passiva si svuoti.
 
@@ -580,7 +612,8 @@ def _ferma(azione, scan_id: str) -> bool:
 
 
 def run_zap(url: str, client=None, active: bool = False,
-            urls: Optional[List[str]] = None) -> Optional[tuple]:
+            urls: Optional[List[str]] = None,
+            max_children: int = 0) -> Optional[tuple]:
     """Alert ZAP, con due perimetri secondo la dichiarazione di proprieta'.
 
     **Senza dichiarazione** non parte alcuno spider: ZAP riceve le
@@ -631,7 +664,7 @@ def run_zap(url: str, client=None, active: bool = False,
             completa = _attendi_passiva(client, scadenza)
             return client.alerts(url), completa, True
 
-        scan_id = client.spider_scan(url)
+        scan_id = client.spider_scan(url, max_children)
         spider_ok = _attendi(client.spider_status, scan_id, scadenza)
         if not spider_ok:
             fermate &= _ferma(client.spider_stop, scan_id)
@@ -760,7 +793,9 @@ def audit(context: dict) -> dict:
                  "ATTIVA, con spider" if active
                  else "passiva sulle pagine gia' scansionate"))
         campione = list(context.get("urls") or [])
-        esito_zap = run_zap(url, client, active=active, urls=campione)
+        tetto = int(context.get("max_children") or 0)
+        esito_zap = run_zap(url, client, active=active, urls=campione,
+                            max_children=tetto)
         if esito_zap is not None:
             alerts, completa, fermate = esito_zap
             # Le pagine che ZAP ha davvero guardato sulla via senza
@@ -806,6 +841,33 @@ def audit(context: dict) -> dict:
                     "Scansione ZAP scaduta e NON fermata: prosegue nel "
                     "daemon ZAP, e i rilievi qui sono parziali",
                     stopped=False, active_scan=active))
+            if active:
+                # Con la dichiarazione il perimetro NON e' il campione,
+                # e MARS non lo conosce: `pages_tested` resta None. Ma
+                # tacere lascerebbe credere che valga `--max-pages`
+                # come per le altre otto aree, e non e' vero.
+                #
+                # I due limiti che agiscono davvero sono il nostro per
+                # NODO e il `MaxDepth` del daemon, e insieme non fanno
+                # un numero di pagine: l'API dello spider non accetta
+                # nulla che limiti il totale. Dirlo e' l'unica risposta
+                # onesta — approssimare un tetto e chiamarlo tetto
+                # sarebbe la stessa cosa di un punteggio inventato.
+                profondita = _profondita(client)
+                issues.append(
+                    "Perimetro non esatto: lo spider ha percorso il sito "
+                    "da se', al piu' %s per nodo e %s di profondita'"
+                    % (("%d figli" % tetto) if tetto else "senza tetto",
+                       ("%d livelli" % profondita) if profondita
+                       else "profondita' ignota"))
+                coda.append(_stato(
+                    "sec.status.spider_scope",
+                    "Perimetro non esatto: lo spider ha percorso il sito "
+                    "da se', al piu' %s per nodo e %s di profondita'"
+                    % (("%d figli" % tetto) if tetto else "senza tetto",
+                       ("%d livelli" % profondita) if profondita
+                       else "profondita' ignota"),
+                    max_children=tetto, max_depth=profondita))
             if not active:
                 # Il testo dichiara il PERIMETRO e non solo la scala:
                 # da R55 la differenza fra le due modalita' non e' piu'

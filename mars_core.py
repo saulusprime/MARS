@@ -1627,6 +1627,7 @@ def build_context(url: str, max_pages: int = 10,
                   delay: float = DEFAULT_DELAY,
                   timeout: int = DEFAULT_TIMEOUT,
                   owner_declaration: bool = False,
+                  max_children: int = 0,
                   llm: str = "auto",
                   queries: Optional[List[str]] = None,
                   credentials: Optional[dict] = None,
@@ -1672,6 +1673,13 @@ def build_context(url: str, max_pages: int = 10,
         # Distinto da robots_ignored: la dichiarazione di proprieta'
         # abilita anche l'active scan WAPT, che invia payload d'attacco.
         "owner_declaration": owner_declaration,
+        # Tetto per NODO dello spider ZAP, non un numero di pagine:
+        # l'API dello spider non accetta nulla che limiti il totale, e
+        # 0 e' il suo default, cioe' illimitato. Sta nel context e non
+        # fra i parametri del Crawler perche' non riguarda il crawler
+        # di MARS: e' l'unica leva su un secondo crawler che scopre le
+        # pagine da se' (R56).
+        "max_children": int(max_children or 0),
         "skipped": crawler.skipped,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.

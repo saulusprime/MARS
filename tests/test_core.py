@@ -1629,3 +1629,33 @@ def test_istanze_del_rilievo_legge_solo_conteggi_veri():
         assert istanze(non_conteggio) is None, non_conteggio
     assert mars_core.istanze_del_rilievo({}) is None
     assert mars_core.istanze_del_rilievo({"params": None}) is None
+
+
+def test_build_context_porta_il_tetto_dello_spider(monkeypatch):
+    """R56: sfuggita alle mutazioni — azzerare `max_children` nel
+    context lasciava verde tutto.
+
+    Non e' un parametro del `Crawler` e non deve esserlo: non riguarda
+    il crawler di MARS, che ha gia' `--max-pages`, ma l'unico secondo
+    crawler che scopre le pagine da se'. Zero e' il default di ZAP,
+    cioe' nessun tetto.
+    """
+    class _CrawlerFinto:
+        def __init__(self, *a, **k):
+            self.delay = 0.0
+            self.robots_info = {"found": False, "text": "", "sitemaps": []}
+            self.sitemap_info = {}
+            self.discovery = "link interni"
+            self.skipped = {}
+
+        def crawl(self):
+            return {"https://x/": {"title": "x", "text": "x", "lang": "it",
+                                   "html": "<p>x</p>", "headings": [],
+                                   "chunks": ["x"]}}
+
+    monkeypatch.setattr(mars_core, "Crawler", _CrawlerFinto)
+    ctx = mars_core.build_context("https://x/", 1, "none", "global",
+                                  max_children=42)
+    assert ctx["max_children"] == 42
+    ctx = mars_core.build_context("https://x/", 1, "none", "global")
+    assert ctx["max_children"] == 0, "il default e' quello di ZAP"

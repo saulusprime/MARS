@@ -290,3 +290,57 @@ def test_uno_storico_non_scrivibile_non_fa_fallire_l_audit(monkeypatch,
                                         str(cartella / "s.jsonl"))
     assert codice == 0
     assert "Impossibile scrivere lo storico" in uscita
+
+
+def test_cli_max_children_arriva_al_contesto(monkeypatch):
+    """R56: sfuggita a due mutazioni — togliere `max_children` dalla
+    catena della CLI lasciava verde tutto, perche' nessun test
+    attraversava la tubatura fra il flag e il modulo.
+
+    Il valore ha una strada sola e lunga: argparse -> run_audit ->
+    build_context -> context -> mars_wapt -> ZapClient. Ogni anello
+    rotto e' silenzioso: lo spider gira lo stesso, senza tetto.
+    """
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_audit, "build_context", finto)
+    mars_audit.run_audit("https://x/", 1, "none", "global", max_children=37)
+    assert visti.get("max_children") == 37
+
+
+def test_cli_ogni_parametro_del_parser_e_letto_al_punto_di_ingresso():
+    """Guardia statica, scritta perche' una mutazione e' sfuggita: il
+    blocco `if __name__ == "__main__"` NON e' una funzione, quindi
+    nessun test lo esegue, e un `args.<qualcosa>` dimenticato li' e'
+    invisibile — il flag si accetta dalla riga di comando, non fa
+    nulla, e non c'e' errore.
+
+    Vale per ogni parametro insieme e non per uno solo: e' lo stesso
+    ragionamento del test che verifica con `ast` che nessun modulo
+    passi un `k` suo alla fusione RRF. Guarda il CODICE, non il dato.
+    """
+    import inspect
+    import re
+
+    sorgente = inspect.getsource(mars_audit)
+    ingresso = sorgente[sorgente.index('if __name__'):]
+    letti = set(re.findall(r"args\.([a-z_]+)", ingresso))
+    dichiarati = {a.dest for a in mars_audit.costruisci_parser()._actions}
+    dichiarati -= {"help", "version"}   # argparse li gestisce da se'
+    assert dichiarati <= letti, \
+        "parametri accettati e mai letti: %s" % sorted(dichiarati - letti)
+
+
+def test_cli_il_flag_max_children_esiste_e_ha_un_default(monkeypatch):
+    """L'anello prima: che argparse lo legga davvero, e che il
+    predefinito sia quello di ZAP — 0, nessun tetto — perche' un
+    default nostro cambierebbe in silenzio il comportamento di chi
+    dichiara il dominio."""
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).max_children == 0
+    assert parser.parse_args(["https://x/",
+                              "--max-children", "12"]).max_children == 12

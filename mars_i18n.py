@@ -506,6 +506,14 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Passive scan only, on the %(pages)d crawled pages: "
                  "spider and active scan require --i-own-this-domain",
     },
+    "sec.status.spider_scope": {
+        # I due limiti arrivano dai params: il nostro per nodo e il
+        # MaxDepth letto dal daemon. Cablarli qui direbbe il falso a
+        # chi il proprio ZAP l'ha configurato.
+        "title": "Perimeter not exact: the spider walked the site on its "
+                 "own, at most %(max_children)d children per node and "
+                 "%(max_depth)d levels deep",
+    },
     "sec.status.partial": {
         "title": "ZAP scan interrupted by the timeout and stopped: the "
                  "findings are partial",

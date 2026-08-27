@@ -188,6 +188,21 @@ attraverso il proxy. Non serve alcun pacchetto pip, solo il daemon.
     spider si conservano 4 regole distinte su 5, senza una sola
     richiesta in piu' verso il sito.
 
+    CON la dichiarazione il perimetro NON e' piu' il campione, e MARS
+    non lo conosce: lo spider percorre il sito per conto suo e
+    --max-pages non lo vincola. Il referto lo DICHIARA invece di
+    tacerlo, con i due limiti che agiscono davvero — il tetto per
+    pagina che passi tu (--max-children) e il MaxDepth che il tuo
+    daemon ha in configurazione, letto da ZAP e non supposto.
+
+    --max-children e' l'unico tetto che l'API dello spider accetta, e
+    NON e' un numero di pagine: limita i link seguiti per pagina.
+    Misurato su un indice con otto figli — con 0 (predefinito, il
+    default di ZAP) ZAP ha percorso tutte e otto le pagine, con 2 ne ha
+    percorsa UNA, perche' robots.txt e sitemap.xml contano anch'essi
+    come figli. Serve a contenere una scansione, non a renderla
+    esatta: esatta non puo' essere, e il referto lo dice.
+
 MARS si collega a un daemon GIA' in esecuzione e non lo avvia:
 orchestrare un processo Java dal codice significa rischiare di
 lasciarlo orfano dopo un timeout, e delegarlo a chi lancia l'audit e'
@@ -364,11 +379,16 @@ Corpo della richiesta (AuditRequest), tutti i campi opzionali tranne url:
                         di 15 query della CLI: le usa tutte
     llm                 "auto" (default), "on" oppure "off": governa il
                         solo modulo che comporta una spesa
+    max_children        tetto ai link seguiti PER PAGINA dallo spider
+                        ZAP, che gira solo con i_own_this_domain. 0
+                        (default) e' il default di ZAP: nessun tetto.
+                        Non e' un numero di pagine
     i_own_this_domain   DICHIARAZIONE di proprieta' del dominio e di
-                        assunzione di responsabilita'. Abilita due cose:
-                        ignorare robots.txt e l'active scan WAPT, che
-                        invia payload d'attacco. Registrata nel referto.
-                        Default false.
+                        assunzione di responsabilita'. Abilita TRE cose:
+                        ignorare robots.txt, lo spider ZAP — che
+                        robots.txt non lo rispetta — e l'active scan
+                        WAPT, che invia payload d'attacco. Registrata
+                        nel referto. Default false.
     credentials         Credenziali per gli strumenti opzionali, se non
                         si vogliono impostare come variabili d'ambiente
                         sul server (vedi sotto).

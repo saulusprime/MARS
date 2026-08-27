@@ -152,11 +152,18 @@ class AuditRequest(BaseModel):
         default=None,
         description="Credenziali per gli strumenti opzionali. Se assenti "
                     "si usano le variabili d'ambiente del server.")
+    max_children: int = Field(
+        0, ge=0, le=10000,
+        description="Tetto ai link seguiti per pagina dallo spider ZAP, "
+                    "che gira solo con i_own_this_domain. 0 = nessun "
+                    "tetto, come il default di ZAP.")
     i_own_this_domain: bool = Field(
         default=False,
         description="DICHIARAZIONE di proprietà del dominio e di assunzione "
                     "di responsabilità. È l'unico modo per ignorare "
-                    "robots.txt; viene registrata nel referto.")
+                    "robots.txt — dal crawler di MARS e dallo spider di "
+                    "ZAP, che non lo rispetta — e per l'active scan; "
+                    "viene registrata nel referto.")
 
 
 class AuditResponse(BaseModel):
@@ -260,6 +267,7 @@ def build_context(req: AuditRequest) -> dict:
                                  req.embeddings, req.market,
                                  delay=req.delay, timeout=req.timeout,
                                  owner_declaration=req.i_own_this_domain,
+                                 max_children=req.max_children,
                                  llm=req.llm, queries=req.queries,
                                  credentials=_credenziali(req))
     if context is None:

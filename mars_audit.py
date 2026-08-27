@@ -35,6 +35,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               market: str, delay: float = DEFAULT_DELAY,
               timeout: int = DEFAULT_TIMEOUT,
               owner_declaration: bool = False,
+              max_children: int = 0,
               llm: str = "auto", formato: str = "text",
               output: str | None = None,
               queries: list[str] | None = None,
@@ -44,6 +45,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
+                            max_children=max_children,
                             llm=llm, queries=queries, lang=lang)
 
     if context is None:
@@ -194,6 +196,18 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "significa piu' tempo e piu' richieste al sito.")
 
     parser.add_argument(
+        "--max-children", type=int, default=0, metavar="N",
+        help="Tetto ai link seguiti PER PAGINA dallo spider ZAP, che gira "
+             "solo con --i-own-this-domain. Esempi: 0 (default, nessun "
+             "tetto, come ZAP), 10 per un giro contenuto, 50 per una "
+             "scansione ampia. Non e' un numero di PAGINE e non puo' "
+             "esserlo — l'API dello spider non accetta nulla che limiti "
+             "il totale — quindi il referto dichiara il perimetro come "
+             "non esatto. Senza la dichiarazione non serve: li' l'area 7 "
+             "guarda le pagine gia' scansionate, e a quelle basta "
+             "--max-pages.")
+
+    parser.add_argument(
         "--queries", metavar="FILE",
         help="File di testo con una query per riga (UTF-8). Esempio: "
              "domande.txt. Senza, si usano quattro query generiche nella "
@@ -282,10 +296,12 @@ def costruisci_parser() -> argparse.ArgumentParser:
         "--i-own-this-domain", action="store_true",
         dest="owner_declaration",
         help="DICHIARAZIONE: sono il proprietario del dominio e mi assumo "
-             "la responsabilita' dell'audit. Abilita due cose: ignorare "
-             "robots.txt, e la scansione WAPT ATTIVA, che invia payload "
-             "d'attacco (XSS, SQL injection). Contro un sito non proprio "
-             "e' un attacco. La dichiarazione viene registrata nel referto.")
+             "la responsabilita' dell'audit. Abilita tre cose: ignorare "
+             "robots.txt; lo SPIDER di ZAP, che robots.txt non lo rispetta "
+             "e usa i Disallow come punti di partenza; e la scansione WAPT "
+             "ATTIVA, che invia payload d'attacco (XSS, SQL injection). "
+             "Contro un sito non proprio e' un attacco. La dichiarazione "
+             "viene registrata nel referto.")
 
     parser.add_argument(
         "--version", action="version",
@@ -304,6 +320,7 @@ if __name__ == "__main__":
     sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
                        args.market, delay=args.delay, timeout=args.timeout,
                        owner_declaration=args.owner_declaration,
+                       max_children=args.max_children,
                        llm=args.llm, formato=args.formato,
                        output=args.output, queries=elenco_query,
                        lang=args.lang,

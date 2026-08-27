@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R56 | `--max-children`, e un perimetro dichiarato inesatto | 2026-08-27 |
 | R55 | Lo spider di ZAP non rispettava robots.txt | 2026-08-27 |
 | R54 | Il parametro inerte nascondeva un audit assente | 2026-08-27 |
 | R53 | I conteggi di `mars_seo` e i tre testi di Lighthouse | 2026-08-27 |
@@ -2365,6 +2366,66 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R56 — ✅ (2026-08-27): `--max-children`, e un perimetro dichiarato inesatto
+*(chiude la catena R40 → R53 → R54, e la coppia R55 → R56 nata dal controllo
+su `--max-pages`. **Nessuna correzione resta aperta.**)*
+
+**Metà del problema era sparita da sé.** R55 ha reso il perimetro dell'area 7
+uguale al campione del crawler quando la proprietà non è dichiarata: lì
+`--max-pages` vincola l'area 7 come le altre otto. Restava la via del
+proprietario, dove lo spider percorre il sito per conto suo — misurato, con
+`--max-pages 2` ha toccato **nove** URL, fermandosi al `MaxDepth` di ZAP e non
+a un limite nostro.
+
+**La decisione dell'utente, e la sua ragione:** dichiarare il limite invece di
+fingerlo esatto — «se è il proprietario a lanciarlo non è importante avere un
+limite rigoroso». È la stessa scelta di onestà metodologica del principio 5: un
+tetto approssimato spacciato per tetto sarebbe un numero inventato.
+
+**`--max-children`**, nuovo, dalla CLI all'API fino al `context`. È **l'unico**
+tetto che l'API dello spider accetta — `spider/action/scan` prende
+`url maxChildren recurse contextName subtreeOnly`, verificato sul daemon — e
+**non è un numero di pagine**. Misurato su un indice con otto figli:
+
+| `--max-children` | pagine percorse |
+|---|---|
+| 0 (predefinito, il default di ZAP) | **8**, tutte |
+| 2 | **1** |
+
+Con 2 se ne percorre **una**, non due, perché `robots.txt` e `sitemap.xml`
+contano anch'essi come figli. È esattamente il motivo per cui il referto non
+può chiamarlo tetto di pagine, e la misura vale più della spiegazione.
+
+**Il perimetro si dichiara.** Sulla via dello spider `pages_tested` resta
+`None` — MARS il numero non lo conosce — ma tacere lascerebbe credere che valga
+`--max-pages` come per le altre otto aree. Il rilievo `sec.status.spider_scope`
+dice i due limiti che agiscono davvero: il nostro per **nodo** e il `MaxDepth`
+del daemon, **letto** e non supposto. Cablare il 5 predefinito direbbe il falso
+a chi il proprio ZAP l'ha configurato, e una mutazione lo dimostra.
+
+**Verifiche.** `flake8` 0, `pytest` **1115** (erano 1105). Nove mutazioni,
+tutte rosse **senza** `tests/test_golden.py` — ma **quattro erano passate al
+primo giro**, e sono tutte della stessa famiglia: **la tubatura**. Il valore ha
+una strada sola e lunga — argparse → `run_audit` → `build_context` → `context`
+→ `mars_wapt` → `ZapClient` → richiesta HTTP — e ogni anello rotto è
+silenzioso: lo spider gira lo stesso, senza tetto, e non c'è alcun errore.
+Erano scoperti l'anello del `context`, quello dell'API, quello della richiesta
+HTTP (i finti registrano la chiamata Python, non i parametri che partono) e
+quello del punto d'ingresso.
+
+**L'ultimo ha prodotto la guardia più utile.** Il blocco
+`if __name__ == "__main__"` **non è una funzione**, quindi nessun test lo
+esegue: un `args.<qualcosa>` dimenticato lì è invisibile per **ogni** flag, non
+solo per questo — il parametro si accetta dalla riga di comando, non fa nulla, e
+non c'è errore. Ora un test statico confronta i `dest` del parser con ciò che il
+blocco legge davvero, come già si fa con `ast` per il `k` della fusione RRF:
+guarda il **codice**, non il dato, e copre tutti i parametri insieme.
+
+I golden **non si muovono**: vi si gira senza dichiarazione di proprietà, quindi
+la via dello spider non è esercitata. Per la stessa ragione il caso è stato
+aggiunto al banco dell'i18n — una chiave nuova con un segnaposto e senza un caso
+che lo accenda diventa rossa il giorno in cui nasce, ed è successo.
 
 ### R55 — ✅ (2026-08-27): lo spider di ZAP non rispettava robots.txt
 *(nata da un sospetto dell'utente — «credo che ZAP ignori `--max-pages`» — che

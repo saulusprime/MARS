@@ -4146,9 +4146,13 @@ def test_wapt_la_dichiarazione_governa_spider_E_active_scan():
     chiamate = {}
 
     class ClientFinto:
-        def spider_scan(self, url):
+        def spider_scan(self, url, max_children=0):
             chiamate["spider"] = True
+            chiamate["tetto"] = max_children
             return "0"
+
+        def max_depth(self):
+            return 5
 
         def spider_status(self, sid):
             return 100
@@ -4196,9 +4200,13 @@ class _ZapFinto:
         self.lentezza = lentezza
         self.coda_passiva = list(coda_passiva or [])
 
-    def spider_scan(self, url):
-        self.chiamate.append(("spider_scan", url))
+    def spider_scan(self, url, max_children=0):
+        self.chiamate.append(("spider_scan", url, max_children))
         return "11"
+
+    def max_depth(self):
+        self.chiamate.append(("max_depth", None))
+        return 5
 
     def spider_status(self, sid):
         self.chiamate.append(("spider_status", sid))
@@ -4335,7 +4343,7 @@ def test_wapt_con_la_proprieta_lo_spider_torna(zap_veloce):
     R55. Chi dichiara il dominio riprende la copertura piena."""
     c = _ZapFinto()
     mars_wapt.run_zap("https://x/", c, active=True, urls=["https://x/"])
-    assert c.fatte("spider_scan") == [("spider_scan", "https://x/")]
+    assert c.fatte("spider_scan") == [("spider_scan", "https://x/", 0)]
     assert c.fatte("ascan_scan") == [("ascan_scan", "https://x/")]
     assert not c.fatte("access_url"), \
         "lo spider percorre il sito da se': accedere anche al campione " \
@@ -4391,6 +4399,103 @@ def test_wapt_un_crawl_a_vuoto_dichiara_una_pagina_non_zero():
                              "_zap_client": c, "owner_declaration": False})
     assert esito["pages_tested"] == 1
     assert "1 pagine" in esito["issues"][-1]
+
+
+def test_wapt_il_tetto_dello_spider_arriva_a_ZAP(zap_veloce):
+    """R56: `--max-children`. E' l'unico tetto che l'API dello spider
+    accetta — `spider/action/scan` prende `url maxChildren recurse
+    contextName subtreeOnly`, verificato sul daemon — e limita i figli
+    **per nodo**, non il totale."""
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=True, max_children=12)
+    assert c.fatte("spider_scan") == [("spider_scan", "https://x/", 12)]
+
+
+def test_wapt_il_tetto_si_dichiara_e_si_dichiara_inesatto(zap_veloce):
+    """R56, la casella. Con la dichiarazione il perimetro non e' il
+    campione e MARS non lo conosce: `pages_tested` resta `None`. Ma
+    tacere del tutto lascerebbe credere che valga `--max-pages` come
+    per le altre otto aree, e non e' vero.
+
+    Il rilievo dice i due limiti che agiscono davvero — il nostro per
+    nodo e il `MaxDepth` che il daemon ha in configurazione — e dice
+    che insieme non fanno un numero di pagine."""
+    c = _ZapFinto()
+    esito = mars_wapt.audit({"url": "https://x/", "urls": ["https://x/"],
+                             "_zap_client": c, "owner_declaration": True,
+                             "max_children": 12})
+    stato = {f["key"]: f for f in esito["findings"]}
+    assert "sec.status.spider_scope" in stato, \
+        "il perimetro inesatto va dichiarato, non taciuto"
+    params = stato["sec.status.spider_scope"]["params"]
+    assert params["max_children"] == 12
+    assert params["max_depth"] == 5, "letto dal daemon, non supposto"
+    assert esito["pages_tested"] is None
+
+
+def test_wapt_senza_spider_non_si_dichiara_un_tetto_che_non_agisce(zap_veloce):
+    """Sulla via senza dichiarazione il perimetro e' esatto e gia'
+    dichiarato da `pages_tested`: un secondo rilievo sui limiti dello
+    spider parlerebbe di uno spider che non e' partito."""
+    c = _ZapFinto()
+    esito = mars_wapt.audit({"url": "https://x/", "urls": ["https://x/"],
+                             "_zap_client": c, "owner_declaration": False,
+                             "max_children": 12})
+    assert "sec.status.spider_scope" not in {f["key"] for f in esito["findings"]}
+
+
+def test_wapt_il_client_manda_davvero_maxChildren_a_ZAP():
+    """Sfuggita alle mutazioni: togliere `maxChildren` dalla richiesta
+    HTTP lasciava verde tutto, perche' i finti registrano la CHIAMATA
+    Python e non i parametri che partono verso il daemon.
+
+    E' lo stesso punto del difetto R55: cio' che conta non e' cosa MARS
+    restituisce, ma che cosa MARS dice a ZAP."""
+    inviati = {}
+
+    class _Risposta:
+        status_code = 200
+
+        @staticmethod
+        def raise_for_status():
+            pass
+
+        @staticmethod
+        def json():
+            return {"scan": "7", "MaxDepth": "9"}
+
+    def finta_get(url, params=None, timeout=None):
+        inviati["url"] = url
+        inviati["params"] = dict(params or {})
+        return _Risposta()
+
+    client = mars_wapt.ZapClient(base="http://zap.test", api_key="")
+    import requests as _r
+    originale = _r.get
+    _r.get = finta_get
+    try:
+        assert client.spider_scan("https://x/", 25) == "7"
+        assert inviati["params"]["maxChildren"] == 25
+        assert inviati["params"]["url"] == "https://x/"
+        assert client.max_depth() == 9, "letto dal daemon, non supposto"
+    finally:
+        _r.get = originale
+
+
+def test_wapt_la_profondita_viene_dal_daemon_e_non_e_supposta(zap_veloce):
+    """Sfuggita alle mutazioni: cablare 5 — il default di ZAP — passava
+    inosservato perche' il finto rispondeva 5. Chi il proprio ZAP l'ha
+    configurato diversamente riceverebbe un referto che dichiara una
+    profondita' che non e' la sua."""
+    class _ZapProfondo(_ZapFinto):
+        def max_depth(self):
+            return 11
+
+    esito = mars_wapt.audit({"url": "https://x/", "urls": ["https://x/"],
+                             "_zap_client": _ZapProfondo(),
+                             "owner_declaration": True, "max_children": 3})
+    stato = {f["key"]: f for f in esito["findings"]}
+    assert stato["sec.status.spider_scope"]["params"]["max_depth"] == 11
 
 
 def test_wapt_il_perimetro_dellarea_7_e_dichiarato(monkeypatch):
@@ -4483,7 +4588,7 @@ def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
         monkeypatch.setattr(mars_wapt, "connect_zap",
                             lambda credentials=None: _ZapFinto())
         monkeypatch.setattr(mars_wapt, "run_zap",
-                            lambda url, client=None, active=False, urls=None:
+                            lambda url, client=None, active=False, urls=None, max_children=0:
                             ([], False, fermate))
         return mars_wapt.audit({"url": "https://x/",
                                 "owner_declaration": False})
@@ -4587,7 +4692,7 @@ def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None:
+                        lambda url, client=None, active=False, urls=None, max_children=0:
                         (alerts, completa, fermate))
     return mars_wapt.audit({"url": "https://x/",
                             "owner_declaration": active})
@@ -4607,7 +4712,7 @@ def test_wapt_un_daemon_che_fallisce_non_ripiega_in_silenzio(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: _ZapFinto())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None: None)
+                        lambda url, client=None, active=False, urls=None, max_children=0: None)
     # Il ripiego porta un rilievo suo: senza, la lista avrebbe un
     # elemento solo e l'asserzione sulla POSIZIONE sarebbe vuota —
     # misurato, una mutazione che sposta l'avviso in coda passava.
@@ -5070,12 +5175,21 @@ def test_wapt_la_scansione_non_fermata_e_un_rilievo_distinto(monkeypatch):
     assert finding["severity"] == SEV_INFO
 
 
-def test_wapt_una_scansione_completa_non_porta_rilievi_di_stato(monkeypatch):
+def test_wapt_una_scansione_completa_non_porta_rilievi_di_GUASTO(monkeypatch):
     """Il ramo "tutto bene" non era mai stato esercitato: `complete`
-    era False in ogni test esistente."""
+    era False in ogni test esistente.
+
+    Il test chiedeva **nessun** rilievo di stato, e da R56 non e' piu'
+    la cosa giusta da chiedere: `sec.status.spider_scope` c'e' sempre
+    sulla via dello spider, perche' non e' il resoconto di un guasto ma
+    la dichiarazione di un perimetro che MARS non conosce. Quello che
+    una scansione riuscita non deve portare sono i rilievi di guasto —
+    timeout, interruzione, abbandono — e quelli restano assenti.
+    """
     esito = _audit_zap(monkeypatch, [_alert()], completa=True, active=True)
-    assert all(not f["key"].startswith("sec.status.")
-               for f in esito["findings"])
+    stato = [f["key"] for f in esito["findings"]
+             if f["key"].startswith("sec.status.")]
+    assert stato == ["sec.status.spider_scope"]
 
 
 @pytest.mark.parametrize("attiva, attesa", [(False, True), (True, False)])
@@ -5135,7 +5249,7 @@ def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None:
+                        lambda url, client=None, active=False, urls=None, max_children=0:
                         ([_alert()], True, True))
     esito = mars_wapt.audit({
         "url": "https://x/", "owner_declaration": True,

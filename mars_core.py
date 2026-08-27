@@ -1504,6 +1504,102 @@ def default_queries(pages: dict) -> List[str]:
     return list(QUERY_GENERICHE[prevalente])
 
 
+# I nomi delle credenziali che MARS riconosce. Vivevano solo nel
+# modello Pydantic dell'API e dentro i singoli moduli: qui diventano
+# l'elenco unico che CLI e API condividono, perche' un nome che
+# diverge fra le due interfacce e' un file che l'una accetta e l'altra
+# ignora. Gli stessi quattro che `.claude/contratto-moduli.md`
+# dichiara per `context["credentials"]`.
+CREDENZIALI_NOTE = ("anthropic_api_key", "hf_token", "zap_api_key",
+                    "zap_proxy")
+
+
+def load_credentials(path: str) -> Tuple[Dict[str, str], str]:
+    """Credenziali da un file JSON, per la riga di comando.
+
+    Un FILE e non un valore sul flag, e la ragione e' misurata: su
+    Linux `/proc/<pid>/cmdline` e' leggibile da ogni utente locale a
+    meno di `hidepid`, quindi una chiave passata come argomento resta
+    visibile in `ps` per tutta la durata dell'audit e finisce integra
+    nella cronologia della shell. Nel file ci finisce il percorso.
+
+    Accetta due forme: il solo blocco delle credenziali, oppure il
+    corpo di richiesta dell'API — che ha le chiavi sotto
+    `credentials` — cosi' chi copia `examples/audit_request.json` non
+    deve riscriverlo. E' il principio 4: due interfacce sopra lo stesso
+    motore, quindi la stessa forma.
+
+    Restituisce (credenziali, messaggio). Il messaggio vuoto significa
+    che e' andata bene; con credenziali VUOTE e' un errore, con
+    credenziali piene e' un avviso — un refuso o dei permessi larghi
+    non devono buttare via le chiavi che si sono lette davvero.
+
+    **Il valore di una credenziale non compare mai nel messaggio**: i
+    messaggi finiscono su un terminale, in un log, in una segnalazione
+    di guasto.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            dati = json.load(handle)
+    except OSError as exc:
+        return {}, "Impossibile leggere %s: %s" % (path, exc)
+    except json.JSONDecodeError as exc:
+        # Verificato, perche' la domanda si pone su un file di chiavi:
+        # `JSONDecodeError` NON riporta il testo del documento, solo
+        # posizione — "Expecting value: line 1 column 23 (char 22)".
+        # Non c'e' quindi nulla da oscurare, e si scompone solo per
+        # comporre la frase in italiano.
+        return {}, "%s non e' JSON valido: %s alla riga %d" % (
+            path, exc.msg, exc.lineno)
+    if not isinstance(dati, dict):
+        return {}, "%s non contiene un oggetto JSON" % path
+
+    grezze = dati.get("credentials") if isinstance(
+        dati.get("credentials"), dict) else dati
+    chiavi: Dict[str, str] = {}
+    non_stringhe = []
+    for nome in CREDENZIALI_NOTE:
+        if nome not in grezze:
+            continue
+        valore = grezze[nome]
+        # Il tipo si controlla QUI e non dove la chiave viene usata:
+        # un numero arriverebbe fino all'SDK, che solleverebbe altrove
+        # e con un altro nome.
+        if not isinstance(valore, str) or not valore.strip():
+            non_stringhe.append(nome)
+            continue
+        chiavi[nome] = valore
+    if non_stringhe:
+        return {}, "%s: valore non utilizzabile per %s" % (
+            path, ", ".join(sorted(non_stringhe)))
+
+    # `credentials` fuori dal conto in entrambe le forme: nella forma
+    # nuda non c'e', in quella del corpo API e' il contenitore.
+    ignote = sorted(set(grezze) - set(CREDENZIALI_NOTE) - {"credentials"})
+    if not chiavi:
+        # Un file passato e ignorato in silenzio fa credere di aver
+        # misurato con la propria chiave, ed e' il difetto che questa
+        # voce esiste per chiudere. Stessa lezione di R31 sulle query.
+        return {}, ("%s non contiene alcuna credenziale nota. Attese: %s"
+                    % (path, ", ".join(CREDENZIALI_NOTE)))
+
+    avvisi = []
+    if ignote:
+        # Un refuso — `antropic_api_key` senza la h — disabiliterebbe
+        # l'area 9 senza un errore. Si nomina, e non si tace.
+        avvisi.append("chiavi ignorate in %s: %s" % (path, ", ".join(ignote)))
+    try:
+        modo = os.stat(path).st_mode
+    except OSError:
+        modo = 0
+    if modo & 0o077:
+        # Non un errore: il file e' dell'utente e la scelta e' sua. Ma
+        # un file di chiavi leggibile da tutti annulla la ragione per
+        # cui non si passa il valore sul flag.
+        avvisi.append("%s e' leggibile da altri utenti (chmod 600)" % path)
+    return chiavi, "; ".join(avvisi)
+
+
 def load_queries(path: Optional[str] = None,
                  report_path: Optional[str] = None,
                  max_queries: int = DEFAULT_MAX_QUERIES

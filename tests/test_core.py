@@ -1659,3 +1659,119 @@ def test_build_context_porta_il_tetto_dello_spider(monkeypatch):
     assert ctx["max_children"] == 42
     ctx = mars_core.build_context("https://x/", 1, "none", "global")
     assert ctx["max_children"] == 0, "il default e' quello di ZAP"
+
+
+# ----------------------------------------------------------------------
+# R57: le credenziali dalla riga di comando, senza passare dall'ambiente
+# ----------------------------------------------------------------------
+
+def _scrivi(tmp_path, contenuto, nome="chiavi.json"):
+    percorso = tmp_path / nome
+    percorso.write_text(contenuto, encoding="utf-8")
+    percorso.chmod(0o600)
+    return str(percorso)
+
+
+def test_credenziali_da_file_nella_forma_nuda(tmp_path):
+    """Il file puo' contenere il solo blocco delle credenziali."""
+    p = _scrivi(tmp_path, '{"anthropic_api_key": "sk-ant-finta",'
+                          ' "zap_proxy": "http://127.0.0.1:8080"}')
+    chiavi, errore = mars_core.load_credentials(p)
+    assert errore == ""
+    assert chiavi["anthropic_api_key"] == "sk-ant-finta"
+    assert chiavi["zap_proxy"] == "http://127.0.0.1:8080"
+
+
+def test_credenziali_da_file_nella_forma_del_corpo_API(tmp_path):
+    """E anche il corpo di richiesta intero: e' il file che l'utente
+    copia da `examples/audit_request.json`, ed e' il principio 4 —
+    CLI e API sopra lo stesso motore, quindi la stessa forma."""
+    p = _scrivi(tmp_path, '{"url": "https://x/", "max_pages": 3,'
+                          ' "credentials": {"hf_token": "hf-finto"}}')
+    chiavi, errore = mars_core.load_credentials(p)
+    assert errore == ""
+    assert chiavi == {"hf_token": "hf-finto"}
+
+
+def test_credenziali_un_file_che_non_si_legge_e_un_errore(tmp_path):
+    chiavi, errore = mars_core.load_credentials(str(tmp_path / "assente.json"))
+    assert chiavi == {}
+    assert "assente.json" in errore
+
+
+def test_credenziali_un_json_rotto_e_un_errore(tmp_path):
+    chiavi, errore = mars_core.load_credentials(_scrivi(tmp_path, "{non json"))
+    assert chiavi == {}
+    assert errore and "json" in errore.lower()
+
+
+def test_credenziali_un_file_senza_chiavi_note_e_un_ERRORE(tmp_path):
+    """Lezione di R31, e la ragione per cui questa voce esiste: un file
+    passato e ignorato in silenzio fa credere di aver misurato con la
+    propria chiave. E' esattamente cio' che e' successo con l'ambiente,
+    dove il giudizio LLM annunciava l'invio e non partiva nulla."""
+    chiavi, errore = mars_core.load_credentials(
+        _scrivi(tmp_path, '{"url": "https://x/"}'))
+    assert chiavi == {}
+    assert errore, "un file senza credenziali non e' un successo silenzioso"
+    # E il messaggio dice che cosa ci si aspettava: sfuggita a una
+    # mutazione, perche' un avviso qualunque — «chiavi ignorate: url» —
+    # renderebbe il test verde senza aiutare chi legge a capire che
+    # cosa scrivere nel file.
+    for atteso in mars_core.CREDENZIALI_NOTE:
+        assert atteso in errore
+
+
+def test_credenziali_una_chiave_scritta_male_si_dichiara(tmp_path):
+    """`antropic_api_key` senza la h disabiliterebbe l'area 9 senza un
+    errore: il refuso e' il modo piu' probabile di sbagliare, e va
+    detto per nome."""
+    p = _scrivi(tmp_path, '{"antropic_api_key": "sk-ant-finta",'
+                          ' "hf_token": "hf-finto"}')
+    chiavi, errore = mars_core.load_credentials(p)
+    assert chiavi == {"hf_token": "hf-finto"}, "le note si prendono lo stesso"
+    assert "antropic_api_key" in errore, "e il refuso si nomina"
+
+
+def test_credenziali_il_segreto_non_finisce_mai_in_un_messaggio(tmp_path):
+    """Il valore non deve comparire in nessun errore: i messaggi vanno
+    su un terminale, in un log, in una segnalazione di guasto."""
+    segreto = "sk-ant-QUESTO-NON-DEVE-COMPARIRE"
+    p = _scrivi(tmp_path, '{"anthropic_api_key": %s, "boh": "x"}'
+                % json.dumps(segreto))
+    chiavi, errore = mars_core.load_credentials(p)
+    assert chiavi["anthropic_api_key"] == segreto
+    assert segreto not in errore and "QUESTO-NON-DEVE" not in errore
+
+
+def test_credenziali_un_valore_non_stringa_e_un_errore(tmp_path):
+    """Un numero o una lista al posto di una chiave arriverebbe fino
+    all'SDK, che solleverebbe altrove e con un altro nome."""
+    chiavi, errore = mars_core.load_credentials(
+        _scrivi(tmp_path, '{"anthropic_api_key": 12345}'))
+    assert chiavi == {}
+    assert "anthropic_api_key" in errore
+
+
+def test_credenziali_un_valore_rotto_annulla_anche_le_altre(tmp_path):
+    """Chiusura in sicurezza, e sfuggita a una mutazione: con una
+    chiave buona accanto a una rotta si potrebbe proseguire con la
+    buona, ma allora l'audit girerebbe con META' delle credenziali che
+    l'utente crede di aver passato — e quale meta' non lo direbbe
+    nessuno. Meglio fermarsi: il file si corregge in dieci secondi."""
+    chiavi, errore = mars_core.load_credentials(_scrivi(
+        tmp_path, '{"hf_token": "hf-buono", "anthropic_api_key": 12345}'))
+    assert chiavi == {}, "una chiave buona non salva un file rotto"
+    assert "anthropic_api_key" in errore
+    assert "hf-buono" not in errore
+
+
+def test_credenziali_un_file_leggibile_da_tutti_si_segnala(tmp_path):
+    """Non un errore — il file e' dell'utente e la scelta e' sua — ma
+    un avviso: un file di chiavi con permessi larghi e' leggibile da
+    ogni utente locale, come lo sarebbe la riga di comando."""
+    p = _scrivi(tmp_path, '{"hf_token": "hf-finto"}')
+    os.chmod(p, 0o644)
+    chiavi, errore = mars_core.load_credentials(p)
+    assert chiavi == {"hf_token": "hf-finto"}, "si legge lo stesso"
+    assert "permessi" in errore.lower() or "leggibile" in errore.lower()

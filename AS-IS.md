@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R57 | Le chiavi dalla riga di comando, e un `main()` che si esegue | 2026-08-27 |
 | R56 | `--max-children`, e un perimetro dichiarato inesatto | 2026-08-27 |
 | R55 | Lo spider di ZAP non rispettava robots.txt | 2026-08-27 |
 | R54 | Il parametro inerte nascondeva un audit assente | 2026-08-27 |
@@ -2366,6 +2367,89 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R57 — ✅ (2026-08-27): le chiavi dalla riga di comando, e un `main()` che si esegue
+*(nata da un'esecuzione reale dell'utente sul giudizio LLM. Apre **R58** e
+**R59**, trovate nella stessa indagine.)*
+
+**Il fatto che ha aperto la voce.** L'utente ha lanciato un audit convinto che
+`ANTHROPIC_API_KEY` fosse nell'ambiente; la CLI ha annunciato «invio 8 passaggi
+(~2121 token stimati) a claude-opus-5…» e il referto ha poi detto **«9. Giudizio
+LLM — non misurato — Nessuna credenziale Anthropic utilizzabile»**. Nulla è
+partito, nulla è stato speso, e **C4 resta non verificata**.
+
+**La diagnosi si regge su una distinzione verificabile**, che il codice già
+faceva e che nessuno aveva mai letto in coppia:
+
+| Cosa succede | Eccezione | Che cosa scrive il referto |
+|---|---|---|
+| Nessuna credenziale **risolta** | `TypeError: Could not resolve authentication method` | «Nessuna credenziale Anthropic utilizzabile» |
+| Credenziale risolta e **rifiutata** | `AuthenticationError` (401) | «Errore API Anthropic: AuthenticationError» |
+
+Il referto diceva la prima, quindi in quel processo non c'era **nessun** valore
+— non un valore cattivo. Verificato su SDK 0.122.0: un valore non vuoto ma
+insensato non produce `TypeError`, va in rete e fallisce là.
+
+**E `python-dotenv` non c'entra**: l'utente l'aveva installato (1.2.3 nel
+`.venv`), ma **nessun file del progetto chiama `load_dotenv()`** — zero
+occorrenze. Installare il pacchetto non fa leggere `.env` a nessuno, e la
+libreria non sta in alcun `requirements*.txt`.
+
+**La decisione dell'utente:** niente `.env`, le chiavi si passano
+esplicitamente — via API, che già le accetta, o da riga di comando, che **non
+aveva alcun parametro**. L'unica via era l'ambiente, ed è la fragilità che ha
+prodotto l'incidente.
+
+**La forma, scelta fra quattro con una misura davanti.** `--credentials FILE`,
+JSON, con le stesse chiavi del corpo API — accetta sia il solo blocco sia il
+corpo intero, così chi copia `examples/audit_request.json` non riscrive nulla.
+È il principio 4. **Un file e non un valore sul flag**, e la ragione è misurata
+su questa macchina: `/proc` è montato **senza `hidepid`** e
+`/proc/<pid>/cmdline` è `-r--r--r--`, quindi una chiave passata come argomento è
+leggibile da **ogni utente locale** per tutta la durata dell'audit, e finisce
+integra in `~/.bash_history`.
+
+**Lettura severa, per la stessa ragione che ha aperto la voce.** Un file
+passato e ignorato in silenzio fa credere di aver misurato con la propria
+chiave — è la lezione di R31 sulle query. Fermano l'audit con codice 2: file
+assente, JSON non valido, nessuna credenziale nota, valore che non è una
+stringa. Non lo fermano ma si dichiarano: una chiave scritta male, nominata per
+nome — `antropic_api_key` senza la h disabiliterebbe l'area 9 senza un errore —
+e un file leggibile da altri utenti. **Un valore rotto annulla anche le altre
+chiavi**: proseguire con metà delle credenziali, senza dire quale metà, è
+peggio che fermarsi. Nessun messaggio contiene mai il valore di una chiave.
+
+**Una motivazione mia, scritta e poi smentita.** Avevo commentato che si usa
+`exc.msg` e non `exc` perché il testo di `JSONDecodeError` «cita la riga del
+documento, e quella riga può essere la chiave». **Falso**, verificato:
+`str(JSONDecodeError)` dà «Expecting value: line 1 column 23 (char 22)» e non
+riporta il documento. Il commento ora dice la cosa vera — non c'è nulla da
+oscurare, si scompone solo per comporre la frase in italiano — ed è per questo
+che la mutazione su quella riga **resta verde a ragione**: non c'è niente da
+presidiare.
+
+**`main()` è ora una funzione.** Il punto d'ingresso stava in un blocco
+`if __name__ == "__main__"`, che nessun test può eseguire: due mutazioni ci
+sono sopravvissute — togliere la propagazione delle credenziali, e togliere
+l'uscita su un file illeggibile — perché il codice fra argparse e `run_audit`
+era fuori portata. La guardia statica di R56 non bastava: dice che un
+parametro è **letto**, non che serva a qualcosa. Ora `main(argv)` restituisce
+il codice di uscita e tre test lo eseguono davvero.
+
+**Verifiche.** `flake8` 0, `pytest` **1130** (erano 1115). Tredici mutazioni,
+tutte rosse **senza** `tests/test_golden.py` tranne quella cosmetica di cui
+sopra. **Cinque erano passate al primo giro**, e quattro appartengono alla
+stessa famiglia già vista in R56: il codice che nessun test esegue.
+
+**End-to-end contro l'API vera**, con una chiave **finta** in un file e
+`ANTHROPIC_API_KEY` tolta dall'ambiente: `--llm auto` è passato — quindi la
+chiave del file è stata vista — la richiesta è arrivata ad Anthropic, ed è
+tornata `AuthenticationError`. Il referto dice «Errore API Anthropic:
+AuthenticationError», cioè **l'altro** messaggio della tabella qui sopra, e la
+chiave finta non compare in nessun punto del referto. La catena
+`--credentials` → `context` → `mars_llm_judge` → SDK è quindi provata per
+intero. Verificati anche i codici di uscita: **2** su file assente e su file
+senza chiavi note.
 
 ### R56 — ✅ (2026-08-27): `--max-children`, e un perimetro dichiarato inesatto
 *(chiude la catena R40 → R53 → R54, e la coppia R55 → R56 nata dal controllo

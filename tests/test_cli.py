@@ -313,21 +313,23 @@ def test_cli_max_children_arriva_al_contesto(monkeypatch):
 
 
 def test_cli_ogni_parametro_del_parser_e_letto_al_punto_di_ingresso():
-    """Guardia statica, scritta perche' una mutazione e' sfuggita: il
-    blocco `if __name__ == "__main__"` NON e' una funzione, quindi
-    nessun test lo esegue, e un `args.<qualcosa>` dimenticato li' e'
-    invisibile — il flag si accetta dalla riga di comando, non fa
-    nulla, e non c'e' errore.
+    """Guardia statica: un `args.<qualcosa>` mai letto in `main()` e'
+    un flag che si accetta dalla riga di comando, non fa nulla, e non
+    da' errore.
 
     Vale per ogni parametro insieme e non per uno solo: e' lo stesso
     ragionamento del test che verifica con `ast` che nessun modulo
     passi un `k` suo alla fusione RRF. Guarda il CODICE, non il dato.
+
+    Non basta pero' da sola — le mutazioni di R57 lo hanno dimostrato:
+    dice che il valore e' LETTO, non che sia usato per qualcosa. Per
+    quello servono i test che eseguono `main()`, possibili da quando
+    non e' piu' un blocco `if __name__`.
     """
     import inspect
     import re
 
-    sorgente = inspect.getsource(mars_audit)
-    ingresso = sorgente[sorgente.index('if __name__'):]
+    ingresso = inspect.getsource(mars_audit.main)
     letti = set(re.findall(r"args\.([a-z_]+)", ingresso))
     dichiarati = {a.dest for a in mars_audit.costruisci_parser()._actions}
     dichiarati -= {"help", "version"}   # argparse li gestisce da se'
@@ -344,3 +346,73 @@ def test_cli_il_flag_max_children_esiste_e_ha_un_default(monkeypatch):
     assert parser.parse_args(["https://x/"]).max_children == 0
     assert parser.parse_args(["https://x/",
                               "--max-children", "12"]).max_children == 12
+
+
+def test_cli_le_credenziali_del_file_arrivano_al_contesto(monkeypatch, tmp_path):
+    """R57: la CLI non aveva ALCUN modo di passare una chiave — solo
+    variabili d'ambiente — mentre l'API le accetta dal corpo. La
+    tubatura e' la stessa di `--max-children`, e la sua rottura sarebbe
+    altrettanto silenziosa: l'audit gira, l'area 9 dice «nessuna
+    credenziale», e nessuno sa perche'."""
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_audit, "build_context", finto)
+    mars_audit.run_audit("https://x/", 1, "none", "global",
+                         credentials={"anthropic_api_key": "sk-ant-finta"})
+    assert visti.get("credentials") == {"anthropic_api_key": "sk-ant-finta"}
+
+
+def test_cli_il_flag_credentials_esiste_e_non_ha_un_default(tmp_path):
+    """Senza il flag valgono le variabili d'ambiente, come prima: il
+    flag aggiunge una strada, non ne toglie una."""
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).credentials is None
+    assert parser.parse_args(
+        ["https://x/", "--credentials", "chiavi.json"]).credentials \
+        == "chiavi.json"
+
+
+def test_cli_main_propaga_le_credenziali_fino_a_run_audit(monkeypatch,
+                                                          tmp_path, capsys):
+    """`main()` esiste come funzione proprio per questo: due mutazioni
+    di R57 sono sopravvissute perche' il codice fra argparse e
+    `run_audit` non era eseguibile da un test."""
+    visti = {}
+    monkeypatch.setattr(mars_audit, "run_audit",
+                        lambda *a, **k: visti.update(k) or 0)
+    percorso = tmp_path / "chiavi.json"
+    percorso.write_text('{"hf_token": "hf-finto"}', encoding="utf-8")
+    percorso.chmod(0o600)
+    assert mars_audit.main(["https://x/", "--credentials", str(percorso)]) == 0
+    assert visti["credentials"] == {"hf_token": "hf-finto"}
+
+
+def test_cli_main_si_ferma_su_un_file_di_chiavi_illeggibile(monkeypatch,
+                                                            tmp_path, capsys):
+    """E NON ripiega sulle variabili d'ambiente: chi passa
+    `--credentials` ha detto quali chiavi vuole usare, e usarne altre
+    in silenzio e' la stessa classe di difetto che ha aperto la voce —
+    un audit che gira e dichiara «nessuna credenziale» senza che si
+    capisca perche'."""
+    partito = []
+    monkeypatch.setattr(mars_audit, "run_audit",
+                        lambda *a, **k: partito.append(1) or 0)
+    codice = mars_audit.main(["https://x/", "--credentials",
+                              str(tmp_path / "assente.json")])
+    assert codice == mars_audit.EXIT_USO
+    assert not partito, "l'audit non deve nemmeno cominciare"
+    assert "assente.json" in capsys.readouterr().out
+
+
+def test_cli_main_senza_flag_non_inventa_credenziali(monkeypatch):
+    """Senza `--credentials` il contesto non porta chiavi, e valgono le
+    variabili d'ambiente come prima: il flag aggiunge una strada."""
+    visti = {}
+    monkeypatch.setattr(mars_audit, "run_audit",
+                        lambda *a, **k: visti.update(k) or 0)
+    mars_audit.main(["https://x/"])
+    assert visti["credentials"] is None

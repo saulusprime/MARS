@@ -16,7 +16,7 @@ from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
                        MODULES_REGISTRY, __version__, build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
-from mars_core import load_queries
+from mars_core import load_credentials, load_queries
 from mars_citability import MERCATI
 import mars_history
 from mars_i18n import LINGUA_CANONICA, LINGUE
@@ -36,6 +36,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               timeout: int = DEFAULT_TIMEOUT,
               owner_declaration: bool = False,
               max_children: int = 0,
+              credentials: dict | None = None,
               llm: str = "auto", formato: str = "text",
               output: str | None = None,
               queries: list[str] | None = None,
@@ -46,6 +47,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
                             max_children=max_children,
+                            credentials=credentials,
                             llm=llm, queries=queries, lang=lang)
 
     if context is None:
@@ -196,6 +198,19 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "significa piu' tempo e piu' richieste al sito.")
 
     parser.add_argument(
+        "--credentials", metavar="FILE",
+        help="File JSON con le chiavi degli strumenti opzionali: "
+             "anthropic_api_key, hf_token, zap_api_key, zap_proxy. "
+             "Esempio: chiavi.local.json — si ottiene copiando "
+             "examples/audit_request.json, di cui accetta anche il "
+             "corpo intero. Un FILE e non un valore sul flag perche' "
+             "gli argomenti di un processo sono leggibili da ogni "
+             "utente locale in /proc e finiscono nella cronologia "
+             "della shell: nel file ci finisce il percorso. Proteggilo "
+             "con chmod 600. Senza questo flag valgono le variabili "
+             "d'ambiente, che MARS non legge da .env.")
+
+    parser.add_argument(
         "--max-children", type=int, default=0, metavar="N",
         help="Tetto ai link seguiti PER PAGINA dallo spider ZAP, che gira "
              "solo con --i-own-this-domain. Esempi: 0 (default, nessun "
@@ -309,22 +324,47 @@ def costruisci_parser() -> argparse.ArgumentParser:
     return parser
 
 
-if __name__ == "__main__":
-    args = costruisci_parser().parse_args()
+def main(argv: list[str] | None = None) -> int:
+    """Il punto d'ingresso, come FUNZIONE.
+
+    Stava in un blocco `if __name__ == "__main__"`, che nessun test
+    puo' eseguire: due mutazioni ci sono sopravvissute — togliere la
+    propagazione delle credenziali, e togliere l'uscita su un file di
+    chiavi illeggibile — perche' il codice fra argparse e `run_audit`
+    era fuori portata. Restituisce il codice di uscita invece di
+    chiamare `sys.exit`, cosi' un test lo legge.
+    """
+    args = costruisci_parser().parse_args(argv)
     elenco_query = None
     if args.queries:
         elenco_query, errore = load_queries(path=args.queries)
         if errore:
             print(errore)
-            sys.exit(EXIT_USO)
-    sys.exit(run_audit(args.url, args.max_pages, args.embeddings,
-                       args.market, delay=args.delay, timeout=args.timeout,
-                       owner_declaration=args.owner_declaration,
-                       max_children=args.max_children,
-                       llm=args.llm, formato=args.formato,
-                       output=args.output, queries=elenco_query,
-                       lang=args.lang,
-                       storico=(None if args.senza_storico else
-                                args.storico
-                                or mars_history.percorso_storico(
-                                    args.output))))
+            return EXIT_USO
+    chiavi = None
+    if args.credentials:
+        chiavi, messaggio = load_credentials(args.credentials)
+        # Con credenziali vuote il messaggio e' un ERRORE e si esce: un
+        # file passato e ignorato in silenzio fa credere di aver
+        # misurato con la propria chiave. Con credenziali piene e' un
+        # avviso — un refuso, dei permessi larghi — e l'audit prosegue
+        # con cio' che si e' letto davvero.
+        if messaggio:
+            print(messaggio)
+        if not chiavi:
+            return EXIT_USO
+    return run_audit(args.url, args.max_pages, args.embeddings,
+                     args.market, delay=args.delay, timeout=args.timeout,
+                     owner_declaration=args.owner_declaration,
+                     max_children=args.max_children,
+                     credentials=chiavi,
+                     llm=args.llm, formato=args.formato,
+                     output=args.output, queries=elenco_query,
+                     lang=args.lang,
+                     storico=(None if args.senza_storico else
+                              args.storico
+                              or mars_history.percorso_storico(args.output)))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

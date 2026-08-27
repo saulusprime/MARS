@@ -467,6 +467,39 @@ Uso:
         --embeddings sentence-transformers/all-MiniLM-L6-v2
     python3 mars_audit.py https://example.com --lang en \\
         --format html --output report-en.html
+    python3 mars_audit.py https://example.com \\
+        --credentials chiavi.local.json --llm on
+
+Chiavi degli strumenti opzionali (--credentials FILE). Senza il flag
+valgono le variabili d'ambiente, e MARS non legge i file .env: senza
+python-dotenv chiamato da qualcuno, un .env non ha alcun effetto, e una
+variabile assegnata senza `export` non e' visibile al processo. E' il
+modo piu' comune di credere di aver passato una chiave senza averlo
+fatto — il referto in quel caso dice «Nessuna credenziale Anthropic
+utilizzabile», che e' diverso da «Errore API Anthropic», il messaggio
+di una chiave presente e rifiutata.
+
+Il file e' JSON e accetta due forme: il solo blocco delle credenziali,
+oppure il corpo di richiesta dell'API, di cui si legge `credentials`.
+Si ottiene copiando examples/audit_request.json:
+
+    cp examples/audit_request.json chiavi.local.json
+    $EDITOR chiavi.local.json          # solo il blocco credentials
+    chmod 600 chiavi.local.json        # *.local.json e' ignorato da git
+
+Un FILE e non un valore sul flag, e la ragione e' misurata: su Linux
+/proc/<pid>/cmdline e' leggibile da ogni utente locale a meno di
+hidepid, quindi una chiave passata come argomento resta visibile in ps
+per tutta la durata dell'audit e finisce integra nella cronologia della
+shell. Nel file ci finisce il percorso.
+
+Il file si legge in modo severo, e per una ragione sola: un file
+passato e ignorato in silenzio fa credere di aver misurato con la
+propria chiave. Un file assente, illeggibile, non JSON, senza alcuna
+credenziale nota o con un valore che non e' una stringa **ferma
+l'audit** con codice 2; una chiave scritta male — antropic_api_key
+senza la h — viene nominata; un file leggibile da altri utenti produce
+un avviso. Nessun messaggio contiene mai il valore di una chiave.
 
 Query della simulazione RRF (--queries FILE, una per riga, UTF-8).
 Senza il flag si usano quattro query generiche nella lingua prevalente

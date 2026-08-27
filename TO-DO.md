@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R56**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R59**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,10 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione.** R55 e R56 sono aperte
-> e chiuse il 2026-08-27, nate da un sospetto dell'utente su `--max-pages` che
-> era fondato e nascondeva di peggio. Restano tre fasi UPGRADE e due prove
-> mancanti.
+> **Sette caselle aperte**, di cui due correzioni. R55, R56 e R57 sono aperte e
+> chiuse il 2026-08-27, tutte e tre nate da osservazioni dell'utente sul campo
+> e non da una revisione: due da un sospetto su `--max-pages`, la terza da un
+> giudizio LLM che annunciava un invio mai partito. **R58** e **R59** vengono
+> da quella stessa indagine e restano da fare.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -34,24 +35,55 @@
 
 ## Correzioni
 
-**Nessuna correzione aperta.** R1-R56 stanno in [AS-IS.md](AS-IS.md). La
-sezione resta perché è dove finisce la prossima, e perché un elenco vuoto è
-un'informazione — non è che nessuno ha guardato.
+Due, aperte il 2026-08-27 da un'esecuzione reale dell'utente sul giudizio LLM.
+La terza trovata nella stessa indagine — la CLI non aveva **alcun** modo di
+passare una credenziale — è **R57**, aperta e chiusa lo stesso giorno:
+`--credentials FILE`, e sta in [AS-IS.md](AS-IS.md).
 
-Le ultime cinque valgono come avvertimento a chi ne aprirà una. **R40 → R53 →
-R54** e **R55 → R56**: due catene, ogni voce nata dalla precedente, e ogni
-volta il residuo sembrava un dettaglio di forma. Sotto c'erano un guasto dello
-strumento contato come difetto del sito, un audit assente dal referto uscito
-`critical`, e un secondo crawler che violava robots.txt mentre il progetto
-dichiarava di rispettarlo. **La quinta è nata da un sospetto dell'utente**, non
-da una revisione: «credo che ZAP ignori `--max-pages`» — era vero, e accanto
-c'era di peggio.
+Nessuna delle due è grave, e vanno riprodotte prima di correggerle. Entrambe
+sono già riprodotte una volta: i numeri qui sotto sono misure.
 
-Il difetto ricorrente non è tecnico: è **una promessa fatta a un livello e
-mantenuta a un altro**. `--max-pages` vincolava il crawler ma non chi scopriva
-le pagine da sé; robots.txt valeva per il crawler ma non per lo spider. Chi
-aggiunge uno strumento esterno che naviga per conto proprio si faccia la
-domanda prima.
+### R58 — 🟡 MEDIO: l'annuncio della spesa si stampa anche quando nulla partirà
+
+`mars_llm_judge` stampa «Giudizio LLM: invio N passaggi (~M token stimati) a
+claude-opus-5…» **prima** di sapere se una credenziale esista davvero, e il
+presidio che doveva impedirlo non funziona. Il commento a
+[mars_llm_judge.py:257](mars_llm_judge.py#L257) dichiara: «Il client si
+costruisce PRIMA di annunciare la spesa: senza credenziali risolvibili l'SDK
+solleva TypeError, e annunciare un invio che non avverrà sarebbe fuorviante».
+
+**Verificato su SDK anthropic 0.122.0:** `anthropic.Anthropic()` **non** valida
+alla costruzione — riesce sempre — e risolve la credenziale al momento della
+richiesta. Quindi quel `try` non intercetta nulla, l'annuncio si stampa
+comunque, ed è esattamente il «fuorviante» che voleva evitare. È il difetto che
+l'utente ha notato sul campo.
+
+La correzione non costa una chiamata di rete: la credenziale si può far
+risolvere all'SDK prima di annunciare — `bool(client.api_key)` è già
+sufficiente a distinguere «nulla da inviare» da «invio in corso».
+
+- [ ] Annunciare la spesa solo quando qualcosa partirà davvero, verificando
+      che il ramo `no_credentials` con `stage="client"` diventi raggiungibile:
+      oggi non lo è mai, e un test lo dimostra.
+
+### R59 — 🟡 MEDIO: i messaggi di avanzamento inquinano il referto su stdout
+
+Tutte le stampe di avanzamento usano `print()`, e `run_audit` scrive il referto
+sullo stesso canale quando manca `--output`. Diagnostica e dato condividono
+`stdout`, quindi redirigere il dato cattura anche la diagnostica.
+
+**Riprodotto:** `mars_audit.py URL --format json > referto.json` produce un file
+che comincia con «Avvio scansione MARS Beacon su: …» e **non si legge** —
+`JSONDecodeError: Expecting value: line 1 column 1`. Vale per `json`, `csv` e
+`markdown`. Con `--output` il file è corretto.
+
+La correzione è la convenzione Unix — diagnostica su `stderr`, dato su `stdout`
+— e tocca 13 stampe in `mars_audit.py` più 8 sparse nei moduli (`mars_wapt`,
+`mars_llm_judge`, `mars_core`). Da decidere: `mars_citations.py` ne ha altre 8
+e ha lo stesso problema, quindi o si fa in due voci o in una sola dichiarata.
+
+- [ ] Mandare su `stderr` ciò che è diagnostica, lasciando su `stdout` il solo
+      referto, e presidiarlo con un test che rilegge il JSON da una pipe.
 
 ---
 
@@ -122,7 +154,7 @@ sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
   Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per
   questo in [mars_audit.py:27](mars_audit.py#L27).
 - **I3** — esporre `--rrf-k` e mostrare come cambia il consenso al variare di
-  `k` (oggi `RRF_K = 60`, [mars_core.py:1714](mars_core.py#L1714)). Didattica,
+  `k` (oggi `RRF_K = 60`, [mars_core.py:1810](mars_core.py#L1810)). Didattica,
   quasi gratis.
 - **I4 + I9** — **quali** chunk stiano fuori dall'intersezione fra i due
   recuperatori, non quanti: `consensus_top3` già dice quanti. Le due idee sono

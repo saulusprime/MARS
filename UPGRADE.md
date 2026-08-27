@@ -21,10 +21,9 @@
 
 ---
 
-## Stato del programma (aggiornato il 2026-08-25)
+## Stato del programma (aggiornato il 2026-08-27)
 
-**Nove fasi su dodici sono eseguite.** `__version__` è a **2.8.0**, il lavoro
-sta sul ramo `upgrade`, e ogni fase chiusa ha la propria voce in
+**Nove fasi su dodici sono eseguite.** Ogni fase chiusa ha la propria voce in
 [AS-IS.md](AS-IS.md) con misure, decisioni editoriali e mutazioni. Restano
 **U10** (giudizio LLM multi-modello), **U11** (deliverable rifinito) e **U12**
 (ancore esterne, opzionale); le voci aperte stanno in [TO-DO.md](TO-DO.md).

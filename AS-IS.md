@@ -2335,7 +2335,9 @@ voce sul codice.
 **Le convenzioni della lavorazione**: un commit per fase, bump di
 `__version__` (minor per fase), `pytest` verde senza rete e `flake8 .` a zero
 prima del commit, golden rigenerati **intenzionalmente** dalla Fase 2 in poi.
-Il lavoro sul ramo `upgrade`.
+Le nove fasi chiuse sono state lavorate sul ramo `upgrade`, rifuso in
+`main` e cancellato il 2026-08-27: da lì in avanti il programma prosegue
+su `main`.
 
 #### Mappa delle sotto-voci
 

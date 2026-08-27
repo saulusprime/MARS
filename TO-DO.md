@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R60**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R61**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,11 +19,12 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R60 sono
+> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R61 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
-> giudizio LLM che annunciava un invio mai partito, l'ultima da un referto vero
-> guardato da chi lo riceve. Restano il programma UPGRADE e due prove mancanti.
+> giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
+> guardato da chi lo riceve, e R61 dal chiudere R60. Restano il programma
+> UPGRADE e due prove mancanti.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -42,8 +43,10 @@ spesa si
 stampava anche quando nulla sarebbe partito) e **R59** (diagnostica e referto
 sullo stesso canale). Chiudendo R59 si è misurato che la seconda voce che
 quella lasciava intravedere — le stampe di `mars_citations.py` — **non
-esisteva**: là i due canali erano già separati. **R60** è l'ultima: gli esempi
-di correzione si leggevano come contenuto misurato del sito.
+esisteva**: là i due canali erano già separati. **R60** — gli esempi di
+correzione si leggevano come contenuto misurato del sito — ne ha aperta e
+chiusa una sesta, **R61**: l'etichetta «Correzione:» stava nel CSS, e un
+referto inglese la diceva in italiano.
 
 ---
 
@@ -136,9 +139,6 @@ sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
 - **I11** — verificare gli `@type` del JSON-LD contro i tipi che gli
   assistenti usano davvero, non solo la sintassi (lo dice
   [mars_schema.py:67](mars_schema.py#L67)).
-- **I12** — un Dockerfile con Node, Lighthouse, Chrome, ZAP, Playwright e
-  torch preinstallati: il README dedica un paragrafo a risolverne a mano i
-  conflitti.
 - **I14** — tetto alla dimensione della risposta HTTP: `_get` scarica il corpo
   intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
   byte.

@@ -120,7 +120,11 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
 .spiegazione { display:block; margin-top:.15rem; font-size:.83rem;
                color:var(--muted); }
 .fix { display:block; margin-top:.2rem; font-size:.85rem; }
-.fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+/* L'etichetta sta nel markup e non qui: `content` non passa dal
+   catalogo, e in inglese usciva in italiano (R61). Il commento non
+   la nomina apposta: e' il referto stesso, e il presidio cerca quella
+   parola in tutta la pagina. */
+.fix-eti { color:var(--warn); font-weight:600; }
 .ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
            text-transform:uppercase; letter-spacing:.05em;
            color:var(--muted); }
@@ -416,7 +420,8 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <li id='r-tech-robots-ai-blocked'>
 <b>robots.txt BLOCCA 1 crawler IA: GPTBot</b>
 <a class='ancora' href='#r-tech-robots-ai-blocked' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'># robots.txt — il gruppo va CORRETTO, non aggiunto
 # prima:
@@ -429,7 +434,8 @@ Disallow:</pre>
 <li id='r-tech-canonical-missing'>
 <b>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</b>
 <a class='ancora' href='#r-tech-canonical-missing' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;link rel=&quot;canonical&quot; href=&quot;https://esempio.it/servizi/&quot;&gt;</pre>
 </li>
@@ -537,12 +543,14 @@ Disallow:</pre>
 <li id='r-lex-words-thin'>
 <b>3/3 pagine sotto le 300 parole</b>
 <a class='ancora' href='#r-lex-words-thin' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
 </li>
 <li id='r-lex-query-no-match'>
 <b>1/3 query senza un riscontro lessicale</b>
 <a class='ancora' href='#r-lex-query-no-match' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
 </li>
 </ul>
 </div>
@@ -565,7 +573,8 @@ Disallow:</pre>
 <li id='r-sem-chunks-few'>
 <b>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</b>
 <a class='ancora' href='#r-sem-chunks-few' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
 </li>
 </ul>
 </div>
@@ -585,7 +594,8 @@ Disallow:</pre>
 <li id='r-sd-jsonld-block-malformed'>
 <b>1 blocchi JSON-LD malformati</b>
 <a class='ancora' href='#r-sd-jsonld-block-malformed' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>// prima — la virgola finale rende il blocco invalido
 {&quot;@type&quot;: &quot;Service&quot;,}
@@ -619,22 +629,26 @@ Disallow:</pre>
 <li id='r-wcag-axe-image-alt'>
 <b>Le immagini devono avere un testo alternativo</b>
 <a class='ancora' href='#r-wcag-axe-image-alt' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
 </li>
 <li id='r-wcag-axe-color-contrast'>
 <b>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</b>
 <a class='ancora' href='#r-wcag-axe-color-contrast' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
 </li>
 <li id='r-wcag-axe-label'>
 <b>Form elements must have labels</b>
 <a class='ancora' href='#r-wcag-axe-label' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Ensure every form element has a label</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Ensure every form element has a label</span>
 </li>
 <li id='r-wcag-img-alt-missing'>
 <b>1/2 immagini prive di testo alternativo</b>
 <a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
@@ -642,12 +656,14 @@ Disallow:</pre>
 <li id='r-wcag-heading-skip'>
 <b>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</b>
 <a class='ancora' href='#r-wcag-heading-skip' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
 </li>
 <li id='r-wcag-form-label-missing'>
 <b>1 campi di modulo senza etichetta</b>
 <a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
@@ -655,7 +671,8 @@ Disallow:</pre>
 <li id='r-wcag-table-th-missing'>
 <b>1 tabelle dati senza intestazioni &lt;th&gt;</b>
 <a class='ancora' href='#r-wcag-table-th-missing' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;table&gt;
   &lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Trattamento&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Durata&lt;/th&gt;&lt;/tr&gt;
@@ -665,7 +682,8 @@ Disallow:</pre>
 <li id='r-wcag-link-generic'>
 <b>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</b>
 <a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
-<span class='fix'>Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
@@ -694,19 +712,22 @@ Disallow:</pre>
 <b>Cross Site Scripting (Reflected)</b>
 <a class='ancora' href='#r-sec-zap-40012' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo&#x27; farvi eseguire script arbitrario nel browser della vittima.</span>
-<span class='fix'>Convalida l&#x27;input e codifica l&#x27;output.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Convalida l&#x27;input e codifica l&#x27;output.</span>
 </li>
 <li id='r-sec-zap-10038-1'>
 <b>Content Security Policy (CSP) Header Not Set</b>
 <a class='ancora' href='#r-sec-zap-10038-1' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.</span>
-<span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Configura il server per impostare l&#x27;header CSP.</span>
 </li>
 <li id='r-sec-zap-10038-2'>
 <b>CSP: Wildcard Directive</b>
 <a class='ancora' href='#r-sec-zap-10038-2' aria-label='Link a questo rilievo'>#</a>
 <span class='spiegazione'>La direttiva ammette qualunque origine, quindi non restringe nulla.</span>
-<span class='fix'>Sostituisci il carattere jolly con le origini che servono davvero.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Sostituisci il carattere jolly con le origini che servono davvero.</span>
 </li>
 </ul>
 </div>
@@ -940,7 +961,8 @@ Disallow:</pre>
 <p class='meta'>Tecnica · sforzo: minuti · <span class='qw'>QUICK WIN</span>
 </p>
 <p class='guadagno'>+40 punti d'area (57 → 97) · indice di citabilità +7.54 (mercato eu, stima)</p>
-<span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -961,7 +983,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
 <p class='guadagno'>+37 punti d'area (37 → 74) · indice di citabilità +4.65 (mercato eu, stima)</p>
-<span class='fix'>Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -972,7 +995,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
 <p class='guadagno'>+28 punti d'area (57 → 85) · indice di citabilità +1.76 (mercato eu, stima)</p>
-<span class='fix'>Convalida l&#x27;input e codifica l&#x27;output.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Convalida l&#x27;input e codifica l&#x27;output.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -983,7 +1007,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
-<span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -994,7 +1019,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: ore</p>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
-<span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1005,7 +1031,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
 <p class='guadagno'>+18 punti d'area (37 → 55) · indice di citabilità +2.26 (mercato eu, stima)</p>
-<span class='fix'>Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1016,7 +1043,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Dati Strutturati · sforzo: minuti</p>
 <p class='guadagno'>+10 punti d'area (90 → 100) · indice di citabilità +1.58 (mercato eu, stima)</p>
-<span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1067,7 +1095,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
 <p class='guadagno'>+7 punti d'area (37 → 44) · indice di citabilità +0.88 (mercato eu, stima)</p>
-<span class='fix'>Ensure every form element has a label</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Ensure every form element has a label</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1078,7 +1107,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
 <p class='guadagno'>+6 punti d'area (57 → 63) · indice di citabilità +0.38 (mercato eu, stima)</p>
-<span class='fix'>Configura il server per impostare l&#x27;header CSP.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Configura il server per impostare l&#x27;header CSP.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1089,7 +1119,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Sicurezza · sforzo: non dichiarato</p>
 <p class='guadagno'>+6 punti d'area (57 → 63) · indice di citabilità +0.38 (mercato eu, stima)</p>
-<span class='fix'>Sostituisci il carattere jolly con le origini che servono davvero.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Sostituisci il carattere jolly con le origini che servono davvero.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1100,7 +1131,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Lessicale · sforzo: ore</p>
 <p class='guadagno'>+20 punti d'area (60 → 80)</p>
-<span class='fix'>Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all&#x27;azienda.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1111,7 +1143,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Lessicale · sforzo: giorni</p>
 <p class='guadagno'>+20 punti d'area (60 → 80)</p>
-<span class='fix'>Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1122,7 +1155,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Semantica · sforzo: giorni</p>
 <p class='guadagno'>+8 punti d'area (92 → 100)</p>
-<span class='fix'>Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Aumenta il numero di passaggi tematici autonomi: ogni passaggio e&#x27; un&#x27;occasione distinta di comparire in una lista di risultati.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1133,7 +1167,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: minuti</p>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
-<span class='fix'>Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1144,7 +1179,8 @@ Disallow:</pre>
 </div>
 <p class='meta'>Accessibilità · sforzo: minuti</p>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
-<span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
 </div>
 <h2>Simulazione RRF</h2>
 <div class='card'>

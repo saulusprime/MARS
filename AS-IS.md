@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R61 | «Correzione:» nel CSS: un referto inglese lo diceva in italiano | 2026-08-27 |
 | R60 | Gli esempi di correzione si leggevano come contenuto misurato | 2026-08-27 |
 | R59 | Diagnostica e referto sullo stesso canale: il JSON non si rileggeva | 2026-08-27 |
 | R58 | L'annuncio della spesa si stampava anche quando nulla partiva | 2026-08-27 |
@@ -2370,6 +2371,42 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R61 — ✅ (2026-08-27): l'etichetta «Correzione:» stava nel CSS
+
+*(trovata chiudendo **R60**, due righe più in su nello stesso foglio di stile.
+Non è passata dal TO-DO: aperta e chiusa nello stesso commit.)*
+
+**Il difetto.** Il prefisso di ogni correzione era una regola CSS —
+`.fix::before { content:"Correzione: " }` — e `content` non passa da alcun
+catalogo. In un referto `--lang en` il blocco si intitolava «How to fix it» e
+ogni voce dentro cominciava con «Correzione:». Il Markdown la traduceva già,
+con `t("Correzione:", lang)`: due viste dello stesso dato, due lingue diverse.
+È R44 in un altro punto — «nel ramo axe il referto parlava inglese» — col verso
+invertito.
+
+**Soluzione.** L'etichetta scende nel markup, `<span class='fix-eti'>`, con lo
+**stesso letterale** che il Markdown già usa, quindi la traduzione esisteva
+di suo. Il CSS conserva il solo colore.
+
+**Quello che la correzione ha scoperto**: `<span class='fix'>` lo emettono
+**due** punti — la scheda d'area e il piano di interventi — e il secondo
+prendeva l'etichetta dal CSS come il primo. Corretto il solo primo, il piano
+sarebbe rimasto **senza alcun prefisso**, in tutte e due le lingue: un difetto
+nuovo introdotto correggendone uno. L'ha visto il conteggio del test — 17
+«Fix:» contro 32 `<span class='fix'>` — e non una lettura del codice.
+
+**Prove.**
+
+- Un test che guarda il referto **intero, CSS compreso**: in inglese la parola
+  «Correzione» non compare da nessuna parte, e le etichette sono tante quante
+  le correzioni (32 = 32, in entrambe le lingue).
+- Tre mutazioni, tutte colte: etichetta rimessa nel CSS → 3 rossi; **piano
+  senza etichetta** → 3, ed è la metà che sfuggiva; etichetta cablata invece
+  che tradotta → 1.
+- Golden rigenerati e diff riveduto: due soli file, i due HTML; nessun testo
+  italiano cambiato, nessun punteggio.
+- `pytest` **1143 passed**, `flake8 .` a zero.
 
 ### R60 — ✅ (2026-08-27): un esempio senza didascalia si legge come una misura
 

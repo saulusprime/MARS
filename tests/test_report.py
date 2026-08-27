@@ -1272,6 +1272,27 @@ def test_il_markdown_etichetta_l_esempio_come_l_html():
     assert testo.index("non è contenuto") < testo.index("```")
 
 
+def test_l_etichetta_della_correzione_segue_la_lingua_del_referto():
+    """R61, trovato chiudendo R60 due righe piu' su.
+
+    «Correzione: » stava nel CSS come `content`, che nessun catalogo
+    puo' tradurre: un referto inglese diceva «How to fix it» in testa
+    al blocco e «Correzione:» su ogni voce dentro. Il Markdown la
+    traduceva gia' — due viste dello stesso dato, due lingue."""
+    assert "Correzione:" in _correzioni([_rilievo(fix="Aggiungi X.")])
+    assert "Fix:" in _correzioni([_rilievo(fix="Add X.")], lang="en")
+
+    percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "golden", "referto.json")
+    with open(percorso, encoding="utf-8") as handle:
+        referto = json.load(handle)
+    # Sul referto INTERO, CSS compreso: e' li' che la parola italiana
+    # si nascondeva, e un controllo sul solo blocco non l'avrebbe vista.
+    inglese = RENDERERS["html"](referto, "en")
+    assert "Correzione" not in inglese
+    assert inglese.count("Fix:") == inglese.count("<span class='fix'>")
+
+
 def test_testo_lascia_fuori_l_esempio():
     """Cinque o sette righe di nginx per area triplicherebbero il
     referto: gli example vivono nell'HTML e nel JSON, per intero."""

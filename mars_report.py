@@ -1910,7 +1910,11 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
 .spiegazione { display:block; margin-top:.15rem; font-size:.83rem;
                color:var(--muted); }
 .fix { display:block; margin-top:.2rem; font-size:.85rem; }
-.fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+/* L'etichetta sta nel markup e non qui: `content` non passa dal
+   catalogo, e in inglese usciva in italiano (R61). Il commento non
+   la nomina apposta: e' il referto stesso, e il presidio cerca quella
+   parola in tutta la pagina. */
+.fix-eti { color:var(--warn); font-weight:600; }
 .ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
            text-transform:uppercase; letter-spacing:.05em;
            color:var(--muted); }
@@ -2478,7 +2482,12 @@ def _correzioni(findings: List[dict],
             pezzi.append("<span class='spiegazione'>%s</span>"
                          % _e(testi["detail"]))
         if f.get("fix"):
-            pezzi.append("<span class='fix'>%s</span>" % _e(testi["fix"]))
+            # L'etichetta viaggia col testo, e con lo stesso letterale
+            # che usa il Markdown: era un `content` nel CSS, che nessun
+            # catalogo puo' tradurre (R61).
+            pezzi.append("<span class='fix'><span class='fix-eti'>%s</span> "
+                         "%s</span>"
+                         % (_e(t("Correzione:", lang)), _e(testi["fix"])))
         # L'esempio e' codice: <pre> perche' gli a-capo e
         # l'indentazione di un blocco nginx o JSON-LD sono il suo
         # contenuto, non la sua impaginazione.
@@ -2649,7 +2658,13 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None,
                           else t("recupero non dichiarato", lang)))
 
     if testi["fix"]:
-        parti.append("<span class='fix'>%s</span>" % _e(testi["fix"]))
+        # Stessa etichetta della scheda d'area, e per la stessa ragione
+        # (R61): il piano usa la classe `fix`, quindi prendeva il suo
+        # «Correzione: » dal `content` del CSS — cioe' in italiano
+        # dentro un referto inglese.
+        parti.append("<span class='fix'><span class='fix-eti'>%s</span> "
+                     "%s</span>"
+                     % (_e(t("Correzione:", lang)), _e(testi["fix"])))
     parti.append("</div>")
     return "".join(parti)
 

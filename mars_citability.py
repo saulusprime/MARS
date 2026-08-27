@@ -22,9 +22,6 @@ from mars_core import SEV_INFO, Finding
 # modello esplicito e discutibile, messo qui in chiaro proprio perche'
 # sia discusso e corretto. Un profilo alto non garantisce una citazione,
 # e uno basso non la esclude.
-#
-# Cambiare questi numeri e' previsto. Cambiarli senza scrivere il
-# perche' nella colonna delle motivazioni, no.
 # ======================================================================
 
 DISCLAIMER = ("stime euristiche dichiarate, non comportamento "
@@ -63,7 +60,7 @@ SEGNALI = {
 # - "sicurezza" pesa poco: incide sulla reputazione della fonte, non
 #   sulla sua recuperabilita'.
 PESI_ASSISTENTE: Dict[str, Dict[str, int]] = {
-    #                       tec seo rec ans dat acc sic
+    #                            tec seo rec ans dat acc sic
     "Claude": dict(zip(SEGNALI, (3, 1, 3, 3, 2, 1, 1))),
     "ChatGPT/Perplexity": dict(zip(SEGNALI, (3, 3, 2, 3, 3, 1, 1))),
     "Qwen": dict(zip(SEGNALI, (3, 1, 2, 3, 2, 1, 1))),

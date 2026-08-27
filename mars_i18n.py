@@ -16,43 +16,6 @@ from mars_core import AREA_PREFIX
 # ======================================================================
 # Le lingue del referto (U9.1 / Fase 9 di UPGRADE.md)
 # ----------------------------------------------------------------------
-# L'italiano e' la lingua CANONICA e non sta in questo file: vive nei
-# moduli, dove il rilievo nasce, e in mars_fixes.py per `fix` ed
-# `example`. Qui c'e' solo cio' che l'italiano non e', e la ragione e'
-# la stessa per cui mars_fixes.py e' un catalogo e non sei manciate di
-# stringhe sparse: se l'italiano vivesse in due forme — letterale nel
-# modulo e riga di catalogo — le due divergerebbero senza che nulla si
-# rompa.
-#
-# Ne discende la regola di questo modulo: **si traduce PER CHIAVE, e in
-# mancanza si ripiega sull'italiano campo per campo, mai sollevando**.
-# Un referto in inglese con tre righe italiane e' un referto; un referto
-# che si interrompe su un template sbagliato non lo e'.
-#
-# ----------------------------------------------------------------------
-# Perche' due lingue e non cinque (decisione D4, ratificata il
-# 2026-08-25)
-#
-# UPGRADE.md prevede it/en/fr/de/es sul modello di marsbeacon, e
-# prevede di riusarne i cataloghi «dove i controlli coincidono».
-# Misurato prima di cominciare: il catalogo del riferimento ha 145
-# chiavi, MARS ne emette 49, e **ne coincidono quattro**
-# (`tech.canonical.missing`, `tech.robots.ai_blocked`,
-# `tech.robots.missing`, `tech.sitemap.missing`). Il motivo e'
-# strutturale e non si chiude con una rinomina: il riferimento copre
-# `tech`/`sem`/`lex`/`sd`/`rrf` e non ha una sola chiave `wcag.`,
-# `sec.` o `seo.`, che sono tre delle nove aree di MARS.
-#
-# Le traduzioni quindi si scrivono, non si copiano — e quattro lingue
-# scritte senza che nessuno qui dentro possa verificarle sarebbero
-# quattro lingue di qualita' NON MISURATA, cioe' il contrario del
-# principio 5. Due lingue verificabili valgono piu' di cinque
-# dichiarate.
-#
-# **E' un livello inferiore al riferimento, ed e' dichiarato**: qui,
-# in UPGRADE.md e nel referto stesso. Aggiungere una lingua costa un
-# catalogo in piu' in questo file e una voce in LINGUE: l'impianto non
-# assume che le lingue siano due.
 # ======================================================================
 
 LINGUA_CANONICA = "it"

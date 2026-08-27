@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R58 | L'annuncio della spesa si stampava anche quando nulla partiva | 2026-08-27 |
 | R57 | Le chiavi dalla riga di comando, e un `main()` che si esegue | 2026-08-27 |
 | R56 | `--max-children`, e un perimetro dichiarato inesatto | 2026-08-27 |
 | R55 | Lo spider di ZAP non rispettava robots.txt | 2026-08-27 |
@@ -2367,6 +2368,70 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R58 — ✅ (2026-08-27): l'annuncio della spesa, e un presidio che non presidiava
+
+*(nata dalla stessa indagine di **R57**: l'utente ha visto annunciare un invio
+che non è mai partito.)*
+
+**Il difetto.** `mars_llm_judge` stampava «Giudizio LLM: invio N passaggi (~M
+token stimati) a claude-opus-5…» anche quando nessuna credenziale esisteva, e
+la richiesta moriva subito dopo. Il referto diceva poi «non misurato», ma chi
+guardava il terminale aveva già letto un invio.
+
+**Causa radice.** Il presidio era il `try` intorno alla costruzione del client,
+col commento «senza credenziali risolvibili l'SDK solleva TypeError». Falso
+sull'SDK **0.122.0**: `anthropic.Anthropic()` **non valida alla costruzione** —
+riesce sempre — e risolve la credenziale al momento della richiesta, dentro
+`_validate_headers`. Quel `try` non intercettava nulla, e il ramo
+`no_credentials` con `stage="client"` era **irraggiungibile con l'SDK vero**:
+lo raggiungeva solo un test che faceva sollevare `Anthropic` a mano.
+
+**La misura che ha dettato la soluzione.** Non basta `bool(client.api_key)`,
+che il TO-DO proponeva: la docstring di `Anthropic.__init__` elenca cinque vie
+di risoluzione, e il profilo `ant auth login` finisce in `client.credentials`,
+non in `api_key`. Con la sola `api_key` un utente autenticato per profilo — il
+caso che il README promette a `--llm on` — si sarebbe visto rifiutare l'invio.
+Le fonti che l'SDK stesso guarda prima di firmare sono **tre**, e la condizione
+è copiata da lì:
+
+| Fonte | Da dove viene | Dove finisce sul client |
+|---|---|---|
+| `api_key` | `--credentials`, corpo API, `ANTHROPIC_API_KEY` | `client.api_key` |
+| `auth_token` | `ANTHROPIC_AUTH_TOKEN` | `client.auth_token` |
+| fornitore di token | `ANTHROPIC_PROFILE`, profilo attivo su disco (`ant auth login`), federazione | `client.credentials` |
+
+**Soluzione.** `credenziale_risolta(client)` in
+[mars_llm_judge.py](mars_llm_judge.py), chiamata **dopo** la costruzione e
+**prima** dell'annuncio: se le tre fonti sono tutte vuote si esce con
+`llm.status.no_credentials`, `stage="client"`, `attempted: False`. Il `try`
+resta — un'altra versione dell'SDK, o argomenti incoerenti, possono ancora
+sollevare — ed è lo stesso fatto visto in un altro momento, con la stessa
+chiave. Un oggetto che non espone **nessuna** delle tre non è un client
+dell'SDK: è quello iniettato dai test, su cui non si può affermare nulla, e
+vale usabile — senza questa clausola ogni test col client finto direbbe
+«nessuna credenziale».
+
+**Prove.**
+
+- Confronto end-to-end con l'SDK reale e nessuna credenziale nel processo,
+  stesso contesto sulle due versioni: prima `stdout` = «Giudizio LLM: invio 1
+  passaggi (~42 token stimati)…» con `stage=request` e `attempted=True`; dopo
+  `stdout` vuoto, `stage=client`, `attempted=False`. Nessuna richiesta di rete
+  in entrambi i casi: l'SDK solleva prima di aprire il socket.
+- Tre test nuovi in `tests/test_modules.py`: l'annuncio che non si stampa e il
+  ramo `stage="client"` finalmente raggiungibile; il contratto dell'SDK fissato
+  con `anthropic.Anthropic(api_key="")` — argomento esplicito **apposta**, così
+  l'SDK non consulta né ambiente né disco e il test dice la stessa cosa su un
+  clone appena fatto; il profilo `ant auth login` che non va scambiato per
+  assenza.
+- Cinque mutazioni, tutte colte, nessuna sfuggita: controllo assente (il
+  difetto tale e quale) → 1 rosso; controllo sempre «usabile» → 2; client senza
+  le tre fonti dichiarato inutilizzabile → 19; **la correzione ingenua alla
+  sola `api_key`** → 1, ed è il test del profilo; controllo dopo l'annuncio
+  invece che prima → 1.
+- `pytest` **1133 passed**, `flake8 .` a zero. Golden invariati: il client
+  iniettato non espone le tre fonti, quindi il percorso del golden non cambia.
 
 ### R57 — ✅ (2026-08-27): le chiavi dalla riga di comando, e un `main()` che si esegue
 *(nata da un'esecuzione reale dell'utente sul giudizio LLM. Apre **R58** e

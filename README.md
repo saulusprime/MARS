@@ -260,6 +260,12 @@ grossolana (un token ogni quattro caratteri) e serve a dare un ordine
 di grandezza, non a prevedere la fattura. Al massimo vengono inviati 8
 passaggi da 1200 caratteri.
 
+L'annuncio compare SOLO se qualcosa partira' davvero: con --llm on e
+nessuna credenziale risolvibile — ne' chiave, ne' token, ne' profilo
+'ant auth login' — il referto dice «Nessuna credenziale Anthropic
+utilizzabile» e non annuncia alcun invio. Fino al 2026-08-27 lo
+annunciava lo stesso (R58).
+
 Installazione. Le dipendenze sono divise per ruolo:
 
     pip install -r requirements.txt            # CLI e API: sempre

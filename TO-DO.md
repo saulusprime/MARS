@@ -19,11 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Sette caselle aperte**, di cui due correzioni. R55, R56 e R57 sono aperte e
-> chiuse il 2026-08-27, tutte e tre nate da osservazioni dell'utente sul campo
-> e non da una revisione: due da un sospetto su `--max-pages`, la terza da un
-> giudizio LLM che annunciava un invio mai partito. **R58** e **R59** vengono
-> da quella stessa indagine e restano da fare.
+> **Sei caselle aperte**, di cui una sola correzione. R55, R56, R57 e R58 sono
+> aperte e chiuse il 2026-08-27, tutte nate da osservazioni dell'utente sul
+> campo e non da una revisione: due da un sospetto su `--max-pages`, le altre
+> da un giudizio LLM che annunciava un invio mai partito. **R59** viene da
+> quella stessa indagine e resta da fare.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -35,36 +35,13 @@
 
 ## Correzioni
 
-Due, aperte il 2026-08-27 da un'esecuzione reale dell'utente sul giudizio LLM.
-La terza trovata nella stessa indagine — la CLI non aveva **alcun** modo di
-passare una credenziale — è **R57**, aperta e chiusa lo stesso giorno:
-`--credentials FILE`, e sta in [AS-IS.md](AS-IS.md).
+Una, aperta il 2026-08-27 da un'esecuzione reale dell'utente sul giudizio LLM.
+Le altre due della stessa indagine sono chiuse lo stesso giorno e stanno in
+[AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di passare una
+credenziale — `--credentials FILE`) e **R58** (l'annuncio della spesa si
+stampava anche quando nulla sarebbe partito).
 
-Nessuna delle due è grave, e vanno riprodotte prima di correggerle. Entrambe
-sono già riprodotte una volta: i numeri qui sotto sono misure.
-
-### R58 — 🟡 MEDIO: l'annuncio della spesa si stampa anche quando nulla partirà
-
-`mars_llm_judge` stampa «Giudizio LLM: invio N passaggi (~M token stimati) a
-claude-opus-5…» **prima** di sapere se una credenziale esista davvero, e il
-presidio che doveva impedirlo non funziona. Il commento a
-[mars_llm_judge.py:257](mars_llm_judge.py#L257) dichiara: «Il client si
-costruisce PRIMA di annunciare la spesa: senza credenziali risolvibili l'SDK
-solleva TypeError, e annunciare un invio che non avverrà sarebbe fuorviante».
-
-**Verificato su SDK anthropic 0.122.0:** `anthropic.Anthropic()` **non** valida
-alla costruzione — riesce sempre — e risolve la credenziale al momento della
-richiesta. Quindi quel `try` non intercetta nulla, l'annuncio si stampa
-comunque, ed è esattamente il «fuorviante» che voleva evitare. È il difetto che
-l'utente ha notato sul campo.
-
-La correzione non costa una chiamata di rete: la credenziale si può far
-risolvere all'SDK prima di annunciare — `bool(client.api_key)` è già
-sufficiente a distinguere «nulla da inviare» da «invio in corso».
-
-- [ ] Annunciare la spesa solo quando qualcosa partirà davvero, verificando
-      che il ramo `no_credentials` con `stage="client"` diventi raggiungibile:
-      oggi non lo è mai, e un test lo dimostra.
+Non è grave, ed è già riprodotta una volta: i numeri qui sotto sono misure.
 
 ### R59 — 🟡 MEDIO: i messaggi di avanzamento inquinano il referto su stdout
 

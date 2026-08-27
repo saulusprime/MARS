@@ -1,7 +1,7 @@
 # HANDOFF — 2026-08-27
 
-> Questo file esiste solo perché resta lavoro a metà. Quando R58 e R59 sono
-> chiuse, **si cancella**: il suo contenuto duraturo sta già altrove.
+> Questo file esiste solo perché resta lavoro a metà. Quando R59 è chiusa,
+> **si cancella**: il suo contenuto duraturo sta già altrove.
 >
 > Ordine di lettura: questo → [AS-IS.md](AS-IS.md) → [TO-DO.md](TO-DO.md).
 
@@ -14,35 +14,36 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento a fine sessione: `flake8` 0, `pytest` **1130 passed**.
+  Riferimento a fine sessione: `flake8` 0, `pytest` **1133 passed**.
 
 ## Che cosa è stato fatto oggi
 
-Sette voci chiuse — R53, R54, R55, R56, R57 più le due pulizie del TO-DO —
-tutte in [AS-IS.md](AS-IS.md) con difetto, misura e prove. Le tre che
-contano per chi riprende:
+Otto voci chiuse — R53, R54, R55, R56, R57, R58 più le due pulizie del
+TO-DO — tutte in [AS-IS.md](AS-IS.md) con difetto, misura e prove. Le
+quattro che contano per chi riprende:
 
 - **R55/R56**: lo spider di ZAP non rispettava robots.txt ed è ora dietro
   `--i-own-this-domain`. Senza dichiarazione l'area 7 vede solo le pagine
   che il crawler ha già scaricato. Nuovo flag `--max-children`.
 - **R57**: nuovo `--credentials FILE`. `main()` è diventata una funzione
   che restituisce il codice di uscita, e non un blocco `if __name__`.
+- **R58**: l'annuncio della spesa del giudizio LLM esce solo se qualcosa
+  partirà davvero. `credenziale_risolta()` guarda le **tre** fonti che
+  l'SDK guarda — `api_key`, `auth_token`, `credentials` — e non la sola
+  chiave, altrimenti un profilo `ant auth login` verrebbe scambiato per
+  assenza.
 - **`schema_version` è a 3** (R53). `__version__` resta 2.9.0.
 
-## Prossimo passo: R58 e R59
+## Prossimo passo: R59
 
-Sono le due voci aperte, **entrambe già riprodotte**: i numeri stanno nel
-TO-DO, non serve rimisurare per cominciare.
+È l'unica correzione aperta, **già riprodotta**: i numeri stanno nel TO-DO,
+non serve rimisurare per cominciare.
 
-- **R58** — l'annuncio della spesa si stampa anche quando nulla partirà.
-  Verificato su SDK anthropic **0.122.0**: `anthropic.Anthropic()` non
-  valida alla costruzione, risolve alla richiesta. Da sapere prima di
-  toccare: il ramo `no_credentials` con `stage="client"` oggi **non è mai
-  raggiungibile**, e la correzione deve renderlo tale.
 - **R59** — `mars_audit.py URL --format json > f.json` non si rilegge.
   13 stampe in `mars_audit.py`, 8 nei moduli, altre 8 in
   `mars_citations.py`: quest'ultima è la decisione da prendere — una voce
-  sola o due.
+  sola o due. Da sapere: R58 ha appena tolto **una** di quelle stampe dal
+  percorso senza credenziali, non dal codice.
 
 ## Stati temporanei da sapere
 

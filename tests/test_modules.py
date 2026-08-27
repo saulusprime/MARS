@@ -5906,6 +5906,67 @@ def test_llm_la_credenziale_non_risolta_dice_in_quale_momento(contesto,
     assert rilievo["params"]["attempted"] is False
 
 
+def test_llm_non_annuncia_la_spesa_se_nulla_partira(contesto, capsys):
+    """R58: l'annuncio si stampava anche quando nulla sarebbe partito.
+
+    Il presidio era il `try` intorno alla costruzione del client, e non
+    intercetta nulla: l'SDK 0.122.0 riesce sempre a costruirlo e risolve
+    la credenziale al momento della richiesta (lo fissa il test qui
+    sotto). Cosi' «invio 8 passaggi (~N token stimati)» compariva, e la
+    richiesta moriva subito dopo — esattamente il fuorviante che quel
+    commento diceva di evitare."""
+    class SenzaCredenziali:
+        # Le tre fonti che l'SDK controlla prima di firmare: tutte
+        # vuote significa che la richiesta non partira'.
+        api_key = None
+        auth_token = None
+        credentials = None
+
+    ctx = dict(contesto, llm="on")
+    ctx["_anthropic_client"] = SenzaCredenziali()
+    esito = mars_llm_judge.audit(ctx)
+    rilievo = esito["findings"][0]
+
+    assert rilievo["key"] == "llm.status.no_credentials"
+    assert rilievo["params"]["stage"] == "client"
+    assert rilievo["params"]["attempted"] is False
+    assert "Giudizio LLM: invio" not in capsys.readouterr().out
+
+
+def test_llm_l_sdk_non_valida_la_credenziale_alla_costruzione():
+    """La misura da cui R58 nasce, fissata contro l'SDK vero.
+
+    `api_key=""` e non nessun argomento: con un argomento esplicito
+    l'SDK non consulta ne' l'ambiente ne' il profilo su disco, quindi il
+    test dice la stessa cosa su questa macchina e su un clone appena
+    fatto. Se un giorno l'SDK validasse alla costruzione, questo test lo
+    dice: il controllo esplicito diventerebbe ridondante, non
+    sbagliato."""
+    import anthropic
+    client = anthropic.Anthropic(api_key="")
+    assert client.api_key == "", "non ha sollevato: e' il difetto R58"
+    assert not mars_llm_judge.credenziale_risolta(client)
+
+
+def test_llm_un_profilo_ant_auth_login_non_e_una_credenziale_assente(
+        contesto, capsys):
+    """Il README promette che `--llm on` usa anche un profilo
+    `ant auth login`, che nessuna variabile d'ambiente mostra: l'SDK lo
+    porta in `credentials`, non in `api_key`. Controllare la sola
+    `api_key` trasformerebbe R58 in un rifiuto di inviare."""
+    class ConProfilo(_ClientLLM):
+        api_key = None
+        auth_token = None
+        credentials = object()
+
+    ctx = dict(contesto, llm="on")
+    ctx["_anthropic_client"] = ConProfilo(_risposta_llm(GIUDIZIO))
+    esito = mars_llm_judge.audit(ctx)
+
+    assert esito["score"] == 71
+    assert "Giudizio LLM: invio" in capsys.readouterr().out
+
+
 def test_llm_una_chiamata_malformata_non_e_una_credenziale_mancante(
         contesto):
     """Un TypeError senza "authentication" nel messaggio vuol dire che la

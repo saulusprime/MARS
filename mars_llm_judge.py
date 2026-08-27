@@ -110,6 +110,25 @@ def credenziali_presenti(context: Optional[dict] = None) -> bool:
                 or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
+def credenziale_risolta(client: object) -> bool:
+    """Vero se il client ha di che autenticarsi, senza toccare la rete.
+
+    Le tre fonti sono quelle che l'SDK stesso guarda prima di firmare la
+    richiesta — `api_key`, `auth_token` e il fornitore di token di un
+    profilo `ant auth login`, che nessuna variabile d'ambiente mostra —
+    e la condizione e' copiata da li'. Se divergesse, MARS direbbe
+    «nessuna credenziale» a un invio che sarebbe partito.
+
+    Un oggetto che non espone NESSUNA delle tre non e' un client
+    dell'SDK: e' quello iniettato dai test, su cui non si puo' affermare
+    nulla, e vale usabile.
+    """
+    fonti = [getattr(client, nome)
+             for nome in ("api_key", "auth_token", "credentials")
+             if hasattr(client, nome)]
+    return not fonti or any(fonti)
+
+
 def seleziona_chunk(context: dict) -> List[dict]:
     """I passaggi piu' recuperabili, secondo la fusione RRF.
 
@@ -254,9 +273,13 @@ def audit(context: dict) -> dict:
                                     "Nessun passaggio da valutare",
                                     **stato)]}
 
-    # Il client si costruisce PRIMA di annunciare la spesa: senza
-    # credenziali risolvibili l'SDK solleva TypeError, e annunciare un
-    # invio che non avverra' sarebbe fuorviante.
+    # Il client si costruisce PRIMA di annunciare la spesa, e la
+    # credenziale si verifica su di lui: annunciare un invio che non
+    # avverra' sarebbe fuorviante. Il `try` da solo non bastava —
+    # l'SDK 0.122.0 costruisce sempre e risolve alla richiesta, quindi
+    # non sollevava qui e l'annuncio si stampava lo stesso (R58). Resta
+    # perche' un'altra versione, o un argomento incoerente, puo'
+    # sollevare: e' l'altro modo in cui lo stesso fatto si presenta.
     chiave = (context.get("credentials") or {}).get("anthropic_api_key")
     try:
         client = (context.get("_anthropic_client")
@@ -276,6 +299,17 @@ def audit(context: dict) -> dict:
                     "llm.status.no_credentials",
                     "Nessuna credenziale Anthropic utilizzabile",
                     type(exc).__name__, stage="client", **stato)]}
+    if not credenziale_risolta(client):
+        return {"score": None, "status": "unavailable",
+                "issues": ["Nessuna credenziale Anthropic utilizzabile"],
+                # Stesse chiave e `stage` del ramo qui sopra: e' lo
+                # stesso fatto — l'SDK non ha una credenziale da usare —
+                # visto prima che sollevi invece che dopo. `detail`
+                # resta vuoto perche' non c'e' un'eccezione da nominare.
+                "findings": [_stato(
+                    "llm.status.no_credentials",
+                    "Nessuna credenziale Anthropic utilizzabile",
+                    stage="client", **stato)]}
 
     prompt = costruisci_prompt(context.get("url", ""), chunks)
     costo = costo_stimato(prompt)

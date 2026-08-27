@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R61**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R62**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,7 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R61 sono
+> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R62 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
@@ -46,7 +46,9 @@ quella lasciava intravedere — le stampe di `mars_citations.py` — **non
 esisteva**: là i due canali erano già separati. **R60** — gli esempi di
 correzione si leggevano come contenuto misurato del sito — ne ha aperta e
 chiusa una sesta, **R61**: l'etichetta «Correzione:» stava nel CSS, e un
-referto inglese la diceva in italiano.
+referto inglese la diceva in italiano. **R62** chiude l'ultima segnalazione
+dell'utente: `--credentials` diceva quali chiavi accetta e mai che forma ha il
+file, e il modello che l'aiuto indicava era il corpo di una richiesta API.
 
 ---
 

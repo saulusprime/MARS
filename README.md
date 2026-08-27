@@ -485,13 +485,31 @@ fatto — il referto in quel caso dice «Nessuna credenziale Anthropic
 utilizzabile», che e' diverso da «Errore API Anthropic», il messaggio
 di una chiave presente e rifiutata.
 
-Il file e' JSON e accetta due forme: il solo blocco delle credenziali,
-oppure il corpo di richiesta dell'API, di cui si legge `credentials`.
-Si ottiene copiando examples/audit_request.json:
+Il file e' JSON, e questo e' TUTTO il suo contenuto nel caso piu'
+comune — il giudizio LLM:
 
-    cp examples/audit_request.json chiavi.local.json
-    $EDITOR chiavi.local.json          # solo il blocco credentials
+    {"credentials": {"anthropic_api_key": "sk-ant-..."}}
+
+Il modello da copiare e' examples/credentials.json, che nomina anche le
+altre tre chiavi riconosciute — hf_token, zap_api_key, zap_proxy — da
+aggiungere dentro `credentials` solo se servono:
+
+    cp examples/credentials.json chiavi.local.json
     chmod 600 chiavi.local.json        # *.local.json e' ignorato da git
+    $EDITOR chiavi.local.json          # scrivi la chiave
+
+Sono accettate due forme: quella qui sopra e il solo blocco delle
+credenziali senza involucro, `{"anthropic_api_key": "..."}`. Va bene
+anche il corpo di una richiesta API per intero, di cui si legge il solo
+`credentials` — e' il principio 4, CLI e API sopra lo stesso motore.
+
+NON copiare examples/audit_request.json per questo scopo: e' il corpo di
+una richiesta API, quindi porta url, max_pages e queries che la CLI
+ignora, e i suoi quattro SEGNAPOSTO verrebbero passati agli strumenti
+come se fossero chiavi vere — misurato. Il modello di
+examples/credentials.json ha invece un valore VUOTO, che ferma l'audit
+con codice 2 nominando la chiave: copiato e non modificato non puo'
+essere usato per sbaglio (R62).
 
 Un FILE e non un valore sul flag, e la ragione e' misurata: su Linux
 /proc/<pid>/cmdline e' leggibile da ogni utente locale a meno di

@@ -70,10 +70,15 @@ chiave**, non sul codice — e `evaluate_answer` di `mars_citations.py`).
 `.env` **non viene letto** e una variabile senza `export` non è visibile al
 processo. Le due strade sono le variabili d'ambiente esportate, oppure:
 
-    cp examples/audit_request.json chiavi.local.json
+    cp examples/credentials.json chiavi.local.json
     chmod 600 chiavi.local.json      # *.local.json è ignorato da git
+    $EDITOR chiavi.local.json        # {"credentials": {"anthropic_api_key": "sk-ant-..."}}
     python3 mars_audit.py https://sito.it \
         --credentials chiavi.local.json --llm on
+
+Il modello è `examples/credentials.json` e **non** `audit_request.json`,
+che è il corpo di una richiesta API: passato a `--credentials` consegna
+quattro segnaposto come se fossero chiavi (R62).
 
 **C4 resta non verificata**: il giudizio LLM non è mai stato eseguito contro
 il servizio reale. L'esecuzione dell'utente di oggi non fa fede — la chiave

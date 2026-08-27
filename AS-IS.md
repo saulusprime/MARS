@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
 | R61 | «Correzione:» nel CSS: un referto inglese lo diceva in italiano | 2026-08-27 |
 | R60 | Gli esempi di correzione si leggevano come contenuto misurato | 2026-08-27 |
 | R59 | Diagnostica e referto sullo stesso canale: il JSON non si rileggeva | 2026-08-27 |
@@ -2371,6 +2372,61 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R62 — ✅ (2026-08-27): il file delle chiavi non si capiva come si scrive
+
+*(segnalata dall'utente: «non si comprende come da mars_audit.py si possa
+passare il json con le API keys». R57 aveva dato la strada e non il modello.)*
+
+**Il difetto.** `--credentials FILE` diceva *quali* chiavi accetta e mai *che
+forma* ha il file. L'unica istruzione concreta, nell'aiuto e nel README, era
+«copia `examples/audit_request.json`» — che è **il corpo di una richiesta
+API**: chi lo apriva trovava `url`, `max_pages`, `queries` e non poteva sapere
+quale parte servisse alla CLI.
+
+**E la strada indicata aveva un secondo difetto, misurato.**
+`load_credentials("examples/audit_request.json")` restituisce **quattro
+credenziali** — i quattro segnaposto — e nessun avviso su di essi:
+
+    anthropic_api_key  "SEGNAPOSTO-sostituire-fuori-dal-repository"
+    hf_token           "SEGNAPOSTO-solo-per-modelli-Hugging-Face-…"
+    zap_api_key        "SEGNAPOSTO-oppure-omettere-se-api.disablekey=true"
+    zap_proxy          "http://127.0.0.1:8080"
+
+Chi copia quel file e riempie la sola chiave Anthropic consegna a
+`huggingface_hub` e a ZAP due segnaposto come se fossero chiavi vere: gli
+strumenti li rifiutano, e l'area si degrada senza che nessuno abbia sbagliato
+a scrivere una chiave. Il file è severo sui *tipi* (R57) e muto sui
+**contenuti**, che non può giudicare.
+
+**Soluzione.** Un modello suo, `examples/credentials.json`, con **una sola
+chiave da riempire** e le altre tre nominate dal commento; l'aiuto della CLI
+mostra il contenuto del file per intero nell'epilogo, che è l'unica forma che
+non si può fraintendere:
+
+    {"credentials": {"anthropic_api_key": "sk-ant-..."}}
+
+Il valore è **vuoto** apposta: `""` non è utilizzabile, quindi il modello
+copiato e non modificato **ferma l'audit con codice 2 nominando la chiave**,
+invece di girare consegnando segnaposto. Nessun cambiamento al codice del
+lettore: la severità che serviva c'era già, mancava un modello che ci
+andasse d'accordo.
+
+**Prove.**
+
+- Misurato prima: `examples/audit_request.json` passato a `--credentials`
+  consegna quattro segnaposto con l'unico avviso «leggibile da altri utenti».
+- End-to-end sul modello nuovo: copiato e **non** modificato → uscita **2**,
+  «valore non utilizzabile per anthropic_api_key» su `stderr`, `stdout` vuoto,
+  nessuna richiesta al sito; riempito → esce esattamente
+  `{"anthropic_api_key": …}` e nessun messaggio, perché il commento in testa
+  sta fuori da `credentials` e non conta come chiave ignota.
+- Quattro test nuovi: il modello esiste e **non versiona alcuna chiave**; non
+  si usa per sbaglio così com'è; riempito dà esattamente ciò che ci si è
+  scritto; l'aiuto mostra il JSON e nomina `examples/credentials.json`.
+- Il presidio già in casa ha fatto il suo: togliendo la parola «Esempio:»
+  dall'aiuto, `test_ogni_parametro_mostra_valori_o_esempio` è diventato rosso.
+- `pytest` **1147 passed**, `flake8 .` a zero.
 
 ### R61 — ✅ (2026-08-27): l'etichetta «Correzione:» stava nel CSS
 

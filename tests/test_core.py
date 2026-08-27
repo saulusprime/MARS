@@ -1693,6 +1693,54 @@ def test_credenziali_da_file_nella_forma_del_corpo_API(tmp_path):
     assert chiavi == {"hf_token": "hf-finto"}
 
 
+def _percorso_esempio(nome: str) -> str:
+    """Un file di `examples/`, dalla radice del repository."""
+    radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(radice, "examples", nome)
+
+
+def test_il_modello_delle_chiavi_esiste_e_non_ne_versiona_nessuna():
+    """R62: non si capiva che cosa scrivere nel file di --credentials.
+
+    L'unica istruzione era «copia examples/audit_request.json», che e'
+    il CORPO DI UNA RICHIESTA API — url, max_pages, queries — usato per
+    un flag della CLI. Ora c'e' un modello che porta solo cio' che
+    serve, e nel repository non finisce mai una chiave vera."""
+    percorso = _percorso_esempio("credentials.json")
+    with open(percorso, encoding="utf-8") as handle:
+        modello = json.load(handle)
+    assert list(modello["credentials"]) == ["anthropic_api_key"], \
+        "una chiave sola da riempire; le altre le nomina il commento"
+    assert modello["credentials"]["anthropic_api_key"] == ""
+
+
+def test_il_modello_delle_chiavi_non_si_usa_per_sbaglio_com_e():
+    """Il seguito misurato di R62, e la ragione del valore vuoto.
+
+    `examples/audit_request.json` passato a --credentials cosi' com'e'
+    consegna QUATTRO segnaposto come se fossero chiavi — misurato: un
+    `hf_token` e uno `zap_api_key` finti arrivano agli strumenti, che
+    li rifiutano, e l'area si degrada senza che nessuno abbia scritto
+    una chiave. Il modello nuovo non puo' fare la stessa cosa: non
+    contiene alcun valore utilizzabile, e l'audit si ferma nominando la
+    chiave rimasta vuota."""
+    chiavi, messaggio = mars_core.load_credentials(
+        _percorso_esempio("credentials.json"))
+    assert chiavi == {}
+    assert "anthropic_api_key" in messaggio
+
+
+def test_il_modello_riempito_da_esattamente_la_chiave_scritta(tmp_path):
+    """Il giro che l'utente fa davvero: copia, scrive, lancia."""
+    with open(_percorso_esempio("credentials.json"), encoding="utf-8") as f:
+        modello = json.load(f)
+    modello["credentials"]["anthropic_api_key"] = "sk-ant-finta"
+    percorso = _scrivi(tmp_path, json.dumps(modello), "chiavi.local.json")
+    chiavi, messaggio = mars_core.load_credentials(percorso)
+    assert chiavi == {"anthropic_api_key": "sk-ant-finta"}
+    assert messaggio == "", "il commento in testa non e' una chiave ignota"
+
+
 def test_credenziali_un_file_che_non_si_legge_e_un_errore(tmp_path):
     chiavi, errore = mars_core.load_credentials(str(tmp_path / "assente.json"))
     assert chiavi == {}

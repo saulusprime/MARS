@@ -515,3 +515,16 @@ def test_mars_citations_separava_gia_i_due_canali():
     fuori = _print_non_su_stderr(percorso)
     assert len(fuori) == 1, "solo il referto va su stdout"
     assert righe[fuori[0] - 1].strip() == "print(report)"
+
+
+def test_l_aiuto_mostra_come_si_scrive_il_file_delle_chiavi(aiuto):
+    """R62: «file JSON con le chiavi» non dice come si scrive.
+
+    L'aiuto rimandava a `examples/audit_request.json`, che e' il corpo
+    di una richiesta API: chi lo apriva trovava url, max_pages e
+    queries e non capiva quale parte servisse. Ora l'epilogo mostra il
+    file per intero, che e' l'unica forma che non si puo' fraintendere.
+    """
+    assert '"anthropic_api_key"' in aiuto, "il nome della chiave, in JSON"
+    assert "examples/credentials.json" in aiuto
+    assert "--credentials" in aiuto

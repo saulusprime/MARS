@@ -154,6 +154,14 @@ esempi:
   # i rilievi come tabella, da aprire in Excel o Fogli
   mars_audit.py https://example.com --format csv --output rilievi.csv
 
+  # con la propria chiave Anthropic, per il giudizio LLM (area 9).
+  # Il file e' JSON e questo e' tutto il suo contenuto:
+  #     {"credentials": {"anthropic_api_key": "sk-ant-..."}}
+  # Si ottiene da examples/credentials.json, che le altre chiavi
+  # riconosciute — hf_token, zap_api_key, zap_proxy — le elenca.
+  cp examples/credentials.json chiavi.local.json && chmod 600 chiavi.local.json
+  mars_audit.py https://example.com --credentials chiavi.local.json --llm on
+
   # confronto con l'esecuzione precedente dello stesso sito
   mars_audit.py https://example.com --history storico.jsonl
 
@@ -207,9 +215,11 @@ def costruisci_parser() -> argparse.ArgumentParser:
         "--credentials", metavar="FILE",
         help="File JSON con le chiavi degli strumenti opzionali: "
              "anthropic_api_key, hf_token, zap_api_key, zap_proxy. "
-             "Esempio: chiavi.local.json — si ottiene copiando "
-             "examples/audit_request.json, di cui accetta anche il "
-             "corpo intero. Un FILE e non un valore sul flag perche' "
+             "Esempio: chiavi.local.json, copiato da "
+             "examples/credentials.json — l'epilogo qui sotto ne mostra "
+             "il contenuto per intero. Va bene anche il corpo di una "
+             "richiesta API, di cui si legge il solo blocco "
+             "credentials. Un FILE e non un valore sul flag perche' "
              "gli argomenti di un processo sono leggibili da ogni "
              "utente locale in /proc e finiscono nella cronologia "
              "della shell: nel file ci finisce il percorso. Proteggilo "

@@ -46,7 +46,7 @@ questo documento va letto oggi:
   ancore diverse. Non è servito: dalla Fase 1 ogni rilievo ha una `key` stabile
   per costruzione, che è esattamente il problema che quello slug risolveva a
   valle. Il riferimento non aveva chiavi, noi sì
-  ([mars_report.py:1859](mars_report.py#L1859));
+  ([mars_report.py:2323](mars_report.py#L2323));
 - la Fase 8 prevedeva di **colorare ogni pagina della treemap** con la gravità
   peggiore dei rilievi che la citano. Applicata alla lettera, quella regola non
   trovava mai una corrispondenza e dipingeva tutto di «nessun problema» — un
@@ -57,7 +57,7 @@ questo documento va letto oggi:
   un'occorrenza — bensì da `params["urls"]`, che quattro moduli su nove già
   dichiaravano. Dove la Fase 5 e la Fase 8 scrivono «finché i Finding non
   portano `url` valorizzati», si legga oggi `params["urls"]`
-  ([mars_report.py:573](mars_report.py#L573));
+  ([mars_core.py:535](mars_core.py#L535));
 - la Fase 4 prevedeva una chiave `top_actions` accanto ai profili di
   citabilità. Non è stata aggiunta: sarebbe stata una seconda copia del piano,
   che diverge in silenzio dalla prima (vedi la voce **U4** in

@@ -33,7 +33,7 @@ import mars_wcag
 from conftest import TESTI_AXE, WHICH_VERO, pagina
 from mars_core import (AREA_PREFIX, MODULES_REGISTRY, SEV_CRITICAL,
                        SEV_INFO, SEV_WARNING, chiave_esterna,
-                       load_external_module)
+                       load_external_module, reciprocal_rank_fusion)
 from mars_report import STATO_LEGGIBILE
 
 
@@ -157,6 +157,47 @@ def test_llm_judge_senza_punteggio_dichiara_lo_stato(contesto):
     assert esito["status"] == "unavailable"
     assert any("senza indicare un punteggio" in i for i in esito["issues"]), \
         "e va detto perche', non solo che non c'e'"
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic])
+def test_il_k_del_contesto_governa_il_rango_aggregato(contesto, modulo):
+    """I3: le due aree fondono le classifiche per query con l'RRF, e il
+    `k` lo prendevano dal default della funzione.
+
+    Si guarda il k che la fusione RICEVE, e non l'ordine che ne esce: su
+    un corpus di due chunk l'ordine e' lo stesso per ogni k, quindi un
+    confronto fra ranghi passerebbe anche senza il parametro collegato —
+    provato, passava."""
+    visti = []
+
+    def spia(rankings, k=None):
+        visti.append(k)
+        return reciprocal_rank_fusion(rankings, k)
+
+    contesto["force_proxy"] = True
+    for k in (0, 7, 60):
+        contesto["rrf_k"] = k
+        modulo.reciprocal_rank_fusion = spia
+        try:
+            modulo.audit(dict(contesto))
+        finally:
+            modulo.reciprocal_rank_fusion = reciprocal_rank_fusion
+        assert visti and visti[-1] == k, "k non e' arrivato alla fusione"
+
+
+def test_il_k_cambia_davvero_la_fusione():
+    """La prova che il parametro non e' decorativo, su classifiche
+    costruite apposta. Con k piccolo vince la POSIZIONE, con k grande
+    vince la PRESENZA: e' l'intuizione che I3 voleva rendere visibile,
+    ed e' il motivo per cui il k non e' un dettaglio di taratura."""
+    # Il 7 e' primo in una lista sola; il 5 e' terzo in tutt'e due.
+    liste = [[7, 0, 5], [1, 2, 5]]
+
+    def primo(k):
+        return reciprocal_rank_fusion(liste, k)[0][0]
+
+    assert primo(0) == 7, "k=0: 1/1 batte 1/3+1/3"
+    assert primo(60) == 5, "k=60: 2/63 batte 1/61"
 
 
 @pytest.mark.parametrize("modulo, atteso", [

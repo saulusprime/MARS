@@ -1724,6 +1724,7 @@ def build_context(url: str, max_pages: int = 10,
                   timeout: int = DEFAULT_TIMEOUT,
                   owner_declaration: bool = False,
                   max_children: int = 0,
+                  rrf_k: Optional[int] = None,
                   llm: str = "auto",
                   queries: Optional[List[str]] = None,
                   credentials: Optional[dict] = None,
@@ -1776,6 +1777,11 @@ def build_context(url: str, max_pages: int = 10,
         # di MARS: e' l'unica leva su un secondo crawler che scopre le
         # pagine da se' (R56).
         "max_children": int(max_children or 0),
+        # Il k della fusione RRF. `None` e non RRF_K come default della
+        # firma: la costante e' dichiarata piu' sotto, insieme alla
+        # formula che la usa, e legarla qui obbligherebbe a spostarla
+        # per una ragione che non ha nulla a che vedere con lei.
+        "rrf_k": RRF_K if rrf_k is None else int(rrf_k),
         "skipped": crawler.skipped,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.

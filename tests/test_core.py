@@ -1661,6 +1661,34 @@ def test_build_context_porta_il_tetto_dello_spider(monkeypatch):
     assert ctx["max_children"] == 0, "il default e' quello di ZAP"
 
 
+def test_build_context_porta_il_k_della_fusione(monkeypatch):
+    """I3: `k` era il default di una funzione, quindi non c'era modo di
+    cambiarlo se non riscrivendo il codice.
+
+    Sta nel context e non fra i parametri del `Crawler` per la stessa
+    ragione di `max_children`: non riguarda la scansione, riguarda i
+    moduli che fondono le classifiche."""
+    class _CrawlerFinto:
+        def __init__(self, *a, **k):
+            self.delay = 0.0
+            self.robots_info = {"found": False, "text": "", "sitemaps": []}
+            self.sitemap_info = {}
+            self.discovery = "link interni"
+            self.skipped = {}
+
+        def crawl(self):
+            return {"https://x/": {"title": "x", "text": "x", "lang": "it",
+                                   "html": "<p>x</p>", "headings": [],
+                                   "chunks": ["x"]}}
+
+    monkeypatch.setattr(mars_core, "Crawler", _CrawlerFinto)
+    ctx = mars_core.build_context("https://x/", 1, "none", "global", rrf_k=10)
+    assert ctx["rrf_k"] == 10
+    ctx = mars_core.build_context("https://x/", 1, "none", "global")
+    assert ctx["rrf_k"] == mars_core.RRF_K == 60, \
+        "il default resta quello del paper (Cormack 2009)"
+
+
 # ----------------------------------------------------------------------
 # R57: le credenziali dalla riga di comando, senza passare dall'ambiente
 # ----------------------------------------------------------------------

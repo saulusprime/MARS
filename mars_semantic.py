@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, VectorRetriever,
                        describe_chunk, normalizza_severita,
-                       reciprocal_rank_fusion)
+                       reciprocal_rank_fusion, RRF_K)
 
 MIN_PAROLE = 40
 
@@ -339,7 +339,8 @@ def audit(context: dict) -> dict:
     # che hanno trovato qualcosa vi partecipano.
     rank = [indice for indice, _
             in reciprocal_rank_fusion([p["rank"] for p in per_query
-                                       if p["matched"]])]
+                                       if p["matched"]],
+                                      context.get("rrf_k", RRF_K))]
 
     pagine = context.get("pages") or {}
     conteggio: dict = defaultdict(int)

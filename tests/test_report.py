@@ -21,7 +21,9 @@ from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING, Finding,
 import mars_core
 import mars_remediation
 import mars_report
+from mars_core import RRF_K, reciprocal_rank_fusion
 from mars_report import (RENDERERS, SOGLIA_BUONO, SOGLIA_MEDIO, _classe,
+                         SCALA_K, rrf_sensitivity, _consenso,
                          _ancora, _correzioni, _md_cella,
                          ancore_dei_rilievi,
                          conteggi_per_gravita, depth_distribution,
@@ -2289,10 +2291,17 @@ def test_il_referto_dichiara_i_parametri_della_fusione(referto):
 def test_il_k_dichiarato_e_quello_che_gira_davvero():
     """Presidio della dichiarazione, non del valore.
 
-    Il referto dichiara `RRF_K`, ma la fusione la chiamano quattro
-    moduli: se uno passasse un `k` suo, il referto direbbe il falso e
-    nessun test sul contenuto se ne accorgerebbe. Si guarda il codice
-    perche' e' l'unico posto dove la divergenza esiste.
+    Fino a I3 diceva l'opposto — «nessuno passa un k esplicito» — ed
+    era giusto finche' il k era una costante: chi lo passasse avrebbe
+    fatto girare la fusione con un numero diverso da quello dichiarato.
+    Da I3 il k viene dal contesto, quindi la stessa divergenza si
+    ottiene NON passandolo: la chiamata userebbe il default della
+    funzione mentre il referto dichiara la scelta dell'utente.
+
+    Il valore non dev'essere un letterale: un `60` scritto a mano in un
+    modulo e' esattamente il k inventato che questo presidio esiste per
+    impedire. Si guarda il codice perche' e' l'unico posto dove la
+    divergenza esiste.
     """
     import ast
     import glob
@@ -2308,11 +2317,15 @@ def test_il_k_dichiarato_e_quello_che_gira_davvero():
             if nome != "reciprocal_rank_fusion":
                 continue
             chiamate += 1
-            assert len(nodo.args) == 1, "%s: k passato per posizione" % percorso
-            assert not [kw for kw in nodo.keywords if kw.arg == "k"], (
-                "%s: k passato esplicitamente, il referto direbbe il falso"
-                % percorso)
-    assert chiamate >= 4, "le chiamate sono quattro: trovate %d" % chiamate
+            argomenti = list(nodo.args[1:]) + [kw.value for kw in nodo.keywords
+                                               if kw.arg == "k"]
+            assert argomenti, (
+                "%s:%d: k non passato, il referto direbbe il falso"
+                % (os.path.basename(percorso), nodo.lineno))
+            assert not isinstance(argomenti[0], ast.Constant), (
+                "%s:%d: k e' un letterale, cioe' inventato li'"
+                % (os.path.basename(percorso), nodo.lineno))
+    assert chiamate >= 6, "le chiamate sono sei: trovate %d" % chiamate
 
 
 def test_le_soglie_sono_dichiarate_assenti(referto):
@@ -3109,3 +3122,116 @@ def test_il_javascript_del_grafo_non_calcola_piu_una_geometria():
     grafo no: se `Math.sqrt` torna qui dentro, e' tornata anche
     l'aritmetica non verificata."""
     assert "Math.sqrt" not in mars_report.REFERTO_JS
+
+
+# ----------------------------------------------------------------------
+# I3: il k della fusione, esposto e mostrato
+# ----------------------------------------------------------------------
+
+def test_il_referto_dichiara_il_k_del_contesto(contesto):
+    """`rrf.k` era la costante: con `--rrf-k` diventa una scelta, e un
+    referto che dichiarasse 60 mentre l'audit ne ha usato un altro
+    sarebbe irriproducibile proprio nel campo nato per renderlo tale."""
+    referto = build_report({}, dict(contesto, rrf_k=17))
+    assert referto["rrf"]["k"] == 17
+    assert build_report({}, dict(contesto))["rrf"]["k"] == RRF_K
+
+
+def _ranghi_per_k():
+    """Due aree con classifiche per query che rendono k osservabile."""
+    lex = {"rank": [], "per_query": [{"query": "a", "rank": [7, 0, 5],
+                                      "matched": True},
+                                     {"query": "b", "rank": [1, 2, 5],
+                                      "matched": True}]}
+    sem = {"rank": [], "per_query": [{"query": "a", "rank": [5, 7, 0],
+                                      "matched": True},
+                                     {"query": "b", "rank": [5, 1, 2],
+                                      "matched": True}]}
+    return {"mars_lexical": lex, "mars_semantic": sem}
+
+
+def test_la_sensibilita_a_k_e_una_misura_non_una_dichiarazione():
+    """I3: «mostrare come cambia il consenso al variare di k».
+
+    Il consenso di ogni singola query NON dipende da k — e' l'incrocio
+    dei primi tre di due liste, e la fusione non c'entra — quindi il
+    sondaggio si fa sul consenso AGGREGATO, che dai ranghi fusi viene e
+    che con k cambia davvero. Misurato su un sito reale da 128 chunk:
+    3/3 a k=10, 0/3 a k=60."""
+    chunks = [{"url": "https://x/", "heading": str(i), "text": "t"}
+              for i in range(8)]
+    voci = rrf_sensitivity(_ranghi_per_k(), chunks, 60)
+    assert [v["k"] for v in voci] == sorted(SCALA_K)
+    for v in voci:
+        atteso = _consenso(
+            [i for i, _ in reciprocal_rank_fusion(
+                [p["rank"] for p in _ranghi_per_k()["mars_lexical"]
+                 ["per_query"]], v["k"])],
+            [i for i, _ in reciprocal_rank_fusion(
+                [p["rank"] for p in _ranghi_per_k()["mars_semantic"]
+                 ["per_query"]], v["k"])],
+            chunks, "x", v["k"])
+        assert v["consensus_top3"] == atteso["consensus_top3"], "k=%d" % v["k"]
+
+
+def test_la_sensibilita_include_il_k_in_uso(contesto):
+    """Un sondaggio che non contenesse il valore con cui l'audit e'
+    girato lascerebbe il lettore a interpolare."""
+    voci = rrf_sensitivity(_ranghi_per_k(), [], 17)
+    assert 17 in [v["k"] for v in voci]
+    assert [v["k"] for v in voci] == sorted([v["k"] for v in voci])
+
+
+def _risultati_con_ranghi() -> dict:
+    """Due aree con classifiche vere, per far esistere il sondaggio."""
+    return {"mars_lexical": dict(_ranghi_per_k()["mars_lexical"],
+                                 status="ranking", score=100, issues=[],
+                                 findings=[], rank=[7, 0, 5]),
+            "mars_semantic": dict(_ranghi_per_k()["mars_semantic"],
+                                  status="ranking", score=100, issues=[],
+                                  findings=[], rank=[5, 7, 0])}
+
+
+def test_senza_ranghi_la_sensibilita_non_si_inventa():
+    """Nessuna delle due aree ha classifiche: non c'e' nulla da
+    sondare, e una lista vuota e' diversa da un sondaggio piatto."""
+    assert rrf_sensitivity({}, [], 60) == []
+
+
+def test_le_tre_viste_mostrano_la_sensibilita_a_k(contesto):
+    """I3 chiedeva di MOSTRARE come cambia il consenso, non solo di
+    poterlo cambiare: se il sondaggio resta nel JSON, l'intuizione la
+    vede solo chi legge il dato con un programma."""
+    referto = build_report(_risultati_con_ranghi(), dict(contesto))
+    assert referto["rrf_sensitivity"], "il dato c'e'"
+    for formato in ("text", "markdown", "html"):
+        reso = RENDERERS[formato](referto)
+        assert "k=0" in reso and "k=300" in reso, formato
+        assert "60" in reso, formato
+
+
+def test_la_riga_della_sensibilita_dice_quale_k_e_in_uso(contesto):
+    """Senza, il lettore vede quattro numeri e nessuno che sia il suo."""
+    referto = build_report(_risultati_con_ranghi(), dict(contesto, rrf_k=10))
+    testo = RENDERERS["text"](referto)
+    riga = [r for r in testo.split("\n") if "k=0" in r][0]
+    assert "k=10" in riga
+    assert riga.index("in uso") > riga.index("k=10")
+
+
+def test_le_viste_dichiarano_il_k_cambiato_fra_due_esecuzioni(referto):
+    """Un consenso aggregato che scende da 3/3 a 0/3 perche' e' cambiato
+    il k non e' un fatto del sito, ed e' esattamente ciò che la sezione
+    «rispetto a prima» sembrerebbe dire."""
+    con_delta = dict(referto)
+    con_delta["delta"] = {"previous_run": "2025-12-01T09:00:00+0000",
+                          "previous_version": "0.0.0", "scores": [],
+                          "overall": None, "resolved": [], "new": [],
+                          "by_title_fallback": False, "key_migrations": [],
+                          "rrf_k_changed": {"before": 10, "after": 60}}
+    for formato in ("text", "markdown", "html"):
+        reso = RENDERERS[formato](con_delta)
+        assert "10" in reso and "60" in reso, formato
+        assert "k" in reso, formato
+        riga = [r for r in reso.split("\n") if "10" in r and "60" in r]
+        assert riga, "%s: i due k non compaiono insieme" % formato

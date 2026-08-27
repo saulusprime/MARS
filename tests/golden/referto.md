@@ -287,6 +287,8 @@ I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il
 | quanto costa una seduta di drenaggio linfatico | 3/3 | https://esempio.test/ § Quanto dura una seduta? |
 | parcheggio riservato | nessun riscontro | — |
 
+al variare di k: k=0 2/3 · k=10 2/3 · k=60 (in uso) 2/3 · k=300 2/3
+
 ## Cosa non è stato guardato
 
 - vietato da robots.txt: https://esempio.test/privato

@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R62**, idee fino a
-> **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I17**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -79,13 +79,7 @@ ha una casella: se si decide di farla, la casella si aggiunge.
       manca e che renderebbe il rilievo una misura invece di un'opinione.
       Senza (a) o (b) resta prosa, e va lasciata dov'è. Dipende quindi da U10,
       o da una decisione che non richiede U10.
-- [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
-      accessibilità delle tabelle, brand nel footer. **U11.1 è chiusa** il
-      2026-08-27 e sta in [AS-IS.md](AS-IS.md): il referto ha la palette del
-      sito di Lympha Technologies e un tema solo, il chiaro. Il perimetro
-      l'ha ristretto l'utente ai soli colori, quindi caratteri, forme e logo
-      nella testata **non** sono lavoro rimasto: sono decisioni prese. Il
-      «brand nel footer» resta qui, dov'era.
+
 ---
 
 ## Completamento
@@ -119,12 +113,15 @@ diventa una voce con la sua analisi e la sua casella.
 Due portano qui una **misura**, e non una proposta, perché rifarla costerebbe:
 sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
 
+**I3 è stata decisa e realizzata** il 2026-08-27 e sta in
+[AS-IS.md](AS-IS.md): `--rrf-k` esiste, e il referto mostra come cambia il
+consenso al variare di k. La voce la dava «didattica, quasi gratis»; misurando
+si è visto che quel parametro sposta il segnale «Recuperabilità» del
+complessivo — da 100 a 0 sullo stesso sito, fra k=10 e k=60.
+
 - **I2** — `--fail-under` per `mars_audit`, con exit code ≠ 0 sotto la soglia.
   Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per
   questo in [mars_audit.py:27](mars_audit.py#L27).
-- **I3** — esporre `--rrf-k` e mostrare come cambia il consenso al variare di
-  `k` (oggi `RRF_K = 60`, [mars_core.py:1810](mars_core.py#L1810)). Didattica,
-  quasi gratis.
 - **I4 + I9** — **quali** chunk stiano fuori dall'intersezione fra i due
   recuperatori, non quanti: `consensus_top3` già dice quanti. Le due idee sono
   una domanda sola vista da due lati, e chi ne apre una apra l'altra.
@@ -154,5 +151,15 @@ sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
   riempie l'indice di frammenti che gonfiano la lunghezza su cui BM25
   normalizza. Serve un elenco dichiarato di articoli e preposizioni elidibili,
   non una regola generale.
+- **I17** — il consenso aggregato regge il segnale «Recuperabilità», che entra
+  nel complessivo, ed è **fragile rispetto a k**. *Misurato il 2026-08-27
+  chiudendo I3, sullo stesso sito e nello stesso minuto:* 3/3 e complessivo
+  77.9 con `--rrf-k 10`, 0/3 e complessivo 59.2 con il predefinito 60. Le
+  strade sono tre e vanno decise, non dedotte: lasciare tutto com'è ora che il
+  referto lo dichiara e lo sonda; togliere quel segnale dal complessivo, come
+  già si fa per le due aree di classifica; oppure sostituirlo con una misura
+  che da k non dipenda — per esempio la sovrapposizione media fra i primi N
+  delle due liste per query, che è il consenso per query e infatti non si
+  muove. Frontiera: **I17**.
 - **I16** — `--form-factor {mobile,desktop}` per confrontare like-for-like con
   il referto PageSpeed che il committente ha sotto gli occhi.

@@ -27,6 +27,7 @@
   "llm": "auto",
   "i_own_this_domain": false,
   "max_children": 0,
+  "rrf_k": 60,
   "credentials": {
     "anthropic_api_key": "SEGNAPOSTO-sostituire-fuori-dal-repository",
     "hf_token": "SEGNAPOSTO-solo-per-modelli-Hugging-Face-ad-accesso-limitato",

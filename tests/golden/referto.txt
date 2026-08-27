@@ -81,6 +81,7 @@ PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
 -------------------------------------------------------
 Simulazione RRF      : Consenso Top-3 = 2/3 su 4 chunk
   aggregato su 3 query
+  al variare di k: k=0 2/3 · k=10 2/3 · k=60 (in uso) 2/3 · k=300 2/3
 Top Chunk Ibrido     : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
   drenaggio linfatico                3/3
   quanto costa una seduta di drenagg 3/3

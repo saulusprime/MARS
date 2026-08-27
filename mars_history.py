@@ -121,6 +121,12 @@ def riga_storico(referto: dict) -> dict:
         "scores": {area.get("module"): area.get("score")
                    for area in referto.get("areas") or []},
         "overall": complessivo.get("score"),
+        # Il k con cui la fusione ha girato: due esecuzioni con k
+        # diversi non confrontano la stessa misura — il consenso
+        # aggregato, e quindi il segnale «Recuperabilita'», da esso
+        # dipendono. Archiviato e non dedotto: dalla riga di ieri il k
+        # di ieri non si ricava in nessun altro modo (I3).
+        "rrf_k": (referto.get("rrf") or {}).get("k"),
         "findings": rilievi,
     }
 
@@ -190,6 +196,14 @@ def migrazioni_fra(precedente: object, corrente: object) -> List[dict]:
     return esito
 
 
+def _k_cambiato(precedente: dict, corrente: dict) -> Optional[dict]:
+    """Il k della fusione se e' cambiato fra le due esecuzioni."""
+    prima, dopo = precedente.get("rrf_k"), corrente.get("rrf_k")
+    if not isinstance(prima, int) or not isinstance(dopo, int):
+        return None
+    return {"before": prima, "after": dopo} if prima != dopo else None
+
+
 def compute_delta(precedente: Optional[dict],
                   corrente: dict) -> Optional[dict]:
     """Che cosa e' cambiato fra due esecuzioni.
@@ -251,6 +265,12 @@ def compute_delta(precedente: Optional[dict],
         # sito. Lista vuota e non assente, per la stessa ragione.
         "key_migrations": migrazioni_fra(precedente.get("version"),
                                          corrente.get("version")),
+        # Stesso spirito delle due righe qui sopra: il confronto non si
+        # butta via, si dichiara indebolito. `None` quando i due k
+        # coincidono e quando uno dei due manca — una riga scritta
+        # prima di I3 non lo porta, e inventarlo direbbe una cosa che
+        # non si sa.
+        "rrf_k_changed": _k_cambiato(precedente, corrente),
     }
 
 

@@ -45,7 +45,7 @@ def _area(modulo="mars_tech", score=57, rilievi=None) -> dict:
 def test_la_riga_tiene_solo_cio_che_serve_al_confronto():
     riga = st.riga_storico(_referto([_area(rilievi=[_rilievo()])]))
     assert set(riga) == {"generated_at", "url", "version", "schema_version",
-                         "scores", "overall", "findings"}
+                         "scores", "overall", "findings", "rrf_k"}
     assert riga["scores"] == {"mars_tech": 57}
     assert riga["overall"] == 70.0
     # `params` accanto a `title` da U9.2: il delta si RENDE, e un
@@ -312,3 +312,32 @@ def test_una_versione_che_non_si_legge_e_None_e_non_zero():
     assert st._semver(" 2.9.0 ") == (2, 9, 0)
     for illeggibile in ("sviluppo", "2.9", "v2.9.0", "", None, "2.9.0-rc1"):
         assert st._semver(illeggibile) is None, illeggibile
+
+
+def test_la_riga_di_storico_registra_il_k_della_fusione():
+    """I3: con `--rrf-k` due esecuzioni dello stesso sito possono aver
+    fuso con k diversi, e il delta le confronterebbe come se fossero la
+    stessa misura. Il k va archiviato con la riga, non dedotto."""
+    referto = {"generated_at": "x", "url": "https://x/", "version": "1",
+               "rrf": {"k": 10}, "areas": [], "overall": {"score": 50}}
+    assert st.riga_storico(referto)["rrf_k"] == 10
+
+
+def test_il_delta_dichiara_un_k_cambiato():
+    """Come `by_title_fallback` e `key_migrations`: il confronto non si
+    butta via, si dichiara indebolito. Un consenso aggregato che passa
+    da 3/3 a 0/3 perche' e' cambiato il k non e' un fatto del sito."""
+    prima = {"generated_at": "ieri", "version": "1", "rrf_k": 10,
+             "scores": {}, "findings": []}
+    dopo = {"generated_at": "oggi", "version": "1", "rrf_k": 60,
+            "scores": {}, "findings": []}
+    delta = st.compute_delta(prima, dopo)
+    assert delta["rrf_k_changed"] == {"before": 10, "after": 60}
+
+    uguale = st.compute_delta(dict(prima, rrf_k=60), dopo)
+    assert uguale["rrf_k_changed"] is None, "nessuna nota se il k e' lo stesso"
+
+    vecchia = dict(prima)
+    del vecchia["rrf_k"]
+    assert st.compute_delta(vecchia, dopo)["rrf_k_changed"] is None, \
+        "una riga scritta prima di I3 non porta il k: non si inventa"

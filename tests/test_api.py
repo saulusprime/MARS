@@ -395,3 +395,28 @@ def test_api_max_children_arriva_al_contesto(client, auth, monkeypatch):
     monkeypatch.setattr(mars_api, "core_build_context", finto)
     client.post("/audit/full", json=dict(CORPO, max_children=19), headers=auth)
     assert visti.get("max_children") == 19
+
+
+def test_api_rrf_k_arriva_al_contesto(client, auth, monkeypatch):
+    """I3, e la stessa lezione di R56: CLI e API sono due interfacce
+    sopra lo stesso motore, quindi il k della fusione si passa da
+    entrambe o il principio 4 e' una frase."""
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_api, "core_build_context", finto)
+    client.post("/audit/full", json=dict(CORPO, rrf_k=10), headers=auth)
+    assert visti.get("rrf_k") == 10
+    client.post("/audit/full", json=dict(CORPO), headers=auth)
+    assert visti.get("rrf_k") == 60, "il default resta quello del paper"
+
+
+def test_api_un_k_negativo_e_rifiutato(client, auth):
+    """La formula divide per (k + posizione + 1): il modello lo ferma
+    prima della scansione, come `--rrf-k` da riga di comando."""
+    esito = client.post("/audit/full", json=dict(CORPO, rrf_k=-1),
+                        headers=auth)
+    assert esito.status_code == 422

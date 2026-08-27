@@ -709,6 +709,16 @@ _CORNICE_EN: Dict[str, str] = {
     "altro strumento": "other tool",
     "Nessun rilievo.": "No findings.",
     "Come si aggiusta": "How to fix it",
+    "al variare di k:": "as k varies:",
+    "in uso": "in use",
+    "  (il k della fusione è cambiato, da %d a %d: il "
+    "consenso aggregato non è la stessa misura)":
+        "  (the fusion k changed, from %d to %d: the aggregate "
+        "consensus is not the same measure)",
+    "Il k della fusione è cambiato, da %d a %d: il consenso "
+    "aggregato delle due esecuzioni non è la stessa misura.":
+        "The fusion k changed, from %d to %d: the aggregate consensus "
+        "of the two runs is not the same measure.",
     "Esempio — non è contenuto del tuo sito":
         "Example — not content from your site",
     "Link a questo rilievo": "Link to this finding",

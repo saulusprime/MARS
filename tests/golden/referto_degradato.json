@@ -700,6 +700,7 @@
   ],
   "rrf_simulation": [],
   "rrf_aggregate": null,
+  "rrf_sensitivity": [],
   "citability": {
     "score": 67.9,
     "status": null,

@@ -15,7 +15,7 @@ import sys
 from typing import Dict, List, Optional
 
 from mars_core import (SEV_INFO, Finding, describe_chunk,
-                       reciprocal_rank_fusion)
+                       reciprocal_rank_fusion, RRF_K)
 
 MODEL = "claude-opus-5"
 MAX_CHUNK = 8          # quanti passaggi sottoporre al modello
@@ -145,7 +145,8 @@ def seleziona_chunk(context: dict) -> List[dict]:
     lessicale = (results.get("mars_lexical") or {}).get("rank")
     semantico = (results.get("mars_semantic") or {}).get("rank")
     if lessicale and semantico:
-        fusi = reciprocal_rank_fusion([lessicale, semantico])
+        fusi = reciprocal_rank_fusion([lessicale, semantico],
+                                      context.get("rrf_k", RRF_K))
         indici = [i for i, _ in fusi if i < len(chunks)]
     else:
         indici = list(range(len(chunks)))

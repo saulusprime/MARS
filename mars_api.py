@@ -21,7 +21,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       MODULES_REGISTRY, __version__,
+                       MODULES_REGISTRY, RRF_K, __version__,
                        load_external_module, normalizza_risultato)
 from mars_core import build_context as core_build_context
 from mars_report import build_report
@@ -157,6 +157,17 @@ class AuditRequest(BaseModel):
         description="Tetto ai link seguiti per pagina dallo spider ZAP, "
                     "che gira solo con i_own_this_domain. 0 = nessun "
                     "tetto, come il default di ZAP.")
+    rrf_k: int = Field(
+        RRF_K, ge=0, le=100000,
+        description="Il k della fusione RRF: decide quanto pesa la "
+                    "posizione rispetto alla presenza in più "
+                    "classifiche. 60 è il valore del paper Cormack "
+                    "2009. Non è una manopola di taratura — sposta il "
+                    "consenso aggregato e con lui il segnale "
+                    "Recuperabilità del complessivo — e due referti "
+                    "con k diversi non si confrontano alla pari: il "
+                    "referto dichiara in rrf.k quale ha usato, e in "
+                    "rrf_sensitivity come cambierebbe.")
     i_own_this_domain: bool = Field(
         default=False,
         description="DICHIARAZIONE di proprietà del dominio e di assunzione "
@@ -268,6 +279,7 @@ def build_context(req: AuditRequest) -> dict:
                                  delay=req.delay, timeout=req.timeout,
                                  owner_declaration=req.i_own_this_domain,
                                  max_children=req.max_children,
+                                 rrf_k=req.rrf_k,
                                  llm=req.llm, queries=req.queries,
                                  credentials=_credenziali(req))
     if context is None:

@@ -13,7 +13,8 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from mars_core import (SEV_INFO, Finding, LexicalRetriever, describe_chunk,
-                       normalizza_severita, reciprocal_rank_fusion, tokenize)
+                       normalizza_severita, reciprocal_rank_fusion,
+                       RRF_K, tokenize)
 
 # Sotto questa soglia una pagina non porta abbastanza testo perche' i
 # suoi termini raggiungano una frequenza che BM25 possa valorizzare: la
@@ -218,7 +219,8 @@ def audit(context: dict) -> dict:
     # ordine di scansione con una classifica vera sposta il risultato
     # senza dire nulla sul sito.
     fusi = reciprocal_rank_fusion([p["rank"] for p in per_query
-                                   if p["matched"]])
+                                   if p["matched"]],
+                                  context.get("rrf_k", RRF_K))
     rank = [indice for indice, _ in fusi]
 
     esito = {

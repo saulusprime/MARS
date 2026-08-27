@@ -425,9 +425,37 @@ def test_cli_main_senza_flag_non_inventa_credenziali(monkeypatch):
     assert visti["credentials"] is None
 
 
+def test_cli_il_flag_rrf_k_esiste_e_ha_il_default_del_paper():
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).rrf_k == 60
+    assert parser.parse_args(["https://x/", "--rrf-k", "10"]).rrf_k == 10
+
+
+def test_cli_un_k_negativo_e_un_errore_d_uso(capsys):
+    """`1/(k + rank + 1)` con k=-1 e il primo posto divide per zero:
+    l'audit morirebbe dentro la fusione, a scansione fatta."""
+    with pytest.raises(SystemExit):
+        mars_audit.costruisci_parser().parse_args(["https://x/",
+                                                   "--rrf-k", "-1"])
+    assert "rrf-k" in capsys.readouterr().err
+
+
+def test_cli_rrf_k_arriva_al_contesto(monkeypatch):
+    """L'anello che a `--max-children` era sfuggito due volte: un flag
+    che si ferma prima di `build_context` e' indistinguibile da uno che
+    funziona, e nessun test lo attraversava."""
+    visti = {}
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: visti.update(k) or None)
+    mars_audit.run_audit("https://x/", 1, "none", "global", rrf_k=7)
+    assert visti.get("rrf_k") == 7
+    mars_audit.main(["https://x/", "--rrf-k", "11"])
+    assert visti.get("rrf_k") == 11, "e anche dalla riga di comando"
+
 # ----------------------------------------------------------------------
 # R59: diagnostica su stderr, referto su stdout
 # ----------------------------------------------------------------------
+
 
 def _print_non_su_stderr(percorso: str) -> list:
     """Le righe dei `print()` che non dichiarano `file=sys.stderr`."""

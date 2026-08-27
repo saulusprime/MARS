@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
 | R61 | «Correzione:» nel CSS: un referto inglese lo diceva in italiano | 2026-08-27 |
@@ -2373,6 +2374,86 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I3 — ✅ REALIZZATA (2026-08-27): `--rrf-k`, e che cosa cambia davvero
+
+*(idea decisa dall'utente. La voce la dava «didattica, quasi gratis»: la misura
+ha detto un'altra cosa.)*
+
+**Che cosa c'era.** `k=60` era il default di `reciprocal_rank_fusion()`, e un
+presidio di U7 vietava a chiunque di passarne uno: il referto dichiarava
+`rrf.k = RRF_K`, e chi lo avesse passato avrebbe fatto girare la fusione con un
+numero diverso da quello dichiarato.
+
+**La misura, prima di scrivere.** L'idea chiedeva di «mostrare come cambia il
+consenso al variare di k». Misurato su due corpora:
+
+| | k=0 | k=10 | k=60 | k=300 | k=1000 |
+|---|---|---|---|---|---|
+| consenso **per query** (5 query, sito reale) | 0,0,2,0,2 | *identico* | *identico* | *identico* | *identico* |
+| consenso **aggregato** (128 chunk, sito reale) | 1/3 | **3/3** | **0/3** | 0/3 | 0/3 |
+
+Il consenso di una singola query **non può** dipendere da k: è l'incrocio dei
+primi tre di due classifiche, e la fusione non entra nel conto. Sondarlo
+darebbe una riga piatta che sembra una misura di robustezza e non lo è.
+
+Il consenso **aggregato** invece dai ranghi fusi viene, e si muove moltissimo —
+e non è un numero qualsiasi: `segnali_derivati()` lo trasforma nel segnale
+**«Recuperabilità»**, che entra nel punteggio complessivo. Sullo stesso sito,
+lo stesso giorno, con lo stesso corpus: **100 a k=10, 0 a k=60**. Cioè il
+parametro che l'idea chiamava didattico sposta un voto pubblicato.
+
+**Che cosa è stato fatto.**
+
+- `--rrf-k N` (CLI) e `rrf_k` (API), default 60, con `k >= 0` validato ai due
+  bordi: la formula divide per `k + posizione + 1`, e k=-1 sul primo posto è
+  una divisione per zero che arriverebbe **a scansione fatta**.
+- `context["rrf_k"]`, letto dai tre moduli che fondono (`mars_lexical`,
+  `mars_semantic`, `mars_llm_judge`) e dalle tre fusioni del referto.
+- **Il presidio di U7 è stato rovesciato, non tolto**: diceva «nessuno passa un
+  k esplicito», ed era giusto finché il k era una costante. Ora la stessa
+  divergenza si ottiene **non** passandolo, quindi il test pretende che ogni
+  chiamata lo passi e che non sia un letterale — un `60` scritto a mano in un
+  modulo è il k inventato che il presidio esiste per impedire.
+- `rrf_sensitivity` nel dato e una riga nelle tre viste che lo rendono:
+  `al variare di k: k=0 3/3 · k=10 3/3 · k=60 (in uso) 0/3 · k=300 0/3`.
+  Si rifondono le classifiche **già calcolate**: nessuna interrogazione in più.
+- La riga di storico archivia il k, e il delta dichiara `rrf_k_changed`: un
+  consenso che scende da 3/3 a 0/3 perché è cambiato il k **non è un fatto del
+  sito**, ed è esattamente ciò che la sezione «rispetto a prima» sembrerebbe
+  dire. È la stessa scelta di `by_title_fallback` e `key_migrations` — il
+  confronto non si butta via, si dichiara indebolito.
+
+**Additivo**: `schema_version` resta **3**. Nessuna chiave rimossa o
+rinominata; `rrf.k` cambia valore solo se l'utente lo chiede.
+
+**Prove.**
+
+- **End-to-end sul sito reale, due audit identici salvo il k** — stesso
+  crawl, stesse cinque query, `--embeddings none`:
+
+  | | `--rrf-k 10` | `--rrf-k 60` |
+  |---|---|---|
+  | `rrf.k` dichiarato | 10 | 60 |
+  | consenso aggregato | **3/3** | **0/3** |
+  | segnale «Recuperabilità» | 100.0 | 0.0 |
+  | **punteggio complessivo** | **77.9** | **59.2** |
+
+  Diciotto punti e sette decimi di differenza fra due referti dello stesso
+  sito, prodotti nello stesso minuto, per un parametro che fino a ieri non si
+  vedeva. È la ragione per cui il sondaggio sta nel referto e il k
+  nell'archivio.
+- Sette mutazioni, tutte colte: contesto che ignora il k; referto che dichiara
+  la costante invece del k in uso; CLI che non propaga il flag; validatore che
+  accetta un k negativo; sondaggio senza il k in uso; storico che non registra
+  il k; delta che tace il k cambiato.
+- Un test che non dipende dal corpus: si guarda il k che la fusione **riceve**,
+  non l'ordine che ne esce. Sul corpus della fixture l'ordine è lo stesso per
+  ogni k — provato: il confronto fra ranghi passava anche senza il parametro
+  collegato.
+- Golden rigenerati e diff riveduto: due chiavi additive nel JSON e una riga
+  nelle tre viste, nient'altro.
+- `pytest` **1167 passed**, `flake8 .` a zero.
 
 ### U11.1 — ✅ (2026-08-27): la palette del referto è quella del sito
 

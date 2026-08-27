@@ -13,7 +13,7 @@ import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
                        DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT,
-                       MODULES_REGISTRY, __version__, build_context,
+                       MODULES_REGISTRY, RRF_K, __version__, build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
 from mars_core import load_credentials, load_queries
@@ -36,6 +36,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               timeout: int = DEFAULT_TIMEOUT,
               owner_declaration: bool = False,
               max_children: int = 0,
+              rrf_k: int = RRF_K,
               credentials: dict | None = None,
               llm: str = "auto", formato: str = "text",
               output: str | None = None,
@@ -47,6 +48,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
                             max_children=max_children,
+                            rrf_k=rrf_k,
                             credentials=credentials,
                             llm=llm, queries=queries, lang=lang)
 
@@ -188,6 +190,26 @@ o una chiave Anthropic il programma non fallisce — ripiega e lo dichiara nel
 referto, distinguendo "non misurato" da un punteggio basso."""
 
 
+def k_non_negativo(valore: str) -> int:
+    """Il k della fusione: intero e >= 0.
+
+    Non e' pignoleria: la formula divide per `k + rank + 1`, quindi
+    k=-1 sul primo posto e' una divisione per zero, e morirebbe dentro
+    la fusione a scansione gia' fatta — cioe' dopo aver fatto lavorare
+    il sito.
+    """
+    try:
+        numero = int(valore)
+    except ValueError:
+        raise argparse.ArgumentTypeError("--rrf-k vuole un intero, non %r"
+                                         % valore)
+    if numero < 0:
+        raise argparse.ArgumentTypeError(
+            "--rrf-k non puo' essere negativo: la formula divide per "
+            "(k + posizione + 1)")
+    return numero
+
+
 def costruisci_parser() -> argparse.ArgumentParser:
     """Il parser degli argomenti.
 
@@ -237,6 +259,19 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "non esatto. Senza la dichiarazione non serve: li' l'area 7 "
              "guarda le pagine gia' scansionate, e a quelle basta "
              "--max-pages.")
+
+    parser.add_argument(
+        "--rrf-k", type=k_non_negativo, default=RRF_K, metavar="N",
+        help="Il k della fusione RRF, che decide quanto pesa la "
+             "POSIZIONE rispetto alla PRESENZA in piu' classifiche. "
+             "Valori: 60 (predefinito, il valore del paper Cormack "
+             "2009), 0 conta solo le prime posizioni, 300 quasi solo "
+             "l'esserci. Non e' una manopola di taratura: sposta il "
+             "consenso aggregato e con lui il segnale "
+             "«Recuperabilita'» del complessivo, e il referto sonda "
+             "quattro valori per mostrarlo. Due referti con k diversi "
+             "non si confrontano alla pari, e il referto dichiara "
+             "quale ha usato.")
 
     parser.add_argument(
         "--queries", metavar="FILE",
@@ -373,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
                      args.market, delay=args.delay, timeout=args.timeout,
                      owner_declaration=args.owner_declaration,
                      max_children=args.max_children,
+                     rrf_k=args.rrf_k,
                      credentials=chiavi,
                      llm=args.llm, formato=args.formato,
                      output=args.output, queries=elenco_query,

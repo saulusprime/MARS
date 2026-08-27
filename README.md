@@ -546,9 +546,28 @@ genericita' della domanda.
 
 Il referto riporta il consenso di ogni query e un consenso aggregato,
 ottenuto fondendo con l'RRF le classifiche di tutte le query. Quello
-aggregato e' la misura piu' solida: un passaggio che sale in alto per
-entrambi i recuperatori su piu' domande e' recuperabile davvero, mentre
-un consenso su una sola domanda puo' essere un caso.
+aggregato e' la misura piu' solida rispetto alla singola domanda: un
+passaggio che sale in alto per entrambi i recuperatori su piu' domande
+e' recuperabile davvero, mentre un consenso su una sola domanda puo'
+essere un caso. E' pero' anche l'unico dei due che dipende da k — il
+consenso di una query e' l'incrocio dei primi tre di due classifiche, e
+la fusione non entra nel conto.
+
+Il k della fusione (--rrf-k, predefinito 60, il valore del paper
+Cormack 2009) decide quanto pesa la POSIZIONE rispetto alla PRESENZA in
+piu' classifiche: con k basso vince chi e' primo da qualche parte, con
+k alto vince chi c'e' quasi ovunque. Non e' una manopola di taratura, e
+il referto lo mostra invece di dirlo: sotto il consenso aggregato
+stampa una riga di sondaggio
+
+    al variare di k: k=0 3/3 · k=10 3/3 · k=60 (in uso) 0/3 · k=300 0/3
+
+e quei numeri vengono da un sito vero da 128 chunk. Il consenso
+aggregato e' il segnale «Recuperabilita'» che entra nel punteggio
+complessivo, quindi cambiare k cambia un voto: il referto dichiara in
+rrf.k quale ha usato, la riga di storico lo archivia, e il confronto
+con l'esecuzione precedente dice quando i due differiscono, perche' li'
+«peggiorato» non sarebbe un fatto del sito.
 
 Formati del referto (--format, predefinito text):
 

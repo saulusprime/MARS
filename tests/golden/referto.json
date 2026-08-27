@@ -1305,6 +1305,32 @@
       "parcheggio riservato"
     ]
   },
+  "rrf_sensitivity": [
+    {
+      "k": 0,
+      "consensus_top3": 2,
+      "consensus_out_of": 3,
+      "in_use": false
+    },
+    {
+      "k": 10,
+      "consensus_top3": 2,
+      "consensus_out_of": 3,
+      "in_use": false
+    },
+    {
+      "k": 60,
+      "consensus_top3": 2,
+      "consensus_out_of": 3,
+      "in_use": true
+    },
+    {
+      "k": 300,
+      "consensus_top3": 2,
+      "consensus_out_of": 3,
+      "in_use": false
+    }
+  ],
   "citability": {
     "score": 60.7,
     "status": null,
@@ -2780,6 +2806,7 @@
         "since": "2.9.0",
         "reason": "gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39)"
       }
-    ]
+    ],
+    "rrf_k_changed": null
   }
 }

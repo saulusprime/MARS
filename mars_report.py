@@ -70,6 +70,9 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
     """
     context = context or {}
     chunks = context.get("chunks") or []
+    # Il k EFFETTIVO, non la costante: da I3 e' una scelta di chi lancia
+    # l'audit, e `rrf.k` esiste apposta per dire con quale ha girato.
+    k_fusione = int(context.get("rrf_k", RRF_K))
 
     aree = []
     for nome, descrizione in MODULES_REGISTRY:
@@ -138,7 +141,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         # fusione era il default di una funzione: due esecuzioni con k
         # diversi non sono confrontabili alla pari, e senza scriverlo
         # qui bisognerebbe aprire il codice di quella versione.
-        "rrf": {"k": RRF_K, "formula": RRF_FORMULA},
+        "rrf": {"k": k_fusione, "formula": RRF_FORMULA},
         # `null` finche' le soglie non sono configurabili, e dichiararlo
         # e' il punto: due referti con soglie diverse non si confrontano
         # alla pari, quindi la chiave esiste da subito — quando le
@@ -167,8 +170,11 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "areas": aree,
         # Chiave del contratto con mars_citations.py --from-audit:
         # lista di voci ciascuna con la propria "query".
-        "rrf_simulation": rrf_simulation(results, chunks),
-        "rrf_aggregate": rrf_aggregate(results, chunks),
+        "rrf_simulation": rrf_simulation(results, chunks, k_fusione),
+        "rrf_aggregate": rrf_aggregate(results, chunks, k_fusione),
+        # Additivo, quindi `schema_version` non si muove: chi non lo
+        # legge non se ne accorge.
+        "rrf_sensitivity": rrf_sensitivity(results, chunks, k_fusione),
         "citability": results.get("mars_citability"),
         "llm_judgement": results.get("mars_llm_judge"),
         "lexical": {"top_chunk":
@@ -1013,7 +1019,7 @@ def link_graph_data(pagine: List[dict], base: str,
 
 
 def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
-              query: str, misurabile: bool = True) -> dict:
+              query: str, k: int, misurabile: bool = True) -> dict:
     """Consenso fra due classifiche sui primi tre chunk.
 
     `misurabile` distingue "i due recuperatori non concordano" da "non
@@ -1028,7 +1034,12 @@ def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
                 "consensus_out_of": None, "top_chunk": None,
                 "top_chunk_url": None, "matched": False}
     attesi = min(3, len(rank_a), len(rank_b))
-    fusi = reciprocal_rank_fusion([rank_a, rank_b])
+    # `k` obbligatorio e senza default: e' il passaggio in cui il
+    # referto puo' cominciare a dire il falso — dichiarare un k e
+    # fondere con un altro — e un default lo renderebbe possibile per
+    # dimenticanza. Il consenso in se' non dipende da k (e' l'incrocio
+    # dei primi tre), ma il passaggio in testa si'.
+    fusi = reciprocal_rank_fusion([rank_a, rank_b], k)
     top = fusi[0][0] if fusi and fusi[0][0] < len(chunks) else None
     return {
         "query": query,
@@ -1040,7 +1051,8 @@ def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
     }
 
 
-def rrf_simulation(results: dict, chunks: List[dict]) -> List[dict]:
+def rrf_simulation(results: dict, chunks: List[dict],
+                   k: int) -> List[dict]:
     """Esito della fusione, una voce per query interrogata.
 
     E' la chiave che mars_citations.py --from-audit legge per riusare
@@ -1054,13 +1066,57 @@ def rrf_simulation(results: dict, chunks: List[dict]) -> List[dict]:
     comuni = [q for q in voci_lex if q in voci_sem]
     # Basta che UNO dei due non abbia trovato nulla perche' il
     # confronto non abbia oggetto.
-    return [_consenso(voci_lex[q]["rank"], voci_sem[q]["rank"], chunks, q,
+    return [_consenso(voci_lex[q]["rank"], voci_sem[q]["rank"], chunks, q, k,
                       misurabile=(voci_lex[q].get("matched", True)
                                   and voci_sem[q].get("matched", True)))
             for q in comuni]
 
 
-def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
+# I k del sondaggio. Zero e' l'estremo in cui conta solo la POSIZIONE
+# (1/(rank+1)); 300 quello in cui conta quasi solo la PRESENZA, perche'
+# 1/(300+r) e' quasi lo stesso numero per ogni r. In mezzo il 10 e il 60
+# del paper, che e' il predefinito. Quattro colonne: una in piu' non
+# aggiunge intuizione, una in meno toglie un estremo.
+SCALA_K = (0, 10, 60, 300)
+
+
+def rrf_sensitivity(results: dict, chunks: List[dict],
+                    k_in_uso: int) -> List[Dict[str, object]]:
+    """Come cambia il consenso AGGREGATO al variare di k (I3).
+
+    Il consenso di una singola query non dipende da k e non puo'
+    dipenderne: e' l'incrocio dei primi tre di due classifiche, e la
+    fusione non entra nel conto. Sondarlo darebbe una riga piatta che
+    sembra una misura di robustezza e non lo e'. Il consenso aggregato
+    invece dai ranghi fusi viene, e con k cambia davvero — misurato su
+    un sito reale da 128 chunk: 3/3 a k=10 e 0/3 a k=60, cioe' il
+    segnale «Recuperabilita'» che entra nel complessivo passa da 100 a
+    0. E' la ragione per cui questo sondaggio sta nel referto e non in
+    una nota didattica: quel numero il lettore lo vede altrove.
+
+    Si rifondono le classifiche PER QUERY gia' calcolate: non si
+    interroga di nuovo nulla, e il costo e' quello di qualche divisione.
+    """
+    lex = (results.get("mars_lexical") or {}).get("per_query") or []
+    sem = (results.get("mars_semantic") or {}).get("per_query") or []
+    liste_lex = [p["rank"] for p in lex if p.get("matched")]
+    liste_sem = [p["rank"] for p in sem if p.get("matched")]
+    if not liste_lex or not liste_sem:
+        return []
+    voci = []
+    for k in sorted(set(SCALA_K) | {int(k_in_uso)}):
+        rank_lex = [i for i, _ in reciprocal_rank_fusion(liste_lex, k)]
+        rank_sem = [i for i, _ in reciprocal_rank_fusion(liste_sem, k)]
+        misura = _consenso(rank_lex, rank_sem, chunks, str(k), k)
+        voci.append({"k": k,
+                     "consensus_top3": misura["consensus_top3"],
+                     "consensus_out_of": misura["consensus_out_of"],
+                     "in_use": k == int(k_in_uso)})
+    return voci
+
+
+def rrf_aggregate(results: dict, chunks: List[dict],
+                  k: int) -> Optional[dict]:
     """Consenso sui ranghi aggregati, cioe' su tutte le query insieme.
 
     E' la misura piu' solida delle due: un chunk che sale in alto per
@@ -1072,7 +1128,7 @@ def rrf_aggregate(results: dict, chunks: List[dict]) -> Optional[dict]:
     if "rank" not in lex or "rank" not in sem:
         return None
     aggregato = _consenso(lex["rank"], sem["rank"], chunks,
-                          "(aggregato su tutte le query)",
+                          "(aggregato su tutte le query)", k,
                           misurabile=bool(lex["rank"] and sem["rank"]))
     aggregato["queries"] = lex.get("queries") or []
     return aggregato
@@ -1175,6 +1231,25 @@ def _quota_consenso(voce: dict) -> Optional[float]:
     if voce.get("consensus_top3") is None or not voce.get("consensus_out_of"):
         return None
     return 100.0 * voce["consensus_top3"] / voce["consensus_out_of"]
+
+
+def sensibilita_leggibile(voci: List[dict],
+                          lang: str = LINGUA_CANONICA) -> str:
+    """Il sondaggio su k come una riga sola, per tutte e tre le viste.
+
+    Una riga e non una tabella: sono quattro numeri, e il lettore deve
+    poterli confrontare con un colpo d'occhio. Il k in uso e' marcato,
+    altrimenti sono quattro valori e nessuno che sia il suo.
+    """
+    if not voci:
+        return ""
+    pezzi = []
+    for v in voci:
+        etichetta = "k=%d" % v["k"]
+        if v.get("in_use"):
+            etichetta += " (%s)" % t("in uso", lang)
+        pezzi.append("%s %s" % (etichetta, _consenso_leggibile(v, lang)))
+    return " · ".join(pezzi)
 
 
 def _consenso_leggibile(voce: dict,
@@ -1422,6 +1497,11 @@ def _delta_testo(referto: dict,
         if len(elenco) > DELTA_IN_TESTO:
             righe.append(t("    · ... e altri %d", lang)
                          % (len(elenco) - DELTA_IN_TESTO))
+    cambio_k = delta.get("rrf_k_changed")
+    if cambio_k:
+        righe.append(t("  (il k della fusione è cambiato, da %d a %d: il "
+                       "consenso aggregato non è la stessa misura)", lang)
+                     % (cambio_k["before"], cambio_k["after"]))
     if delta.get("by_title_fallback"):
         righe.append(t("  (qualche rilievo non ha una chiave stabile: "
                        "confrontato sul titolo)", lang))
@@ -1647,6 +1727,11 @@ def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
                         referto["chunks"]))
         righe.append(t("  aggregato su %d query", lang)
                      % len(referto["rrf_simulation"]))
+        sensibilita = sensibilita_leggibile(
+            referto.get("rrf_sensitivity") or [], lang)
+        if sensibilita:
+            righe.append("  %s %s" % (t("al variare di k:", lang),
+                                      sensibilita))
         if aggregato["top_chunk"]:
             righe.append("%s %s" % (t("Top Chunk Ibrido     :", lang),
                                     aggregato["top_chunk"]))
@@ -3063,6 +3148,13 @@ def _sezione_delta(referto: dict, p: List[str],
                  % "".join("<li>%s</li>"
                            % _e(finding_texts(r, lang)["title"])
                            for r in elenco))
+    cambio_k = delta.get("rrf_k_changed")
+    if cambio_k:
+        p.append("<p class='meta'>%s</p>"
+                 % (t("Il k della fusione è cambiato, da %d a %d: il "
+                      "consenso aggregato delle due esecuzioni non è la "
+                      "stessa misura.", lang)
+                    % (cambio_k["before"], cambio_k["after"])))
     if delta.get("by_title_fallback"):
         p.append("<p class='meta'>%s</p>"
                  % t("Qualche rilievo non ha una chiave stabile: il "
@@ -3152,6 +3244,11 @@ def _sezione_rrf(referto: dict, p: List[str],
             p.append("<p class='meta'>%s<br><code>%s</code></p>"
                      % (t("Passaggio più recuperabile:", lang),
                         _e(aggregato["top_chunk"])))
+        sensibilita = sensibilita_leggibile(
+            referto.get("rrf_sensitivity") or [], lang)
+        if sensibilita:
+            p.append("<p class='meta'>%s <b>%s</b></p>"
+                     % (t("al variare di k:", lang), _e(sensibilita)))
         p.append("</div>")
     if simulazione:
         p.append("<table><tr><th>%s</th><th>%s</th>"
@@ -3705,6 +3802,13 @@ def render_markdown(referto: dict,
             r += ["", "**%s (%d)**" % (titolo, len(elenco)), ""]
             r += ["- %s" % _md_cella(finding_texts(x, lang)["title"])
                   for x in elenco]
+        cambio_k = delta.get("rrf_k_changed")
+        if cambio_k:
+            r += ["", "*%s*"
+                  % (t("Il k della fusione è cambiato, da %d a %d: il "
+                       "consenso aggregato delle due esecuzioni non è la "
+                       "stessa misura.", lang)
+                     % (cambio_k["before"], cambio_k["after"]))]
         if delta.get("by_title_fallback"):
             r += ["", "*%s*"
                   % t("Qualche rilievo non ha una chiave stabile: il "
@@ -3804,6 +3908,11 @@ def render_markdown(referto: dict,
                      % (_md_cella(voce["query"]),
                         _md_cella(_consenso_leggibile(voce, lang)),
                         _md_cella(voce.get("top_chunk") or "—")))
+        sensibilita = sensibilita_leggibile(
+            referto.get("rrf_sensitivity") or [], lang)
+        if sensibilita:
+            r += ["", "%s %s" % (t("al variare di k:", lang),
+                                 _md_cella(sensibilita))]
 
     if referto.get("skipped"):
         r += ["", "## %s" % t("Cosa non è stato guardato", lang), ""]

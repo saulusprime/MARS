@@ -10,6 +10,7 @@ Licenza: Apache 2.0
 from __future__ import annotations
 
 import os
+import sys
 import time
 from typing import Dict, List, Optional
 
@@ -791,7 +792,7 @@ def audit(context: dict) -> dict:
               "(puo' richiedere diversi minuti)..."
               % (credenziali.get("zap_proxy") or ZAP_PROXY,
                  "ATTIVA, con spider" if active
-                 else "passiva sulle pagine gia' scansionate"))
+                 else "passiva sulle pagine gia' scansionate"), file=sys.stderr)
         campione = list(context.get("urls") or [])
         tetto = int(context.get("max_children") or 0)
         esito_zap = run_zap(url, client, active=active, urls=campione,
@@ -906,6 +907,6 @@ def audit(context: dict) -> dict:
                     "findings": ([f.as_dict() for f in testa]
                                  + esito["findings"]
                                  + [f.as_dict() for f in coda])}
-        print("  ZAP non ha completato: ripiego sui soli header HTTP.")
+        print("  ZAP non ha completato: ripiego sui soli header HTTP.", file=sys.stderr)
         return _ripiego_dopo_zap(url)
     return audit_headers(url)

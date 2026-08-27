@@ -185,7 +185,7 @@ def load_external_module(module_name: str) -> Optional[ModuleType]:
     except Exception as e:
         sys.modules.pop(module_name, None)
         _MODULI.pop(module_name, None)
-        print(f"Errore caricamento {file_path}: {e}")
+        print(f"Errore caricamento {file_path}: {e}", file=sys.stderr)
         return None
 
     _MODULI[module_name] = (firma, mod)
@@ -939,7 +939,7 @@ class Crawler:
     def crawl(self) -> dict:
         if self.owner_declaration:
             print("  \u26a0 Dichiarazione di proprieta' attiva su %s: "
-                  "robots.txt ignorato." % self.base_host)
+                  "robots.txt ignorato." % self.base_host, file=sys.stderr)
         da_sitemap = self.fetch_sitemap()
         # La sitemap, quando c'e', e' la dichiarazione del sito su cosa
         # vuole far indicizzare: si rispetta e non si va a caccia di
@@ -978,7 +978,7 @@ class Crawler:
             try:
                 esito = self._scarica_pagina(richiesto)
             except requests.RequestException as exc:
-                print("Errore nel crawling di %s: %s" % (richiesto, exc))
+                print("Errore nel crawling di %s: %s" % (richiesto, exc), file=sys.stderr)
                 continue
             if esito is None:
                 continue    # il motivo l'ha gia' registrato _scarica_pagina
@@ -1325,7 +1325,7 @@ class VectorRetriever:
 
         if self.use_real:
             model_cls, self._cosine = st
-            print(f"  Caricamento modello SentenceTransformer: {model_name}...")
+            print(f"  Caricamento modello SentenceTransformer: {model_name}...", file=sys.stderr)
             # token= serve solo per i modelli ad accesso limitato o
             # privati dell'Hub; per quelli pubblici e' ininfluente.
             # Senza, huggingface_hub legge comunque HF_TOKEN
@@ -1334,7 +1334,7 @@ class VectorRetriever:
                           else model_cls(model_name))
             self.embeddings = self.model.encode(self.corpus)
         else:
-            print("  Utilizzo proxy Char-TFIDF.")
+            print("  Utilizzo proxy Char-TFIDF.", file=sys.stderr)
             self.df: dict = {}
             self.doc_vecs: List[dict] = []
             self.doc_norms: List[float] = []

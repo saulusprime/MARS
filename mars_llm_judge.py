@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from typing import Dict, List, Optional
 
 from mars_core import (SEV_INFO, Finding, describe_chunk,
@@ -314,7 +315,7 @@ def audit(context: dict) -> dict:
     prompt = costruisci_prompt(context.get("url", ""), chunks)
     costo = costo_stimato(prompt)
     print("  Giudizio LLM: invio %d passaggi (~%d token stimati) a %s..."
-          % (len(chunks), costo["token_stimati_input"], MODEL))
+          % (len(chunks), costo["token_stimati_input"], MODEL), file=sys.stderr)
 
     # Da qui in avanti la richiesta e' partita: i rilievi lo dicono, e
     # portano con se' la traccia della spesa. `costo_stimato` esce oggi

@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R59 | Diagnostica e referto sullo stesso canale: il JSON non si rileggeva | 2026-08-27 |
 | R58 | L'annuncio della spesa si stampava anche quando nulla partiva | 2026-08-27 |
 | R57 | Le chiavi dalla riga di comando, e un `main()` che si esegue | 2026-08-27 |
 | R56 | `--max-children`, e un perimetro dichiarato inesatto | 2026-08-27 |
@@ -2368,6 +2369,77 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R59 — ✅ (2026-08-27): diagnostica su `stderr`, referto su `stdout`
+
+*(ultima delle quattro voci nate dall'esecuzione reale dell'utente sul giudizio
+LLM, con **R57** e **R58**.)*
+
+**Il difetto.** Ogni stampa di avanzamento usava `print()`, e `run_audit`
+scriveva il referto sullo stesso canale quando mancava `--output`: dato e
+diagnostica su `stdout`. Riprodotto contro un sito servito in locale —
+`mars_audit.py URL --format json > referto.json` esce con **0**, e il file
+comincia con «Avvio scansione MARS Beacon su: …»: `json.loads` muore su
+`Expecting value: line 1 column 1`, e `stderr` è vuoto.
+
+**La decisione che il TO-DO lasciava aperta non esisteva.** La voce chiedeva se
+`mars_citations.py` fosse una seconda voce, «altre 8 stampe con lo stesso
+problema». Misurato sull'AST dei sorgenti: sono otto, ma **sette dichiarano già
+`file=sys.stderr`** e l'ottava è il referto. Lì il difetto non c'era — ed è lo
+stesso file che il principio 7 indica come stile di riferimento. Un test lo
+tiene vero, perché una stampa aggiunta senza `file=` lo ricreerebbe.
+
+Il censimento vero, sempre dall'AST:
+
+| File | `print()` | su `stdout` prima | dopo |
+|---|---|---|---|
+| `mars_audit.py` | 14 | 14 | 0 (più il referto, con `sys.stdout.write`) |
+| `mars_core.py` | 5 | 5 | 0 |
+| `mars_wapt.py` | 2 | 2 | 0 |
+| `mars_llm_judge.py` | 1 | 1 | 0 |
+| `mars_citations.py` | 8 | 1, ed è il referto | invariato |
+| `mars_api.py` | 3 | 3 | invariato |
+
+**`mars_api.py` è fuori di proposito**, e non per dimenticanza: non scrive mai
+un referto su `stdout` — il dato esce dalla risposta HTTP — quindi le sue tre
+stampe non possono mescolarsi ad alcun dato. Il difetto è la **convivenza** dei
+due sul canale, non il canale in sé.
+
+**Soluzione.** Ogni `print()` dei quattro file porta `file=sys.stderr`; il
+referto esce con `sys.stdout.write(testo + "\n")`. Non è cosmesi: dichiarare il
+dato con un gesto diverso dalla diagnostica lascia l'invariante «ogni `print()`
+di questi file va su `stderr`» **senza un'eccezione da ricordare**, ed era
+proprio l'eccezione dimenticata a produrre il difetto. La sostituzione è stata
+fatta sulle posizioni dell'AST e non a mano — con le colonne lette in **byte**
+UTF-8, che è ciò che l'AST usa: tagliare per caratteri sposta il punto di
+innesto su ogni riga con un accento o una ⚠.
+
+**Effetto collaterale dichiarato:** con `--output`, `stdout` è ora **vuoto** —
+«Referto scritto in …» è diagnostica. Chi rediriga `stdout` di un audit con
+`--output` trova un file vuoto dove prima trovava quella riga. È la stessa
+convenzione che `mars_citations.py` applica dal principio.
+
+**Prove.**
+
+- End-to-end contro un sito servito in locale, tre formati: `stdout` comincia
+  con `{`, con il BOM del CSV e con `#`; `stderr` porta «Avvio scansione…»; il
+  JSON si rilegge (9 aree, complessivo 58.6). Prima: uscita 0 e
+  `JSONDecodeError` sulla prima colonna.
+- Cinque test nuovi in `tests/test_cli.py`: i tre formati che non portano
+  diagnostica su `stdout` (per `json`, `json.loads` sul canale intero), un
+  **invariante sull'AST** dei quattro file, e la misura su `mars_citations.py`.
+- Quattro test esistenti ora leggono `stderr` invece di `stdout`, ed è la
+  prova visibile del cambiamento. Uno di essi —
+  `test_la_cli_rilegge_lo_storico_e_produce_il_delta` — ha smesso di
+  **ritagliare il JSON fra la prima graffa e l'ultima**: era il rattoppo che il
+  difetto imponeva. I tre test di R22 continuano invece a leggere `stdout` e
+  restano verdi: l'errore del modulo è nel referto, non solo nella stampa.
+- Quattro mutazioni, tutte colte: una stampa di `mars_audit` su `stdout` → 5
+  rossi; una stampa di `mars_wapt` su `stdout` → 1, **e solo l'invariante**,
+  che è la ragione per cui esiste (nessun test esercita quel ripiego); il
+  referto su `stderr` → 8; il rilevatore dei `print` neutralizzato → 1, quindi
+  non è un controllo morto.
+- `pytest` **1138 passed**, `flake8 .` a zero.
 
 ### R58 — ✅ (2026-08-27): l'annuncio della spesa, e un presidio che non presidiava
 

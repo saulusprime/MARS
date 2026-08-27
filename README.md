@@ -616,6 +616,19 @@ si dà in pasto a mars_citations.py --from-audit, che ne riusa le stesse
 query della simulazione RRF: cosi' stima e misura della citabilita'
 guardano le stesse domande.
 
+Due canali, come vuole la convenzione Unix: sullo STDOUT esce solo il
+referto, sullo STDERR tutta la diagnostica — avanzamento, moduli
+rilevati, errori d'uso, «Referto scritto in …». Quindi
+
+    python3 mars_audit.py https://sito.it --format json > referto.json
+
+produce un file che si rilegge, e l'avanzamento resta a video. Fino al
+2026-08-27 no: il file cominciava con «Avvio scansione MARS Beacon
+su: …» e json.loads moriva sulla prima colonna (R59). Da notare che con
+--output lo stdout resta VUOTO: «Referto scritto in …» e' diagnostica.
+Vale per mars_audit.py e per i moduli; mars_citations.py separava gia' i
+due canali.
+
 Codici di uscita di mars_audit.py: 0 referto prodotto; 2 nessuna pagina
 indicizzata **oppure** errore d'uso (argomento non valido, file di --queries
 illeggibile); 3 impossibile scrivere il file di --output. Il valore 1 resta

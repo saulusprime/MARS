@@ -1,7 +1,9 @@
 # HANDOFF — 2026-08-27
 
-> Questo file esiste solo perché resta lavoro a metà. Quando R59 è chiusa,
-> **si cancella**: il suo contenuto duraturo sta già altrove.
+> Questo file esiste solo perché resta lavoro a metà. Il lavoro **tecnico**
+> non ne ha più: le cinque correzioni della sessione sono chiuse. Restano
+> due **decisioni tue** sugli stati temporanei qui sotto: quando le hai
+> prese, questo file si cancella.
 >
 > Ordine di lettura: questo → [AS-IS.md](AS-IS.md) → [TO-DO.md](TO-DO.md).
 
@@ -14,13 +16,14 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento a fine sessione: `flake8` 0, `pytest` **1133 passed**.
+  Riferimento a fine sessione: `flake8` 0, `pytest` **1138 passed**.
+- **Nulla è stato spinto sul remoto**: i commit di oggi sono locali.
 
 ## Che cosa è stato fatto oggi
 
-Otto voci chiuse — R53, R54, R55, R56, R57, R58 più le due pulizie del
-TO-DO — tutte in [AS-IS.md](AS-IS.md) con difetto, misura e prove. Le
-quattro che contano per chi riprende:
+Nove voci chiuse — da R53 a R59, più le due pulizie del TO-DO — tutte in
+[AS-IS.md](AS-IS.md) con difetto, misura e prove. Le quattro che contano
+per chi riprende:
 
 - **R55/R56**: lo spider di ZAP non rispettava robots.txt ed è ora dietro
   `--i-own-this-domain`. Senza dichiarazione l'area 7 vede solo le pagine
@@ -32,30 +35,29 @@ quattro che contano per chi riprende:
   l'SDK guarda — `api_key`, `auth_token`, `credentials` — e non la sola
   chiave, altrimenti un profilo `ant auth login` verrebbe scambiato per
   assenza.
+- **R59**: diagnostica su `stderr`, referto su `stdout`. Da sapere prima
+  di aggiungere una stampa: un `print()` senza `file=sys.stderr` in
+  `mars_audit`, `mars_core`, `mars_wapt` o `mars_llm_judge` fa fallire
+  `test_su_stdout_va_solo_il_referto`, che legge l'AST dei sorgenti. Il
+  referto si scrive con `sys.stdout.write`, apposta.
 - **`schema_version` è a 3** (R53). `__version__` resta 2.9.0.
 
-## Prossimo passo: R59
+## Prossimo passo
 
-È l'unica correzione aperta, **già riprodotta**: i numeri stanno nel TO-DO,
-non serve rimisurare per cominciare.
+Nessuna correzione aperta. Il [TO-DO](TO-DO.md) ha cinque caselle: le tre
+fasi UPGRADE residue (U10, U10.1, U11) e le due prove mancanti (C4, il
+giudizio LLM mai eseguito contro il servizio reale — **bloccata su una
+chiave**, non sul codice — e `evaluate_answer` di `mars_citations.py`).
 
-- **R59** — `mars_audit.py URL --format json > f.json` non si rilegge.
-  13 stampe in `mars_audit.py`, 8 nei moduli, altre 8 in
-  `mars_citations.py`: quest'ultima è la decisione da prendere — una voce
-  sola o due. Da sapere: R58 ha appena tolto **una** di quelle stampe dal
-  percorso senza credenziali, non dal codice.
-
-## Stati temporanei da sapere
+## Le due decisioni che tengono in vita questo file
 
 - **`cliente_1.json` è nella radice, non tracciato e non ignorato**, e
-  contiene l'URL di un cliente. Viene da un'esecuzione reale; decidere se
-  ignorarlo (`*.local.json` lo sarebbe già) o spostarlo.
+  contiene l'URL di un cliente. Viene da un'esecuzione reale: da ignorare
+  (`*.local.json` lo sarebbe già), da spostare o da cancellare.
 - **`python-dotenv` 1.2.3 è installato nel `.venv`** ma **nessuno lo
   chiama** e non sta in alcun `requirements*.txt`. È stato installato per
   far leggere `.env`, che MARS non legge: dopo R57 la strada è
   `--credentials`, quindi il pacchetto si può disinstallare.
-- **Nessun daemon ZAP né server di prova è rimasto acceso** (porte 8080 e
-  8933-8938 chiuse a fine sessione).
 
 ## Credenziali, dopo R57
 

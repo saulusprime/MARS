@@ -19,11 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Sei caselle aperte**, di cui una sola correzione. R55, R56, R57 e R58 sono
-> aperte e chiuse il 2026-08-27, tutte nate da osservazioni dell'utente sul
-> campo e non da una revisione: due da un sospetto su `--max-pages`, le altre
-> da un giudizio LLM che annunciava un invio mai partito. **R59** viene da
-> quella stessa indagine e resta da fare.
+> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R59 sono
+> tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
+> campo e non da una revisione — due da un sospetto su `--max-pages`, le altre
+> tre da un giudizio LLM che annunciava un invio mai partito. Restano il
+> programma UPGRADE e due prove mancanti.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -35,32 +35,13 @@
 
 ## Correzioni
 
-Una, aperta il 2026-08-27 da un'esecuzione reale dell'utente sul giudizio LLM.
-Le altre due della stessa indagine sono chiuse lo stesso giorno e stanno in
-[AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di passare una
-credenziale — `--credentials FILE`) e **R58** (l'annuncio della spesa si
-stampava anche quando nulla sarebbe partito).
-
-Non è grave, ed è già riprodotta una volta: i numeri qui sotto sono misure.
-
-### R59 — 🟡 MEDIO: i messaggi di avanzamento inquinano il referto su stdout
-
-Tutte le stampe di avanzamento usano `print()`, e `run_audit` scrive il referto
-sullo stesso canale quando manca `--output`. Diagnostica e dato condividono
-`stdout`, quindi redirigere il dato cattura anche la diagnostica.
-
-**Riprodotto:** `mars_audit.py URL --format json > referto.json` produce un file
-che comincia con «Avvio scansione MARS Beacon su: …» e **non si legge** —
-`JSONDecodeError: Expecting value: line 1 column 1`. Vale per `json`, `csv` e
-`markdown`. Con `--output` il file è corretto.
-
-La correzione è la convenzione Unix — diagnostica su `stderr`, dato su `stdout`
-— e tocca 13 stampe in `mars_audit.py` più 8 sparse nei moduli (`mars_wapt`,
-`mars_llm_judge`, `mars_core`). Da decidere: `mars_citations.py` ne ha altre 8
-e ha lo stesso problema, quindi o si fa in due voci o in una sola dichiarata.
-
-- [ ] Mandare su `stderr` ciò che è diagnostica, lasciando su `stdout` il solo
-      referto, e presidiarlo con un test che rilegge il JSON da una pipe.
+**Nessuna aperta.** Le tre dell'indagine del 2026-08-27 sono chiuse lo stesso
+giorno e stanno in [AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun**
+modo di passare una credenziale — `--credentials FILE`), **R58** (l'annuncio
+della spesa si stampava anche quando nulla sarebbe partito) e **R59**
+(diagnostica e referto sullo stesso canale). Chiudendo R59 si è misurato che la
+seconda voce che quella lasciava intravedere — le stampe di
+`mars_citations.py` — **non esisteva**: là i due canali erano già separati.
 
 ---
 

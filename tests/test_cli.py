@@ -8,6 +8,7 @@ Licenza: Apache 2.0
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shlex
@@ -238,7 +239,10 @@ def _audit_con_storico(monkeypatch, capsys, contesto, percorso):
                         lambda *a, **k: contesto)
     codice = mars_audit.run_audit("https://x/", 1, "none", "global",
                                   formato="json", storico=percorso)
-    return codice, capsys.readouterr().out
+    # I due canali interi, non il solo stdout: da R59 dicono cose
+    # diverse — il referto e la diagnostica — e un test deve dire quale
+    # dei due sta guardando.
+    return codice, capsys.readouterr()
 
 
 def test_la_cli_scrive_lo_storico(monkeypatch, capsys, contesto, tmp_path):
@@ -246,7 +250,7 @@ def test_la_cli_scrive_lo_storico(monkeypatch, capsys, contesto, tmp_path):
     codice, uscita = _audit_con_storico(monkeypatch, capsys, contesto,
                                         percorso)
     assert codice == 0
-    assert "Storico aggiornato" in uscita
+    assert "Storico aggiornato" in uscita.err
     righe = open(percorso, encoding="utf-8").read().strip().split("\n")
     assert len(righe) == 1
     assert json.loads(righe[0])["scores"] == {"mars_tech": 57}
@@ -259,7 +263,10 @@ def test_la_cli_rilegge_lo_storico_e_produce_il_delta(monkeypatch, capsys,
     percorso = str(tmp_path / "storico.jsonl")
     _audit_con_storico(monkeypatch, capsys, contesto, percorso)
     _, uscita = _audit_con_storico(monkeypatch, capsys, contesto, percorso)
-    referto = json.loads(uscita[uscita.index("{"):uscita.rindex("}") + 1])
+    # `json.loads` sul canale INTERO, senza piu' ritagliare fra la
+    # prima graffa e l'ultima: era il rattoppo che il difetto R59
+    # imponeva a chiunque rileggesse il referto da stdout.
+    referto = json.loads(uscita.out)
     assert referto["delta"] is not None
     assert referto["delta"]["previous_run"] is not None
     assert len(open(percorso, encoding="utf-8").read().strip().split("\n")) == 2
@@ -289,7 +296,7 @@ def test_uno_storico_non_scrivibile_non_fa_fallire_l_audit(monkeypatch,
     codice, uscita = _audit_con_storico(monkeypatch, capsys, contesto,
                                         str(cartella / "s.jsonl"))
     assert codice == 0
-    assert "Impossibile scrivere lo storico" in uscita
+    assert "Impossibile scrivere lo storico" in uscita.err
 
 
 def test_cli_max_children_arriva_al_contesto(monkeypatch):
@@ -405,7 +412,7 @@ def test_cli_main_si_ferma_su_un_file_di_chiavi_illeggibile(monkeypatch,
                               str(tmp_path / "assente.json")])
     assert codice == mars_audit.EXIT_USO
     assert not partito, "l'audit non deve nemmeno cominciare"
-    assert "assente.json" in capsys.readouterr().out
+    assert "assente.json" in capsys.readouterr().err
 
 
 def test_cli_main_senza_flag_non_inventa_credenziali(monkeypatch):
@@ -416,3 +423,95 @@ def test_cli_main_senza_flag_non_inventa_credenziali(monkeypatch):
                         lambda *a, **k: visti.update(k) or 0)
     mars_audit.main(["https://x/"])
     assert visti["credentials"] is None
+
+
+# ----------------------------------------------------------------------
+# R59: diagnostica su stderr, referto su stdout
+# ----------------------------------------------------------------------
+
+def _print_non_su_stderr(percorso: str) -> list:
+    """Le righe dei `print()` che non dichiarano `file=sys.stderr`."""
+    with open(percorso, encoding="utf-8") as handle:
+        albero = ast.parse(handle.read())
+    fuori = []
+    for nodo in ast.walk(albero):
+        if not (isinstance(nodo, ast.Call)
+                and getattr(nodo.func, "id", "") == "print"):
+            continue
+        canale = next((k.value for k in nodo.keywords if k.arg == "file"),
+                      None)
+        if not (isinstance(canale, ast.Attribute)
+                and canale.attr == "stderr"):
+            fuori.append(nodo.lineno)
+    return sorted(fuori)
+
+
+@pytest.mark.parametrize("formato, apertura", [
+    ("json", "{"),
+    ("csv", "﻿"),
+    ("markdown", "#"),
+])
+def test_il_referto_su_stdout_non_porta_diagnostica(monkeypatch, capsys,
+                                                    contesto, formato,
+                                                    apertura):
+    """R59: `mars_audit.py URL --format json > f.json` non si rileggeva.
+
+    Il file cominciava con «Avvio scansione MARS Beacon su: …» e
+    `json.loads` moriva sulla prima colonna. La convenzione Unix e'
+    l'unica che tenga: il DATO su stdout, la DIAGNOSTICA su stderr.
+    Vale per tutti e tre i formati che qualcuno redirige."""
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica")])
+    monkeypatch.setattr(mars_audit, "load_external_module",
+                        lambda nome: _ModuloConPunteggio)
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: contesto)
+    codice = mars_audit.run_audit("https://x/", 1, "none", "global",
+                                  formato=formato)
+    uscita = capsys.readouterr()
+
+    assert codice == 0
+    assert uscita.out.startswith(apertura), "su stdout c'e' altro"
+    assert "Avvio scansione" not in uscita.out
+    assert "Rilevamento Moduli" not in uscita.out
+    assert "Avvio scansione" in uscita.err, "e la diagnostica non si perde"
+    if formato == "json":
+        json.loads(uscita.out)      # e' il gesto che il difetto rompeva
+
+
+def test_su_stdout_va_solo_il_referto(monkeypatch, capsys, contesto):
+    """Il presidio dell'invariante, e non del solo percorso di sopra.
+
+    `mars_audit.py` e i moduli che stampano durante un audit scrivono
+    su stdout una cosa sola — il referto — e lo fanno con
+    `sys.stdout.write`, che il DATO lo dichiara. Ogni `print()` di quei
+    file e' diagnostica e va su `stderr`: cosi' non c'e' un'eccezione
+    da ricordare, e una stampa aggiunta domani nel posto sbagliato fa
+    rosso qui invece che nel referto di qualcuno.
+
+    `mars_api.py` non e' nell'elenco e non e' una dimenticanza: non
+    scrive mai un referto su stdout — il dato esce dalla risposta HTTP
+    — quindi le sue tre stampe non possono mescolarsi ad alcun dato.
+    """
+    for nome in ("mars_audit.py", "mars_core.py", "mars_wapt.py",
+                 "mars_llm_judge.py"):
+        percorso = os.path.join(RADICE, nome)
+        assert _print_non_su_stderr(percorso) == [], \
+            "%s stampa su stdout" % nome
+
+
+def test_mars_citations_separava_gia_i_due_canali():
+    """La misura che ha sciolto la decisione lasciata aperta nel TO-DO.
+
+    La voce chiedeva se `mars_citations.py` fosse una seconda voce,
+    dicendo che aveva «altre 8 stampe con lo stesso problema». Sono
+    otto, ma sette dichiarano gia' `file=sys.stderr` e l'ottava e' il
+    referto: il difetto li' non c'era. Il test lo tiene vero, perche'
+    una stampa aggiunta senza `file=` lo ricreerebbe."""
+    percorso = os.path.join(RADICE, "mars_citations.py")
+    with open(percorso, encoding="utf-8") as handle:
+        sorgente = handle.read()
+    righe = sorgente.split("\n")
+    fuori = _print_non_su_stderr(percorso)
+    assert len(fuori) == 1, "solo il referto va su stdout"
+    assert righe[fuori[0] - 1].strip() == "print(report)"

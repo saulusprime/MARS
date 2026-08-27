@@ -42,7 +42,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               queries: list[str] | None = None,
               storico: str | None = None,
               lang: str = LINGUA_CANONICA) -> int:
-    print(f"Avvio scansione MARS Beacon su: {url}")
+    print(f"Avvio scansione MARS Beacon su: {url}", file=sys.stderr)
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
                             owner_declaration=owner_declaration,
@@ -51,12 +51,12 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             llm=llm, queries=queries, lang=lang)
 
     if context is None:
-        print("Nessuna pagina indicizzata.")
+        print("Nessuna pagina indicizzata.", file=sys.stderr)
         # Codice 2, non 0: un audit che non ha guardato nulla non e'
         # un audit riuscito, e una pipeline deve poterlo distinguere.
         return EXIT_NESSUNA_PAGINA
 
-    print("\n--- Rilevamento Moduli Attivi ---")
+    print("\n--- Rilevamento Moduli Attivi ---", file=sys.stderr)
     results = {}
     # Stesso dict, popolato mentre il ciclo avanza: un modulo di
     # sintesi puo' cosi' leggere i punteggi delle aree gia' eseguite.
@@ -67,7 +67,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
         ext_mod = load_external_module(mod_name)
 
         if ext_mod:
-            print(f"[✓] {mod_desc} ({mod_name}.py)")
+            print(f"[✓] {mod_desc} ({mod_name}.py)", file=sys.stderr)
             # L'esito finisce SEMPRE in results, anche quando e' un
             # fallimento: un'area che sparisce dal referto senza
             # lasciare traccia e' peggio di una dichiarata fallita, e
@@ -80,12 +80,13 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                 else:
                     results[mod_name] = {
                         "error": "manca la funzione audit()"}
-                    print(f"  ⚠ Modulo {mod_name}.py trovato ma manca funzione 'audit()'")
+                    print(f"  ⚠ Modulo {mod_name}.py trovato ma manca "
+                          "funzione 'audit()'", file=sys.stderr)
             except Exception as e:
                 results[mod_name] = errore_modulo(e)
-                print(f"  Errore esecuzione audit: {e}")
+                print(f"  Errore esecuzione audit: {e}", file=sys.stderr)
         else:
-            print(f"[ ] {mod_desc} ignorato (file non trovato)")
+            print(f"[ ] {mod_desc} ignorato (file non trovato)", file=sys.stderr)
 
     # L'esecuzione precedente si legge PRIMA di comporre il referto:
     # il delta e' una chiave del dato canonico, non una nota della
@@ -102,9 +103,9 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
     if storico:
         if mars_history.appendi_storico(storico,
                                         mars_history.riga_storico(referto)):
-            print(f"Storico aggiornato in {storico}")
+            print(f"Storico aggiornato in {storico}", file=sys.stderr)
         else:
-            print(f"⚠ Impossibile scrivere lo storico in {storico}")
+            print(f"⚠ Impossibile scrivere lo storico in {storico}", file=sys.stderr)
 
     testo = RENDERERS[formato](referto, lang)
     if output:
@@ -112,11 +113,16 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
             with open(output, "w", encoding="utf-8") as handle:
                 handle.write(testo)
         except OSError as exc:
-            print(f"Impossibile scrivere {output}: {exc}")
+            print(f"Impossibile scrivere {output}: {exc}", file=sys.stderr)
             return EXIT_SCRITTURA
-        print(f"Referto scritto in {output}")
+        print(f"Referto scritto in {output}", file=sys.stderr)
     else:
-        print(testo)
+        # Il referto NON e' un print: e' il DATO, e su stdout ci va solo
+        # lui (R59). Scriverlo con `sys.stdout.write` lascia
+        # l'invariante «ogni print di questo file va su stderr» senza
+        # un'eccezione da ricordare — ed e' l'eccezione dimenticata che
+        # rendeva illeggibile `--format json > referto.json`.
+        sys.stdout.write(testo + "\n")
     return EXIT_OK
 
 
@@ -339,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.queries:
         elenco_query, errore = load_queries(path=args.queries)
         if errore:
-            print(errore)
+            print(errore, file=sys.stderr)
             return EXIT_USO
     chiavi = None
     if args.credentials:
@@ -350,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         # avviso — un refuso, dei permessi larghi — e l'audit prosegue
         # con cio' che si e' letto davvero.
         if messaggio:
-            print(messaggio)
+            print(messaggio, file=sys.stderr)
         if not chiavi:
             return EXIT_USO
     return run_audit(args.url, args.max_pages, args.embeddings,

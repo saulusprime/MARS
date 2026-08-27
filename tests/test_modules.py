@@ -5930,7 +5930,7 @@ def test_llm_non_annuncia_la_spesa_se_nulla_partira(contesto, capsys):
     assert rilievo["key"] == "llm.status.no_credentials"
     assert rilievo["params"]["stage"] == "client"
     assert rilievo["params"]["attempted"] is False
-    assert "Giudizio LLM: invio" not in capsys.readouterr().out
+    assert "Giudizio LLM: invio" not in capsys.readouterr().err
 
 
 def test_llm_l_sdk_non_valida_la_credenziale_alla_costruzione():
@@ -5964,7 +5964,7 @@ def test_llm_un_profilo_ant_auth_login_non_e_una_credenziale_assente(
     esito = mars_llm_judge.audit(ctx)
 
     assert esito["score"] == 71
-    assert "Giudizio LLM: invio" in capsys.readouterr().out
+    assert "Giudizio LLM: invio" in capsys.readouterr().err
 
 
 def test_llm_una_chiamata_malformata_non_e_una_credenziale_mancante(

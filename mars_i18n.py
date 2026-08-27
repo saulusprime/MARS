@@ -500,8 +500,11 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Headers unreadable",
     },
     "sec.status.passive_only": {
-        "title": "Passive scan only: the active scan requires "
-                 "--i-own-this-domain",
+        # `pages` viene dai params, come `pagine` altrove: da R55 il
+        # rilievo dichiara il PERIMETRO e non solo la scala, e un
+        # numero cablato qui direbbe il falso al primo sito diverso.
+        "title": "Passive scan only, on the %(pages)d crawled pages: "
+                 "spider and active scan require --i-own-this-domain",
     },
     "sec.status.partial": {
         "title": "ZAP scan interrupted by the timeout and stopped: the "

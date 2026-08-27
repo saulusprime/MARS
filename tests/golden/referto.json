@@ -972,7 +972,7 @@
         "[ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)",
         "[ZAP:Medium] CSP: Wildcard Directive (1 URL)",
         "[ZAP:Low] Strict-Transport-Security non impostato (1 URL)",
-        "Solo scansione passiva: l'active scan richiede --i-own-this-domain"
+        "Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain"
       ],
       "findings": [
         {
@@ -1106,7 +1106,7 @@
         {
           "area": "mars_wapt",
           "severity": "info",
-          "title": "Solo scansione passiva: l'active scan richiede --i-own-this-domain",
+          "title": "Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain",
           "key": "sec.status.passive_only",
           "detail": "",
           "fix": "",
@@ -1115,7 +1115,13 @@
           "weight": 1.0,
           "source_severity": "",
           "params": {
-            "active_scan": false
+            "active_scan": false,
+            "pages": 3,
+            "urls": [
+              "https://esempio.test/",
+              "https://esempio.test/servizi/",
+              "https://esempio.test/faq/"
+            ]
           }
         }
       ],
@@ -1124,7 +1130,7 @@
       "reference_tool": null,
       "lighthouse_scores": null,
       "wcag_level": null,
-      "pages_tested": null,
+      "pages_tested": 3,
       "audits": null,
       "form_factor": null,
       "complete": true

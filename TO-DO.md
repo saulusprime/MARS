@@ -19,10 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Nove caselle aperte**, e da oggi **una voce GRAVE**: R55, la prima da
-> quando la revisione del 2026-08-20 le aveva chiuse tutte. Non viene da una
-> revisione ma da un sospetto dell'utente su `--max-pages`, verificato e
-> fondato — e la stessa indagine ha trovato la cosa peggiore accanto.
+> **Sei caselle aperte, e nessuna voce GRAVE.** R55 — lo spider di ZAP che non
+> rispettava robots.txt — è aperta e chiusa il 2026-08-27, nata da un sospetto
+> dell'utente su `--max-pages` che era fondato e nascondeva di peggio. Di R56
+> resta un residuo, e più piccolo di come era stato scritto: chiudendo R55 metà
+> del problema è sparita insieme.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -34,89 +35,43 @@
 
 ## Correzioni
 
-Due, aperte il 2026-08-27 da un controllo chiesto dall'utente: «credo che ZAP
-ignori `--max-pages`». Vero, e la stessa indagine ne ha trovata una seconda,
-più grave. **Entrambe riguardano `mars_wapt`, l'unica delle nove aree che
-scopre le pagine da sé** invece di lavorare sul campione già costruito — le
-altre otto leggono `context["pages"]` e sono per questo già vincolate.
+Una, ed è ciò che resta di **R56** dopo che **R55** ne ha chiuso la parte
+grossa. Entrambe vengono da un controllo chiesto dall'utente il 2026-08-27 —
+«credo che ZAP ignori `--max-pages`» — e riguardano `mars_wapt`, l'unica delle
+nove aree che scopre le pagine da sé.
 
-Ordinate per gravità. Riprodotte prima di essere scritte: i numeri qui sotto
-sono misure su un sito locale di tredici pagine in catena, ZAP 2.17.0.
+**R55 è chiusa** lo stesso giorno e sta in [AS-IS.md](AS-IS.md): lo spider di
+ZAP è dietro `--i-own-this-domain` come l'active scan, e senza dichiarazione
+l'area 7 vede le sole pagine che il crawler ha già scaricato — conformi a
+robots.txt per costruzione, e il perimetro è dichiarato nel referto.
 
-### R55 — 🔴 GRAVE: lo spider di ZAP non rispetta robots.txt, e MARS lo lancia da sé
+### R56 — ⚪ LIEVE: con la dichiarazione, lo spider ignora ancora `--max-pages`
 
-[.claude/sicurezza.md](.claude/sicurezza.md) dichiara: «Il crawler rispetta
-robots.txt. L'unico modo per ignorarlo è la dichiarazione di proprietà del
-dominio (`--i-own-this-domain`), che viene registrata nel referto.» Vale per il
-crawler di `mars_core`. **Non vale per lo spider che `mars_wapt` avvia** a ogni
-audit in cui un daemon ZAP risponde — senza flag, senza dichiarazione, e senza
-che il referto lo dica.
+Quel che resta della voce aperta il 2026-08-27, ed è **meno di quanto sembrasse
+allora**. Sulla via senza dichiarazione il problema non esiste più: da R55 il
+perimetro dell'area 7 **è** il campione del crawler, quindi `--max-pages` lo
+vincola come vincola le altre otto aree.
 
-**Misurato, non dedotto.** Con un `robots.txt` che vieta `/p02.html` e
-`/p03.html`, ZAP le ha richieste entrambe. E il meccanismo è isolato: una
-pagina `/segreta.html` **collegata da nessuna pagina**, presente solo come
-`Disallow` in robots.txt, **è stata richiesta lo stesso**. Lo spider usa le voci
-`Disallow` come *semi* da cui partire, quindi robots.txt lo fa scansionare **di
-più**, non di meno — e proprio i percorsi che il sito chiede di non toccare.
+Resta la via del proprietario. Lì lo spider percorre il sito per conto suo:
+misurato, con `--max-pages 2` ha toccato **nove** URL, fermandosi al `MaxDepth`
+di ZAP — **5** — e non a un limite nostro; `MaxChildren` e `MaxDuration` sono a
+**0**, illimitati.
 
-**Non è configurabile.** Verificato sul daemon: delle ventiquattro opzioni dello
-spider l'unica che nomina robots è `optionParseRobotsTxt`, che governa il
-*leggerlo per trovare URL*, non l'obbedirgli. **Un'opzione per obbedire non
-esiste**, quindi la correzione non è una riga di configurazione.
+**Un tetto esatto non è ottenibile**, e non è un'opinione: `spider/action/scan`
+accetta `url maxChildren recurse contextName subtreeOnly`, verificato sul
+daemon, e `maxChildren` limita i figli **per nodo**, non il totale. Chi apre
+questa voce non provi a passare `max_pages` a ZAP: non esiste il parametro che
+lo riceverebbe.
 
-Con `--i-own-this-domain` sarebbe una scelta dichiarata, come l'active scan.
-Senza, è una promessa del progetto che una delle nove aree non mantiene, su
-traffico diretto a siti di terzi. È per questo GRAVE e non MEDIO: non produce un
-numero sbagliato nel referto, fa fare a MARS qualcosa che MARS dichiara di non
-fare.
+Restano quindi due risposte oneste, e sono l'una l'opposto dell'altra:
+avvicinarsi al limite con ciò che ZAP offre — `maxChildren` e `MaxDepth`, che
+danno un tetto *approssimato* e andrebbe dichiarato tale — oppure **dire nel
+referto** che con la dichiarazione il perimetro dell'area 7 non è il campione,
+il che è già mezzo fatto: `pages_tested` resta `None` su quella via proprio
+perché MARS il numero non lo conosce.
 
-Le tre strade, con ciò che è già verificato di ciascuna:
-
-| Strada | Che cosa comporta |
-|---|---|
-| **Niente spider**: dare a ZAP gli URL che il crawler ha già scelto — sono per costruzione conformi a robots.txt — con `core/action/accessUrl`, e tenere la sola scansione **passiva** | Chiude anche R56, perché il perimetro diventa esattamente il campione. Costo: gli alert attivi resterebbero legati allo spider, e va misurato quanto si perde |
-| **Spider solo con `--i-own-this-domain`**, come l'active scan | Coerente con una regola che esiste già; ma senza dichiarazione l'area 7 diventa il solo ripiego sugli header, ed è un passo indietro per l'uso normale |
-| **Filtrare a mano** i `Disallow` in `optionSkipURLString` | Riscrive in MARS la logica di robots.txt che `mars_core` ha già, e le due copie divergerebbero in silenzio — vedi il principio contro le implementazioni doppie |
-
-- [ ] Decidere fra le tre, misurando quanti alert si perdono senza spider.
-- [ ] Qualunque sia la scelta, il referto deve **dichiarare il perimetro
-      dell'area 7**: oggi `mars_wapt` non pubblica `pages_tested`, quindi tace,
-      mentre il referto in testa dichiara `pages_crawled` e chi legge lo
-      riferisce a tutte le aree.
-
-### R56 — 🟡 MEDIO: `--max-pages` non vincola l'area 7
-
-`--max-pages` si ferma al costruttore del `Crawler` e **non entra nel
-`context`**: le chiavi sono `url, pages, urls, chunks, queries, discovery,
-robots, sitemap, delay, llm, lang, market, …` e `max_pages` non c'è. Per le otto
-aree che leggono `context["pages"]` non è un problema — il campione è già
-tagliato. Per `mars_wapt` sì: legge il solo `context["url"]` e chiama
-`client.spider_scan(url)`, che manda a ZAP **il solo `url`**
-([mars_wapt.py:445](mars_wapt.py#L445)).
-
-**Misurato**, stesso sito locale:
-
-| | |
-|---|---|
-| MARS con `--max-pages 2` | **2** pagine: `index`, `p01.html` |
-| Lo spider di ZAP, stessa esecuzione | **6** pagine più `robots.txt` e `sitemap.xml` |
-
-Si è fermato a `p05` perché è il `MaxDepth` di default di ZAP, **5** — non per
-un limite di MARS. `MaxChildren` e `MaxDuration` sono a **0**, cioè illimitati.
-L'aiuto del flag promette «più pagine significa più tempo e più richieste al
-sito» ([mars_audit.py:191](mars_audit.py#L191)): per l'area 7 quella frase non
-descrive nulla.
-
-**Un tetto esatto non è ottenibile dall'API**, ed è verificato:
-`spider/action/scan` accetta `url maxChildren recurse contextName subtreeOnly`,
-e `maxChildren` limita i figli **per nodo**, non il totale. Chi lavora R56 lo
-sappia prima di provarci: la strada che dà un perimetro esatto è la prima di
-R55, cioè non usare lo spider.
-
-- [ ] Portare il limite nel `context` come chiave, così che un modulo che
-      scopre da sé possa onorarlo invece di doverlo indovinare.
-- [ ] Vincolare l'area 7 al campione, coordinandosi con la decisione di R55:
-      se si sceglie «niente spider», questa casella si chiude con quella.
+- [ ] Decidere se approssimare il tetto o dichiarare che non c'è, sapendo che
+      `--max-pages` in quel ramo non potrà comunque essere esatto.
 
 ---
 
@@ -162,7 +117,7 @@ chiuso e sta in [AS-IS.md](AS-IS.md).
 - [ ] **Verificare sul campo il giudizio LLM (C4/C2)** con una credenziale
       Anthropic reale: la chiamata non è mai stata eseguita, solo simulata, ed
       è l'unica area del referto in questa condizione. Il README la promette
-      ([README.md:220](README.md#L220)). Il referto JSON conserva per intero
+      ([README.md:231](README.md#L231)). Il referto JSON conserva per intero
       motivazione, punti forti e deboli, quindi è il formato giusto per
       controllarne l'esito. **Bloccata su una chiave**, non sul codice.
 - [ ] **`evaluate_answer` di `mars_citations.py` non è chiamata da alcun

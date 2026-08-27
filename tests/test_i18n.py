@@ -1115,3 +1115,15 @@ def test_la_lingua_dell_audit_arriva_ad_axe(contesto, monkeypatch):
     assert italiano["params"]["text_lang"] == "it"
     assert inglese["title"] == "Images must have alternative text"
     assert inglese["params"]["text_lang"] == "en"
+
+
+def test_i18n_il_perimetro_dellarea_7_e_un_numero_anche_in_inglese():
+    """Sfuggita alle mutazioni di R55: togliere `%(pages)d` dal titolo
+    inglese lasciava verde tutto. I test di parita' controllano che una
+    chiave sia tradotta, non che la traduzione dica la stessa cosa —
+    e un perimetro senza numero non dichiara alcun perimetro."""
+    rilievo = {"key": "sec.status.passive_only", "title": "originale",
+               "detail": "", "fix": "", "example": "",
+               "params": {"active_scan": False, "pages": 7,
+                          "urls": ["a"] * 7}}
+    assert "7" in finding_texts(rilievo, "en")["title"]

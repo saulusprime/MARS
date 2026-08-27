@@ -32,7 +32,7 @@ COMPLESSIVO          :  60/100  (da migliorare)
   → 1 link con testo generico ("clicca qui", "leggi tutto")
     Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 7. Sicurezza         :  57/100
-  ZAP (passiva)
+  ZAP (passiva) · 3 pagine esaminate
   ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
   ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
 9. Giudizio LLM      :  61/100

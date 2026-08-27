@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R55 | Lo spider di ZAP non rispettava robots.txt | 2026-08-27 |
 | R54 | Il parametro inerte nascondeva un audit assente | 2026-08-27 |
 | R53 | I conteggi di `mars_seo` e i tre testi di Lighthouse | 2026-08-27 |
 | R48 | Dal JavaScript del grafo esce anche la geometria | 2026-08-26 |
@@ -2364,6 +2365,101 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R55 — ✅ (2026-08-27): lo spider di ZAP non rispettava robots.txt
+*(nata da un sospetto dell'utente — «credo che ZAP ignori `--max-pages`» — che
+era fondato, e la cui indagine ha trovato accanto questa, più grave.)*
+
+**La promessa rotta.** [.claude/sicurezza.md](.claude/sicurezza.md) dichiara che
+il crawler rispetta robots.txt e che l'unico modo per ignorarlo è la
+dichiarazione di proprietà del dominio. Valeva per il crawler di `mars_core`.
+**Non valeva per lo spider che `mars_wapt` avviava** a ogni audit in cui un
+daemon ZAP rispondeva — senza flag, senza dichiarazione, senza che il referto lo
+dicesse. È GRAVE non perché sbagli un numero, ma perché faceva fare a MARS,
+verso siti di terzi, esattamente ciò che MARS dichiara di non fare.
+
+**Misurato su ZAP 2.17.0, e il meccanismo isolato.** Con un `robots.txt` che
+vietava `/p02.html` e `/p03.html`, ZAP le ha richieste entrambe. Poi il caso
+decisivo: una pagina `/segreta.html` **collegata da nessuna pagina**, presente
+solo come `Disallow`, **è stata richiesta lo stesso**. Lo spider usa le voci
+`Disallow` come **semi** da cui partire — robots.txt lo fa quindi scansionare
+*di più*, e proprio dove il sito chiede di non andare.
+
+**Non è una riga di configurazione.** Delle ventiquattro opzioni dello spider
+l'unica che nomina robots è `optionParseRobotsTxt`, che governa il *leggerlo per
+trovare URL*, non l'obbedirgli. Un'opzione per obbedire **non esiste**.
+
+**La decisione, e la misura che ha corretto la mia proposta.** L'utente ha
+scelto fra tre strade: *lo spider solo con `--i-own-this-domain`*. Nella tabella
+del TO-DO avevo però scritto che senza dichiarazione l'area 7 sarebbe diventata
+il solo ripiego sugli header — un'assunzione **mia**, non una misura, e la
+misura l'ha smentita. Confronto su sito locale:
+
+| | Alert | **Regole distinte** | URL toccati | Tocca la vietata | Punteggio |
+|---|---|---|---|---|---|
+| Spider, com'era | 34 | **5** | 9 | **sì** | 54 |
+| Solo il campione del crawler | 8 | **4** | 2 | no | 69 |
+| Niente spider e nient'altro | 0 | 0 | 0 | no | **100** |
+
+Le regole sono il numero che conta, non gli alert: in MARS **un rilievo è un
+controllo, non un'occorrenza**. E l'ultima riga è la trappola:
+`score_from_alerts([])` vale **100**, quindi togliere lo spider e non mettere
+nulla al suo posto avrebbe fatto dire al referto «ZAP passiva, 100/100» di un
+sito mai guardato — esattamente ciò contro cui la docstring di `audit_headers`
+mette in guardia. Rimessa la scelta all'utente con i numeri, ha scelto la
+seconda riga.
+
+**La soluzione.** `run_zap` ha due perimetri. Senza dichiarazione nessuno spider
+parte: ZAP riceve le pagine che il crawler ha già scaricato — conformi a
+robots.txt per costruzione — con `core/action/accessUrl`, e se ne ricavano i
+soli alert passivi. **Non una sola richiesta in più** verso il sito rispetto a
+quelle già fatte. Con dichiarazione tornano spider e active scan: sono due cose
+che il sito non ha autorizzato, e la dichiarazione è ciò che le rende lecite —
+da qui in avanti il gate è **lo stesso** per entrambe.
+
+**Una cosa che si sarebbe persa in silenzio:** gli alert passivi non sono pronti
+quando l'ultima richiesta è finita, perché ZAP li produce leggendo una coda.
+Senza attenderla (`pscan/view/recordsToScan`) se ne perde una parte, e **quanta
+dipende dalla velocità della macchina** — cioè un referto che cambia da
+un'esecuzione all'altra senza che nulla lo dichiari. Il timeout vale anche qui,
+e `fermate` resta True: non c'è nulla da fermare, la passiva legge traffico già
+avvenuto.
+
+**Seconda casella: il perimetro si dichiara.** `mars_wapt` non pubblicava
+`pages_tested`, quindi taceva sul proprio campione mentre il referto in testa
+scrive `pages_crawled` e chi legge lo riferisce a tutte le aree. Ora lo
+pubblica sulla via senza spider, dove il numero è **esatto**, e resta `None` su
+quella con lo spider, dove MARS non lo conosce: dichiarare un campione sbagliato
+è peggio che tacerlo. La issue e il rilievo `sec.status.passive_only` dicono ora
+il perimetro e portano gli URL in `params`.
+
+**Verifica end-to-end su ZAP vero**, non sui finti — che qui non basterebbero,
+perché la domanda è che cosa MARS dice al daemon:
+
+- **senza** dichiarazione, `mars_audit.py` su un sito con `/p02.html` vietata:
+  ZAP ha toccato **due** URL, il campione esatto, e **non** la pagina vietata.
+  Area 7 a 69 con `pages_tested: 2`. Prima della correzione, stessa esecuzione:
+  **nove** URL, vietata compresa;
+- **con** dichiarazione: spider di nuovo a nove URL, `tool: "ZAP (attiva)"`,
+  `pages_tested: None`.
+
+**Verifiche.** `flake8` 0, `pytest` **1105** (erano 1096). Otto mutazioni, tutte
+rosse **senza** `tests/test_golden.py` — ma **tre erano passate al primo giro**,
+e sono l'unica parte del controllo che ha insegnato qualcosa:
+
+1. invertire il confronto dell'attesa (`<= 0` in `>= 0`) non si vedeva, perché
+   il daemon finto rispondeva sempre `0` e le due forme coincidevano: il finto
+   ora svuota la coda a poco a poco, come ZAP;
+2. togliere il ripiego `or [url]` dal perimetro faceva dichiarare «**0** pagine
+   scansionate» mentre ZAP l'URL di partenza l'aveva comunque guardato — zero è
+   un numero, e un numero sbagliato è peggio di nessun numero;
+3. togliere `%(pages)d` dal titolo inglese lasciava verde tutto: i test di
+   parità i18n controllano che una chiave sia **tradotta**, non che la
+   traduzione dica la stessa cosa.
+
+Golden rigenerati e diff riletto: i punteggi **non si muovono** — nel golden
+`run_zap` è sostituito, quindi gli alert sono gli stessi — e cambiano solo il
+testo della issue, i suoi `params` e `pages_tested`.
 
 ### R54 — ✅ (2026-08-27): il parametro inerte nascondeva un audit assente
 *(l'ultima delle tre osservazioni di R40, e la catena R40 → R53 → R54 si chiude

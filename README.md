@@ -172,10 +172,21 @@ attraverso il proxy. Non serve alcun pacchetto pip, solo il daemon.
     l'active scan richiede --i-own-this-domain, la stessa dichiarazione
     di proprieta' che permette di ignorare robots.txt.
 
-    Senza dichiarazione viene eseguito solo lo spider e si raccolgono
-    gli alert PASSIVI, ricavati osservando le risposte: header
-    mancanti, informazioni divulgate, cookie senza attributi. Utili e
-    innocui. Il referto dichiara quale delle due scansioni ha girato.
+    Anche lo SPIDER di ZAP richiede la stessa dichiarazione, e dal
+    2026-08-27: e' un secondo crawler, e robots.txt non lo rispetta.
+    Misurato su ZAP 2.17.0 — richiede gli URL vietati, e usa le voci
+    Disallow come semi da cui partire, quindi robots.txt lo fa
+    scansionare di piu' proprio dove il sito chiede di non andare.
+    Un'opzione per obbedire non esiste.
+
+    Senza dichiarazione si raccolgono gli alert PASSIVI — header
+    mancanti, informazioni divulgate, cookie senza attributi: utili e
+    innocui — sulle sole pagine che il crawler ha gia' scaricato, che
+    sono conformi a robots.txt per costruzione. Il perimetro e' quindi
+    esatto e il referto lo dichiara, insieme a quale delle due
+    scansioni ha girato. Misurato su un sito di prova: rispetto allo
+    spider si conservano 4 regole distinte su 5, senza una sola
+    richiesta in piu' verso il sito.
 
 MARS si collega a un daemon GIA' in esecuzione e non lo avvia:
 orchestrare un processo Java dal codice significa rischiare di
@@ -192,9 +203,9 @@ controllo di superficie. Se la scansione va in timeout, i rilievi
 parziali vengono riportati come tali.
 
 Un daemon ZAP eleva molto il valore dell'audit di sicurezza: si passa da un
-controllo degli header a una scansione vera (spidering, e con la dichiarazione
-di proprieta' anche l'active scan delle vulnerabilita' comuni — XSS, SQLi,
-path traversal). Oltre al Docker qui sopra si puo' installare il pacchetto di
+controllo degli header a una scansione vera delle pagine analizzate, e con la
+dichiarazione di proprieta' anche allo spidering e all'active scan delle
+vulnerabilita' comuni — XSS, SQLi, path traversal. Oltre al Docker qui sopra si puo' installare il pacchetto di
 sistema: `sudo snap install zaproxy --classic`, poi avviarlo in modalita'
 daemon.
 

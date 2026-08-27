@@ -20,7 +20,7 @@ Media pesata di 7 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA,
 | 4. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
 | 5. Dati Strutturati | 90/100 |  |
 | 6. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
-| 7. Sicurezza | 57/100 | ZAP (passiva) |
+| 7. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
 | 8. Citabilità IA | 61/100 |  |
 | 9. Giudizio LLM | 61/100 |  |
 
@@ -235,7 +235,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
   La direttiva ammette qualunque origine, quindi non restringe nulla.
   *Correzione:* Sostituisci il carattere jolly con le origini che servono davvero.
 - [INFO] Strict-Transport-Security non impostato
-- [INFO] Solo scansione passiva: l'active scan richiede --i-own-this-domain
+- [INFO] Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain
 
 ### 8. Citabilità IA
 

@@ -470,6 +470,30 @@ class ZapClient:
     def ascan_stop(self, scan_id: str) -> None:
         self._get("ascan/action/stop", scanId=scan_id)
 
+    def access_url(self, url: str) -> None:
+        """Fa scaricare a ZAP un URL che abbiamo gia' scelto noi.
+
+        E' la via senza spider: le pagine del crawler di MARS sono
+        conformi a robots.txt per costruzione, quindi darle a ZAP
+        tiene viva la scansione passiva senza una sola richiesta in
+        piu' verso il sito rispetto a quelle che il crawler ha gia'
+        fatto — e senza il secondo crawler che robots.txt non lo
+        rispetta (R55).
+        """
+        self._get("core/action/accessUrl", url=url, followRedirects="false")
+
+    def records_to_scan(self) -> int:
+        """Quanti messaggi la scansione passiva ha ancora in coda.
+
+        Gli alert passivi NON sono pronti quando l'ultima richiesta e'
+        finita: ZAP li produce leggendo una coda. Senza questa attesa
+        se ne perde una parte, e quanta dipende dalla velocita' della
+        macchina — cioe' un referto che cambia da un'esecuzione
+        all'altra senza che nulla lo dichiari.
+        """
+        return int(self._get("pscan/view/recordsToScan")
+                   .get("recordsToScan", 0))
+
     def alerts(self, baseurl: str) -> List[dict]:
         return list(self._get("core/view/alerts",
                               baseurl=baseurl).get("alerts") or [])
@@ -507,6 +531,25 @@ def _attendi(stato, scan_id: str, scadenza: float) -> bool:
     return False
 
 
+def _attendi_passiva(client, scadenza: float) -> bool:
+    """Attende che la coda della scansione passiva si svuoti.
+
+    Stessa disciplina di `_attendi`: si smette allo scadere, e il
+    chiamante lo dichiara nel referto invece di spacciare per completi
+    degli alert parziali. Non c'e' nulla da fermare — la passiva non e'
+    una scansione che il daemon esegue contro il sito, ma la lettura di
+    traffico gia' avvenuto.
+    """
+    while time.time() < scadenza:
+        try:
+            if client.records_to_scan() <= 0:
+                return True
+        except (requests.RequestException, ValueError, TypeError):
+            return False
+        time.sleep(ZAP_ATTESA)
+    return False
+
+
 def _ferma(azione, scan_id: str) -> bool:
     """Ferma una scansione. True se il daemon ha accettato l'ordine.
 
@@ -536,23 +579,38 @@ def _ferma(azione, scan_id: str) -> bool:
         return False
 
 
-def run_zap(url: str, client=None,
-            active: bool = False) -> Optional[tuple]:
-    """Spider, alert e — solo se autorizzato — active scan.
+def run_zap(url: str, client=None, active: bool = False,
+            urls: Optional[List[str]] = None) -> Optional[tuple]:
+    """Alert ZAP, con due perimetri secondo la dichiarazione di proprieta'.
 
-    L'active scan INVIA PAYLOAD D'ATTACCO: XSS, SQL injection, path
-    traversal. Contro un sito che non si possiede e' un attacco, e a
-    seconda della giurisdizione un reato. Per questo richiede la stessa
-    dichiarazione di proprieta' introdotta per ignorare robots.txt.
+    **Senza dichiarazione** non parte alcuno spider: ZAP riceve le
+    pagine che il crawler di MARS ha gia' scaricato (`urls`) e ne
+    ricava i soli alert PASSIVI — header mancanti, informazioni
+    divulgate, cookie senza attributi. Il perimetro e' quindi esatto,
+    conforme a robots.txt per costruzione, e non aggiunge una sola
+    richiesta a quelle gia' fatte.
 
-    Senza dichiarazione si esegue solo lo spider, e gli alert sono
-    quelli PASSIVI, ricavati osservando le risposte: header mancanti,
-    informazioni divulgate, cookie senza attributi. Utili e innocui.
+    **Con dichiarazione** tornano lo spider e l'active scan. Sono due
+    cose che il sito non ha autorizzato, e la dichiarazione e' cio' che
+    le rende lecite: l'active scan INVIA PAYLOAD D'ATTACCO — XSS, SQL
+    injection, path traversal — e lo spider e' un secondo crawler che
+    **non rispetta robots.txt**. Misurato su ZAP 2.17.0: richiede gli
+    URL vietati, e usa le voci `Disallow` come SEMI da cui partire,
+    quindi robots.txt lo fa scansionare di piu' proprio dove il sito
+    chiede di non andare. Fra le ventiquattro opzioni dello spider una
+    per obbedire non esiste, quindi il gate e' l'unica risposta. R55.
+
+    Perche' non togliere lo spider e basta: ZAP non vedrebbe traffico,
+    e `score_from_alerts([])` vale **100**. Il referto direbbe «ZAP
+    passiva, 100/100» di un sito mai guardato. Misurato su un sito
+    locale, il campione del crawler conserva **4 regole distinte su 5**
+    rispetto allo spider, senza toccare alcun URL vietato.
 
     Restituisce (alerts, completata, fermate). None se fallisce.
     `fermate` e' False quando una scansione e' scaduta e il daemon non
     ha accettato l'ordine di fermarla: sta ancora girando, e chi scrive
-    il referto deve poterlo dire.
+    il referto deve poterlo dire. Sulla via senza spider e' sempre True
+    — non c'e' nulla da fermare.
     """
     client = client or connect_zap()
     if client is None:
@@ -563,6 +621,16 @@ def run_zap(url: str, client=None,
     # e il referto non puo' dichiararla interrotta.
     fermate = True
     try:
+        if not active:
+            # Senza dichiarazione: nessun secondo crawler. Le pagine le
+            # ha gia' scelte il crawler di MARS, che robots.txt lo
+            # rispetta. `url` come ripiego se il crawl non ha prodotto
+            # nulla: leggere gli alert di zero traffico varrebbe 100.
+            for indirizzo in list(urls or []) or [url]:
+                client.access_url(indirizzo)
+            completa = _attendi_passiva(client, scadenza)
+            return client.alerts(url), completa, True
+
         scan_id = client.spider_scan(url)
         spider_ok = _attendi(client.spider_status, scan_id, scadenza)
         if not spider_ok:
@@ -689,10 +757,17 @@ def audit(context: dict) -> dict:
         print("  ZAP raggiunto su %s: scansione %s in corso "
               "(puo' richiedere diversi minuti)..."
               % (credenziali.get("zap_proxy") or ZAP_PROXY,
-                 "ATTIVA" if active else "passiva"))
-        esito_zap = run_zap(url, client, active=active)
+                 "ATTIVA, con spider" if active
+                 else "passiva sulle pagine gia' scansionate"))
+        campione = list(context.get("urls") or [])
+        esito_zap = run_zap(url, client, active=active, urls=campione)
         if esito_zap is not None:
             alerts, completa, fermate = esito_zap
+            # Le pagine che ZAP ha davvero guardato sulla via senza
+            # spider: il campione, o l'URL di partenza se il crawl non
+            # ha prodotto nulla. Ricalcolato come in `run_zap`, che e'
+            # l'unico posto dove la scelta si fa.
+            perimetro = campione or [url]
             esito = score_from_alerts(alerts)
             issues = list(esito["issues"])
             # I rilievi di stato rispecchiano ESATTAMENTE la posizione
@@ -732,15 +807,32 @@ def audit(context: dict) -> dict:
                     "daemon ZAP, e i rilievi qui sono parziali",
                     stopped=False, active_scan=active))
             if not active:
-                issues.append("Solo scansione passiva: l'active scan "
-                              "richiede --i-own-this-domain")
+                # Il testo dichiara il PERIMETRO e non solo la scala:
+                # da R55 la differenza fra le due modalita' non e' piu'
+                # soltanto "attiva o passiva" ma anche "quali pagine",
+                # e chi legge un punteggio deve sapere su che cosa e'
+                # stato calcolato.
+                issues.append("Solo scansione passiva sulle %d pagine "
+                              "scansionate: spider e active scan "
+                              "richiedono --i-own-this-domain"
+                              % len(perimetro))
                 coda.append(_stato(
                     "sec.status.passive_only",
-                    "Solo scansione passiva: l'active scan richiede "
-                    "--i-own-this-domain",
-                    active_scan=False))
+                    "Solo scansione passiva sulle %d pagine scansionate: "
+                    "spider e active scan richiedono --i-own-this-domain"
+                    % len(perimetro),
+                    active_scan=False, pages=len(perimetro),
+                    urls=list(perimetro)))
             return {"score": esito["score"],
                     "tool": "ZAP (attiva)" if active else "ZAP (passiva)",
+                    # Il perimetro dell'area, che fino a R55 non era
+                    # dichiarato: il referto in testa scrive
+                    # `pages_crawled` e chi legge lo riferisce a tutte
+                    # le aree, mentre questa era l'unica a sceglierle da
+                    # se'. Assente sulla via con lo spider, dove il
+                    # numero MARS non lo conosce: dichiarare un campione
+                    # sbagliato e' peggio che tacerlo.
+                    "pages_tested": None if active else len(perimetro),
                     "complete": completa, "active_scan": active,
                     # Distingue "interrotta" da "abbandonata": senza,
                     # il referto dichiarava interrotta una scansione

@@ -26,7 +26,7 @@ https://esempio.test/;7. Sicurezza;critical;2.0;Cross Site Scripting (Reflected)
 https://esempio.test/;7. Sicurezza;warning;1.0;Content Security Policy (CSP) Header Not Set;Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.;Configura il server per impostare l'header CSP.;https://esempio.test/ https://esempio.test/faq/;;;
 https://esempio.test/;7. Sicurezza;warning;1.0;CSP: Wildcard Directive;La direttiva ammette qualunque origine, quindi non restringe nulla.;Sostituisci il carattere jolly con le origini che servono davvero.;https://esempio.test/;;;
 https://esempio.test/;7. Sicurezza;info;1.0;Strict-Transport-Security non impostato;;;https://esempio.test/;;;
-https://esempio.test/;7. Sicurezza;info;1.0;Solo scansione passiva: l'active scan richiede --i-own-this-domain;;;;;;
+https://esempio.test/;7. Sicurezza;info;1.0;Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain;;;https://esempio.test/ https://esempio.test/servizi/ https://esempio.test/faq/;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Qualità SEO (27/100);;;;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accessibilità (37/100);;;;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accesso e indicizzabilità (57/100);;;;;;

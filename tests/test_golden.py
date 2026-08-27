@@ -449,7 +449,7 @@ def _referto_completo(monkeypatch) -> dict:
             contesto["_zap_client"] = object()
             monkeypatch.setattr(
                 modulo, "run_zap",
-                lambda url, client=None, active=False:
+                lambda url, client=None, active=False, urls=None:
                 (_alert_zap(), True, True))
         if nome == "mars_llm_judge":
             monkeypatch.setitem(sys.modules, "anthropic", _anthropic_finto())

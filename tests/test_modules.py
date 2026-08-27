@@ -4135,8 +4135,14 @@ def test_wapt_informational_non_penalizza():
     assert esito["score"] == 100
 
 
-def test_wapt_active_scan_richiede_la_dichiarazione():
-    """Regressione C9: l'active scan invia payload d'attacco."""
+def test_wapt_la_dichiarazione_governa_spider_E_active_scan():
+    """Regressione C9, allargata da R55.
+
+    L'active scan invia payload d'attacco; lo spider e' un secondo
+    crawler che non rispetta robots.txt. Sono due cose che il sito non
+    ha autorizzato, e la dichiarazione di proprieta' e' cio' che le
+    rende lecite: da R55 il gate e' lo stesso per entrambe.
+    """
     chiamate = {}
 
     class ClientFinto:
@@ -4154,14 +4160,23 @@ def test_wapt_active_scan_richiede_la_dichiarazione():
         def ascan_status(self, sid):
             return 100
 
+        def access_url(self, url):
+            chiamate.setdefault("access", []).append(url)
+
+        def records_to_scan(self):
+            return 0
+
         def alerts(self, baseurl):
             return []
 
-    mars_wapt.run_zap("https://x/", ClientFinto(), active=False)
-    assert chiamate.get("spider") and not chiamate.get("ascan")
+    mars_wapt.run_zap("https://x/", ClientFinto(), active=False,
+                      urls=["https://x/", "https://x/a"])
+    assert not chiamate.get("spider"), "prima di R55 partiva anche qui"
+    assert not chiamate.get("ascan")
+    assert chiamate.get("access") == ["https://x/", "https://x/a"]
     chiamate.clear()
     mars_wapt.run_zap("https://x/", ClientFinto(), active=True)
-    assert chiamate.get("ascan")
+    assert chiamate.get("spider") and chiamate.get("ascan")
 
 
 class _ZapFinto:
@@ -4173,12 +4188,13 @@ class _ZapFinto:
     """
 
     def __init__(self, spider_finisce=True, ascan_finisce=True,
-                 stop_solleva=None, lentezza=0.0):
+                 stop_solleva=None, lentezza=0.0, coda_passiva=None):
         self.chiamate = []
         self.spider_finisce = spider_finisce
         self.ascan_finisce = ascan_finisce
         self.stop_solleva = stop_solleva
         self.lentezza = lentezza
+        self.coda_passiva = list(coda_passiva or [])
 
     def spider_scan(self, url):
         self.chiamate.append(("spider_scan", url))
@@ -4208,6 +4224,18 @@ class _ZapFinto:
         if self.stop_solleva:
             raise self.stop_solleva
 
+    def access_url(self, url):
+        self.chiamate.append(("access_url", url))
+
+    def records_to_scan(self):
+        self.chiamate.append(("records_to_scan", None))
+        # `coda_passiva` finita: si svuota di uno a ogni controllo, come
+        # fa ZAP. Se resta un numero fisso maggiore di zero, la coda non
+        # si svuota mai — cioe' il caso del timeout.
+        if self.coda_passiva:
+            return self.coda_passiva.pop(0)
+        return 0
+
     def alerts(self, baseurl):
         self.chiamate.append(("alerts", baseurl))
         return []
@@ -4231,8 +4259,12 @@ def test_wapt_il_timeout_ferma_lo_spider(zap_veloce):
     quattro secondi dopo il timeout il daemon dichiarava la scansione
     RUNNING al 35%, mentre il referto la dava per interrotta.
     """
+    # `active=True` da R55: lo spider parte solo con la
+    # dichiarazione di proprieta'. La disciplina che questo test
+    # presidia — R27 — e' la stessa, ed e' li' che ora vive.
     c = _ZapFinto(spider_finisce=False)
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c,
+                                                  active=True)
     assert completa is False
     assert fermate is True
     assert c.fatte("spider_stop") == [("spider_stop", "11")], \
@@ -4248,6 +4280,131 @@ def test_wapt_il_timeout_ferma_lactive_scan(zap_veloce):
     assert c.fatte("ascan_stop") == [("ascan_stop", "22")]
     # Lo spider era finito: non va fermato.
     assert not c.fatte("spider_stop")
+
+# ----------------------------------------------------------------------
+# R55: lo spider e' un crawler che non rispetta robots.txt
+# ----------------------------------------------------------------------
+
+
+def test_wapt_senza_proprieta_lo_spider_non_parte(zap_veloce):
+    """R55, il cuore. Lo spider di ZAP e' un secondo crawler, e non
+    obbedisce a robots.txt: misurato su ZAP 2.17.0, richiede gli URL
+    vietati e usa le voci `Disallow` come SEMI da cui partire, quindi
+    robots.txt lo fa scansionare di piu' proprio dove il sito chiede di
+    non andare. Un'opzione per obbedire non esiste fra le ventiquattro
+    dello spider.
+
+    MARS dichiara in `.claude/sicurezza.md` che l'unico modo di
+    ignorare robots.txt e' la dichiarazione di proprieta' del dominio.
+    Da R55 quella regola vale anche qui.
+    """
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=False,
+                      urls=["https://x/", "https://x/a"])
+    assert not c.fatte("spider_scan"), \
+        "senza dichiarazione nessun secondo crawler tocca il sito"
+    assert not c.fatte("ascan_scan")
+
+
+def test_wapt_senza_proprieta_ZAP_vede_il_campione_del_crawler(zap_veloce):
+    """Togliere lo spider e basta sarebbe stato il peggiore dei mondi:
+    ZAP non vedrebbe traffico, `score_from_alerts([])` vale **100**, e
+    il referto direbbe «ZAP passiva, 100/100» di un sito mai guardato.
+
+    Le pagine che il crawler ha gia' scaricato sono conformi a
+    robots.txt per costruzione: darle a ZAP tiene viva la scansione
+    passiva senza una sola richiesta in piu' verso il sito. Misurato
+    su un sito locale: **4 regole distinte su 5** rispetto allo spider,
+    e nessun URL vietato toccato.
+    """
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=False,
+                      urls=["https://x/", "https://x/a", "https://x/b"])
+    assert c.fatte("access_url") == [("access_url", "https://x/"),
+                                     ("access_url", "https://x/a"),
+                                     ("access_url", "https://x/b")]
+    # E si aspetta che la passiva abbia finito, altrimenti gli alert si
+    # leggono mentre ZAP li sta ancora producendo.
+    assert c.fatte("records_to_scan"), \
+        "leggere gli alert senza attendere la passiva li perde"
+
+
+def test_wapt_con_la_proprieta_lo_spider_torna(zap_veloce):
+    """La dichiarazione e' cio' che rende lecito il traffico che il
+    sito non ha autorizzato — l'active scan da sempre, lo spider da
+    R55. Chi dichiara il dominio riprende la copertura piena."""
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=True, urls=["https://x/"])
+    assert c.fatte("spider_scan") == [("spider_scan", "https://x/")]
+    assert c.fatte("ascan_scan") == [("ascan_scan", "https://x/")]
+    assert not c.fatte("access_url"), \
+        "lo spider percorre il sito da se': accedere anche al campione " \
+        "sarebbe traffico doppio"
+
+
+def test_wapt_senza_campione_resta_almeno_lURL_di_partenza(zap_veloce):
+    """Un crawl che non ha prodotto pagine — sito irraggiungibile,
+    robots.txt che vieta tutto — non deve far leggere a ZAP gli alert
+    di zero traffico, che varrebbero 100."""
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=False, urls=[])
+    assert c.fatte("access_url") == [("access_url", "https://x/")]
+
+
+def test_wapt_si_aspetta_che_la_coda_passiva_si_svuoti(zap_veloce):
+    """Scritto dopo un giro di mutazioni: invertire il confronto
+    dell'attesa (`<= 0` in `>= 0`) lasciava VERDE tutta la suite,
+    perche' il finto rispondeva sempre 0 e le due forme coincidevano.
+
+    Gli alert passivi non sono pronti quando l'ultima richiesta e'
+    finita: ZAP li produce leggendo una coda. Leggerli prima ne perde
+    una parte, e **quanta dipende dalla velocita' della macchina** —
+    cioe' un referto che cambia da un'esecuzione all'altra senza che
+    nulla lo dichiari.
+    """
+    c = _ZapFinto(coda_passiva=[3, 2, 1, 0])
+    _, completa, _ = mars_wapt.run_zap("https://x/", c, active=False,
+                                       urls=["https://x/"])
+    assert len(c.fatte("records_to_scan")) == 4, \
+        "si controlla finche' la coda non e' vuota, non una volta sola"
+    assert completa is True
+
+
+def test_wapt_una_coda_passiva_che_non_si_svuota_non_e_completa(zap_veloce):
+    """Il timeout vale anche qui, e come per lo spider il referto deve
+    dichiarare parziali gli alert invece di spacciarli per tutti. Non
+    c'e' nulla da fermare: la passiva legge traffico gia' avvenuto."""
+    c = _ZapFinto(coda_passiva=[9] * 500)
+    _, completa, fermate = mars_wapt.run_zap("https://x/", c, active=False,
+                                             urls=["https://x/"])
+    assert completa is False
+    assert fermate is True
+
+
+def test_wapt_un_crawl_a_vuoto_dichiara_una_pagina_non_zero():
+    """Sfuggita alle mutazioni: togliere il ripiego `or [url]` dal
+    perimetro faceva dichiarare «0 pagine scansionate» mentre ZAP
+    l'URL di partenza l'aveva comunque guardato. Zero e' un numero, e
+    un numero sbagliato e' peggio di nessun numero."""
+    c = _ZapFinto()
+    esito = mars_wapt.audit({"url": "https://x/", "urls": [],
+                             "_zap_client": c, "owner_declaration": False})
+    assert esito["pages_tested"] == 1
+    assert "1 pagine" in esito["issues"][-1]
+
+
+def test_wapt_il_perimetro_dellarea_7_e_dichiarato(monkeypatch):
+    """R55, seconda casella. `mars_wapt` non pubblicava `pages_tested`,
+    quindi taceva sul proprio campione mentre il referto in testa
+    dichiara `pages_crawled` e chi legge lo riferisce a tutte le aree.
+
+    Ora che il perimetro e' ESATTO — le pagine del crawler, non quelle
+    che uno spider ha deciso di percorrere — si puo' dichiarare."""
+    c = _ZapFinto()
+    contesto = {"url": "https://x/", "urls": ["https://x/", "https://x/a"],
+                "_zap_client": c, "owner_declaration": False}
+    esito = mars_wapt.audit(contesto)
+    assert esito["pages_tested"] == 2
 
 
 def test_wapt_non_avvia_un_attacco_che_non_puo_sorvegliare(zap_veloce):
@@ -4277,9 +4434,12 @@ def test_wapt_una_scansione_gia_conclusa_non_e_un_fallimento(zap_veloce):
     risposta = requests.Response()
     risposta.status_code = 400
     risposta._content = b'{"code":"does_not_exist","message":"Non esiste"}'
+    # `active=True` da R55: lo spider parte solo con la
+    # dichiarazione di proprieta'. La disciplina che questo test
+    # presidia — R27 — e' la stessa, ed e' li' che ora vive.
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.HTTPError(response=risposta))
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
     assert completa is False
     assert fermate is True, "non c'e' piu' nulla da fermare: e' l'esito buono"
 
@@ -4298,17 +4458,21 @@ def test_wapt_solo_does_not_exist_vale_come_fermata(zap_veloce, stato, corpo):
     risposta._content = corpo
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.HTTPError(response=risposta))
-    _, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    _, completa, fermate = mars_wapt.run_zap("https://x/", c,
+                                             active=True)
     assert completa is False
     assert fermate is False, "un errore diverso non prova che si sia fermata"
 
 
 def test_wapt_un_daemon_muto_non_puo_dirsi_fermato(zap_veloce):
     """L'opposto: se il daemon non risponde, la scansione puo' benissimo
-    proseguire, e il referto non deve dichiararla interrotta."""
+    proseguire, e il referto non deve dichiararla interrotta.
+
+    `active=True` da R55: lo spider vive sul percorso del proprietario.
+    """
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.ConnectionError("daemon muto"))
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c)
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
     assert completa is False and fermate is False
 
 
@@ -4319,7 +4483,7 @@ def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
         monkeypatch.setattr(mars_wapt, "connect_zap",
                             lambda credentials=None: _ZapFinto())
         monkeypatch.setattr(mars_wapt, "run_zap",
-                            lambda url, client=None, active=False:
+                            lambda url, client=None, active=False, urls=None:
                             ([], False, fermate))
         return mars_wapt.audit({"url": "https://x/",
                                 "owner_declaration": False})
@@ -4423,7 +4587,7 @@ def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False:
+                        lambda url, client=None, active=False, urls=None:
                         (alerts, completa, fermate))
     return mars_wapt.audit({"url": "https://x/",
                             "owner_declaration": active})
@@ -4443,7 +4607,7 @@ def test_wapt_un_daemon_che_fallisce_non_ripiega_in_silenzio(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: _ZapFinto())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False: None)
+                        lambda url, client=None, active=False, urls=None: None)
     # Il ripiego porta un rilievo suo: senza, la lista avrebbe un
     # elemento solo e l'asserzione sulla POSIZIONE sarebbe vuota —
     # misurato, una mutazione che sposta l'avviso in coda passava.
@@ -4971,7 +5135,7 @@ def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False:
+                        lambda url, client=None, active=False, urls=None:
                         ([_alert()], True, True))
     esito = mars_wapt.audit({
         "url": "https://x/", "owner_declaration": True,

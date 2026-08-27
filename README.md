@@ -556,7 +556,12 @@ Formati del referto (--format, predefinito text):
     json      la struttura canonica: le altre viste ne sono derivate, e
               l'API restituisce gli stessi campi su POST /audit/full
     html      pagina autoconsistente — CSS incorporato, favicon inclusa,
-              nessuna origine esterna — con tema chiaro e scuro
+              nessuna origine esterna — con la palette del sito di
+              Lympha Technologies e un tema solo, il chiaro (U11.1).
+              I tre colori di gravita' vengono da Bootstrap Italia, che
+              quel sito usa, e non sono una scelta estetica: quelli di
+              Lighthouse stavano a 2:1 su bianco. Misurato con axe sul
+              referto stesso: 87 nodi in violazione prima, zero adesso
     markdown  da incollare in una issue o in un wiki: il piano di
               interventi e' una task list GFM, quindi si spunta, e la
               gravita' e' un marcatore testuale e non un colore

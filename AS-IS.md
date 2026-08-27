@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
 | R61 | «Correzione:» nel CSS: un referto inglese lo diceva in italiano | 2026-08-27 |
 | R60 | Gli esempi di correzione si leggevano come contenuto misurato | 2026-08-27 |
@@ -2372,6 +2373,70 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### U11.1 — ✅ (2026-08-27): la palette del referto è quella del sito
+
+*(chiesta dall'utente, con il perimetro ristretto da lui: «il look & feel può
+limitarsi SOLO ai colori; stile solo chiaro e favicon resta quella di MARS».)*
+
+**Perimetro, e cosa NON è stato fatto.** Solo colori. Restano com'erano i
+caratteri (stack di sistema: incorporare Titillium Web sarebbe costato ~72 KB
+di base64 su un referto di 57, misurato sui woff2 del sito), le forme (raggi,
+spaziature, la card a 20px del sito), la testata senza logo e la favicon di
+MARS. Non sono caselle rimaste aperte: sono decisioni prese.
+
+**La palette, misurata sugli stili calcolati di `lymphatechnologies.com`** —
+Bootstrap Italia 2.16, cioè il design system della PA:
+
+| token | prima | ora | dove |
+|---|---|---|---|
+| `--fg` | `#1f2328` | `#14272b` | testo del corpo |
+| `--brand` | *non esisteva* | `#0c3540` | h1, h2, h3 |
+| `--link` | *non esisteva* | `#1e4c5a` | link |
+| `--ok` | `#0cce6b` | `#008055` | punteggi buoni, controlli superati |
+| `--warn` | `#ffa400` | `#995c00` | avvertenze, etichetta del `fix` |
+| `--bad` | `#ff4e42` | `#cc334d` | critici, controlli falliti |
+| `--muted` | `#5f6771` | `#556879` | testo secondario |
+| `--track` | `#e8ebee` | `#e6edee` | fondo di `code`, `pre`, `li:target` |
+
+**I colori di gravità non sono un vezzo estetico, ed è la scoperta della
+voce.** Quelli di Lighthouse, che il referto usa **come testo**, stanno su
+bianco a **2,09:1** (`--ok`) e **1,99:1** (`--warn`): sotto perfino la soglia
+3:1 dei componenti, cioè il referto che misura l'accessibilità falliva i
+propri criteri. I tre di Bootstrap Italia stanno tutti sopra 4,5:1.
+
+**Due tinte sono state scostate da quelle del sito, e la ragione è misurata,
+non estetica**: `--muted` è il grigio del sito (`#5d7083`) sceso di un
+gradino, perché a quella tinta il `<code>` dentro `.meta` sta a **4,19:1** sul
+proprio fondo; `--track` è salito di un gradino perché l'etichetta del `fix`
+dentro un rilievo raggiunto da un'ancora (`li:target`) ci finisce sopra e
+stava a **4,44:1**. Nessuna delle due l'ha trovata una lettura del CSS: le ha
+trovate **axe, eseguito sul referto stesso**.
+
+**Divergenza dal piano, dichiarata**: [UPGRADE.md](UPGRADE.md) §6.2 elenca
+«chiaro/scuro via `prefers-color-scheme`» fra le caratteristiche del referto
+definitivo. Non è più vero, per decisione del proprietario: il tema è uno solo.
+Il piano resta il piano e non si riscrive — qui sta la realizzazione, e vince
+questa.
+
+**Prove.**
+
+- **axe-core sul referto stesso**, con Chromium, regole WCAG 2.1 A e AA:
+  **prima 87 nodi in violazione** (tutti `color-contrast`, gravità *serious*),
+  **dopo zero**, su entrambi i referti sintetici e anche con un rilievo
+  raggiunto da un'ancora, che cambia il fondo. 25 controlli superati.
+- Un test in suite che non ha bisogno del browser: ogni colore di testo contro
+  **i fondi su cui finisce davvero**. La prima versione guardava il solo
+  `--bg`, passava, e axe trovava lo stesso i quattro `<code>` a 4,19:1 — la
+  lezione è nel commento del test, insieme al perché `--track` non prende
+  `ok` e `bad`.
+- Cinque mutazioni, tutte colte: ognuno dei tre colori riportato a quello di
+  prima → il test dei contrasti; il tema scuro rimesso → il test del tema
+  unico; i titoli riportati al colore del corpo → i golden, che è esattamente
+  ciò per cui esistono.
+- Golden HTML rigenerati e **diff riveduto**: il cambiamento è tutto dentro
+  `<style>`; nel corpo non si è mosso un carattere.
+- `pytest` **1149 passed**, `flake8 .` a zero.
 
 ### R62 — ✅ (2026-08-27): il file delle chiavi non si capiva come si scrive
 

@@ -654,12 +654,17 @@ def test_una_modifica_al_css_fa_fallire_il_golden_html(monkeypatch):
     anche se il test fallisce a meta'."""
     if os.environ.get("MARS_RIGENERA_GOLDEN"):
         pytest.skip("il golden su disco e' appena stato riscritto")
+    # Il valore e' quello vero della palette — U11.1 l'ha portato da
+    # #0cce6b, di Lighthouse, al verde del sito. L'assert prima della
+    # `replace` serve perche' una sostituzione che non sostituisce nulla
+    # lascerebbe il test verde senza aver provato niente.
+    assert "--ok:#008055" in mars_report.CSS
     monkeypatch.setattr(mars_report, "CSS",
-                        mars_report.CSS.replace("--ok:#0cce6b",
-                                                "--ok:#0cce6c"))
+                        mars_report.CSS.replace("--ok:#008055",
+                                                "--ok:#008056"))
     diff = _confronta("referto", "html", _rendi("referto", monkeypatch)["html"])
     assert diff, "un carattere di CSS e' passato inosservato"
-    assert "--ok:#0cce6c" in diff
+    assert "--ok:#008056" in diff
     assert max(len(r) for r in diff.splitlines()) < 400, "diff illeggibile"
 
 

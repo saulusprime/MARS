@@ -556,8 +556,80 @@ def test_l_icona_presente_non_dichiara_nulla(referto):
     assert "Icona non incorporata" not in uscita
 
 
-def test_html_supporta_il_tema_scuro(referto):
-    assert "prefers-color-scheme: dark" in render_html(referto)
+def _token_palette(html: str) -> dict:
+    """I token colore dichiarati in `:root`, letti dal referto reso."""
+    blocco = re.search(r":root \{(.*?)\}", html, re.S)
+    assert blocco, "nel referto non c'e' una palette"
+    return dict(re.findall(r"--([a-z-]+):\s*(#[0-9a-fA-F]{3,6})",
+                           blocco.group(1)))
+
+
+def _contrasto(primo: str, secondo: str) -> float:
+    """Il rapporto di contrasto WCAG 2.1 fra due colori esadecimali."""
+    def luminanza(colore: str) -> float:
+        if len(colore) == 4:
+            colore = "#" + "".join(c * 2 for c in colore[1:])
+        canali = [int(colore[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        lineari = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+                   for c in canali]
+        return (0.2126 * lineari[0] + 0.7152 * lineari[1]
+                + 0.0722 * lineari[2])
+    a, b = luminanza(primo), luminanza(secondo)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+def test_html_e_solo_chiaro(referto):
+    """U11.1: il referto ha un tema solo, deciso dall'utente.
+
+    Sostituisce `test_html_supporta_il_tema_scuro`, che non era
+    sbagliato: chiedeva una cosa che il proprietario del referto ha
+    deciso di non volere piu'. L'identita' del sito e' pensata per il
+    chiaro, e una variante scura inventata da noi non sarebbe la sua."""
+    html = render_html(referto)
+    assert "prefers-color-scheme" not in html
+    assert len(re.findall(r":root \{", html)) == 1, "una palette sola"
+
+
+def test_la_palette_e_quella_del_sito(referto):
+    """I token misurati su lymphatechnologies.com, non scelti a occhio:
+    petrolio scuro dei titoli, petrolio dei link, testo del corpo."""
+    token = _token_palette(render_html(referto))
+    assert token["brand"] == "#0c3540"
+    assert token["link"] == "#1e4c5a"
+    assert token["fg"] == "#14272b"
+
+
+def test_ogni_colore_di_testo_passa_il_proprio_controllo(referto):
+    """Un referto che misura l'accessibilita' non puo' fallire i propri
+    criteri, ed e' cio' che faceva: `--ok` (#0cce6b) e `--warn`
+    (#ffa400), presi da Lighthouse, stanno a **2,09:1** e **1,99:1** su
+    bianco, cioe' sotto perfino la soglia 3:1 dei componenti. Sono i
+    colori con cui il referto scrive i punteggi e i segni dei controlli.
+
+    I colori del sito sono quelli di Bootstrap Italia, disegnati per il
+    contrasto: tutti sopra 4,5:1.
+
+    Si controllano TUTTI i fondi su cui quel testo finisce davvero, e
+    non il solo bianco: la prima versione di questo test guardava
+    `--bg`, passava, e axe sul referto trovava lo stesso quattro
+    `<code>` a 4,19:1 — il grigio del sito su `--track`. `--line` resta
+    fuori: e' un bordo, non un fondo di testo."""
+    token = _token_palette(render_html(referto))
+    tutti = ("fg", "muted", "ok", "warn", "bad", "brand", "link")
+    # I fondi con SOPRA i colori che ci finiscono davvero. `--track` non
+    # prende `ok` e `bad`: e' il fondo degli anelli SVG — dove non c'e'
+    # testo — di `code`, di `pre.ex` e del rilievo raggiunto da
+    # un'ancora, e li' scrivono `fg`, `muted` e l'etichetta
+    # «Correzione:», che e' `warn`. Elencarli e' meno elegante del
+    # prodotto cartesiano ed e' l'unica forma vera: chiedere 4,5:1 a una
+    # coppia che non esiste avrebbe schiarito `--track` fino a
+    # confonderlo con `--card`.
+    for fondo, sopra in (("bg", tutti), ("card", tutti),
+                         ("track", ("fg", "muted", "warn"))):
+        for nome in sopra:
+            rapporto = _contrasto(token[nome], token[fondo])
+            assert rapporto >= 4.5, "--%s su --%s: %.2f:1" % (
+                nome, fondo, rapporto)
 
 
 def test_html_neutralizza_il_markup_del_sito():

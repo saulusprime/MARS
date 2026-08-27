@@ -6,22 +6,43 @@
 <title>MARS Beacon — https://esempio.test/</title>
 <link rel='icon' href='data:ICONA;base64,DIGEST'>
 <style>
-:root { --ok:#0cce6b; --warn:#ffa400; --bad:#ff4e42; --bg:#fff;
-        --fg:#1f2328; --muted:#5f6771; --line:#dfe3e8; --card:#f7f9fa;
-        --track:#e8ebee; --ombra:0 1px 3px rgba(0,0,0,.08); }
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#12161c; --fg:#e6edf3; --muted:#98a1ad; --line:#2a3038;
-          --card:#1a1f27; --track:#2a3038; --ombra:none; } }
+/* La palette e' quella di lymphatechnologies.com, misurata sugli stili
+   calcolati del sito (U11.1). Un tema solo, il chiaro: l'identita' del
+   sito e' pensata per il chiaro, e una variante scura inventata da noi
+   non sarebbe la sua.
+   I tre colori di gravita' vengono da Bootstrap Italia, che il sito
+   usa, e non sono una scelta estetica: quelli di Lighthouse — #0cce6b
+   e #ffa400 — stanno a 2,09:1 e 1,99:1 su bianco, sotto perfino la
+   soglia 3:1 dei componenti, e sono i colori con cui questo referto
+   scrive i punteggi. Un referto che misura l'accessibilita' non puo'
+   fallire i propri criteri. La scala resta 90/50 e il simbolo
+   accompagna sempre il colore: cambiano le tinte, non il significato. */
+/* Due tinte sono state scostate da quelle del sito, e la ragione e'
+   misurata su questo referto e non dedotta: `--muted` e' il grigio del
+   sito (#5d7083) sceso di un gradino, perche' a quella tinta il
+   `<code>` dentro `.meta` sta a 4,19:1 e axe lo rileva; `--track` e'
+   salito di un gradino da #e3eaec, perche' l'etichetta del `fix`
+   dentro un rilievo raggiunto da un'ancora (`li:target`) ci finisce
+   sopra e stava a 4,44:1. Sono i due fondi su cui il referto scrive
+   davvero. (La parola italiana di quell'etichetta non si scrive qui:
+   il presidio di R61 la cerca in tutta la pagina.) */
+:root { --ok:#008055; --warn:#995c00; --bad:#cc334d; --bg:#fff;
+        --fg:#14272b; --muted:#556879; --line:#dde5e7; --card:#f4f7f8;
+        --track:#e6edee; --brand:#0c3540; --link:#1e4c5a;
+        --ombra:0 1px 3px rgba(12,53,64,.08); }
 * { box-sizing:border-box; }
 body { margin:0; padding:0 0 3rem; background:var(--bg); color:var(--fg);
        font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
 main { max-width:64rem; margin:0 auto; padding:0 1rem; }
 header.testata { border-bottom:1px solid var(--line); margin-bottom:1.5rem;
                  padding:1.75rem 0 1.25rem; }
-h1 { font-size:1.35rem; margin:0 0 .3rem; letter-spacing:-.01em; }
+h1 { font-size:1.35rem; margin:0 0 .3rem; letter-spacing:-.01em;
+     color:var(--brand); }
 h2 { font-size:1.05rem; margin:2.25rem 0 .85rem;
-     border-bottom:1px solid var(--line); padding-bottom:.4rem; }
-h3 { font-size:.95rem; margin:0; }
+     border-bottom:1px solid var(--line); padding-bottom:.4rem;
+     color:var(--brand); }
+h3 { font-size:.95rem; margin:0; color:var(--brand); }
+a { color:var(--link); }
 .meta { color:var(--muted); font-size:.87rem; margin:.15rem 0; }
 .meta code { word-break:break-all; }
 

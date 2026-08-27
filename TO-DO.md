@@ -19,7 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R62 sono
+> **Sei caselle aperte, e nessuna è una correzione**: da R55 a R62 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
@@ -56,7 +56,8 @@ file, e il modello che l'aiuto indicava era il corpo di una richiesta API.
 
 Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
 decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
-ha ragione AS-IS. Restano tre fasi, più **U12** (ancore esterne, Brave Search e
+ha ragione AS-IS. Restano tre fasi — la undicesima con una sotto-voce
+nuova, U11.1, decisa dall'utente — più **U12** (ancore esterne, Brave Search e
 confronto competitivo) che il piano dichiara **opzionale** e che per questo non
 ha una casella: se si decide di farla, la casella si aggiunge.
 
@@ -81,6 +82,69 @@ ha una casella: se si decide di farla, la casella si aggiunge.
       o da una decisione che non richiede U10.
 - [ ] **U11 — Deliverable rifinito** (G14, G15, Fase 11): CSS di stampa,
       accessibilità delle tabelle, brand nel footer.
+- [ ] **U11.1 — Il referto HTML porta l'identità visiva di Lympha
+      Technologies.** Deciso dall'utente il 2026-08-27. **Allarga U11**: il
+      piano prevedeva il solo «brand nel footer», qui il referto diventa un
+      deliverable riconoscibile come cosa di Lympha. UPGRADE.md resta il piano
+      e non si riscrive: la divergenza la registra AS-IS quando la voce chiude.
+
+      **Rilievo del 2026-08-27** su `lymphatechnologies.com/it`, da stili
+      calcolati e non a occhio (Bootstrap Italia 2.16, cioè il design system
+      della PA):
+
+      | | Valore misurato | Dove |
+      |---|---|---|
+      | petrolio scuro | `#0c3540` | titoli h2, bottoni, fondo del footer |
+      | petrolio, primario/link | `#1e4c5a` | link, `--bs-primary` |
+      | testo | `#14272b` su `#ffffff` | corpo |
+      | bordo | `1px solid rgba(8,49,58,.12)` | card `.lt-card` |
+      | raggio, spaziatura | `20px`, padding `28px` | card |
+      | bottone | fondo `#0c3540`, raggio `4px`, peso 600, padding `12px 24px` | CTA |
+      | testo corrente | 18px / 28px | paragrafi |
+      | titoli | 700, h2 40/48px, `letter-spacing -.6px` | h1-h3 |
+      | caratteri | **Titillium Web** 300/400/600/700, **Roboto Mono** per il codice | tutto |
+      | occhiello | maiuscolo, spaziato, con barretta colorata a sinistra | sopra i titoli |
+
+      Il logo il sito lo serve **già come data URI PNG 128×46**, quindi
+      incorporarlo non chiede una richiesta di rete al momento del referto.
+
+      **Tre decisioni prima di scrivere una riga**, e la prima ha un numero:
+
+      1. **I caratteri.** Il referto non può chiamare Google Fonts né il sito:
+         è autoconsistente, e un test lo presidia già anche sugli
+         `@font-face` con URL esterno. Incorporarli costa, **misurato sui
+         woff2 del sito**: 18,1 KB (400) + 18,1 (600) + 17,3 (700), che in
+         base64 fanno circa 72 KB su un referto che oggi ne pesa **57**. Le
+         opzioni sono tre: due pesi soli (400/700, ~48 KB), tutti e tre, o
+         nessuno — stack di sistema e brand dichiarato solo nei colori.
+      2. **Il tema scuro.** Il referto oggi segue `prefers-color-scheme`; il
+         brand è pensato per il chiaro. O si costruisce la variante scura
+         coerente col petrolio, o si dichiara il referto solo chiaro.
+      3. **La favicon.** Resta quella di MARS o diventa il marchio Lympha?
+         Il referto è il deliverable di Lympha, ma lo strumento è MARS.
+
+      **Vincolo che non si negozia**: la scala 90/50 di Lighthouse e i colori
+      di gravità restano leggibili e distinti dal petrolio del brand
+      (UPGRADE.md §2.4). Il petrolio scuro e il verde «buono» non devono
+      confondersi, e il simbolo accompagna sempre il colore.
+
+      - [ ] Palette del referto sui token misurati, tema chiaro, con i colori
+            di gravità verificati contro il nuovo fondo.
+      - [ ] Testata col logo incorporato e piè di pagina petrolio con la
+            ragione sociale — è il «brand nel footer» che U11 già prevede.
+      - [ ] Schede d'area come `.lt-card`: bordo hairline, raggio 20, padding
+            28, nessuna ombra.
+      - [ ] Occhielli con la barretta: `.titolo-correzioni` è già maiuscolo e
+            spaziato, quindi è il punto da cui partire.
+      - [ ] Caratteri, secondo la decisione 1; se incorporati, il golden HTML
+            va normalizzato come già si fa per la favicon, altrimenti diventa
+            illeggibile in un diff.
+      - [ ] Contrasti verificati con axe **sul referto stesso**: lo strumento
+            è già in casa, e un referto sull'accessibilità che non passa i
+            propri controlli è indifendibile. Il sito dichiara WCAG 2.1 AA.
+      - [ ] `@media print`: il footer petrolio a pagina intera è inchiostro
+            sprecato. Si incontra con la casella «CSS di stampa» di U11.
+      - [ ] Golden HTML rigenerati e **diff riveduto**, come sempre.
 
 ---
 

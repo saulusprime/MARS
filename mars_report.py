@@ -1911,6 +1911,9 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
                color:var(--muted); }
 .fix { display:block; margin-top:.2rem; font-size:.85rem; }
 .fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+.ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
+           text-transform:uppercase; letter-spacing:.05em;
+           color:var(--muted); }
 pre.ex { margin:.4rem 0 0; padding:.55rem .65rem; background:var(--track);
          border-radius:.35rem; font-size:.78rem; line-height:1.45;
          overflow-x:auto; white-space:pre; }
@@ -2479,7 +2482,23 @@ def _correzioni(findings: List[dict],
         # L'esempio e' codice: <pre> perche' gli a-capo e
         # l'indentazione di un blocco nginx o JSON-LD sono il suo
         # contenuto, non la sua impaginazione.
+        #
+        # E porta la sua didascalia, sempre (R60): un blocco nginx si
+        # riconosce da solo, un esempio scritto in prosa italiana
+        # plausibile no — e `sem.answer_shaped.low` deve mostrare
+        # proprio quello, perche' il rilievo parla della forma della
+        # prosa. Senza etichetta il lettore di un referto vero l'ha
+        # letto come contenuto di un altro sito finito nel suo.
         if f.get("example"):
+            # Il letterale e non una costante condivisa col Markdown:
+            # `test_ogni_letterale_della_cornice_e_a_catalogo` legge
+            # l'AST e indicizza sul testo italiano, quindi un nome
+            # scollegherebbe la traduzione senza rompere nulla — che e'
+            # esattamente il difetto che quel presidio esiste per
+            # impedire.
+            pezzi.append(
+                "<span class='ex-nota'>%s</span>"
+                % _e(t("Esempio — non è contenuto del tuo sito", lang)))
             pezzi.append("<pre class='ex'>%s</pre>" % _e(testi["example"]))
         righe.append("<li%s>%s</li>"
                      % (" id='%s'" % ancora if ancora else "",
@@ -3542,7 +3561,12 @@ def _md_rilievo(rilievo: dict,
     if testi["example"]:
         # Recintato: un esempio nginx o JSON-LD dentro un elenco
         # perderebbe indentazione e a-capo, che sono il suo contenuto.
+        # La didascalia sopra e' la stessa dell'HTML, e per la stessa
+        # ragione (R60): il recinto dice «codice», non «inventato».
         righe.append("")
+        righe.append("  *%s*"
+                     % t("Esempio — non è contenuto del tuo sito",
+                         lang))
         righe.append("  ```")
         righe.extend("  %s" % r for r in testi["example"].split("\n"))
         righe.append("  ```")

@@ -65,6 +65,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot
   *Correzione:* Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   # robots.txt — il gruppo va CORRETTO, non aggiunto
   # prima:
@@ -77,6 +78,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [INFO] 2/3 pagine senza <link rel="canonical">
   *Correzione:* Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <link rel="canonical" href="https://esempio.it/servizi/">
   ```
@@ -102,6 +104,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [AVVISO] 1 blocchi JSON-LD malformati
   *Correzione:* Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   // prima — la virgola finale rende il blocco invalido
   {"@type": "Service",}
@@ -114,6 +117,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <img src="/sala.jpg" alt="La sala trattamenti">
   <img src="/onda.svg" alt="">
@@ -123,6 +127,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - **[CRITICO]** 1 campi di modulo senza etichetta
   *Correzione:* Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <label for="nome">Nome</label>
   <input id="nome" name="nome" type="text">
@@ -130,6 +135,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [AVVISO] 1 tabelle dati senza intestazioni <th>
   *Correzione:* Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <table>
     <tr><th scope="col">Trattamento</th><th scope="col">Durata</th></tr>
@@ -139,6 +145,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [INFO] 1 link con testo generico ("clicca qui", "leggi tutto")
   *Correzione:* Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <!-- invece di: <a href="/prezzi/">clicca qui</a> -->
   <a href="/prezzi/">Il listino dei trattamenti</a>
@@ -149,6 +156,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [AVVISO] CSP mancante
   *Correzione:* Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   # nginx — prima si osserva
   add_header Content-Security-Policy-Report-Only "default-src 'self'" always;
@@ -158,6 +166,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [AVVISO] X-Frame-Options mancante
   *Correzione:* Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   # nginx
   add_header X-Frame-Options "SAMEORIGIN" always;

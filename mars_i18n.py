@@ -746,6 +746,8 @@ _CORNICE_EN: Dict[str, str] = {
     "altro strumento": "other tool",
     "Nessun rilievo.": "No findings.",
     "Come si aggiusta": "How to fix it",
+    "Esempio — non è contenuto del tuo sito":
+        "Example — not content from your site",
     "Link a questo rilievo": "Link to this finding",
     "Punteggi per area": "Scores by area",
     "Punteggio": "Score",

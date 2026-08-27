@@ -122,6 +122,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot
   *Correzione:* Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   # robots.txt — il gruppo va CORRETTO, non aggiunto
   # prima:
@@ -134,6 +135,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] 2/3 pagine senza <link rel="canonical">
   *Correzione:* Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <link rel="canonical" href="https://esempio.it/servizi/">
   ```
@@ -174,6 +176,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [AVVISO] 1 blocchi JSON-LD malformati
   *Correzione:* Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   // prima — la virgola finale rende il blocco invalido
   {"@type": "Service",}
@@ -193,6 +196,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <img src="/sala.jpg" alt="La sala trattamenti">
   <img src="/onda.svg" alt="">
@@ -202,6 +206,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - **[CRITICO]** 1 campi di modulo senza etichetta
   *Correzione:* Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <label for="nome">Nome</label>
   <input id="nome" name="nome" type="text">
@@ -209,6 +214,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [AVVISO] 1 tabelle dati senza intestazioni <th>
   *Correzione:* Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <table>
     <tr><th scope="col">Trattamento</th><th scope="col">Durata</th></tr>
@@ -218,6 +224,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] 1 link con testo generico ("clicca qui", "leggi tutto")
   *Correzione:* Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 
+  *Esempio — non è contenuto del tuo sito*
   ```
   <!-- invece di: <a href="/prezzi/">clicca qui</a> -->
   <a href="/prezzi/">Il listino dei trattamenti</a>

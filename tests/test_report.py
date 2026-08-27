@@ -1220,6 +1220,58 @@ def test_testo_ignora_i_rilievi_senza_fix():
     assert _correzioni_testo([]) == []
 
 
+def test_ogni_esempio_porta_la_sua_didascalia():
+    """R60: un esempio senza etichetta si legge come una misura.
+
+    Nel referto vero di un cliente il blocco «<h2>Quanto dura una
+    seduta?</h2>» — che e' l'`example` di `sem.answer_shaped.low` —
+    e' stato letto come contenuto di un ALTRO sito finito nel suo. Un
+    blocco nginx si riconosce da solo; un esempio scritto in prosa
+    italiana plausibile no, ed e' proprio quello che quel rilievo deve
+    mostrare, perche' parla della forma della prosa."""
+    reso = _correzioni([_rilievo(fix="Aggiungi X.",
+                                 example="<h2>Quanto dura?</h2>")])
+    assert "non è contenuto del tuo sito" in reso
+    # Sopra il blocco, non sotto: dopo averlo letto e' tardi.
+    assert reso.index("ex-nota") < reso.index("<pre class='ex'>")
+
+
+def test_nessun_blocco_esempio_resta_senza_didascalia():
+    """L'invariante, e non il solo caso di sopra: i due conteggi
+    coincidono su un referto intero, comunque siano i rilievi."""
+    for nome in ("referto", "referto_degradato"):
+        percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "golden", nome + ".json")
+        with open(percorso, encoding="utf-8") as handle:
+            referto = json.load(handle)
+        for lingua in ("it", "en"):
+            html = RENDERERS["html"](referto, lingua)
+            # Lo span, non la stringa nuda: `ex-nota` compare anche
+            # nella regola CSS, e il conteggio direbbe 8 contro 7.
+            assert (html.count("<pre class='ex'>")
+                    == html.count("<span class='ex-nota'>")), \
+                "%s/%s: esempi e didascalie non coincidono" % (nome, lingua)
+
+
+def test_la_didascalia_dell_esempio_e_tradotta():
+    """Come «Come si aggiusta» due righe piu' su: se restasse italiana
+    in un referto inglese sarebbe R44 in un altro punto. E il letterale
+    sta nel renderer, non in una costante, perche' e' li' che il
+    presidio del catalogo lo va a cercare."""
+    rilievo = _rilievo(fix="Add X.", example="<h2>How long?</h2>")
+    assert "not content from your site" in _correzioni([rilievo], lang="en")
+    assert "non è contenuto del tuo sito" in _correzioni([rilievo])
+
+
+def test_il_markdown_etichetta_l_esempio_come_l_html():
+    """Il recinto ``` dice «codice», non «inventato»: le due viste che
+    l'esempio lo mostrano devono dire la stessa cosa."""
+    righe = mars_report._md_rilievo(_rilievo(fix="Fai X.", example="riga1"))
+    testo = "\n".join(righe)
+    assert "non è contenuto del tuo sito" in testo
+    assert testo.index("non è contenuto") < testo.index("```")
+
+
 def test_testo_lascia_fuori_l_esempio():
     """Cinque o sette righe di nginx per area triplicherebbero il
     referto: gli example vivono nell'HTML e nel JSON, per intero."""

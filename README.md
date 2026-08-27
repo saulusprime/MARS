@@ -549,6 +549,15 @@ Formati del referto (--format, predefinito text):
               rilievo e' scattato, `riferimento` e' il link alla
               documentazione della regola dello strumento (axe)
 
+Ogni rilievo che ha una correzione porta, dove serve, anche un ESEMPIO:
+un frammento di robots.txt, di JSON-LD o di markup che mostra la forma
+di arrivo. E' scritto da noi e non viene dal sito analizzato, quindi
+HTML e Markdown lo dichiarano sopra il blocco — «Esempio, non e'
+contenuto del tuo sito». Fino al 2026-08-27 non lo dichiaravano, e un
+esempio in prosa italiana plausibile e' stato letto come contenuto di
+un altro sito finito nel referto (R60). Il testo non lo mostra affatto,
+il CSV porta la sola correzione, il JSON ha la chiave `example`.
+
 Lingua del referto (--lang, predefinito it). Due lingue: **it** ed **en**.
 E' un livello dichiaratamente inferiore al riferimento a cinque lingue, e la
 ragione sta in testa a mars_i18n.py con la misura che l'ha motivata — dei

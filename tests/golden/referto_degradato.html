@@ -121,6 +121,9 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
                color:var(--muted); }
 .fix { display:block; margin-top:.2rem; font-size:.85rem; }
 .fix::before { content:"Correzione: "; color:var(--warn); font-weight:600; }
+.ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
+           text-transform:uppercase; letter-spacing:.05em;
+           color:var(--muted); }
 pre.ex { margin:.4rem 0 0; padding:.55rem .65rem; background:var(--track);
          border-radius:.35rem; font-size:.78rem; line-height:1.45;
          overflow-x:auto; white-space:pre; }
@@ -392,6 +395,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <b>robots.txt BLOCCA 1 crawler IA: GPTBot</b>
 <a class='ancora' href='#r-tech-robots-ai-blocked' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov&#x27;e&#x27;.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'># robots.txt — il gruppo va CORRETTO, non aggiunto
 # prima:
 #   User-agent: GPTBot
@@ -404,6 +408,7 @@ Disallow:</pre>
 <b>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</b>
 <a class='ancora' href='#r-tech-canonical-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;link rel=&quot;canonical&quot; href=&quot;https://esempio.it/servizi/&quot;&gt;</pre>
 </li>
 </ul>
@@ -476,6 +481,7 @@ Disallow:</pre>
 <b>1 blocchi JSON-LD malformati</b>
 <a class='ancora' href='#r-sd-jsonld-block-malformed' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>// prima — la virgola finale rende il blocco invalido
 {&quot;@type&quot;: &quot;Service&quot;,}
 // dopo
@@ -505,6 +511,7 @@ Disallow:</pre>
 <b>1/2 immagini prive di testo alternativo</b>
 <a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
 </li>
@@ -517,6 +524,7 @@ Disallow:</pre>
 <b>1 campi di modulo senza etichetta</b>
 <a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
 </li>
@@ -524,6 +532,7 @@ Disallow:</pre>
 <b>1 tabelle dati senza intestazioni &lt;th&gt;</b>
 <a class='ancora' href='#r-wcag-table-th-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;table&gt;
   &lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Trattamento&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Durata&lt;/th&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;Drenaggio&lt;/td&gt;&lt;td&gt;50 minuti&lt;/td&gt;&lt;/tr&gt;
@@ -533,6 +542,7 @@ Disallow:</pre>
 <b>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</b>
 <a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
 </li>
@@ -557,6 +567,7 @@ Disallow:</pre>
 <b>CSP mancante</b>
 <a class='ancora' href='#r-sec-headers-csp-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche&#x27; non passi all&#x27;header vero.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'># nginx — prima si osserva
 add_header Content-Security-Policy-Report-Only &quot;default-src &#x27;self&#x27;&quot; always;
 # poi, quando le violazioni sono a zero
@@ -566,6 +577,7 @@ add_header Content-Security-Policy &quot;default-src &#x27;self&#x27;&quot; alwa
 <b>X-Frame-Options mancante</b>
 <a class='ancora' href='#r-sec-headers-xframe-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'># nginx
 add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 </li>

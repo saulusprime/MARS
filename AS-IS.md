@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R60 | Gli esempi di correzione si leggevano come contenuto misurato | 2026-08-27 |
 | R59 | Diagnostica e referto sullo stesso canale: il JSON non si rileggeva | 2026-08-27 |
 | R58 | L'annuncio della spesa si stampava anche quando nulla partiva | 2026-08-27 |
 | R57 | Le chiavi dalla riga di comando, e un `main()` che si esegue | 2026-08-27 |
@@ -2369,6 +2370,67 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R60 — ✅ (2026-08-27): un esempio senza didascalia si legge come una misura
+
+*(aperta da un referto vero, letto da chi lo riceve — non da una revisione.)*
+
+**Il fatto.** Nella scheda «4. Semantica» di un audit su
+`lymphatechnologies.com` compariva, sotto il rilievo, questo blocco:
+
+    <h2>Quanto dura una seduta?</h2>
+    <p>Una seduta dura circa cinquanta minuti, prima valutazione compresa.</p>
+
+Il destinatario del referto lo ha letto come **contenuto di un altro sito
+finito nel suo**, e ha chiesto conto del perimetro.
+
+**Che cos'era davvero.** L'`example` di `sem.answer_shaped.low`, cablato in
+[mars_fixes.py:268](mars_fixes.py#L268): un esempio inventato di come si scrive
+un passaggio in forma di risposta. Riprodotto rilanciando l'audit per intero (8
+pagine, `--llm on`, `--i-own-this-domain`, embedding reali).
+
+**Il perimetro non c'entrava, ed è stato misurato invece che affermato**: nel
+referto compare **un solo host**, `https://www.lymphatechnologies.com`. Nessuna
+pagina estranea scaricata, nessun link fuori host seguito. Il difetto è di
+resa.
+
+**Causa radice.** `_correzioni_html()` rendeva l'`example` come `<pre
+class='ex'>` senza didascalia, e **nell'intero referto la parola «esempio» non
+compariva nemmeno una volta**. Un blocco nginx o un JSON-LD si riconoscono da
+soli; un esempio scritto in prosa italiana plausibile no — ed è esattamente
+quello che `sem.answer_shaped.low` deve mostrare, perché il rilievo parla della
+forma della prosa. La classe è «esempio in prosa», non «questo esempio»:
+`wcag.alt.missing` porta `alt="La sala trattamenti"`, dallo stesso sito
+immaginario.
+
+**Soluzione** (opzione scelta dall'utente fra tre): una didascalia sopra ogni
+blocco — «Esempio — non è contenuto del tuo sito» — in HTML e in Markdown, a
+catalogo i18n. Gli esempi restano realistici: è ciò che li rende utili, e
+renderli finti avrebbe tolto valore senza chiudere la classe.
+
+**Il letterale sta nel renderer e non in una costante condivisa**, e non è
+sciatteria: `test_ogni_letterale_della_cornice_e_a_catalogo` legge l'AST e
+indicizza sul **testo italiano** passato a `t()`. Una costante scollega la
+traduzione senza rompere nulla — il primo tentativo l'ha fatto, e il presidio
+è diventato rosso subito («voce di cornice orfana»).
+
+**Prove.**
+
+- Riprodotto e verificato **sul sito vero**, prima e dopo: la didascalia ora
+  precede il blocco nel referto reale, e i due conteggi coincidono (2 esempi,
+  2 didascalie).
+- Quattro test nuovi in `tests/test_report.py`: la didascalia c'è ed è **sopra**
+  il blocco; l'invariante sui due referti sintetici in entrambe le lingue —
+  contando `<span class='ex-nota'>` e non la stringa nuda, che compare anche
+  nella regola CSS; la traduzione inglese; il Markdown che dice la stessa cosa.
+- Quattro mutazioni, tutte colte: didascalia HTML tolta → 5 rossi; didascalia
+  **sotto** il blocco → 3; didascalia Markdown tolta → 3; **una parola cambiata
+  nel letterale** → 5, fra cui la guardia del catalogo i18n, che è la prova che
+  la traduzione resta agganciata.
+- Golden rigenerati e **diff riveduto**: 38 righe aggiunte in quattro file, e
+  sono la regola CSS più una didascalia per blocco. Nessun punteggio, nessun
+  testo, nessuna riga del JSON, del CSV o della vista testo si è mossa.
+- `pytest` **1142 passed**, `flake8 .` a zero.
 
 ### R59 — ✅ (2026-08-27): diagnostica su `stderr`, referto su `stdout`
 

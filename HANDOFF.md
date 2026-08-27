@@ -17,13 +17,13 @@
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
   Riferimento a fine sessione: `flake8` 0, `pytest` **1138 passed**.
-- **Nulla è stato spinto sul remoto**: i commit di oggi sono locali.
+- I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
 
-Nove voci chiuse — da R53 a R59, più le due pulizie del TO-DO — tutte in
-[AS-IS.md](AS-IS.md) con difetto, misura e prove. Le quattro che contano
-per chi riprende:
+Undici voci chiuse — da R53 a R61, più le due pulizie del TO-DO — tutte
+in [AS-IS.md](AS-IS.md) con difetto, misura e prove. Le cinque che
+contano per chi riprende:
 
 - **R55/R56**: lo spider di ZAP non rispettava robots.txt ed è ora dietro
   `--i-own-this-domain`. Senza dichiarazione l'area 7 vede solo le pagine
@@ -40,6 +40,12 @@ per chi riprende:
   `mars_audit`, `mars_core`, `mars_wapt` o `mars_llm_judge` fa fallire
   `test_su_stdout_va_solo_il_referto`, che legge l'AST dei sorgenti. Il
   referto si scrive con `sys.stdout.write`, apposta.
+- **R60/R61**: nel referto ogni esempio di correzione porta la didascalia
+  «Esempio — non è contenuto del tuo sito», e l'etichetta «Correzione:»
+  è uscita dal CSS. Da sapere prima di toccare i renderer: i letterali
+  passati a `t()` vanno scritti **in linea**, non in una costante —
+  `test_ogni_letterale_della_cornice_e_a_catalogo` indicizza sull'AST, e
+  una costante scollega la traduzione senza rompere nulla.
 - **`schema_version` è a 3** (R53). `__version__` resta 2.9.0.
 
 ## Prossimo passo

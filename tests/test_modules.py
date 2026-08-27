@@ -2858,7 +2858,9 @@ def test_seo_ogni_modo_non_misurato_ha_il_suo_prefisso():
     Le due strutture rispondono alla stessa domanda e devono coprire
     gli stessi modi."""
     assert (set(mars_seo.PREFISSO_NON_MISURATO)
-            == {m.lower() for m in mars_core.LH_MODI_NON_MISURATI})
+            == {m.lower() for m in mars_core.LH_MODI_NON_MISURATI} | {""}), \
+        "i quattro modi dichiarati, piu' il modo ASSENTE: un audit che " \
+        "Lighthouse non riporta affatto non ha un modo, ed e' il caso di R54"
 
 
 def test_seo_i_tre_testi_di_lighthouse_arrivano_nel_rilievo():
@@ -2946,6 +2948,37 @@ def test_seo_gli_avvisi_di_un_controllo_superato_non_si_perdono():
          "chunks": [], "discovery": "sitemap", "skipped": []})
     assert "GPTBot" in render_html(referto), \
         "l'avviso deve arrivare a chi legge, non solo nel JSON"
+
+
+def test_seo_un_audit_assente_dal_lhr_non_e_un_difetto_del_sito():
+    """R54, la seconda faccia dello stesso buco.
+
+    Un `auditRef` che la categoria elenca ma che non compare fra gli
+    `audits` non e' un controllo fallito: e' un controllo che
+    Lighthouse non ha riportato. Usciva `critical`, contato fra i
+    FALLITI e intitolato con lo slug grezzo — `voce.get("title") or
+    ref.get("id")` — cioe' un difetto grave del sito annunciato da un
+    identificatore.
+
+    Non e' teorico: e' lo stesso caso che la docstring di `_penalita`
+    dichiara reale, ed e' il motivo per cui li' lo score si controlla
+    gia' con `isinstance`. La classificazione della voce non lo
+    faceva.
+    """
+    lhr = _lhr()
+    del lhr["audits"]["is-crawlable"]        # il piu' pesante: 93/23
+    voce = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}["is-crawlable"]
+    assert voce["manual"] is True, "non misurato, non fallito"
+    assert voce["passed"] is False
+
+    esito = mars_seo.riassumi(lhr)
+    rilievo = {f["key"]: f for f in esito["findings"]}["seo.lh.is_crawlable"]
+    assert rilievo["severity"] == SEV_INFO, "era 'critical', il grado piu' alto"
+    assert rilievo["title"].startswith(
+        mars_seo.PREFISSO_NON_MISURATO[""]), \
+        "un titolo che e' solo uno slug non dice a chi legge che cosa manchi"
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 4, 4), \
+        "era (3, 5, 3): l'assente stava fra i falliti"
 
 
 def test_seo_le_chiavi_hanno_tre_segmenti_e_niente_trattini():

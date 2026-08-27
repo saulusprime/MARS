@@ -1280,6 +1280,39 @@ def test_severita_lighthouse(score, mode, weight, atteso):
     assert severita_lighthouse(score, mode, weight) == atteso
 
 
+def test_lighthouse_un_audit_senza_punteggio_non_e_un_difetto_grave():
+    """R54: `score` era in firma e non lo leggeva nessuno, e l'inerzia
+    nascondeva un buco.
+
+    Un `auditRef` della categoria il cui id NON compare fra gli
+    `audits` arriva qui con score None e modo assente: il modo non
+    entra in `LH_MODI_NON_MISURATI`, quindi decideva il solo peso, e
+    `is-crawlable` — 93/23, l'unico sopra la soglia — usciva
+    **critical**. Un difetto grave del sito su un controllo che
+    Lighthouse non ha mai riportato.
+
+    Il punteggio e' la guardia piu' forte del modo, e per costruzione:
+    `_normalizeAuditScore` (core/audits/audit.js) restituisce **null**
+    per ogni modo non misurato e un numero finito per ogni modo
+    misurato — o solleva, e allora l'audit finisce in `error`, che e'
+    di nuovo null. Quindi «score non numerico» equivale a «non
+    misurato», e vale anche dove il modo manca o non si riconosce.
+    """
+    assert severita_lighthouse(None, "", 93 / 23) == (SEV_INFO, 1.0)
+    assert severita_lighthouse(None, "binary", 93 / 23) == (SEV_INFO, 1.0)
+    assert severita_lighthouse(None, "modo-che-non-esiste", 93 / 23) \
+        == (SEV_INFO, 1.0)
+    # Non `is None` ma `isinstance`, e la differenza si misura: il LHR
+    # arriva da un sottoprocesso, quindi e' dato esterno, e un
+    # `"score": "0"` non e' un punteggio. `_penalita` in mars_seo fa
+    # gia' lo stesso controllo sullo stesso valore.
+    assert severita_lighthouse("0", "binary", 93 / 23) == (SEV_INFO, 1.0)
+    assert severita_lighthouse([], "binary", 93 / 23) == (SEV_INFO, 1.0)
+    # E un punteggio c'e': allora decide il peso, come sempre.
+    assert severita_lighthouse(0, "binary", 93 / 23) == (SEV_CRITICAL, 2.0)
+    assert severita_lighthouse(0.5, "numeric", 93 / 23) == (SEV_CRITICAL, 2.0)
+
+
 def test_lighthouse_non_misurato_non_e_un_fallimento():
     """Un audit manuale resta info anche se pesasse molto: non e' un
     difetto, e' un promemoria. Confonderli riempie l'elenco dei rilievi

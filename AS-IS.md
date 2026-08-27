@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R54 | Il parametro inerte nascondeva un audit assente | 2026-08-27 |
 | R53 | I conteggi di `mars_seo` e i tre testi di Lighthouse | 2026-08-27 |
 | R48 | Dal JavaScript del grafo esce anche la geometria | 2026-08-26 |
 | R46 | Il conteggio delle istanze è canonico; lo sforzo ci scala | 2026-08-26 |
@@ -2361,6 +2362,69 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R54 — ✅ (2026-08-27): il parametro inerte nascondeva un audit assente
+*(l'ultima delle tre osservazioni di R40, e la catena R40 → R53 → R54 si chiude
+qui. **Nessuna correzione resta aperta.**)*
+
+**Il difetto era più grande della voce, e il parametro inerte era il sintomo.**
+`severita_lighthouse(score, mode, weight)` non leggeva `score`: decideva su modo
+e peso. Il TO-DO offriva due strade — introdurre `SEV_OK`, oppure togliere il
+parametro dalla firma dichiarando che la gravita' dal punteggio non dipende — e
+**nessuna delle due era giusta**, perché entrambe partivano dal presupposto che
+`score` non avesse nulla da dire.
+
+**Che cosa nasconde l'inerzia, misurato prima di toccare il codice.** Un
+`auditRef` che la categoria elenca e il cui `id` **non compare** fra gli
+`audits` produce una voce vuota: `score: None`, `scoreDisplayMode: None`, ma il
+`weight` viene dal ref ed è intero. Quel modo non entra in
+`LH_MODI_NON_MISURATI`, quindi decideva il solo peso, e `is-crawlable` — 93/23,
+l'unico audit SEO sopra la soglia, calibrato da Lighthouse perché il suo solo
+fallimento faccia fallire la categoria — usciva:
+
+- `severity: "critical"`, il grado più alto di MARS;
+- `title: "is-crawlable"`, lo slug grezzo, perché il titolo ripiega su
+  `ref.get("id")`;
+- contato fra i **falliti**.
+
+Un difetto grave del sito, annunciato da un identificatore, su un controllo che
+Lighthouse non ha mai riportato. È la stessa classe che R53 aveva chiuso per
+`error`, sopravvissuta in un ramo che nessun modo copre. Non è teorico: è lo
+stesso caso che la docstring di `_penalita` dichiara reale, ed è il motivo per
+cui **li'** lo score si controlla già con `isinstance`. La classificazione non
+lo faceva.
+
+**La decisione: il punteggio è la guardia più forte del modo**, e per
+costruzione. `_normalizeAuditScore` (`core/audits/audit.js`) restituisce `null`
+per ogni modo non misurato e un numero finito per ogni modo misurato — o
+solleva, e allora l'audit finisce in `error`, che è di nuovo `null`. Quindi
+«score non numerico» equivale a «non misurato», **sempre**, e vale anche dove il
+modo manca o non si riconosce. Il parametro diventa significativo senza
+`SEV_OK`: la fase che rendera' i controlli superati parte del referto resta da
+fare, ma non era questa a bloccare.
+
+**Servono entrambe le metà**, e l'`informative` è la ragione: ha `score: 1`,
+quindi numerico, e lo riconosce solo il modo. Una mutazione che lascia la sola
+guardia sullo score lo rimanda fra i superati.
+
+**Il titolo.** Con la voce classificata non misurata, `PREFISSO_NON_MISURATO`
+non aveva una riga per il modo assente e il rilievo si presentava ancora col
+solo slug. Una riga in più — «Controllo assente dal referto di Lighthouse» — e
+la tabella copre ora i quattro modi **più** il caso senza modo; il test che
+teneva allineate tupla e tabella dice adesso questo.
+
+**Verifiche.** `flake8` 0, `pytest` 1096 (erano 1094). Sei mutazioni, tutte
+rosse **senza** `tests/test_golden.py`. Una era passata al primo giro:
+sostituire `isinstance(score, (int, float))` con `score is None`. La differenza
+si misura — il LHR arriva da un sottoprocesso, quindi è dato esterno, e un
+`"score": "0"` non è un punteggio — e ora due asserzioni la fissano.
+
+**I golden non si sono mossi di una riga, ed è il risultato atteso:** nessun
+LHR ben formato ha un audit assente, quindi la correzione è inerte su ogni
+referto vero. Per la stessa ragione **non è stata rieseguita end-to-end**: il
+caso che cambia non si può produrre con un Lighthouse reale, e su input valido
+i golden — che congelano la pipeline intera — dimostrano già che nulla si
+muove.
 
 ### R53 — ✅ (2026-08-27): i conteggi di `mars_seo`, e i tre testi che si buttavano via
 *(due caselle su tre. La terza — il parametro `score` inerte di

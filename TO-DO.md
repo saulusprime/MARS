@@ -19,12 +19,11 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Sei caselle aperte.** Erano undici il 2026-08-26. Ne sono uscite tre senza
-> essere fatte — copertura dei test e pipeline CI, che il README non promette,
-> e **U12**, che il piano dichiara opzionale — e due si sono chiuse il
-> 2026-08-27 con **R53**: i conteggi di `mars_seo` non chiamano piu' difetto
-> del sito un guasto di Lighthouse, e i tre testi che lo strumento produce non
-> si buttano piu' via. `schema_version` e' a **3**.
+> **Cinque caselle aperte, e nessuna è una correzione.** Erano undici il
+> 2026-08-26: tre sono uscite senza essere fatte — copertura dei test e
+> pipeline CI, che il README non promette, e **U12**, che il piano dichiara
+> opzionale — e tre si sono chiuse il 2026-08-27 con **R53** e **R54**. Restano
+> tre fasi UPGRADE e due prove mancanti.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -36,32 +35,17 @@
 
 ## Correzioni
 
-Una sola, e **nessuna voce GRAVE resta aperta**. Discende per via diretta
-dall'adeguamento dei moduli alle fasi UPGRADE — R40 → R53 → R54 — e a ogni
-passaggio è rimasto ciò che non era una correzione ma una decisione. Va
-riprodotta prima di correggerla, regola *verificare, non dedurre*.
+**Nessuna correzione aperta**, per la prima volta da quando questo file esiste:
+R1-R54 stanno tutte in [AS-IS.md](AS-IS.md). La sezione resta perché è dove
+finisce la prossima, e perché un elenco vuoto è un'informazione — non è che
+nessuno ha guardato.
 
-### R54 — ⚪ LIEVE: il parametro `score` di `severita_lighthouse` non viene mai letto
-*(l'ultima delle tre osservazioni di R40. Le prime due sono chiuse il
-2026-08-27 e stanno in [AS-IS.md](AS-IS.md); questa non è un difetto da
-correggere ma una decisione che aspetta una fase.)*
-
-La firma è `severita_lighthouse(score, mode, weight)`
-([mars_core.py:388](mars_core.py#L388)) e la funzione decide su **modo e
-peso**: `score` non lo legge nessuno. Non è morto per svista — è il chiamante
-che deve filtrare i superati, e senza quel filtro un sito perfetto produrrebbe
-nove `warning` — ma un parametro inerte in una firma pubblica invita a
-crederlo significativo, ed è l'unico posto del progetto dove questo succede.
-
-Renderlo significativo vuol dire introdurre **`SEV_OK`**, la gravità che oggi
-nessun modulo usa: è la decisione della fase che renderà i controlli
-**superati** parte del referto strutturato — la stessa che U13 ha lasciato
-fuori dal proprio perimetro. Finché quella fase non c'è, ogni correzione locale
-sarebbe una scala nuova introdotta da un modulo solo.
-
-- [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`, oppure
-      toglierlo dalla firma dichiarando che la gravità non dipende dal
-      punteggio.
+L'ultima catena vale come avvertimento a chi ne aprirà una: **R40 → R53 → R54**,
+tre voci nate l'una dalla precedente. Ogni volta il residuo sembrava un
+dettaglio di forma, e ogni volta nascondeva un caso in cui un guasto dello
+strumento veniva presentato come un difetto del sito. Il terzo — un parametro
+che nessuno leggeva — era il più innocuo dei tre a vedersi, e copriva il più
+grave: un audit assente dal referto usciva `critical`.
 
 ---
 
@@ -132,14 +116,14 @@ sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
   Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per
   questo in [mars_audit.py:27](mars_audit.py#L27).
 - **I3** — esporre `--rrf-k` e mostrare come cambia il consenso al variare di
-  `k` (oggi `RRF_K = 60`, [mars_core.py:1684](mars_core.py#L1684)). Didattica,
+  `k` (oggi `RRF_K = 60`, [mars_core.py:1706](mars_core.py#L1706)). Didattica,
   quasi gratis.
 - **I4 + I9** — **quali** chunk stiano fuori dall'intersezione fra i due
   recuperatori, non quanti: `consensus_top3` già dice quanti. Le due idee sono
   una domanda sola vista da due lati, e chi ne apre una apra l'altra.
 - **I5** — crawling concorrente. *Misurato il 2026-08-26:* **non realizzabile
   com'è scritta.** `_get` serializza le richieste su `self._last_request`
-  ([mars_core.py:700](mars_core.py#L700)) per rispettare `Crawl-delay`, quindi
+  ([mars_core.py:722](mars_core.py#L722)) per rispettare `Crawl-delay`, quindi
   un pool che non passa di lì viola robots.txt e uno che ci passa non guadagna
   niente. Da riscrivere su ciò che sta *attorno* al fetch — parsing,
   estrazione — oppure da chiudere.

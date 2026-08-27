@@ -61,10 +61,16 @@ MAX_ELEMENTI = 5
 # Lighthouse li scrive in camelCase (`notApplicable`), e confrontare la
 # forma grezza qui e la forma abbassata in `severita_lighthouse` e' il
 # modo di far divergere due risposte alla stessa domanda. La tabella
-# deve coprire gli STESSI modi di `LH_MODI_NON_MISURATI`, e un test lo
-# verifica: un modo ammesso dalla tupla e assente da qui tornerebbe a
-# portare il titolo del successo, cioe' il difetto che R40 ha corretto.
+# deve coprire gli STESSI modi di `LH_MODI_NON_MISURATI`, piu' il modo
+# assente, e un test lo verifica: un modo ammesso dalla classificazione
+# e assente da qui tornerebbe a portare il titolo del successo, cioe'
+# il difetto che R40 ha corretto.
 PREFISSO_NON_MISURATO = {
+    # Modo assente: l'audit non c'e' proprio nel referto di Lighthouse,
+    # e senza questa riga il rilievo si presenta col solo id grezzo —
+    # `voce.get("title") or ref.get("id")` — cioe' uno slug al posto di
+    # una frase. R54.
+    "": "Controllo assente dal referto di Lighthouse",
     "manual": "Da verificare a mano",
     "notapplicable": "Non applicabile a questa pagina",
     "informative": "Informativo, non un controllo",
@@ -392,7 +398,16 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
         # subito, PRIMA del controllo su binary/numeric) e usciva
         # superato; un `error` ha `score: null` e usciva fallito, cioe'
         # un guasto dello strumento contato come difetto del sito.
-        non_misurato = str(modo or "").lower() in LH_MODI_NON_MISURATI
+        # Il modo copre i quattro casi in cui Lighthouse dichiara di
+        # non aver misurato; il punteggio copre anche quello in cui non
+        # dichiara nulla — un `auditRef` elencato dalla categoria e
+        # assente dagli `audits`, che arriva qui come voce vuota. Senza
+        # la seconda meta' quel controllo usciva FALLITO, e con esso
+        # `critical` (R54). L'`informative` e' la ragione per cui
+        # servono entrambe: ha `score: 1`, quindi numerico, e lo
+        # riconosce solo il modo.
+        non_misurato = (str(modo or "").lower() in LH_MODI_NON_MISURATI
+                        or not isinstance(punteggio, (int, float)))
         dettagli = voce.get("details") or {}
         grezzi = dettagli.get("items") or []
         elementi = [d for d in

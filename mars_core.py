@@ -393,7 +393,29 @@ def severita_lighthouse(score: object, mode: str = "",
     audit fallito sono cose diverse: il primo e' un promemoria, il
     secondo un difetto. Confonderli e' il modo piu' facile per gonfiare
     un elenco di rilievi con voci su cui non c'e' nulla da fare.
+
+    Non misurato lo dicono DUE cose, e il punteggio e' la piu' forte.
+    Il modo copre i quattro casi in cui Lighthouse lo dichiara; il
+    punteggio copre anche quelli in cui non dichiara nulla, e per
+    costruzione: `_normalizeAuditScore` (core/audits/audit.js)
+    restituisce `null` per ogni modo non misurato e un numero finito
+    per ogni modo misurato — o solleva, e allora l'audit finisce in
+    `error`, che e' di nuovo `null`. Quindi «score non numerico»
+    equivale a «non misurato», sempre.
+
+    Serve perche' un `auditRef` che la categoria elenca e che non
+    compare fra gli `audits` arriva qui senza modo e senza punteggio:
+    il modo non entrava nell'elenco, decideva il solo peso, e
+    `is-crawlable` — l'unico sopra la soglia — usciva **critical**. Un
+    difetto grave del sito su un controllo mai riportato. Fino a R54
+    `score` era in firma e non lo leggeva nessuno, ed e' l'inerzia del
+    parametro che teneva il buco invisibile.
+
+    `isinstance` come in `_penalita` di mars_seo, che sullo stesso
+    valore fa gia' lo stesso controllo per la stessa ragione.
     """
+    if not isinstance(score, (int, float)):
+        return (SEV_INFO, 1.0)
     if str(mode).strip().lower() in LH_MODI_NON_MISURATI:
         return (SEV_INFO, 1.0)
     try:

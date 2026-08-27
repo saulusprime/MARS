@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R53 | I conteggi di `mars_seo` e i tre testi di Lighthouse | 2026-08-27 |
 | R48 | Dal JavaScript del grafo esce anche la geometria | 2026-08-26 |
 | R46 | Il conteggio delle istanze è canonico; lo sforzo ci scala | 2026-08-26 |
 | R40 | Tre difetti di `mars_seo` (categoria, testi, item) | 2026-08-26 |
@@ -2360,6 +2361,104 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R53 — ✅ (2026-08-27): i conteggi di `mars_seo`, e i tre testi che si buttavano via
+*(due caselle su tre. La terza — il parametro `score` inerte di
+`severita_lighthouse` — prosegue in **R54**: non è un difetto da correggere ma
+una decisione che aspetta `SEV_OK`.)*
+
+**Casella 1 — la metà che R40 aveva lasciato aperta.** `mars_seo` aveva una
+tupla sua, `MODI_NON_MISURATI_VOCE = ("manual", "notApplicable")`, contro i
+quattro modi di `LH_MODI_NON_MISURATI` in `mars_core`. Due risposte alla stessa
+domanda — «Lighthouse ha misurato?» — che si erano già separate. I due modi che
+restavano fuori finivano nelle classi sbagliate:
+
+- **`informative` fra i superati.** `_normalizeAuditScore`
+  (`core/audits/audit.js`) esce con **1** su `informative`, e lo fa nel **primo
+  ramo**, prima del controllo su binary/numeric/metricSavings. Il commento di
+  `estrai_audit` citava quel controllo e ometteva il ramo che lo precede,
+  quindi documentava il contrario di ciò che il codice faceva.
+- **`error` fra i falliti.** Un guasto dello strumento contato come difetto del
+  sito, cioè la stessa affermazione falsa che R40 aveva tolto dal **testo** e
+  lasciato nei **conteggi**.
+
+**La misura che ha ridimensionato la voce.** Il TO-DO dichiarava a rischio i
+conteggi `passed`/`failed`/`manual` restituiti da `riassumi`: **non li legge
+nessuno.** La serializzazione d'area di `mars_report` è una whitelist e non li
+comprende, quindi non arrivano nel JSON; la riga «N superati, M falliti» se li
+ricalcola da `audits`. Li leggevano tre test. Metà del rischio dichiarato non
+esisteva.
+
+E l'altra metà è più piccola di quanto sembrasse: **`informative` non può
+capitare nella categoria SEO.** Verificato audit per audit sui sorgenti di
+Lighthouse 13.4.1 — nessuno degli undici lo produce, né nel `meta` né a
+runtime. Quel ramo è una guardia, non una correzione, e il test lo dichiara.
+Resta `error`, che capita a qualunque audit il cui gatherer sollevi. Sui due
+golden lo spostamento è **zero**: nessuno dei due dataset ha un audit in
+errore, e l'unica riga che si muove è `schema_version`.
+
+**Perché il bump si pagava comunque.** `audits[].manual` è nel JSON pubblico, e
+il README dice che `schema_version` sale anche quando **il significato di una
+chiave cambia** — non solo quando è rinominata. Allargare `manual` è
+precisamente questo. Decisione presa dall'utente fra tre alternative:
+**allargare la chiave, non rinominarla**. Il nome resta imperfetto — `manual`
+non ha mai significato «da fare a mano», perché `notApplicable` c'è sempre
+stato — ma rinominare avrebbe aggiunto un secondo cambiamento incompatibile per
+un guadagno di sola lettura, mentre il referto il modo lo dice già in parole
+(`PREFISSO_NON_MISURATO`). `JSON_SCHEMA_VERSION` a **3**; `__version__` resta
+2.9.0, come in R47: sono due versioni indipendenti, e il README lo dichiara.
+
+**Una cosa che sarebbe passata:** le due strutture usavano maiuscole diverse.
+`mars_core` tiene la tupla in minuscolo e abbassa prima di confrontare;
+`mars_seo` confrontava la forma grezza e aveva le chiavi dei prefissi in
+camelCase. Unificando senza abbassare, `notApplicable` sarebbe uscito
+**misurato** — cioè un difetto nuovo introdotto dalla correzione. Un test copre
+il caso, e un altro verifica che tupla e tabella dei prefissi coprano gli
+stessi modi: un modo ammesso dall'una e assente dall'altra tornerebbe a portare
+il titolo del **successo**, che è il difetto che R40 aveva corretto.
+
+**Casella 2 — `explanation`, `displayValue` e `warnings`.** Verificato che
+erano ignorati: zero occorrenze. Sono i testi che dicono perché **quel**
+controllo è andato così, mentre la `description` — già il `detail` — dice
+perché il controllo conta. Due cose diverse, quindi params separati e non
+`detail`.
+
+**Vanno nella VOCE, non solo nel rilievo**, ed è la decisione che conta: un
+audit **superato** non produce alcun rilievo (scelta di R40, altrimenti un sito
+perfetto mostrerebbe nove voci da fare), e `warnings` è proprio di un audit che
+passa — `is-crawlable` passa quando almeno un bot è ammesso, e nel `warnings`
+elenca **quali sono bloccati**. Per un progetto che misura i crawler IA è
+l'avviso più rilevante dei tre, e se quei testi fossero vissuti solo nei
+rilievi non avrebbe avuto dove andare.
+
+Sei degli undici audit ne portano almeno uno. Il caso che pesa è
+`meta-description`: fallisce **senza** `details.items`, quindi il suo rilievo
+era il solo titolo generico e la sua riga di dettaglio nell'HTML **non esisteva
+affatto**. Ora dice «Il testo della descrizione è vuoto.»
+
+**Verificato contro Lighthouse vero, non contro la fixture.** Alla prima
+esecuzione su un sito locale l'`explanation` non compariva: quel testo esce
+solo quando la meta descrizione **c'è ed è vuota** (`content=""`), non quando
+manca. Rifatta la pagina, Lighthouse 13.4.1 ha prodotto esattamente la
+combinazione della fixture — score 0, titolo «Il documento non ha una meta
+descrizione», explanation «Il testo della descrizione è vuoto.» — e il referto
+end-to-end la porta fino all'HTML. Un limite misurato e dichiarato: il
+`warnings` di `is-crawlable` **non è nel locale italiano** di Lighthouse 13.4.1
+e arriva in inglese anche con `--locale it`; `params["text_lang"]` lo dichiara
+già.
+
+**Un effetto collaterale utile:** `displayValue` rende visibile il troncamento
+di R46. La riga di `link-text` diceva cinque elementi; ora dice «8 link trovati
+— /p0, /p1, /p2, /p3, /p4».
+
+**Verifiche.** `flake8` 0, `pytest` 1094. Dodici mutazioni, tutte rosse. Ma il
+giro rifatto **senza** `tests/test_golden.py` ne ha lasciate passare due, ed è
+l'unica parte del controllo che ha insegnato qualcosa: togliere `displayValue`
+ed `explanation` dalla resa HTML lasciava verde tutto tranne i golden — un
+guardiano che vive solo nei golden si perde alla prima rigenerazione fatta per
+far tornare il verde, e ora c'è un test suo. L'altra è `JSON_SCHEMA_VERSION`
+stessa, e lì il golden è il guardiano giusto: un test che asserisse «3»
+ripeterebbe la costante.
 
 ### R48 — ✅ CHIUSA (2026-08-26): dal JavaScript esce anche la geometria
 *(la seconda metà. La prima — la disposizione ad anelli — è nella voce

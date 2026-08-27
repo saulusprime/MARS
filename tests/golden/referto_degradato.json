@@ -1,7 +1,7 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
-  "schema_version": 2,
+  "schema_version": 3,
   "rrf": {
     "k": 60,
     "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"

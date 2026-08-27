@@ -2395,7 +2395,21 @@ def _elenco_controlli(controlli: List[dict],
             classe, segno = "superato", "\u2713"
         else:
             classe, segno = "fallito", "\u2717"
-        dettaglio = ", ".join(c.get("items") or [])
+        # Che cosa Lighthouse ha da dire su QUESTO controllo, nei tre
+        # campi che R53 ha portato nel dato: il riassunto quantificato,
+        # la ragione dell'esito, gli elementi incriminati, gli avvisi.
+        # Nell'ordine in cui servono a chi legge — prima quanto, poi
+        # perche', infine dove.
+        #
+        # `warnings` e' l'unico che compare anche su un controllo
+        # SUPERATO — `is-crawlable` passa se almeno un bot e' ammesso e
+        # avverte quali sono bloccati — ed e' la ragione per cui questi
+        # testi stanno nella voce e non solo nel rilievo: un superato
+        # un rilievo non lo produce.
+        dettaglio = " — ".join(
+            [p for p in (c.get("displayValue"), c.get("explanation")) if p]
+            + [", ".join(c.get("items") or [])] * bool(c.get("items"))
+            + list(c.get("warnings") or []))
         rilievo = per_regola.get(c.get("id")) or {}
         ancora = (ancore or {}).get(rilievo.get("key") or "")
         righe.append(

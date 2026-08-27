@@ -2156,7 +2156,11 @@ def _lhr(punteggio=0.27):
     - le **`description`**, verbatim dal locale italiano di Lighthouse
       13.4.1, coi link Markdown dentro. Sono cio' che diventa il
       `detail` di un rilievo: riscriverle a mano vorrebbe dire
-      inventare il Markdown che si dice di saper ripulire.
+      inventare il Markdown che si dice di saper ripulire;
+    - `explanation` e `displayValue` dove Lighthouse li produce
+      davvero — verificato audit per audit sui sorgenti: dei sei che
+      ne hanno almeno uno, due falliscono in questo LHR. Anch'essi
+      verbatim dal locale italiano.
 
     Il punteggio non e' inventato: con questi pesi e questi esiti la
     media pesata di Lighthouse vale 3 / 11,043478 = 0,2717, che il suo
@@ -2226,6 +2230,12 @@ def _lhr(punteggio=0.27):
                                "er.chrome.com/docs/lighthouse/seo/meta-descrip"
                                "tion/).",
                 "title": "Il documento non ha una meta descrizione",
+                # `explanation` verbatim dal locale italiano di
+                # Lighthouse 13.4.1. E' il caso che conta: questo audit
+                # fallisce SENZA `details.items`, quindi finche' i tre
+                # testi si buttavano via il rilievo restava il solo
+                # titolo generico e non diceva nulla di concreto.
+                "explanation": "Il testo della descrizione è vuoto.",
                 "score": 0, "scoreDisplayMode": "binary"},
             "http-status-code": {
                 "description": "Le pagine con codici di stato HTTP non validi "
@@ -2245,6 +2255,10 @@ def _lhr(punteggio=0.27):
                                "ttps://developer.chrome.com/docs/lighthouse/se"
                                "o/link-text/).",
                 "title": "I link non hanno testo descrittivo",
+                # Il plurale italiano del locale, risolto sugli otto
+                # item qui sotto: e' il conteggio VERO, non i cinque a
+                # cui MARS tronca `items` (R46).
+                "displayValue": "8 link trovati",
                 "score": 0, "scoreDisplayMode": "binary",
                 "details": {"type": "table", "items": [
                     {"href": "/p%d" % i, "text": "clicca qui"}
@@ -2708,34 +2722,230 @@ def test_seo_un_audit_in_errore_non_e_un_difetto_del_sito():
     assert rilievo["severity"] == SEV_INFO
     assert rilievo["title"].startswith("Controllo non eseguito da Lighthouse")
     assert "penalty" not in rilievo["params"]
-    # E qui la divergenza deliberata fra le due viste, fissata perche'
-    # non la si chiuda per distrazione: la VOCE lo classifica fallito,
-    # perche' MODI_NON_MISURATI_VOCE si ferma a due modi. Allargarla
-    # sposterebbe i CONTEGGI, ed e' una decisione a se'.
+    # La divergenza che questo test teneva ferma — la VOCE contava
+    # l'errore fra i falliti — e' chiusa da R53, dopo aver misurato che
+    # cosa costava: (3, 6, 2) era il conteggio di prima. Il test non
+    # era sbagliato, congelava una decisione non ancora presa.
     esito = mars_seo.riassumi(lhr)
-    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 6, 2)
-    # Il TESTO invece si e' allineato con R40, e le due meta' vanno
-    # tenute distinte: la issue diceva "Dati strutturati validi" di un
-    # controllo mai eseguito, cioe' il titolo del successo — perche'
-    # `failureTitle` scatta solo sotto 0,9. Il conteggio resta dov'era,
-    # l'affermazione falsa no.
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 5, 3)
+    # Il TESTO si era gia' allineato con R40, prima dei conteggi: la
+    # issue diceva "Dati strutturati validi" di un controllo mai
+    # eseguito, cioe' il titolo del successo — perche' `failureTitle`
+    # scatta solo sotto 0,9.
     assert ("[Lighthouse] Controllo non eseguito da Lighthouse: "
             "Dati strutturati validi") in esito["issues"]
 
 
-def test_seo_un_informative_resta_un_superato_nella_voce():
-    """La voce classifica su due modi, mars_core su quattro, ed e'
-    voluto: allargare la tupla della voce sposterebbe i conteggi
-    passed/failed/manual e la riga "N superati, M falliti" del referto.
+def test_seo_un_informative_non_e_un_controllo_superato():
+    """Un `informative` ha `score: 1` per costruzione — e' il primo
+    ramo di `_normalizeAuditScore`, prima del controllo su binary e
+    numeric — quindi usciva contato fra i SUPERATI: la riga «N
+    superati» comprendeva controlli che controlli non erano. R40 aveva
+    registrato la divergenza, R53 la chiude.
 
-    Un `informative` ha `score: 1` per costruzione, quindi resta
-    superato e non produce alcun rilievo. Registrato in R40."""
+    E' una guardia, non un difetto osservato: verificato sui sorgenti
+    di Lighthouse 13.4.1 che nessuno degli undici audit della categoria
+    SEO produce `informative`, ne' nel `meta` ne' a runtime. Vale
+    finche' la categoria resta quella, e questo test e' cio' che se ne
+    accorge se cambia."""
     lhr = _lhr()
     lhr["audits"]["hreflang"]["scoreDisplayMode"] = "informative"
     per_id = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}
-    assert per_id["hreflang"]["passed"] is True
-    assert per_id["hreflang"]["manual"] is False
-    assert "seo.lh.hreflang" not in _findings(lhr)
+    assert per_id["hreflang"]["passed"] is False
+    assert per_id["hreflang"]["manual"] is True
+
+
+def test_seo_un_audit_in_errore_non_e_contato_fra_i_falliti():
+    """R53, casella 1: la meta' che R40 aveva lasciato aperta.
+
+    R40 ha tolto l'affermazione falsa dal TESTO — un audit in `error`
+    non si annuncia piu' col titolo del successo — e ha lasciato i
+    CONTEGGI dov'erano, perche' spostarli era una decisione a se'. La
+    decisione e' presa: un guasto dello strumento non e' un difetto del
+    sito, e la riga «N superati, M falliti» non deve dirlo.
+
+    Il caso non e' teorico solo per il modo: `error` capita a qualunque
+    audit il cui gatherer sollevi. E' invece verificato che
+    `informative` NON possa capitare nella categoria SEO — nessuno
+    degli undici audit lo produce — quindi qui si misura l'unico modo
+    che si presenta davvero.
+    """
+    # `structured-data`, l'unico a peso zero: un audit PESATO in errore
+    # annulla il punteggio di categoria, e allora il referto non stampa
+    # affatto la riga dei conteggi. Qui la categoria resta calcolata, ed
+    # e' il caso in cui la riga si legge.
+    lhr = _lhr()
+    lhr["audits"]["structured-data"]["scoreDisplayMode"] = "error"
+    esito = mars_seo.riassumi(lhr)
+    per_id = {c["id"]: c for c in esito["audits"]}
+    assert per_id["structured-data"]["manual"] is True, \
+        "`manual` significa «Lighthouse non ha misurato», e un `error` lo e'"
+    assert per_id["structured-data"]["passed"] is False, \
+        "non misurato non e' superato: le tre classi devono partizionare"
+    assert (esito["passed"], esito["failed"], esito["manual"]) == (3, 5, 3), \
+        "era (3, 6, 2): l'errore stava fra i falliti"
+
+    from mars_report import build_report, render_text
+    referto = build_report(
+        {"mars_seo": esito},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "chunks": [], "discovery": "sitemap", "skipped": []})
+    assert "3 controlli superati, 5 falliti" in render_text(referto), \
+        "prima ne diceva 6, e il sesto era un guasto di Lighthouse"
+
+
+@pytest.mark.parametrize("modo", mars_core.LH_MODI_NON_MISURATI)
+def test_seo_ogni_modo_non_misurato_esce_come_non_misurato(modo):
+    """La voce classificava su due modi, `mars_core` su quattro, e la
+    divergenza era deliberata: R40 l'aveva registrata, R53 la chiude
+    dopo aver misurato che cosa costava. La voce non ha piu' una tupla
+    sua — due risposte alla stessa domanda si separano senza che nulla
+    lo segnali, ed e' esattamente cio' che era successo.
+
+    Si verifica il COMPORTAMENTO modo per modo e non l'uguaglianza di
+    due costanti: quale sia l'oggetto che decide non e' il punto, e un
+    test sull'identita' passerebbe anche se il confronto lo ignorasse.
+
+    Il modo si scrive qui in minuscolo, come in `mars_core`; Lighthouse
+    lo emette in camelCase, e il caso lo copre
+    `test_seo_il_modo_si_confronta_senza_badare_alle_maiuscole`.
+    """
+    lhr = _lhr()
+    lhr["audits"]["hreflang"]["scoreDisplayMode"] = modo
+    # Fedele a cio' che Lighthouse produce davvero, altrimenti il test
+    # misura un LHR che non esiste: `_normalizeAuditScore` esce con
+    # **1** su `informative` e con **null** su ogni altro modo non
+    # misurato, e `core/scoring.js` azzera il peso di tutti tranne
+    # `error` — che e' la ragione per cui un `error` pesato annulla la
+    # categoria intera.
+    lhr["audits"]["hreflang"]["score"] = 1 if modo == "informative" else None
+    if modo != "error":
+        for ref in lhr["categories"]["seo"]["auditRefs"]:
+            if ref["id"] == "hreflang":
+                ref["weight"] = 0
+    voce = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}["hreflang"]
+    assert voce["manual"] is True
+    assert voce["passed"] is False, (
+        "`informative` ha score 1 per costruzione e usciva superato; "
+        "`error` ha score null e usciva fallito")
+    # Il rilievo c'e' — un controllo non misurato si dichiara, non si
+    # tace (R40) — ma e' informativo e senza penalita': non e' un
+    # difetto del sito, e non deve pesare come tale.
+    rilievo = _findings(lhr)["seo.lh.hreflang"]
+    assert rilievo["severity"] == SEV_INFO
+    assert "penalty" not in rilievo["params"]
+    assert rilievo["title"].startswith(mars_seo.PREFISSO_NON_MISURATO[modo])
+
+
+def test_seo_il_modo_si_confronta_senza_badare_alle_maiuscole():
+    """Lighthouse scrive `notApplicable`, `mars_core` conserva la tupla
+    in minuscolo, e `severita_lighthouse` abbassa prima di confrontare.
+    La voce deve fare lo stesso: confrontare la forma grezza da una
+    parte e quella abbassata dall'altra e' il modo di far divergere due
+    risposte alla stessa domanda senza un errore."""
+    lhr = _lhr()
+    lhr["audits"]["hreflang"]["scoreDisplayMode"] = "notApplicable"
+    voce = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}["hreflang"]
+    assert voce["manual"] is True
+
+
+def test_seo_ogni_modo_non_misurato_ha_il_suo_prefisso():
+    """Un modo ammesso dalla tupla e assente dalla tabella dei prefissi
+    tornerebbe a portare il titolo del SUCCESSO, che e' il difetto che
+    R40 ha corretto: `failureTitle` scatta solo sotto 0,9, quindi un
+    controllo non misurato si intitola come se fosse riuscito.
+
+    Le due strutture rispondono alla stessa domanda e devono coprire
+    gli stessi modi."""
+    assert (set(mars_seo.PREFISSO_NON_MISURATO)
+            == {m.lower() for m in mars_core.LH_MODI_NON_MISURATI})
+
+
+def test_seo_i_tre_testi_di_lighthouse_arrivano_nel_rilievo():
+    """R53, casella 2: `explanation`, `displayValue` e `warnings` erano
+    ignorati — verificato allora, zero occorrenze in `mars_seo.py`.
+
+    Sono i testi che dicono perche' QUESTO controllo e' andato cosi',
+    mentre la `description` — che e' gia' il `detail` — dice perche' il
+    controllo conta. Due cose diverse, e sovrapporle ne perderebbe una:
+    per questo vanno nei params.
+
+    `meta-description` e' il caso che pesa: fallisce **senza**
+    `details.items`, quindi finora il rilievo era il solo titolo
+    generico e non diceva nulla di concreto sulla pagina."""
+    rilievi = _findings(_lhr())
+    assert (rilievi["seo.lh.meta_description"]["params"]["explanation"]
+            == "Il testo della descrizione è vuoto.")
+    assert (rilievi["seo.lh.link_text"]["params"]["display_value"]
+            == "8 link trovati")
+
+
+def test_seo_i_tre_testi_arrivano_anche_a_chi_legge():
+    """Un dato che nessuna vista rende e' un dato che nessuno legge.
+
+    Scritto dopo un giro di mutazioni: togliere `displayValue` ed
+    `explanation` dalla riga di dettaglio dell'HTML lasciava VERDE
+    tutta la suite tranne i golden, e un guardiano che vive solo nei
+    golden si perde alla prima rigenerazione fatta per far tornare il
+    verde. Il caso di `meta-description` e' quello che conta: senza
+    `details.items` la sua riga di dettaglio non esisteva affatto.
+    """
+    from mars_report import build_report, render_html
+    referto = build_report(
+        {"mars_seo": mars_seo.riassumi(_lhr())},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "chunks": [], "discovery": "sitemap", "skipped": []})
+    reso = render_html(referto)
+    assert "Il testo della descrizione è vuoto." in reso
+    assert "8 link trovati" in reso, \
+        "dice anche che gli elementi mostrati sono cinque su otto"
+
+
+def test_seo_i_tre_testi_assenti_non_diventano_chiavi_vuote():
+    """Un params vuoto sembra pieno: `explanation: ""` afferma che
+    Lighthouse una spiegazione l'ha data ed era vuota. La voce le
+    chiavi le ha sempre — e' un record di forma fissa, come `items` —
+    ma il rilievo le porta solo quando c'e' qualcosa."""
+    params = _findings(_lhr())["seo.lh.document_title"]["params"]
+    assert "explanation" not in params
+    assert "display_value" not in params
+    assert "warnings" not in params
+
+
+def test_seo_gli_avvisi_di_un_controllo_superato_non_si_perdono():
+    """Il caso per cui i tre testi stanno nella VOCE e non solo nel
+    rilievo, e il piu' rilevante per un progetto che misura i crawler.
+
+    `is-crawlable` **passa** quando almeno un bot e' ammesso, e nel
+    `warnings` elenca quelli bloccati (core/audits/seo/is-crawlable.js).
+    Un audit superato non produce alcun rilievo — e' la scelta di R40,
+    altrimenti un sito perfetto mostrerebbe nove voci da fare — quindi
+    se quei testi vivessero solo nei rilievi questo avviso non avrebbe
+    dove andare.
+
+    Nota misurata: il messaggio NON e' nel locale italiano di
+    Lighthouse 13.4.1, quindi arriva in inglese anche con `--locale it`.
+    `params["text_lang"]` dichiara gia' la lingua dei testi di terzi.
+    """
+    avviso = ("The following bot user agents are blocked from crawling: "
+              "GPTBot. The audit is otherwise passing, because at least "
+              "one bot was explicitly allowed.")
+    lhr = _lhr()
+    lhr["audits"]["is-crawlable"].update(
+        {"score": 1, "warnings": [avviso], "details": {"items": []}})
+    voce = {c["id"]: c for c in mars_seo.estrai_audit(lhr)}["is-crawlable"]
+    assert voce["passed"] is True
+    assert voce["warnings"] == [avviso]
+    assert "seo.lh.is_crawlable" not in _findings(lhr), \
+        "un superato non e' un rilievo: e' proprio il motivo della voce"
+
+    from mars_report import build_report, render_html
+    referto = build_report(
+        {"mars_seo": mars_seo.riassumi(lhr)},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "chunks": [], "discovery": "sitemap", "skipped": []})
+    assert "GPTBot" in render_html(referto), \
+        "l'avviso deve arrivare a chi legge, non solo nel JSON"
 
 
 def test_seo_le_chiavi_hanno_tre_segmenti_e_niente_trattini():
@@ -2915,7 +3125,7 @@ def test_seo_le_issues_dei_non_misurati_dicono_il_modo_giusto():
     canonical = [i for i in issues if "rel=canonical" in i]
     assert canonical, "il LHR fedele ne ha uno notApplicable"
     assert canonical[0].startswith(
-        "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["notApplicable"])
+        "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["notapplicable"])
     manuali = [i for i in issues if "Dati strutturati" in i]
     assert manuali[0].startswith(
         "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["manual"])
@@ -2938,8 +3148,14 @@ def test_seo_un_audit_in_errore_non_si_annuncia_come_riuscito():
     riga = [i for i in esito["issues"] if "hreflang" in i][0]
     assert riga.startswith(
         "[Lighthouse] %s:" % mars_seo.PREFISSO_NON_MISURATO["error"])
-    # I conteggi restano dov'erano: l'errore e' fra i falliti, com'era.
-    assert mars_seo.MODI_NON_MISURATI_VOCE == ("manual", "notApplicable")
+    # I conteggi si sono mossi con R53, e questa riga li seguiva: la
+    # tupla tutta della voce non esiste piu', decide `mars_core`. Qui
+    # la categoria non e' calcolata — un `hreflang` pesato in errore la
+    # annulla — quindi i tre conteggi d'area non ci sono: si guarda la
+    # classificazione della voce, che e' cio' che si e' mosso.
+    per_id = {c["id"]: c for c in esito["audits"]}
+    assert per_id["hreflang"]["manual"] is True, \
+        "l'errore era classificato fallito, cioe' un difetto del sito"
 
 
 def test_seo_il_meta_che_blocca_la_scansione_non_e_piu_una_riga_vuota():

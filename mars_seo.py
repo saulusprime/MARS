@@ -15,8 +15,8 @@ import shutil
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
-from mars_core import (SEV_INFO, Finding, chiave_esterna,
-                       severita_lighthouse)
+from mars_core import (LH_MODI_NON_MISURATI, SEV_INFO, Finding,
+                       chiave_esterna, severita_lighthouse)
 
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
 CATEGORIA = "seo"
@@ -44,16 +44,6 @@ LOCALE = "it"
 # ne elenca anche decine: bastano i primi per capire dove guardare.
 MAX_ELEMENTI = 5
 
-# I modi in cui la VOCE considera un controllo non misurato. E'
-# deliberatamente piu' stretta di `LH_MODI_NON_MISURATI` in mars_core,
-# che comprende anche "informative" ed "error": allargarla qui
-# sposterebbe i conteggi passed/failed/manual, la riga "N superati, M
-# falliti" del referto e la ripartizione delle issues — cioe' proprio
-# cio' che un adeguamento di forma non deve fare. La gravita' del
-# rilievo usa invece la tupla completa, ed e' l'unico punto in cui le
-# due viste divergono di proposito. Divergenza registrata in R40.
-MODI_NON_MISURATI_VOCE = ("manual", "notApplicable")
-
 # Come si intitola un rilievo che Lighthouse NON ha misurato.
 #
 # Serve perche' `failureTitle` viene usato solo quando
@@ -67,9 +57,17 @@ MODI_NON_MISURATI_VOCE = ("manual", "notApplicable")
 # Le `issues` NON cambiano: la' il testo resta quello di sempre. E'
 # l'unico punto in cui il dato nuovo si discosta dalla vista compatta,
 # e si discosta perche' quella riga e' nota per falsa.
+# Le chiavi sono in minuscolo e il modo si abbassa prima di cercarle:
+# Lighthouse li scrive in camelCase (`notApplicable`), e confrontare la
+# forma grezza qui e la forma abbassata in `severita_lighthouse` e' il
+# modo di far divergere due risposte alla stessa domanda. La tabella
+# deve coprire gli STESSI modi di `LH_MODI_NON_MISURATI`, e un test lo
+# verifica: un modo ammesso dalla tupla e assente da qui tornerebbe a
+# portare il titolo del successo, cioe' il difetto che R40 ha corretto.
 PREFISSO_NON_MISURATO = {
     "manual": "Da verificare a mano",
-    "notApplicable": "Non applicabile a questa pagina",
+    "notapplicable": "Non applicabile a questa pagina",
+    "informative": "Informativo, non un controllo",
     "error": "Controllo non eseguito da Lighthouse",
 }
 
@@ -247,13 +245,27 @@ def _rilievo_audit(voce: dict, totale_pesi: float,
     # dichiarare 1 sarebbe inventare un'occorrenza (R46).
     if voce.get("instances"):
         params["instances"] = voce["instances"]
+    # In `params` e non in `detail`, che porta gia' la `description`:
+    # sono due testi diversi — perche' il controllo conta contro
+    # perche' e' andato cosi' — e sovrapporli ne perderebbe uno.
+    # Nomi snake_case come gli altri params (`lh_weight`, `text_lang`);
+    # la voce conserva quelli di Lighthouse. La lingua e' gia'
+    # dichiarata da `text_lang`, con un limite misurato: il `warnings`
+    # di `is-crawlable` NON e' nel locale italiano di Lighthouse 13.4.1
+    # e arriva in inglese anche con `--locale it`.
+    for nostro, suo in (("explanation", "explanation"),
+                        ("display_value", "displayValue")):
+        if voce.get(suo):
+            params[nostro] = voce[suo]
+    if voce.get("warnings"):
+        params["warnings"] = list(voce["warnings"])
     dettaglio, riferimenti = _senza_link_markdown(str(voce["description"]))
     if riferimenti:
         params["references"] = riferimenti
     penalita = _penalita(voce, totale_pesi)
     if penalita is not None:
         params["penalty"] = penalita
-    prefisso = PREFISSO_NON_MISURATO.get(modo)
+    prefisso = PREFISSO_NON_MISURATO.get(modo.lower())
     return Finding(
         area="mars_seo", severity=severita, weight=peso,
         key="seo.lh.%s" % chiave_esterna(voce["id"]),
@@ -356,7 +368,11 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
     gravita' di un rilievo, e che prima venivano letti e buttati via.
     Portano i nomi di Lighthouse perche' sono suoi valori verbatim,
     come `id`, `title` e `items`; `passed` e `manual` sono nomi nostri
-    perche' sono giudizi nostri.
+    perche' sono giudizi nostri — e `manual` significa «Lighthouse non
+    ha misurato», non «da fare a mano»: comprende tutti e quattro i
+    modi di `LH_MODI_NON_MISURATI`. Il nome e' rimasto perche' e' nel
+    JSON pubblico; il significato allargato ha alzato
+    `schema_version` a 3.
 
     Funzione pura: si verifica su un LHR salvato, senza avviare nulla.
     """
@@ -367,7 +383,16 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
         voce = audits.get(ref.get("id")) or {}
         punteggio = voce.get("score")
         modo = voce.get("scoreDisplayMode")
-        manuale = modo in MODI_NON_MISURATI_VOCE
+        # `manual` porta i QUATTRO modi in cui Lighthouse dichiara di
+        # non aver misurato, non i due che il nome suggerisce — e non
+        # li ha mai portati: `notApplicable` di manuale non ha nulla.
+        # Fino a R53 la voce si fermava a due, e i due che restavano
+        # fuori finivano nelle classi sbagliate: un `informative` ha
+        # `score: 1` per costruzione (`_normalizeAuditScore` esce
+        # subito, PRIMA del controllo su binary/numeric) e usciva
+        # superato; un `error` ha `score: null` e usciva fallito, cioe'
+        # un guasto dello strumento contato come difetto del sito.
+        non_misurato = str(modo or "").lower() in LH_MODI_NON_MISURATI
         dettagli = voce.get("details") or {}
         grezzi = dettagli.get("items") or []
         elementi = [d for d in
@@ -378,17 +403,16 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
             # Il titolo di Lighthouse cambia gia' fra superato e
             # fallito ("Il documento ha / non ha un elemento <title>"),
             # quindi non serve aggiungerci nulla.
-            # "and not manuale" e' una guardia, non una differenza: che
-            # un audit manuale o non applicabile abbia SEMPRE score
-            # None non e' un'osservazione empirica ma una garanzia di
-            # costruzione — `_normalizeAuditScore` in
-            # core/audits/audit.js restituisce null per ogni modo che
-            # non sia binary, numeric o metricSavings. Serve a rendere
-            # la classificazione inequivocabile — superato, fallito e
-            # manuale devono partizionare l'elenco — se un giorno
-            # Lighthouse cambiasse forma.
-            "passed": bool(punteggio) and not manuale,
-            "manual": manuale,
+            # "and not non_misurato" NON e' una guardia ridondante, ed
+            # e' l'errore che R53 ha corretto: `_normalizeAuditScore`
+            # (core/audits/audit.js) restituisce null per ogni modo che
+            # non sia binary, numeric o metricSavings, ma solo DOPO
+            # essere uscito con **1** su `informative`. Senza questa
+            # meta' della condizione un informativo sarebbe superato.
+            # Le tre classi devono partizionare l'elenco: superato,
+            # fallito, non misurato.
+            "passed": bool(punteggio) and not non_misurato,
+            "manual": non_misurato,
             "items": elementi,
             # Quanti elementi Lighthouse ne ha trovati DAVVERO, prima
             # del troncamento a MAX_ELEMENTI: `items` e' la vista, il
@@ -406,6 +430,24 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
             # La `description` spiega PERCHE' il controllo conta.
             # Verbatim e in Markdown: chi ne fa un `detail` la ripulisce.
             "description": voce.get("description") or "",
+            # I tre testi che dicono perche' QUESTO controllo e' andato
+            # come e' andato, e che fino a R53 si buttavano via.
+            # Stanno nella VOCE e non solo nel rilievo perche' un audit
+            # SUPERATO un rilievo non lo produce, e `warnings` e'
+            # proprio di un audit che passa: `is-crawlable` passa
+            # quando almeno un bot e' ammesso, e avverte quali sono
+            # bloccati. Per un progetto che misura i crawler IA e'
+            # l'avviso piu' rilevante dei tre, e non arrivava da
+            # nessuna parte.
+            #
+            # `explanation` e' spesso l'UNICA informazione concreta:
+            # `meta-description` e `canonical` falliscono senza
+            # `details.items`, quindi il rilievo restava il solo
+            # titolo generico.
+            "explanation": voce.get("explanation") or "",
+            "displayValue": voce.get("displayValue") or "",
+            # Lista, e non stringa: Lighthouse ne mette piu' d'uno.
+            "warnings": list(voce.get("warnings") or []),
         })
     return esito
 
@@ -466,7 +508,8 @@ def _issues_dei_controlli(controlli: List[Dict[str, object]]) -> List[str]:
         # perche' `failureTitle` scatta solo sotto 0,9. La issue
         # diceva «Il documento ha un `hreflang` valido» di un controllo
         # mai eseguito.
-        prefisso = PREFISSO_NON_MISURATO.get(str(c["scoreDisplayMode"] or ""))
+        prefisso = PREFISSO_NON_MISURATO.get(
+            str(c["scoreDisplayMode"] or "").lower())
         return "%s: %s" % (prefisso, c["title"]) if prefisso else c["title"]
 
     issues = []

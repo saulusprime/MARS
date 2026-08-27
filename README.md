@@ -513,9 +513,18 @@ Il JSON dichiara la versione del proprio schema in `schema_version`, che è
 cosa diversa dalla versione del programma: sale **solo** su un cambiamento
 incompatibile — una chiave rimossa, rinominata, o il cui significato cambia —
 mentre le aggiunte sono additive e non la muovono. Chi consuma il referto da
-un programma legge quella, non `version`. È a **2**: la 2 ha rinominato
-`url` in `doc_url` su ogni rilievo, che è sempre stato il link alla
-documentazione della regola e mai la pagina analizzata. Le pagine di un
+un programma legge quella, non `version`. È a **3**.
+
+La **2** ha rinominato `url` in `doc_url` su ogni rilievo, che è sempre stato
+il link alla documentazione della regola e mai la pagina analizzata. La **3**
+ha allargato il significato di `audits[].manual` nell'area SEO: portava due
+dei quattro modi in cui Lighthouse dichiara di non aver misurato, e gli altri
+due finivano nelle classi sbagliate — un `informative` fra i controlli
+superati, un `error` fra i falliti, cioè un guasto dello strumento contato
+come difetto del sito. Ora porta tutti e quattro. Il nome è rimasto: non ha
+mai significato «da fare a mano» — `notApplicable` c'è sempre stato — e
+cambiarlo sarebbe stato un secondo cambiamento incompatibile per un guadagno
+di sola lettura. Le pagine di un
 rilievo stanno in `params["urls"]`, ed è una lista perché un rilievo è un
 CONTROLLO e non un'occorrenza — lo stesso difetto su venti pagine resta un
 rilievo solo, altrimenti la penalità si moltiplicherebbe per venti. Accanto ci sono i parametri che

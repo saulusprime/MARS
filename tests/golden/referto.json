@@ -1,7 +1,7 @@
 {
   "tool": "mars_audit.py",
   "version": "0.0.0",
-  "schema_version": 2,
+  "schema_version": 3,
   "rrf": {
     "k": 60,
     "formula": "score(d) = somma su ogni lista di 1 / (k + rank(d) + 1)"
@@ -246,6 +246,7 @@
             "urls": [
               "https://esempio.test/"
             ],
+            "explanation": "Il testo della descrizione è vuoto.",
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
             ],
@@ -281,6 +282,7 @@
               "https://esempio.test/"
             ],
             "instances": 8,
+            "display_value": "8 link trovati",
             "references": [
               "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
             ],
@@ -427,7 +429,10 @@
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 4.043478260869565,
-          "description": "I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. [Scopri di più sulle istruzioni dei crawler](https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/)."
+          "description": "I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. [Scopri di più sulle istruzioni dei crawler](https://developer.chrome.com/docs/lighthouse/seo/is-crawlable/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "document-title",
@@ -441,7 +446,10 @@
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. [Scopri di più sui titoli dei documenti](https://dequeuniversity.com/rules/axe/4.12/document-title)."
+          "description": "Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. [Scopri di più sui titoli dei documenti](https://dequeuniversity.com/rules/axe/4.12/document-title).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "meta-description",
@@ -453,7 +461,10 @@
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. [Scopri di più sulla meta descrizione](https://developer.chrome.com/docs/lighthouse/seo/meta-description/)."
+          "description": "Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. [Scopri di più sulla meta descrizione](https://developer.chrome.com/docs/lighthouse/seo/meta-description/).",
+          "explanation": "Il testo della descrizione è vuoto.",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "http-status-code",
@@ -465,7 +476,10 @@
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "Le pagine con codici di stato HTTP non validi potrebbero non essere indicizzate correttamente. [Scopri di più sui codici di stato HTTP](https://developer.chrome.com/docs/lighthouse/seo/http-status-code/)."
+          "description": "Le pagine con codici di stato HTTP non validi potrebbero non essere indicizzate correttamente. [Scopri di più sui codici di stato HTTP](https://developer.chrome.com/docs/lighthouse/seo/http-status-code/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "link-text",
@@ -483,7 +497,10 @@
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. [Scopri come rendere più accessibili i link](https://developer.chrome.com/docs/lighthouse/seo/link-text/)."
+          "description": "Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. [Scopri come rendere più accessibili i link](https://developer.chrome.com/docs/lighthouse/seo/link-text/).",
+          "explanation": "",
+          "displayValue": "8 link trovati",
+          "warnings": []
         },
         {
           "id": "crawlable-anchors",
@@ -495,7 +512,10 @@
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "I motori di ricerca potrebbero usare gli attributi `href` dei link per eseguire la scansione dei siti web. Assicurati che l'attributo `href` degli elementi anchor rimandi a una destinazione appropriata per consentire il rilevamento di un numero maggiore di pagine del sito. [Scopri come consentire la scansione dei link](https://support.google.com/webmasters/answer/9112205)"
+          "description": "I motori di ricerca potrebbero usare gli attributi `href` dei link per eseguire la scansione dei siti web. Assicurati che l'attributo `href` degli elementi anchor rimandi a una destinazione appropriata per consentire il rilevamento di un numero maggiore di pagine del sito. [Scopri come consentire la scansione dei link](https://support.google.com/webmasters/answer/9112205)",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "robots-txt",
@@ -507,7 +527,10 @@
           "score": null,
           "scoreDisplayMode": "notApplicable",
           "weight": 0.0,
-          "description": "Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. [Scopri di più sul file robots.txt](https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt/)."
+          "description": "Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. [Scopri di più sul file robots.txt](https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "image-alt",
@@ -522,7 +545,10 @@
           "score": 0,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. [Scopri di più sull'attributo `alt`](https://dequeuniversity.com/rules/axe/4.12/image-alt)."
+          "description": "Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. [Scopri di più sull'attributo `alt`](https://dequeuniversity.com/rules/axe/4.12/image-alt).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "hreflang",
@@ -534,7 +560,10 @@
           "score": 1,
           "scoreDisplayMode": "binary",
           "weight": 1.0,
-          "description": "I link hreflang indicano ai motori di ricerca quale versione di una pagina devono elencare nei risultati di ricerca per una determinata lingua o regione. [Scopri di più su `hreflang`](https://developer.chrome.com/docs/lighthouse/seo/hreflang/)."
+          "description": "I link hreflang indicano ai motori di ricerca quale versione di una pagina devono elencare nei risultati di ricerca per una determinata lingua o regione. [Scopri di più su `hreflang`](https://developer.chrome.com/docs/lighthouse/seo/hreflang/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "canonical",
@@ -546,7 +575,10 @@
           "score": null,
           "scoreDisplayMode": "notApplicable",
           "weight": 0.0,
-          "description": "I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. [Scopri di più sui link canonici](https://developer.chrome.com/docs/lighthouse/seo/canonical/)."
+          "description": "I link canonici suggeriscono quale URL mostrare nei risultati di ricerca. [Scopri di più sui link canonici](https://developer.chrome.com/docs/lighthouse/seo/canonical/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         },
         {
           "id": "structured-data",
@@ -558,7 +590,10 @@
           "score": null,
           "scoreDisplayMode": "manual",
           "weight": 0.0,
-          "description": "Esegui lo [Strumento di test per i dati strutturati](https://developers.google.com/search/docs/appearance/structured-data/) per convalidare i dati strutturati. [Scopri di più sui dati strutturati](https://developer.chrome.com/docs/lighthouse/seo/structured-data/)."
+          "description": "Esegui lo [Strumento di test per i dati strutturati](https://developers.google.com/search/docs/appearance/structured-data/) per convalidare i dati strutturati. [Scopri di più sui dati strutturati](https://developer.chrome.com/docs/lighthouse/seo/structured-data/).",
+          "explanation": "",
+          "displayValue": "",
+          "warnings": []
         }
       ],
       "form_factor": "mobile",
@@ -1918,6 +1953,7 @@
           "https://esempio.test/"
         ],
         "instances": 8,
+        "display_value": "8 link trovati",
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
         ],
@@ -1963,6 +1999,7 @@
         "urls": [
           "https://esempio.test/"
         ],
+        "explanation": "Il testo della descrizione è vuoto.",
         "references": [
           "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
         ],
@@ -2417,6 +2454,7 @@
           "urls": [
             "https://esempio.test/"
           ],
+          "explanation": "Il testo della descrizione è vuoto.",
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/meta-description/"
           ],
@@ -2446,6 +2484,7 @@
             "https://esempio.test/"
           ],
           "instances": 8,
+          "display_value": "8 link trovati",
           "references": [
             "https://developer.chrome.com/docs/lighthouse/seo/link-text/"
           ],

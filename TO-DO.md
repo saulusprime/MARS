@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R53**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R54**, idee fino a
 > **I16**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,10 +19,12 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Otto caselle aperte.** Erano undici prima del 2026-08-26: sono uscite la
-> copertura dei test e la pipeline CI — verificato, il README non le promette,
-> quindi nessuno le deve — e **U12**, che il piano stesso dichiara opzionale.
-> Nessuna era sbagliata; nessuna doveva essere lavorata.
+> **Sei caselle aperte.** Erano undici il 2026-08-26. Ne sono uscite tre senza
+> essere fatte — copertura dei test e pipeline CI, che il README non promette,
+> e **U12**, che il piano dichiara opzionale — e due si sono chiuse il
+> 2026-08-27 con **R53**: i conteggi di `mars_seo` non chiamano piu' difetto
+> del sito un guasto di Lighthouse, e i tre testi che lo strumento produce non
+> si buttano piu' via. `schema_version` e' a **3**.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -34,45 +36,32 @@
 
 ## Correzioni
 
-Una sola, e **nessuna voce GRAVE resta aperta**. Viene dall'adeguamento dei
-moduli alle fasi UPGRADE, non dalla revisione sistematica del 2026-08-20, che è
-esaurita. Va riprodotta prima di correggerla — regola *verificare, non
-dedurre*.
+Una sola, e **nessuna voce GRAVE resta aperta**. Discende per via diretta
+dall'adeguamento dei moduli alle fasi UPGRADE — R40 → R53 → R54 — e a ogni
+passaggio è rimasto ciò che non era una correzione ma una decisione. Va
+riprodotta prima di correggerla, regola *verificare, non dedurre*.
 
-### R53 — ⚪ LIEVE: i tre residui di `mars_seo` che caselle non erano
-*(R40 aveva sei rilievi e tre caselle. Le caselle sono chiuse il 2026-08-26 e
-stanno in [AS-IS.md](AS-IS.md); questi tre non erano azioni ma osservazioni, e
-ciascuno apre una decisione)*
+### R54 — ⚪ LIEVE: il parametro `score` di `severita_lighthouse` non viene mai letto
+*(l'ultima delle tre osservazioni di R40. Le prime due sono chiuse il
+2026-08-27 e stanno in [AS-IS.md](AS-IS.md); questa non è un difetto da
+correggere ma una decisione che aspetta una fase.)*
 
-- **`MODI_NON_MISURATI_VOCE` e `LH_MODI_NON_MISURATI` divergono di proposito**,
-  e la divergenza va tolta con una misura, non per simmetria. La voce si ferma
-  a `("manual", "notApplicable")` ([mars_seo.py:55](mars_seo.py#L55));
-  `mars_core` comprende anche `informative` ed `error`. Un `informative` ha
-  `score: 1` per costruzione, quindi oggi è contato fra i **superati**; un
-  `error` fra i **falliti**. R40 ha chiuso la metà del **testo** — il prefisso
-  della issue ora si sceglie sul modo, quindi un `error` non si annuncia più
-  col titolo del successo — e ha lasciato aperta quella dei **conteggi**:
-  allargare la tupla sposterebbe `passed`/`failed`/`manual` e la riga «N
-  superati, M falliti» del referto. Un test tiene le due metà separate.
-- **`explanation`, `displayValue` e `warnings` di Lighthouse sono ignorati.**
-  Sono i testi che dicono *perché* un controllo è fallito; verificato: zero
-  occorrenze in `mars_seo.py`. Da notare `warnings` di `is-crawlable`, che è un
-  audit che **passa** pur avendo qualcosa da dire — e oggi quel qualcosa non
-  arriva da nessuna parte.
-- **Il parametro `score` di `severita_lighthouse` non viene mai letto**
-  ([mars_core.py:388](mars_core.py#L388)): la funzione decide su modo e peso.
-  Non è morto per svista — è il chiamante che deve filtrare i superati, e senza
-  quel filtro un sito perfetto produrrebbe nove `warning` — ma un parametro
-  inerte in una firma pubblica invita a crederlo significativo. Renderlo
-  significativo vuol dire introdurre `SEV_OK`, che oggi nessun modulo usa: è la
-  decisione della fase che renderà i controlli superati, la stessa che **U13**
-  ha lasciato fuori dal proprio perimetro.
+La firma è `severita_lighthouse(score, mode, weight)`
+([mars_core.py:388](mars_core.py#L388)) e la funzione decide su **modo e
+peso**: `score` non lo legge nessuno. Non è morto per svista — è il chiamante
+che deve filtrare i superati, e senza quel filtro un sito perfetto produrrebbe
+nove `warning` — ma un parametro inerte in una firma pubblica invita a
+crederlo significativo, ed è l'unico posto del progetto dove questo succede.
 
-- [ ] Decidere se i conteggi seguono i quattro modi di `mars_core`, misurando
-      quanto si sposta la riga «N superati, M falliti».
-- [ ] Portare `explanation`, `displayValue` e `warnings` nel rilievo, decidendo
-      in quale campo: `detail` è già occupato dalla `description`.
-- [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`.
+Renderlo significativo vuol dire introdurre **`SEV_OK`**, la gravità che oggi
+nessun modulo usa: è la decisione della fase che renderà i controlli
+**superati** parte del referto strutturato — la stessa che U13 ha lasciato
+fuori dal proprio perimetro. Finché quella fase non c'è, ogni correzione locale
+sarebbe una scala nuova introdotta da un modulo solo.
+
+- [ ] Solo con `SEV_OK`: rendere significativo il parametro `score`, oppure
+      toglierlo dalla firma dichiarando che la gravità non dipende dal
+      punteggio.
 
 ---
 

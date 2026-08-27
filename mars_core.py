@@ -43,7 +43,7 @@ __version__ = "2.9.0"
 # documentazione della regola axe — ma il nome prometteva la pagina
 # analizzata, e chi lo leggeva come tale leggeva il falso. Le pagine
 # stanno in `params["urls"]`.
-JSON_SCHEMA_VERSION = 2
+JSON_SCHEMA_VERSION = 3
 
 # La versione compare nello User-Agent, in --version e nell'API:
 # tenerla in un posto solo evita che le tre divergano.

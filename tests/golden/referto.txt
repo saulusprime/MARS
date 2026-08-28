@@ -62,13 +62,14 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
 PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
-  1 quick win · 4 senza recupero · 11 senza sforzo dichiarato
+  2 quick win · 4 senza recupero · 6 senza sforzo dichiarato
   7 aree su 9; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +7.54
      Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
-  2. [CRITICO · SEO · sforzo non dichiarato] L'indicizzazione della pagina è bloccata
-     +37 punti d'area (27 → 64) · indice +4.74
+  2. [CRITICO · SEO · minuti] L'indicizzazione della pagina è bloccata
+     ** QUICK WIN · +37 punti d'area (27 → 64) · indice +4.74
+     Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
   3. [CRITICO · Accessibilità · sforzo non dichiarato] Le immagini devono avere un testo alternativo
      +37 punti d'area (37 → 74) · indice +4.65
      Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation

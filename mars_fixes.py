@@ -327,7 +327,163 @@ CATALOGO: Dict[str, Dict[str, str]] = {
         "example": "# nginx\n"
                    "add_header X-Frame-Options \"SAMEORIGIN\" always;",
     },
+
+    # --- Area 2: SEO, i controlli di Lighthouse (I18) ------------------
+    # Lighthouse porta la DIAGNOSI — la sua `description` finisce in
+    # `detail`, i suoi link in `params["references"]` — e non porta la
+    # prescrizione. Erano gli unici rilievi di contenuto di MARS ad
+    # arrivare a chi legge senza dirgli che cosa fare.
+    #
+    # Sono i dieci controlli MISURATI della categoria SEO, letti dal
+    # `default-config.js` di Lighthouse 13.4.1. L'undicesimo,
+    # `structured-data`, resta fuori: pesa 0, Lighthouse lo dichiara
+    # manuale e non lo valuta, e i dati strutturati hanno un'area
+    # propria (`sd.*`) che prescrive gia' la sua.
+    #
+    # Le chiavi vengono da `chiave_esterna(id)`, quindi dipendono dagli
+    # id di Lighthouse: se una versione futura ne rinomina uno, la voce
+    # qui resta inutilizzata e il rilievo torna senza fix — come prima
+    # di I18, senza dire nulla di falso.
+    "seo.lh.is_crawlable": {
+        "fix": "Togli la direttiva che blocca l'indicizzazione, e "
+               "cercala in tutti e tre i posti dove puo' stare: il "
+               "meta robots della pagina, l'header X-Robots-Tag della "
+               "risposta, il Disallow di robots.txt. Toglierla da uno "
+               "solo lascia il blocco in piedi.",
+        # I tre posti insieme, come per `tech.robots.ai_blocked`: un
+        # esempio che ne mostrasse uno farebbe credere di aver
+        # corretto mentre il blocco resta altrove.
+        "example": "<!-- 1. nella pagina: il meta va TOLTO, non "
+                   "negato -->\n"
+                   "<meta name=\"robots\" content=\"index, follow\">\n"
+                   "\n"
+                   "# 2. nella risposta HTTP: l'header non deve esserci\n"
+                   "X-Robots-Tag: index, follow\n"
+                   "\n"
+                   "# 3. in /robots.txt: nessun Disallow su questo "
+                   "percorso\n"
+                   "User-agent: *\n"
+                   "Disallow:",
+    },
+    "seo.lh.document_title": {
+        "fix": "Dai a ogni pagina un <title> che la distingua dalle "
+               "altre: e' la riga che l'assistente cita e che l'utente "
+               "legge nei risultati. Un titolo uguale su tutto il sito "
+               "vale quanto nessun titolo.",
+        "example": "<head>\n"
+                   "  <title>Drenaggio linfatico manuale — Studio "
+                   "Rossi, Bari</title>\n"
+                   "</head>",
+    },
+    "seo.lh.meta_description": {
+        "fix": "Scrivi una meta description per pagina che risponda "
+               "alla domanda della pagina invece di elencare parole "
+               "chiave. E' il testo che compare sotto il titolo nei "
+               "risultati, e una sola descrizione ripetuta ovunque non "
+               "distingue nulla.",
+        "example": "<meta name=\"description\" content=\"Drenaggio "
+                   "linfatico manuale a Bari: come funziona una "
+                   "seduta, quanto dura e quanto costa.\">",
+    },
+    "seo.lh.http_status_code": {
+        "fix": "Fai rispondere la pagina con 200. Se e' stata "
+               "spostata, un 301 verso il nuovo indirizzo; se non "
+               "esiste piu', un 410, che dichiara la rimozione "
+               "definitiva invece di lasciarla ambigua come fa un 404.",
+        "example": "# la pagina esiste\n"
+                   "HTTP/1.1 200 OK\n"
+                   "\n"
+                   "# la pagina si e' spostata\n"
+                   "HTTP/1.1 301 Moved Permanently\n"
+                   "Location: https://esempio.it/servizi/drenaggio\n"
+                   "\n"
+                   "# la pagina non tornera'\n"
+                   "HTTP/1.1 410 Gone",
+    },
+    "seo.lh.link_text": {
+        "fix": "Sostituisci «clicca qui» e «leggi tutto» con il nome "
+               "di cio' che sta dall'altra parte. Il testo del link e' "
+               "l'unica descrizione della pagina di destinazione che "
+               "si legge dalla pagina di partenza.",
+        "example": "<!-- invece di: <a href=\"/prezzi\">clicca "
+                   "qui</a> -->\n"
+                   "<a href=\"/prezzi\">i prezzi del drenaggio "
+                   "linfatico</a>",
+    },
+    "seo.lh.crawlable_anchors": {
+        "fix": "Dai a ogni ancora un href verso l'indirizzo reale. Un "
+               "<a> che naviga con onclick, o che ha href=\"#\", non "
+               "e' un link per chi non esegue il JavaScript, e la "
+               "pagina di destinazione resta irraggiungibile.",
+        # Niente apici annidati nell'esempio: la vista HTML lo
+        # escapa una volta, e un'entita' scritta a mano uscirebbe
+        # letterale.
+        "example": "<!-- invece di un <a> che naviga con onclick -->\n"
+                   "<a href=\"/prezzi\">Prezzi</a>",
+    },
+    "seo.lh.robots_txt": {
+        "fix": "Correggi la sintassi di robots.txt. Le direttive "
+               "valgono solo dentro un gruppo che comincia con "
+               "User-agent, e una riga che il parser non riconosce "
+               "viene saltata in silenzio. Il rilievo dice che il file "
+               "c'e' ma non si legge, non che manca.",
+        "example": "# /robots.txt\n"
+                   "User-agent: *\n"
+                   "Disallow: /area-riservata/\n"
+                   "\n"
+                   "Sitemap: https://esempio.it/sitemap.xml",
+    },
+    "seo.lh.image_alt": {
+        "fix": "Descrivi in alt che cosa mostra l'immagine, non come "
+               "si chiama il file. Le immagini decorative prendono "
+               "alt=\"\", vuoto e presente, cosi' chi legge con uno "
+               "screen reader non se le sente elencare.",
+        "example": "<img src=\"/sala.jpg\" alt=\"Il lettino della "
+                   "sala trattamenti\">\n"
+                   "<img src=\"/onda.svg\" alt=\"\">"
+                   "   <!-- decorativa -->",
+    },
+    "seo.lh.hreflang": {
+        "fix": "Dichiara le versioni linguistiche con un codice valido "
+               "e un URL assoluto, e fai in modo che ogni versione "
+               "rimandi a tutte le altre e a se stessa: un hreflang "
+               "che non torna indietro viene ignorato.",
+        "example": "<link rel=\"alternate\" hreflang=\"it\" "
+                   "href=\"https://esempio.it/servizi\">\n"
+                   "<link rel=\"alternate\" hreflang=\"en\" "
+                   "href=\"https://esempio.it/en/services\">\n"
+                   "<link rel=\"alternate\" hreflang=\"x-default\" "
+                   "href=\"https://esempio.it/servizi\">",
+    },
+    "seo.lh.canonical": {
+        "fix": "Lascia un solo rel=canonical per pagina, con un URL "
+               "assoluto che risponda 200 e non sia a sua volta "
+               "canonicalizzato altrove. Due canonical in conflitto "
+               "valgono come nessuno.",
+        "example": "<link rel=\"canonical\" "
+                   "href=\"https://esempio.it/servizi/drenaggio\">",
+    },
 }
+
+
+def prescrivibile(finding: dict) -> bool:
+    """Vero se il rilievo descrive un difetto su cui si puo' prescrivere.
+
+    Il discriminante e' la **penalita' dichiarata**, e non la gravita':
+    un rilievo `info` puo' essere un difetto vero — `tech.canonical
+    .missing` lo e' — mentre un controllo superato non lo e' mai.
+    Chiave assente significa "non misurato, o non fallito"; `0.0`
+    significa "misurato, ma qui il punteggio non lo muove" ed e' un
+    difetto a tutti gli effetti (i controlli statici di `mars_wcag` nel
+    ramo axe).
+
+    Serve da I18, che ha dato una prescrizione ai controlli SEO:
+    Lighthouse produce un rilievo per OGNI audit, superati e non
+    applicabili compresi, e il catalogo cerca per chiave. Senza questa
+    porta, sotto «robots.txt e' valido» compariva «Correggi la sintassi
+    di robots.txt».
+    """
+    return "penalty" in (finding.get("params") or {})
 
 
 def vesti(finding: dict) -> dict:
@@ -338,11 +494,13 @@ def vesti(finding: dict) -> dict:
     conservare la `solution` che ZAP gli ha dato, e a un plugin di terzi
     di portare i propri testi senza sapere che questo file esista.
 
+    E colma solo dove c'e' un difetto: vedi `prescrivibile`.
+
     Lavora sul dict serializzato, non sulla dataclass: e' cio' che
     attraversa il confine dei plugin.
     """
     voce = CATALOGO.get(finding.get("key") or "")
-    if not voce:
+    if not voce or not prescrivibile(finding):
         return finding
     for campo in ("fix", "example"):
         if not finding.get(campo) and voce.get(campo):

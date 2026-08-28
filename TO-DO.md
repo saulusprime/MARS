@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R63**, idee fino a
-> **I17**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I18**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -31,7 +31,8 @@
 > che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
 > **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2**,
 > **I8**, **I4+I9** e **I15** sono le prime idee decise dopo la chiusura del
-> programma: non avevano
+> programma, e **I18** e' la prima voce NUOVA aperta dopo di essa — la
+> correzione con esempio per l'area SEO, chiesta e chiusa lo stesso giorno: non avevano
 > una casella, e l'hanno avuta quando l'utente ha detto di farle. I8 è stata
 > realizzata **in forma ridotta e dichiarata**: un modulo `mars_config.py`, non
 > il file di configurazione che l'idea chiedeva — la ragione sta in
@@ -42,8 +43,8 @@
 > muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
 > punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10, a
 > **2.13.0** con U11, a **2.14.0** con I2, a **2.15.0** con I4+I9, che
-> aggiunge contenuto al referto, e a **2.16.0** con I15, da cui i punteggi
-> lessicali si muovono a sito invariato. I8 non l'ha mossa: nessun punteggio
+> aggiunge contenuto al referto, a **2.16.0** con I15, da cui i punteggi
+> lessicali si muovono a sito invariato, e a **2.17.0** con I18. I8 non l'ha mossa: nessun punteggio
 > cambia e nessuna interfaccia con lei.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non

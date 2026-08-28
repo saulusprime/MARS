@@ -83,6 +83,7 @@
 | I8 | Pesi e soglie in `mars_config.py`, e la scala non è più tripla | 2026-08-28 |
 | I4+I9 | Il consenso dice anche QUALI passaggi divergono, e da che parte | 2026-08-28 |
 | I15 | L'elisione italiana, su un elenco dichiarato di nove | 2026-08-28 |
+| I18 | La correzione con esempio anche per l'area SEO | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2513,6 +2514,112 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### I18 — ✅ REALIZZATA (2026-08-28): la correzione con esempio anche per l'area SEO
+
+*(voce nuova, aperta e chiusa lo stesso giorno su richiesta dell'utente.
+`__version__` a **2.17.0**: il referto e il piano guadagnano contenuto, nessun
+punteggio si muove.)*
+
+**La misura che ha definito il lavoro.** I nove moduli d'area producono **75
+chiavi statiche**; il catalogo ne copriva 36. Le 39 scoperte non erano un
+buco: **31 `*.status.*` + 8 `llm.content.*`**, cioè le esclusioni già scritte
+— gli stati parlano della scansione e il destinatario è chi fa girare MARS,
+i punti deboli del giudizio sono `derived` e fuori dal piano per R41. Ogni
+chiave di contenuto statica aveva già `fix` ed `example`: **36 su 36**.
+
+Il buco stava nelle chiavi **dinamiche**:
+
+| chiave | `fix` prima | `example` prima | perimetro |
+|---|---|---|---|
+| `seo.lh.*` | **nessuno** | nessuno | 11 controlli, elenco chiuso |
+| `wcag.axe.*` | sì, da axe | nessuno | ~69 regole nei tag dichiarati |
+| `sec.zap.*` | sì, da ZAP | nessuno | non misurabile senza il daemon |
+
+`mars_seo` era l'unica area con rilievi di **contenuto** e nessuna
+prescrizione: portava la `description` di Lighthouse in `detail` e i link in
+`params["references"]`, cioè la diagnosi.
+
+**Che cosa è stato fatto.** I **dieci controlli misurati** della categoria SEO
+— letti dal `default-config.js` di Lighthouse 13.4.1, non a memoria — hanno
+ora `fix` ed `example` in italiano e in inglese, e uno sforzo nel piano.
+L'undicesimo, `structured-data`, resta fuori: pesa 0, Lighthouse lo dichiara
+manuale e non lo valuta, e i dati strutturati hanno l'area `sd.*` che
+prescrive già la sua. Prescrivere due volte la stessa cosa da due aree diverse
+è peggio che tacere una volta.
+
+**Zero codice per il collegamento**: `vesti()` cerca per chiave in modo
+generico, e «il modulo vince, il catalogo colma».
+
+**Tre decisioni scritte sono state ribaltate, e si dice quali.**
+`tests/test_fixes.py` dichiarava le famiglie a catalogo esattamente
+`{tech, lex, sem, sd, wcag, sec}`, con la motivazione «`seo` prende i testi da
+Lighthouse». `mars_remediation.SFORZO` dichiarava che le **tre** famiglie
+dinamiche restano fuori «perché l'insieme delle chiavi non è nostro».
+`mars_i18n` vietava ogni voce tradotta per quelle famiglie. Le tre motivazioni
+reggevano insieme finché quelle famiglie non avevano nulla di nostro; ora la
+linea passa altrove ed è più precisa: **lo strumento porta titolo e dettaglio,
+noi portiamo la prescrizione**, e ciò che scriviamo noi si traduce come tutto
+il resto. Le regole di axe sono oltre cento e quelle di ZAP dipendono dagli
+add-on, quindi restano fuori; gli audit SEO sono undici e li elenchiamo.
+
+**Un difetto introdotto e trovato rivedendo il diff dei golden.** Lighthouse
+produce un rilievo per **ogni** audit, superati e non applicabili compresi. Il
+catalogo cerca per chiave, quindi sotto
+
+```
+→ Non applicabile a questa pagina: robots.txt è valido
+  Correggi la sintassi di robots.txt. …
+```
+
+compariva una prescrizione per un difetto che non c'è. Il discriminante **non
+è la gravità** — misurato: `tech.canonical.missing` e `wcag.link.generic` sono
+`info` e sono difetti veri — ma la **penalità dichiarata**: assente significa
+«non misurato, o non fallito»; `0.0` significa «misurato, ma qui il punteggio
+non lo muove» ed è un difetto (i controlli statici di `mars_wcag` nel ramo
+axe). Nasce `mars_fixes.prescrivibile()`, e `vesti()` ci passa.
+
+**Un allarme che non era un difetto.** Il diff mostrava
+`seo.lh.is_crawlable` con sforzo «minuti» dove `SFORZO` dice `ORE`: è
+`_sforzo` che scala col numero di istanze (R46) e con una sola occorrenza
+scende di un gradino. Una pagina sola bloccata dall'indicizzazione è davvero
+un quick win, ed è il secondo che il piano ora apre.
+
+**Un invariante nuovo, e non ceremoniale.** Quattro controlli SEO misurano un
+difetto che MARS misura anche da sé (`image_alt` / `wcag.img.alt_missing`,
+`link_text` / `wcag.link.generic`, `canonical` / `tech.canonical.missing`,
+`is_crawlable` / `tech.index.noindex`). Un test pretende che i gemelli abbiano
+**lo stesso sforzo di base**: due stime diverse dello stesso lavoro si
+sommerebbero nel piano, e chi legge non saprebbe quale credere.
+
+**La degradazione, dichiarata.** Le chiavi `seo.lh.*` vengono dagli id di
+Lighthouse. Se una versione futura ne rinomina uno, la voce resta inutilizzata
+e il rilievo torna senza fix e senza sforzo — cioè com'era prima di I18, senza
+dire nulla di falso. Un test lo prova su un id inventato.
+
+**File toccati.** `mars_fixes.py` (10 voci, `prescrivibile`), `mars_i18n.py`
+(10 traduzioni senza titolo), `mars_remediation.py` (10 sforzi), `mars_core.py`
+(`__version__`), `tests/test_fixes.py` (+13), `tests/test_remediation.py`
+(+2, 1 riscritto), `tests/test_i18n.py` (3 riscritti), i cinque golden,
+`README.md`.
+
+**Verifiche.** `flake8 .` a zero, `pytest` **1292 passed** (da 1276). Golden
+rigenerati e **diff riveduto**, che è dove il difetto è saltato fuori: cinque
+rilievi SEO falliti guadagnano prescrizione e sforzo, i due superati la
+perdono, il piano passa da 1 a 2 quick win e da 11 a 6 voci senza sforzo.
+Nessun `fix` preesistente è sparito. **Nove mutazioni su nove colte** — la
+porta non applicata, la porta che guarda la verità invece della presenza (cioè
+`0.0` trattato come assente), la porta che nega tutto, un fix SEO che sparisce,
+lo sforzo di un gemello che diverge, `structured_data` che prende un fix, la
+traduzione inglese che manca, un titolo che entra fra le famiglie dallo
+strumento, l'esempio di `is_crawlable` che mostra un posto solo su tre.
+
+**End-to-end con Lighthouse 13.4.1 vero**, su un sito locale senza `<title>`,
+senza meta description, con un `<img>` senza `alt` e un link «clicca qui»: tre
+audit falliti, tutti e tre con prescrizione e sforzo nel piano
+(`document_title` minuti, `image_alt` ore, `meta_description` giorni); tre
+superati o non applicabili, tutti e tre **senza** prescrizione. **axe-core su
+Chromium sul referto HTML: zero violazioni.** Non verificato: nulla.
 
 ### I15 — ✅ REALIZZATA (2026-08-28): l'elisione italiana, su un elenco dichiarato
 

@@ -364,11 +364,23 @@ def test_nessuna_voce_del_catalogo_e_orfana(lingua, monkeypatch):
 
 
 @pytest.mark.parametrize("lingua", TRADOTTE)
-def test_il_catalogo_non_traduce_cio_che_viene_dallo_strumento(lingua):
+def test_il_catalogo_non_traduce_il_titolo_di_cio_che_viene_dallo_strumento(
+        lingua):
     """axe, ZAP e Lighthouse dicono la loro regola meglio di noi, e la
-    dicono ancora dopo il prossimo aggiornamento."""
-    dinamiche = [c for c in RILIEVI[lingua] if mars_i18n.dallo_strumento(c)]
-    assert not dinamiche, dinamiche
+    dicono ancora dopo il prossimo aggiornamento.
+
+    Fino a I18 il divieto era sull'intera voce, e valeva finche' le tre
+    famiglie non avevano nulla di nostro. Ora i dieci controlli SEO
+    misurati hanno un `fix` e un `example` scritti qui — Lighthouse
+    porta la diagnosi, non la prescrizione — e quelli si traducono come
+    tutto il resto. Il divieto resta dov'e' la ragione: il TITOLO."""
+    con_titolo = [c for c, v in RILIEVI[lingua].items()
+                  if mars_i18n.dallo_strumento(c) and v.get("title")]
+    assert not con_titolo, con_titolo
+    # E nulla di diverso da fix/example entra per quelle famiglie.
+    for chiave, voce in RILIEVI[lingua].items():
+        if mars_i18n.dallo_strumento(chiave):
+            assert set(voce) <= {"fix", "example"}, chiave
 
 
 @pytest.mark.parametrize("lingua", TRADOTTE)
@@ -531,6 +543,11 @@ def test_sui_due_referti_sintetici_nessun_campo_ripiega(lingua,
                     assert "%(" not in testi[campo], \
                         "%s/%s: segnaposto non risolto" % (rilievo["key"],
                                                            campo)
+                if mars_i18n.dallo_strumento(rilievo["key"]):
+                    # Da I18 queste voci esistono, ma portano solo `fix`
+                    # ed `example`: il titolo resta quello dello
+                    # strumento, quindi identico e' giusto.
+                    continue
                 assert testi["title"] != rilievo.get("title"), \
                     "%s: il titolo tradotto e' identico" % rilievo["key"]
 
@@ -565,7 +582,17 @@ def test_ogni_segnaposto_e_esercitato_contro_i_params_veri(lingua,
 
 @pytest.mark.parametrize("lingua", TRADOTTE)
 def test_ogni_titolo_tradotto_e_non_vuoto(lingua):
+    """Un titolo vuoto e' peggio di nessuna traduzione: svuota la riga
+    invece di lasciarci l'italiano.
+
+    Le famiglie dallo strumento sono l'eccezione, e non per omissione:
+    da I18 hanno una voce — il `fix` e l'`example` che abbiamo scritto
+    noi — ma il titolo NON devono averlo, perche' lo porta axe, ZAP o
+    Lighthouse. Il test qui sopra lo pretende; qui si pretende il
+    contrario per tutte le altre."""
     for chiave, voce in RILIEVI[lingua].items():
+        if mars_i18n.dallo_strumento(chiave):
+            continue
         assert voce.get("title", "").strip(), \
             "%s: titolo vuoto e' peggio di nessuna traduzione" % chiave
 

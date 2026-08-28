@@ -123,14 +123,20 @@ _ORDINE_CORSIA = {nome: i for i, nome in enumerate(CORSIE)}
 # test a pretenderlo: sono i controlli che MARS misura da se', un
 # insieme chiuso che cambia solo quando lo cambiamo noi.
 #
-# Le tre famiglie dinamiche — `wcag.axe.*`, `sec.zap.*`, `seo.lh.*` —
-# restano FUORI, tutte e tre, e il piano dichiara "sforzo non
-# dichiarato". Un default "ore" sarebbe un'assenza travestita da stima,
-# e per quelle famiglie l'insieme delle chiavi non e' nostro: le regole
-# di axe sono oltre cento, quelle di ZAP dipendono dagli add-on
-# installati, e gli audit SEO dipendono dalla versione di Lighthouse
-# che si trova nel PATH — il referto ne registra la versione proprio
-# perche' varia.
+# Delle tre famiglie dinamiche due restano FUORI — `wcag.axe.*` e
+# `sec.zap.*` — e il piano dichiara "sforzo non dichiarato". Un default
+# "ore" sarebbe un'assenza travestita da stima, e per quelle due
+# l'insieme delle chiavi non e' nostro: le regole di axe sono oltre
+# cento e quelle di ZAP dipendono dagli add-on installati.
+#
+# `seo.lh.*` ci e' ENTRATA con I18, e il commento diceva l'opposto: la
+# ragione dell'esclusione era che gli audit SEO dipendono dalla
+# versione di Lighthouse. Dipendono, ma sono ELEVEN e stabili — dieci
+# misurati piu' uno manuale, letti dal `default-config.js` di 13.4.1 —
+# e un insieme di undici e' nostro quanto quello dei controlli che
+# scriviamo noi. Se una versione futura ne rinomina uno, la sua voce
+# resta inutilizzata qui e il rilievo torna senza sforzo: e' la
+# degradazione di prima, non una stima sbagliata.
 MINUTI, ORE, GIORNI = "minuti", "ore", "giorni"
 
 SFORZO: Dict[str, str] = {
@@ -184,6 +190,26 @@ SFORZO: Dict[str, str] = {
     "sem.chunks.few": GIORNI,
     "sem.answer_shaped.low": GIORNI,
     "sem.query.no_match": GIORNI,
+    # I dieci controlli SEO misurati di Lighthouse (I18). Lo sforzo
+    # segue lo stesso criterio delle altre voci — una riga, un
+    # template, del contenuto — e i quattro che misurano un difetto
+    # che MARS misura anche da se' prendono lo sforzo del loro
+    # gemello: due stime diverse dello stesso lavoro si sommerebbero
+    # nel piano, e chi legge non saprebbe quale credere. Un test lo
+    # pretende.
+    "seo.lh.robots_txt": MINUTI,
+    "seo.lh.is_crawlable": ORE,          # = tech.index.noindex
+    "seo.lh.canonical": ORE,             # = tech.canonical.missing
+    "seo.lh.document_title": ORE,
+    "seo.lh.http_status_code": ORE,
+    "seo.lh.crawlable_anchors": ORE,
+    "seo.lh.hreflang": ORE,
+    "seo.lh.image_alt": GIORNI,          # = wcag.img.alt_missing
+    "seo.lh.link_text": GIORNI,          # = wcag.link.generic
+    # La meta description e' contenuto scritto una pagina alla volta,
+    # come i testi alternativi: un template puo' generarla, ma una
+    # descrizione generata non risponde alla domanda della pagina.
+    "seo.lh.meta_description": GIORNI,
 }
 
 

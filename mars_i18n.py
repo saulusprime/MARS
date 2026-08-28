@@ -40,11 +40,17 @@ def normalizza_lingua(lang: Optional[str]) -> str:
 # ======================================================================
 # I rilievi che NON si traducono qui
 # ----------------------------------------------------------------------
-# Tre famiglie prendono i testi dallo strumento che ha fatto la misura,
-# non da noi: e' la stessa regola che U3.2 ha scritto per i `fix`.
-# Tradurle a mano significherebbe due cose sbagliate insieme —
-# riscrivere in italiano cio' che axe, ZAP e Lighthouse dicono meglio
-# di noi, e farlo invecchiare accanto a loro a ogni release.
+# Tre famiglie prendono dallo strumento che ha fatto la misura il
+# TITOLO e il DETTAGLIO, non da noi: e' la stessa regola che U3.2 ha
+# scritto per i `fix`. Tradurli a mano significherebbe due cose
+# sbagliate insieme — riscrivere in italiano cio' che axe, ZAP e
+# Lighthouse dicono meglio di noi, e farlo invecchiare accanto a loro
+# a ogni release.
+#
+# Da I18 la regola vale sul titolo e non sull'intera voce: i dieci
+# controlli SEO misurati hanno un `fix` e un `example` NOSTRI, perche'
+# Lighthouse porta la diagnosi e non la prescrizione, e cio' che
+# scriviamo noi si traduce come tutto il resto.
 #
 # La lingua di quelle tre si chiede allo strumento (U9.3): Lighthouse
 # ha `--locale`, axe ha `axe.configure({locale})`, ZAP parla inglese e
@@ -623,6 +629,122 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
     },
     "llm.content.other": {
         "title": "Other model observations on the content — %(provider)s",
+    },
+
+    # --- Area 2: SEO, la PRESCRIZIONE dei controlli Lighthouse (I18) ---
+    # Nessun `title` e nessun `detail`: quelli li porta Lighthouse, che
+    # ha girato con `--locale`. Qui sta solo cio' che abbiamo scritto
+    # noi, e che quindi tocca a noi tradurre.
+    "seo.lh.is_crawlable": {
+        "fix": "Remove the directive that blocks indexing, and look "
+               "for it in all three places it can live: the page meta "
+               "robots, the X-Robots-Tag response header, the Disallow "
+               "in robots.txt. Removing it from one leaves the block "
+               "standing.",
+        "example": "<!-- 1. in the page: the meta must be REMOVED, not "
+                   "negated -->\n"
+                   "<meta name=\"robots\" content=\"index, follow\">\n"
+                   "\n"
+                   "# 2. in the HTTP response: the header must be absent\n"
+                   "X-Robots-Tag: index, follow\n"
+                   "\n"
+                   "# 3. in /robots.txt: no Disallow on this path\n"
+                   "User-agent: *\n"
+                   "Disallow:",
+    },
+    "seo.lh.document_title": {
+        "fix": "Give every page a <title> that tells it apart from the "
+               "others: it is the line an assistant quotes and a user "
+               "reads in the results. One title across the whole site "
+               "is worth no title at all.",
+        "example": "<head>\n"
+                   "  <title>Manual lymphatic drainage — Rossi "
+                   "Studio, Bari</title>\n"
+                   "</head>",
+    },
+    "seo.lh.meta_description": {
+        "fix": "Write one meta description per page that answers the "
+               "question the page is about, instead of listing "
+               "keywords. It is the text shown under the title in the "
+               "results, and a single description repeated everywhere "
+               "tells nothing apart.",
+        "example": "<meta name=\"description\" content=\"Manual "
+                   "lymphatic drainage in Bari: how a session works, "
+                   "how long it lasts and what it costs.\">",
+    },
+    "seo.lh.http_status_code": {
+        "fix": "Make the page answer with 200. If it moved, a 301 to "
+               "the new address; if it is gone for good, a 410, which "
+               "declares the removal instead of leaving it ambiguous "
+               "the way a 404 does.",
+        "example": "# the page exists\n"
+                   "HTTP/1.1 200 OK\n"
+                   "\n"
+                   "# the page moved\n"
+                   "HTTP/1.1 301 Moved Permanently\n"
+                   "Location: https://example.com/services/drainage\n"
+                   "\n"
+                   "# the page will not come back\n"
+                   "HTTP/1.1 410 Gone",
+    },
+    "seo.lh.link_text": {
+        "fix": "Replace «click here» and «read more» with the name of "
+               "what is on the other side. Link text is the only "
+               "description of the destination page that can be read "
+               "from the page you start on.",
+        "example": "<!-- instead of: <a href=\"/prices\">click "
+                   "here</a> -->\n"
+                   "<a href=\"/prices\">lymphatic drainage prices</a>",
+    },
+    "seo.lh.crawlable_anchors": {
+        "fix": "Give every anchor an href pointing at the real "
+               "address. An <a> that navigates with onclick, or that "
+               "has href=\"#\", is not a link for anyone who does not "
+               "run the JavaScript, and the destination stays "
+               "unreachable.",
+        "example": "<!-- instead of an <a> navigating with onclick -->\n"
+                   "<a href=\"/prices\">Prices</a>",
+    },
+    "seo.lh.robots_txt": {
+        "fix": "Fix the syntax of robots.txt. Directives only count "
+               "inside a group that starts with User-agent, and a line "
+               "the parser does not recognise is skipped silently. The "
+               "finding says the file is there and cannot be read, not "
+               "that it is missing.",
+        "example": "# /robots.txt\n"
+                   "User-agent: *\n"
+                   "Disallow: /members-only/\n"
+                   "\n"
+                   "Sitemap: https://example.com/sitemap.xml",
+    },
+    "seo.lh.image_alt": {
+        "fix": "Describe in alt what the image shows, not what the "
+               "file is called. Decorative images take alt=\"\", empty "
+               "and present, so that a screen reader user does not "
+               "hear them listed.",
+        "example": "<img src=\"/room.jpg\" alt=\"The treatment room "
+                   "couch\">\n"
+                   "<img src=\"/wave.svg\" alt=\"\">"
+                   "   <!-- decorative -->",
+    },
+    "seo.lh.hreflang": {
+        "fix": "Declare the language versions with a valid code and an "
+               "absolute URL, and make every version point at all the "
+               "others and at itself: an hreflang that does not point "
+               "back is ignored.",
+        "example": "<link rel=\"alternate\" hreflang=\"it\" "
+                   "href=\"https://example.com/servizi\">\n"
+                   "<link rel=\"alternate\" hreflang=\"en\" "
+                   "href=\"https://example.com/en/services\">\n"
+                   "<link rel=\"alternate\" hreflang=\"x-default\" "
+                   "href=\"https://example.com/servizi\">",
+    },
+    "seo.lh.canonical": {
+        "fix": "Keep a single rel=canonical per page, with an absolute "
+               "URL that answers 200 and is not itself canonicalised "
+               "elsewhere. Two conflicting canonicals are worth none.",
+        "example": "<link rel=\"canonical\" "
+                   "href=\"https://example.com/services/drainage\">",
     },
 }
 

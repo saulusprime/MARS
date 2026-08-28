@@ -495,18 +495,51 @@ def test_i_tre_livelli_sono_quelli_dichiarati():
     assert set(rem.SFORZO.values()) == {rem.MINUTI, rem.ORE, rem.GIORNI}
 
 
-def test_le_famiglie_dinamiche_non_hanno_uno_sforzo_dichiarato():
-    """axe, ZAP e Lighthouse: le chiavi non sono nostre.
+def test_le_due_famiglie_dinamiche_non_hanno_uno_sforzo_dichiarato():
+    """axe e ZAP: le chiavi non sono nostre.
 
     Un default "ore" sarebbe un'assenza travestita da stima, e
     spegnerebbe i quick win senza che nessuno se ne accorga.
+
+    Fino a I18 la regola valeva anche per `seo.lh.*`, e la ragione era
+    la stessa. Non reggeva allo stesso modo: gli audit SEO di
+    Lighthouse sono undici, non oltre cento, e li elenchiamo. Le altre
+    due restano fuori, ed e' quello che questo test presidia.
     """
     piano = rem.build_remediation(_golden("referto.json"))
     dinamiche = [v for v in piano
-                 if v["key"].startswith(("wcag.axe.", "sec.zap.", "seo.lh."))]
+                 if v["key"].startswith(("wcag.axe.", "sec.zap."))]
     assert dinamiche, "il golden ne contiene"
     assert all(v["effort"] is None for v in dinamiche)
     assert all(not v["quick_win"] for v in dinamiche)
+
+
+def test_un_audit_seo_che_non_conosciamo_resta_senza_sforzo():
+    """La degradazione dichiarata di I18: le chiavi `seo.lh.*` vengono
+    dagli id di Lighthouse, e una versione futura puo' rinominarne uno.
+    Allora la voce del catalogo resta inutilizzata e il rilievo torna
+    senza sforzo — cioe' com'era prima — invece di ricevere una stima
+    inventata."""
+    piano = rem.build_remediation(_referto([
+        _area("mars_seo", score=90, rilievi=[
+            _rilievo(area="mars_seo", key="seo.lh.audit_mai_visto",
+                     params={"penalty": 10.0})]),
+    ]))
+    voce = [v for v in piano if v["key"] == "seo.lh.audit_mai_visto"][0]
+    assert voce["effort"] is None
+    assert not voce["quick_win"]
+
+
+def test_un_audit_seo_conosciuto_ha_lo_sforzo(monkeypatch):
+    """L'altra meta': i dieci che elenchiamo lo sforzo ce l'hanno, e
+    senza di esso `seo.lh.robots_txt` non potrebbe mai essere un quick
+    win — che e' proprio cio' che I18 gli ha dato."""
+    assert rem.SFORZO["seo.lh.robots_txt"] == rem.MINUTI
+    piano = rem.build_remediation(_golden("referto.json"))
+    noti = [v for v in piano if v["key"].startswith("seo.lh.")
+            and v["key"] in rem.SFORZO]
+    assert noti, "il golden ne contiene"
+    assert all(v["effort"] is not None for v in noti)
 
 
 def test_quick_win_vuole_tre_condizioni():

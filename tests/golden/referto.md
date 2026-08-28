@@ -79,11 +79,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ## Piano di interventi
 
-20 interventi (6 critici, 14 avvertenze) · 1 quick win.
+20 interventi (6 critici, 14 avvertenze) · 2 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +7.54* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
-- [ ] **[CRITICO]** L'indicizzazione della pagina è bloccata — *SEO · sforzo: non dichiarato · +37 punti d'area · indice +4.74*
+- [ ] **[CRITICO]** L'indicizzazione della pagina è bloccata — *SEO · sforzo: minuti · +37 punti d'area · indice +4.74* · **QUICK WIN**
+      Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
 - [ ] **[CRITICO]** Le immagini devono avere un testo alternativo — *Accessibilità · sforzo: non dichiarato · +37 punti d'area · indice +4.65*
       Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
 - [ ] **[CRITICO]** Cross Site Scripting (Reflected) — *Sicurezza · sforzo: non dichiarato · +28 punti d'area · indice +1.76*
@@ -96,10 +97,14 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
 - [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +1.58*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
-- [ ] [AVVISO] Il documento non ha un elemento `<title>` — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
-- [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
-- [ ] [AVVISO] I link non hanno testo descrittivo — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
-- [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: non dichiarato · +9 punti d'area · indice +1.15*
+- [ ] [AVVISO] Il documento non ha un elemento `<title>` — *SEO · sforzo: minuti · +9 punti d'area · indice +1.15*
+      Dai a ogni pagina un <title> che la distingua dalle altre: e' la riga che l'assistente cita e che l'utente legge nei risultati. Un titolo uguale su tutto il sito vale quanto nessun titolo.
+- [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
+      Descrivi in alt che cosa mostra l'immagine, non come si chiama il file. Le immagini decorative prendono alt="", vuoto e presente, cosi' chi legge con uno screen reader non se le sente elencare.
+- [ ] [AVVISO] I link non hanno testo descrittivo — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
+      Sostituisci «clicca qui» e «leggi tutto» con il nome di cio' che sta dall'altra parte. Il testo del link e' l'unica descrizione della pagina di destinazione che si legge dalla pagina di partenza.
+- [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
+      Scrivi una meta description per pagina che risponda alla domanda della pagina invece di elencare parole chiave. E' il testo che compare sotto il titolo nei risultati, e una sola descrizione ripetuta ovunque non distingue nulla.
 - [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +7 punti d'area · indice +0.88*
       Ensure every form element has a label
 - [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
@@ -146,14 +151,56 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 - **[CRITICO]** L'indicizzazione della pagina è bloccata
   I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.
+  *Correzione:* Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <!-- 1. nella pagina: il meta va TOLTO, non negato -->
+  <meta name="robots" content="index, follow">
+  
+  # 2. nella risposta HTTP: l'header non deve esserci
+  X-Robots-Tag: index, follow
+  
+  # 3. in /robots.txt: nessun Disallow su questo percorso
+  User-agent: *
+  Disallow:
+  ```
 - [AVVISO] Il documento non ha un elemento `<title>`
   Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.
+  *Correzione:* Dai a ogni pagina un <title> che la distingua dalle altre: e' la riga che l'assistente cita e che l'utente legge nei risultati. Un titolo uguale su tutto il sito vale quanto nessun titolo.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <head>
+    <title>Drenaggio linfatico manuale — Studio Rossi, Bari</title>
+  </head>
+  ```
 - [AVVISO] Il documento non ha una meta descrizione
   Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.
+  *Correzione:* Scrivi una meta description per pagina che risponda alla domanda della pagina invece di elencare parole chiave. E' il testo che compare sotto il titolo nei risultati, e una sola descrizione ripetuta ovunque non distingue nulla.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <meta name="description" content="Drenaggio linfatico manuale a Bari: come funziona una seduta, quanto dura e quanto costa.">
+  ```
 - [AVVISO] I link non hanno testo descrittivo
   Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.
+  *Correzione:* Sostituisci «clicca qui» e «leggi tutto» con il nome di cio' che sta dall'altra parte. Il testo del link e' l'unica descrizione della pagina di destinazione che si legge dalla pagina di partenza.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <!-- invece di: <a href="/prezzi">clicca qui</a> -->
+  <a href="/prezzi">i prezzi del drenaggio linfatico</a>
+  ```
 - [AVVISO] Gli elementi immagine non hanno attributi `[alt]`
   Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull'attributo `alt`.
+  *Correzione:* Descrivi in alt che cosa mostra l'immagine, non come si chiama il file. Le immagini decorative prendono alt="", vuoto e presente, cosi' chi legge con uno screen reader non se le sente elencare.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <img src="/sala.jpg" alt="Il lettino della sala trattamenti">
+  <img src="/onda.svg" alt="">   <!-- decorativa -->
+  ```
 - [INFO] Non applicabile a questa pagina: robots.txt è valido
   Se il file robots.txt non è valido, i crawler potrebbero non essere in grado di capire come vuoi che il tuo sito web venga sottoposto a scansione o indicizzato. Scopri di più sul file robots.txt.
 - [INFO] Non applicabile a questa pagina: Il documento ha un elemento `rel=canonical` valido

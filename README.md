@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.16.0
+Versione 2.17.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -719,6 +719,32 @@ contenuto del tuo sito». Fino al 2026-08-27 non lo dichiaravano, e un
 esempio in prosa italiana plausibile e' stato letto come contenuto di
 un altro sito finito nel referto (R60). Il testo non lo mostra affatto,
 il CSV porta la sola correzione, il JSON ha la chiave `example`.
+
+Da I18 la correzione c'e' anche per l'AREA SEO. Lighthouse porta la
+diagnosi — la sua description finisce nel dettaglio del rilievo, i suoi
+link nei riferimenti — e non porta la prescrizione: erano gli unici
+rilievi di contenuto di MARS ad arrivare a chi legge senza dirgli che
+cosa fare. Sono i dieci controlli MISURATI della categoria SEO, letti
+dal default-config.js di Lighthouse 13.4.1. L'undicesimo,
+structured-data, resta fuori: pesa 0, Lighthouse lo dichiara manuale e
+non lo valuta, e i dati strutturati hanno un'area propria che prescrive
+gia' la sua.
+
+Una correzione si scrive solo dove c'e' un difetto, e il discriminante
+e' la PENALITA' dichiarata dal rilievo, non la sua gravita': Lighthouse
+produce un rilievo per ogni audit, superati e non applicabili compresi,
+e senza quella porta sotto «robots.txt e' valido» compariva «Correggi
+la sintassi di robots.txt». Un rilievo `info` puo' essere un difetto
+vero, quindi la gravita' non basterebbe; una penalita' assente
+significa invece che il controllo non e' stato misurato o non e'
+fallito. Zero non e' assente, ed e' un difetto a tutti gli effetti.
+
+Restano senza prescrizione le regole di axe e gli alert di ZAP: quelle
+la correzione la portano gia' loro, e il loro insieme di chiavi non e'
+nostro. Restano senza anche la citabilita', che e' una sintesi di
+misure altrui — la correzione sta nell'area che ha prodotto il numero —
+e i punti deboli del giudizio LLM, dove la prosa del modello e' gia'
+la prescrizione.
 
 Lingua del referto (--lang, predefinito it). Due lingue: **it** ed **en**.
 E' un livello dichiaratamente inferiore al riferimento a cinque lingue, e la

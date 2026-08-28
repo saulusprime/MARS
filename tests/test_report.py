@@ -3266,3 +3266,127 @@ def test_le_viste_dichiarano_una_misura_cambiata(referto):
         # che e' un'altra cosa e ci deve stare.
         assert "SENTINELLA" not in reso, \
             "%s: la versione e' volatile e non va nella resa" % formato
+
+
+# ======================================================================
+# U11 — il deliverable: stampa, tabelle, piede
+# ======================================================================
+#
+# Misurato con axe-core su Chromium, sul referto sintetico completo,
+# prima e dopo la voce:
+#
+#   regole WCAG 2.1 A/AA   0 violazioni prima, 0 dopo; superate 25 -> 26
+#   regole COMPLETE        1 violazione prima (`empty-table-header`,
+#                          minor), 0 dopo; superate 39 -> 43
+#
+# Le quattro regole nuove sono `aria-hidden-focus`, `scope-attr-valid` e
+# le due dei punti di riferimento `contentinfo`. Il `<th>` vuoto della
+# tabella della superficie era quindi un difetto VERO, non una
+# scortesia: axe lo classifica best-practice, e il referto che misura
+# l'accessibilita' altrui lo portava addosso.
+
+
+def _zuppa(html_testo):
+    from bs4 import BeautifulSoup
+    return BeautifulSoup(html_testo, "lxml")
+
+
+def test_il_referto_porta_le_regole_di_stampa(referto):
+    """Un referto di consulenza finisce in PDF, e prima di U11 non
+    c'era ALCUNA regola di stampa: quadranti senza colore, schede
+    spezzate a meta' pagina."""
+    uscita = render_html(referto)
+    assert "@media print" in uscita
+    assert "@page" in uscita
+    # Senza, i browser scartano i fondi in stampa e i quadranti — che
+    # il colore ce l'hanno nel riempimento SVG — escono vuoti.
+    assert "print-color-adjust:exact" in uscita
+    assert "break-inside:avoid" in uscita
+    # Le ancore su carta sono cancelletti muti.
+    assert ".ancora, .grafo-comandi, script { display:none; }" in uscita
+
+
+def test_ogni_tabella_del_referto_ha_una_intestazione(monkeypatch):
+    """`thead` e `th scope='col'` su TUTTE, e nessun `th` vuoto.
+
+    Sui DUE referti sintetici e non sulla fixture di questo file: quella
+    accende tre tabelle su sei, e una nuova scritta senza intestazione
+    resterebbe fuori dal presidio finche' un sito reale non la accende.
+    """
+    from test_golden import DATASET
+    tabelle = []
+    for costruisci in DATASET.values():
+        tabelle += _zuppa(render_html(costruisci(monkeypatch))).find_all(
+            "table")
+    assert len(tabelle) >= 6, "i referti sintetici accendono le tabelle"
+    for tabella in tabelle:
+        testa = tabella.find("thead")
+        assert testa is not None, tabella.decode()[:120]
+        intestazioni = testa.find_all("th")
+        assert intestazioni, tabella.decode()[:120]
+        for cella in intestazioni:
+            assert cella.get("scope") == "col", cella.decode()
+            # `empty-table-header`: era la sola violazione che axe
+            # trovava sul referto, ed era la colonna della barra.
+            assert cella.get_text(strip=True), tabella.decode()[:120]
+
+
+def test_le_barre_sono_nascoste_a_chi_ascolta(referto):
+    """La barra e' il numero della colonna accanto ridisegnato: un
+    lettore di schermo che la annunciasse leggerebbe due volte lo
+    stesso dato."""
+    zuppa = _zuppa(render_html(referto))
+    barre = zuppa.select("span.bar")
+    assert barre, "il referto sintetico disegna barre"
+    for barra in barre:
+        assert barra.get("aria-hidden") == "true", barra.decode()
+
+
+def test_il_piede_dice_chi_ha_misurato_e_come(referto):
+    """La firma e la formula, dal REFERTO e non dalle costanti.
+
+    `--rrf-k` cambia la k, e un piede che dichiarasse sempre 60
+    mentirebbe proprio dove promette di dire come si e' misurato."""
+    referto["rrf"] = dict(referto["rrf"], k=17)
+    uscita = render_html(referto)
+    piede = _zuppa(uscita).find("footer")
+    assert piede is not None
+    testo = piede.get_text(" ", strip=True)
+    assert "MARS Beacon" in testo
+    assert "k=17" in testo, testo
+    assert referto["version"] in testo
+    # FUORI da `<main>`: dentro sarebbe il piede di quella sezione e non
+    # del documento, e non varrebbe come punto di riferimento
+    # `contentinfo`. Misurato: axe accende due regole in piu'.
+    assert uscita.index("</main>") < uscita.index("<footer")
+
+
+def test_il_piede_non_introduce_origini_esterne(referto):
+    """Gli URL delle fonti sono TESTO, non `<a href>`.
+
+    Un link non scarica nulla, ma la guardia dell'autoconsistenza e'
+    volutamente larga e allargarla per un piede sarebbe scambiare una
+    promessa per una comodita'. L'indirizzo si copia lo stesso."""
+    uscita = render_html(referto)
+    assert riferimenti_esterni(uscita) == []
+    assert "https://schema.org/" in uscita, "l'indirizzo c'e', come testo"
+
+
+def test_le_fonti_del_piede_sono_quelle_del_README():
+    """Due elenchi della stessa cosa divergono, e qui in silenzio.
+
+    E' la deriva fra documentazione e codice che R32 ha gia' chiuso una
+    volta: il README elenca le fonti del metodo, il piede ne mostra un
+    sottoinsieme, e nessuno se ne accorgerebbe se una delle due
+    cambiasse."""
+    radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(radice, "README.md"), encoding="utf-8") as fh:
+        readme = fh.read()
+    for testo, url in mars_report.RIFERIMENTI:
+        if url:
+            assert url in readme, url
+    # Gli autori, non le frasi intere: il README le formatta su piu'
+    # righe e il piede su una.
+    for autore in ("Cormack", "Robertson", "Zaragoza"):
+        assert autore in readme
+        assert any(autore in testo for testo, _ in mars_report.RIFERIMENTI)

@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.12.0
+Versione 2.13.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -508,6 +508,8 @@ Riferimenti (fonti aperte e ufficiali):
   - Robertson & Zaragoza (2009), "The Probabilistic Relevance
     Framework: BM25 and Beyond".
   - Schema.org, https://schema.org/
+  - W3C, "Web Content Accessibility Guidelines (WCAG) 2.1":
+    https://www.w3.org/TR/WCAG21/
 
 Se sentence-transformers e' installato gli embedding reali si
 attivano da soli con un modello multilingue predefinito; --embeddings
@@ -629,7 +631,16 @@ Formati del referto (--format, predefinito text):
               I tre colori di gravita' vengono da Bootstrap Italia, che
               quel sito usa, e non sono una scelta estetica: quelli di
               Lighthouse stavano a 2:1 su bianco. Misurato con axe sul
-              referto stesso: 87 nodi in violazione prima, zero adesso
+              referto stesso: 87 nodi in violazione prima, zero adesso.
+              Da U11 e' anche STAMPABILE: un blocco @media print con
+              margini di pagina, i colori conservati (senza,
+              i quadranti escono vuoti), le schede che non si spezzano
+              fra due pagine e le ancore nascoste. Ogni tabella ha
+              thead e th scope='col', le barre sono aria-hidden — sono
+              il numero della colonna accanto ridisegnato — e un piede
+              firma il referto dichiarando versione, k della fusione e
+              fonti del metodo. Le fonti sono TESTO e non link:
+              l'autoconsistenza non ammette href esterni
     markdown  da incollare in una issue o in un wiki: il piano di
               interventi e' una task list GFM, quindi si spunta, e la
               gravita' e' un marcatore testuale e non un colore

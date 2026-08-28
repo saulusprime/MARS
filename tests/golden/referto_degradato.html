@@ -236,6 +236,38 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
   .quadrante svg { width:4.5rem; height:4.5rem; }
   th,td { padding:.4rem .35rem; font-size:.9rem; }
 }
+.piede { border-top:1px solid var(--line); margin:2.5rem auto 0;
+         padding:1.25rem 1rem 0; max-width:64rem; }
+.piede ul { margin:.3rem 0 0; }
+.piede li { color:var(--muted); font-size:.83rem; }
+/* La stampa. Un referto di consulenza finisce in PDF, e senza queste
+   regole ci finiva con i quadranti in bianco e nero, le schede spezzate
+   a meta' pagina e i link ridotti a parole sottolineate senza indirizzo.
+   La palette NON cambia: e' gia' a contrasto pieno su bianco (U11.1), e
+   una seconda palette per la stampa sarebbe una seconda cosa da tenere
+   allineata. */
+@media print {
+  @page { margin:1.5cm; }
+  /* I punteggi sono colore E simbolo insieme: senza questa riga i
+     browser scartano i fondi in stampa, e i quadranti — che il colore
+     ce l'hanno nel riempimento SVG — uscirebbero vuoti. */
+  * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { padding:0; font-size:10.5pt; }
+  main { max-width:none; padding:0; }
+  /* Una scheda spezzata fra due pagine si legge due volte e male. */
+  .area, .card, .quadrante, table, figure { break-inside:avoid;
+                                            page-break-inside:avoid; }
+  h2, h3 { break-after:avoid; page-break-after:avoid; }
+  /* Le ancore servono a copiare un link a video: su carta sono
+     cancelletti muti. Lo script del grafo non gira in stampa, quindi
+     i suoi comandi non hanno nulla da comandare. */
+  .ancora, .grafo-comandi, script { display:none; }
+  /* Il piano chiedeva anche l'indirizzo dei link esterni stampato via
+     `::after`. Non c'e' nulla su cui agirebbe: il referto non contiene
+     alcun `href` esterno — invariante presidiato — e i soli `<a>` sono
+     le ancore interne, che qui sono nascoste. Una regola che non
+     seleziona nulla non si scrive. */
+}
 </style>
 </head>
 <body>
@@ -648,17 +680,18 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 </div>
 <h2>Superficie</h2>
 <table>
+<thead>
 <tr>
-<th>Distanza dalla home</th>
-<th>Pagine</th>
-<th>
-</th>
+<th scope='col'>Distanza dalla home</th>
+<th scope='col'>Pagine</th>
+<th scope='col'>Proporzione</th>
 </tr>
+</thead>
 <tr>
 <td>profondità ignota</td>
 <td class='num'>3</td>
 <td style='width:60%'>
-<span class='bar warn' style='width:100%'>
+<span class='bar warn' aria-hidden='true' style='width:100%'>
 </span>
 </td>
 </tr>
@@ -681,12 +714,14 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <details>
 <summary>La superficie in tabella</summary>
 <table>
+<thead>
 <tr>
-<th>Pagina</th>
-<th>Parole</th>
-<th>Passaggi</th>
-<th>Rilievi</th>
+<th scope='col'>Pagina</th>
+<th scope='col'>Parole</th>
+<th scope='col'>Passaggi</th>
+<th scope='col'>Rilievi</th>
 </tr>
+</thead>
 <tr>
 <td>https://esempio.test/</td>
 <td class='num'>133</td>
@@ -737,12 +772,14 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <details>
 <summary>L'architettura in tabella</summary>
 <table>
+<thead>
 <tr>
-<th>Pagina</th>
-<th>Link in entrata</th>
-<th>Link in uscita</th>
-<th>Distanza dalla home</th>
+<th scope='col'>Pagina</th>
+<th scope='col'>Link in entrata</th>
+<th scope='col'>Link in uscita</th>
+<th scope='col'>Distanza dalla home</th>
 </tr>
+</thead>
 <tr>
 <td>https://esempio.test/</td>
 <td class='num'>0</td>
@@ -896,11 +933,18 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <h2>Profili di citabilità IA</h2>
 <p class='meta'>Mercato: global</p>
 <table>
+<thead>
+<tr>
+<th scope='col'>Assistente</th>
+<th scope='col'>Profilo</th>
+<th scope='col'>Proporzione</th>
+</tr>
+</thead>
 <tr>
 <td>Claude</td>
 <td class='num warn'>66.6</td>
 <td style='width:55%'>
-<span class='bar warn' style='width:67%'>
+<span class='bar warn' aria-hidden='true' style='width:67%'>
 </span>
 </td>
 </tr>
@@ -908,7 +952,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <td>ChatGPT/Perplexity</td>
 <td class='num warn'>69.5</td>
 <td style='width:55%'>
-<span class='bar warn' style='width:70%'>
+<span class='bar warn' aria-hidden='true' style='width:70%'>
 </span>
 </td>
 </tr>
@@ -916,7 +960,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <td>Qwen</td>
 <td class='num warn'>66.6</td>
 <td style='width:55%'>
-<span class='bar warn' style='width:67%'>
+<span class='bar warn' aria-hidden='true' style='width:67%'>
 </span>
 </td>
 </tr>
@@ -924,7 +968,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <td>Kimi</td>
 <td class='num warn'>66.6</td>
 <td style='width:55%'>
-<span class='bar warn' style='width:67%'>
+<span class='bar warn' aria-hidden='true' style='width:67%'>
 </span>
 </td>
 </tr>
@@ -1110,5 +1154,17 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 }());
 </script>
 </main>
+<footer class='piede'>
+<p class='meta'>
+<strong>MARS Beacon</strong> — audit di citabilità per assistenti IA</p>
+<p class='meta'>Generato da mars_audit.py v0.0.0 · fusione RRF con k=60</p>
+<p class='meta'>Fonti del metodo:</p>
+<ul class='rilievi'>
+<li>Cormack, Clarke, Buettcher (2009), «Reciprocal Rank Fusion», SIGIR &#x27;09</li>
+<li>Robertson &amp; Zaragoza (2009), «The Probabilistic Relevance Framework: BM25 and Beyond»</li>
+<li>Schema.org — https://schema.org/</li>
+<li>Web Content Accessibility Guidelines (WCAG) 2.1 — https://www.w3.org/TR/WCAG21/</li>
+</ul>
+</footer>
 </body>
 </html>

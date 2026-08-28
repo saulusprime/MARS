@@ -2186,6 +2186,38 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
   .quadrante svg { width:4.5rem; height:4.5rem; }
   th,td { padding:.4rem .35rem; font-size:.9rem; }
 }
+.piede { border-top:1px solid var(--line); margin:2.5rem auto 0;
+         padding:1.25rem 1rem 0; max-width:64rem; }
+.piede ul { margin:.3rem 0 0; }
+.piede li { color:var(--muted); font-size:.83rem; }
+/* La stampa. Un referto di consulenza finisce in PDF, e senza queste
+   regole ci finiva con i quadranti in bianco e nero, le schede spezzate
+   a meta' pagina e i link ridotti a parole sottolineate senza indirizzo.
+   La palette NON cambia: e' gia' a contrasto pieno su bianco (U11.1), e
+   una seconda palette per la stampa sarebbe una seconda cosa da tenere
+   allineata. */
+@media print {
+  @page { margin:1.5cm; }
+  /* I punteggi sono colore E simbolo insieme: senza questa riga i
+     browser scartano i fondi in stampa, e i quadranti — che il colore
+     ce l'hanno nel riempimento SVG — uscirebbero vuoti. */
+  * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { padding:0; font-size:10.5pt; }
+  main { max-width:none; padding:0; }
+  /* Una scheda spezzata fra due pagine si legge due volte e male. */
+  .area, .card, .quadrante, table, figure { break-inside:avoid;
+                                            page-break-inside:avoid; }
+  h2, h3 { break-after:avoid; page-break-after:avoid; }
+  /* Le ancore servono a copiare un link a video: su carta sono
+     cancelletti muti. Lo script del grafo non gira in stampa, quindi
+     i suoi comandi non hanno nulla da comandare. */
+  .ancora, .grafo-comandi, script { display:none; }
+  /* Il piano chiedeva anche l'indirizzo dei link esterni stampato via
+     `::after`. Non c'e' nulla su cui agirebbe: il referto non contiene
+     alcun `href` esterno — invariante presidiato — e i soli `<a>` sono
+     le ancore interne, che qui sono nascoste. Una regola che non
+     seleziona nulla non si scrive. */
+}
 """
 
 # Geometria del quadrante: raggio 56 in un viewBox 120x120.
@@ -2963,8 +2995,9 @@ def _treemap_html(referto: dict, p: List[str],
                                  int((voce["w"] - 12) // 6)))))
     p.append("</svg>")
     p.append("<details><summary>%s</summary>"
-             "<table><tr><th>%s</th><th>%s</th>"
-             "<th>%s</th><th>%s</th></tr>"
+             "<table><thead><tr><th scope='col'>%s</th>"
+             "<th scope='col'>%s</th><th scope='col'>%s</th>"
+             "<th scope='col'>%s</th></tr></thead>"
              % (t("La superficie in tabella", lang), t("Pagina", lang),
                 t("Parole", lang), t("Passaggi", lang),
                 t("Rilievi", lang)))
@@ -3120,8 +3153,9 @@ def _grafo_html(referto: dict, p: List[str],
                 t("Reimposta", lang)))
     p.append("<p id='grafo-stato' class='meta' role='status'></p>")
     p.append("<details><summary>%s</summary>"
-             "<table><tr><th>%s</th><th>%s</th>"
-             "<th>%s</th><th>%s</th></tr>"
+             "<table><thead><tr><th scope='col'>%s</th>"
+             "<th scope='col'>%s</th><th scope='col'>%s</th>"
+             "<th scope='col'>%s</th></tr></thead>"
              % (t("L'architettura in tabella", lang), t("Pagina", lang),
                 t("Link in entrata", lang), t("Link in uscita", lang),
                 t("Distanza dalla home", lang)))
@@ -3144,15 +3178,22 @@ def _sezione_superficie(referto: dict, p: List[str],
     p.append("<h2>%s</h2>" % t("Superficie", lang))
     if profondita:
         massimo = max(v["pages"] for v in profondita) or 1
-        p.append("<table><tr><th>%s</th><th>%s</th>"
-                 "<th></th></tr>"
-                 % (t("Distanza dalla home", lang), t("Pagine", lang)))
+        # La terza colonna porta la barra, che e' la stessa misura
+        # della seconda resa in grafica: l'intestazione lo DICE invece
+        # di restare vuota. Un `th` vuoto e' un difetto che axe rileva,
+        # e questo referto misura l'accessibilita' altrui.
+        p.append("<table><thead><tr><th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th></tr></thead>"
+                 % (t("Distanza dalla home", lang), t("Pagine", lang),
+                    t("Proporzione", lang)))
         for voce in profondita:
             # Il secchiello delle ignote e' giallo: non e' un livello
             # peggiore degli altri, e' un livello che non sappiamo.
             classe = "warn" if voce["unknown"] else "muted"
             p.append("<tr><td>%s</td><td class='num'>%d</td>"
                      "<td style='width:60%%'><span class='bar %s' "
+                     "aria-hidden='true' "
                      "style='width:%.0f%%'></span></td></tr>"
                      % (_e(t(voce["label"], lang)), voce["pages"], classe,
                         100.0 * voce["pages"] / massimo))
@@ -3198,8 +3239,9 @@ def _sezione_delta(referto: dict, p: List[str],
     righe += [(v["area"].replace("mars_", ""), v)
               for v in delta["scores"] if v["change"]]
     if righe:
-        p.append("<table><tr><th>%s</th><th>%s</th><th>%s</th>"
-                 "<th>%s</th></tr>"
+        p.append("<table><thead><tr><th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th><th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th></tr></thead>"
                  % (t("Area", lang), t("Prima", lang), t("Dopo", lang),
                     t("Variazione", lang)))
         for nome, voce in righe:
@@ -3331,8 +3373,9 @@ def _sezione_rrf(referto: dict, p: List[str],
                      % (t("al variare di k:", lang), _e(sensibilita)))
         p.append("</div>")
     if simulazione:
-        p.append("<table><tr><th>%s</th><th>%s</th>"
-                 "<th>%s</th></tr>"
+        p.append("<table><thead><tr><th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th>"
+                 "<th scope='col'>%s</th></tr></thead>"
                  % (t("Query", lang), t("Consenso", lang),
                     t("Passaggio migliore", lang)))
         for voce in simulazione:
@@ -3350,10 +3393,20 @@ def _sezione_citabilita(referto: dict, p: List[str],
     if not cit or not cit.get("profiles"):
         return
     p.append("<h2>%s</h2>" % t("Profili di citabilità IA", lang))
-    p.append("<p class='meta'>%s</p><table>"
-             % (t("Mercato: %s", lang) % _e(cit.get("market"))))
+    # L'unica tabella del referto che non aveva alcuna intestazione:
+    # tre colonne di numeri senza dire di che cosa fossero.
+    p.append("<p class='meta'>%s</p><table><thead><tr>"
+             "<th scope='col'>%s</th><th scope='col'>%s</th>"
+             "<th scope='col'>%s</th></tr></thead>"
+             % (t("Mercato: %s", lang) % _e(cit.get("market")),
+                t("Assistente", lang), t("Profilo", lang),
+                t("Proporzione", lang)))
     for assistente, valore in cit["profiles"].items():
-        barra = ("<span class='bar %s' style='width:%.0f%%'></span>"
+        # `aria-hidden`: la barra e' il numero della colonna accanto
+        # ridisegnato, e un lettore di schermo che la annunciasse
+        # leggerebbe due volte lo stesso dato.
+        barra = ("<span class='bar %s' aria-hidden='true' "
+                 "style='width:%.0f%%'></span>"
                  % (_classe(valore), (valore or 0)))
         testo = ("%.1f" % valore) if valore is not None \
             else t("n/d", lang)
@@ -3656,6 +3709,57 @@ REFERTO_JS = """
 """
 
 
+# Le fonti del metodo, nel piede del referto HTML (U11).
+# ----------------------------------------------------------------------
+# Chi riceve un referto di consulenza deve poter risalire a COME i
+# numeri sono stati fatti senza chiederlo a chi glielo ha consegnato.
+# Sono le stesse che il README elenca, e un test lo verifica: due
+# elenchi della stessa cosa divergono, e qui divergerebbero in silenzio
+# — e' la deriva che R32 ha gia' chiuso una volta.
+RIFERIMENTI: Tuple[Tuple[str, str], ...] = (
+    ("Cormack, Clarke, Buettcher (2009), «Reciprocal Rank Fusion»,"
+     " SIGIR '09", ""),
+    ("Robertson & Zaragoza (2009), «The Probabilistic Relevance"
+     " Framework: BM25 and Beyond»", ""),
+    ("Schema.org", "https://schema.org/"),
+    ("Web Content Accessibility Guidelines (WCAG) 2.1",
+     "https://www.w3.org/TR/WCAG21/"),
+)
+
+
+def _footer_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Il piede: chi ha generato il referto, con che formula, su che basi.
+
+    Firma testuale e non logo: il perimetro di U11.1 lo dice — «la
+    testata senza logo e la favicon di MARS», e incorporare il caratere
+    del sito costava 72 KB di base64 su un referto di 57. Non e' una
+    casella rimasta aperta.
+
+    La `k` viene dal REFERTO e non dalla costante: `--rrf-k` la cambia,
+    e un piede che dichiarasse 60 su un referto girato con 10
+    mentirebbe proprio dove promette di dire come si e' misurato.
+    """
+    rrf = referto.get("rrf") or {}
+    # Gli URL come TESTO e non come `<a href>`: il referto non contiene
+    # alcun riferimento esterno, ed e' un invariante presidiato
+    # (`riferimenti_esterni` in tests/test_report.py). Un link non
+    # scarica nulla, ma la guardia e' volutamente larga e allargarla
+    # per un piede sarebbe scambiare una promessa per una comodita' —
+    # l'indirizzo si copia lo stesso.
+    voci = ["<li>%s%s</li>" % (_e(testo), (" — %s" % _e(url)) if url else "")
+            for testo, url in RIFERIMENTI]
+    return ("<footer class='piede'>"
+            "<p class='meta'><strong>MARS Beacon</strong> — %s</p>"
+            "<p class='meta'>%s</p>"
+            "<p class='meta'>%s</p><ul class='rilievi'>%s</ul>"
+            "</footer>"
+            % (_e(t("audit di citabilità per assistenti IA", lang)),
+               _e(t("Generato da mars_audit.py v%s · fusione RRF con "
+                    "k=%s", lang)
+                  % (referto.get("version"), rrf.get("k"))),
+               _e(t("Fonti del metodo:", lang)), "".join(voci)))
+
+
 def render_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     """Referto HTML nello stile di Lighthouse, esteso alle nostre aree.
 
@@ -3751,7 +3855,14 @@ def render_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     # mostrare non porta codice che non ha nulla da fare.
     if "id='grafo'" in "".join(p):
         p.append("<script>%s</script>" % REFERTO_JS)
-    p.append("</main></body></html>")
+    # FUORI da `<main>`: un `<footer>` che gli sta dentro e' il piede
+    # di quella sezione, non del documento, e non diventa un punto di
+    # riferimento `contentinfo` per chi naviga con un lettore di
+    # schermo. E' la stessa semantica che questo referto misura sulle
+    # pagine altrui.
+    p.append("</main>")
+    p.append(_footer_html(referto, lang))
+    p.append("</body></html>")
     return "".join(p)
 
 

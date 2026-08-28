@@ -19,7 +19,8 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Una casella aperta, ed è l'ultima fase UPGRADE non opzionale.** Da R55 a R63 sono
+> **Nessuna casella aperta.** Il programma UPGRADE è chiuso, salvo la fase
+> che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
@@ -30,8 +31,8 @@
 > giorno, e la misura che l'ha aperta è che **sei mutazioni su sei** su quella
 > funzione lasciavano la suite verde. `__version__` è a **2.10.0**,
 > perché da R63 i punteggi si muovono a sito invariato — a **2.11.0** da
-> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi, e
-> a **2.12.0** da U10.
+> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi, a
+> **2.12.0** da U10 e a **2.13.0** da U11.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -51,15 +52,16 @@
 
 Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
 decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
-ha ragione AS-IS. Resta **U11**, più **U12** (ancore esterne, Brave Search e
-confronto competitivo) che il piano dichiara **opzionale** e che per questo non
-ha una casella: se si decide di farla, la casella si aggiunge. **U10 è chiusa**
-il 2026-08-28 e sta in [AS-IS.md](AS-IS.md): quattro giudici, gli stessi
-passaggi a tutti, due scarti di onestà per giudizio.
+ha ragione AS-IS. **Nessuna fase resta aperta**: U10 e U11 sono chiuse il
+2026-08-28 e stanno in [AS-IS.md](AS-IS.md). Resta la sola **U12** (ancore
+esterne, Brave Search e confronto competitivo), che il piano dichiara
+**opzionale** e che per questo non ha una casella: se si decide di farla, la
+casella si aggiunge.
 
-- [ ] **U11 — Il deliverable rifinito** (G14, G15, Fase 11): regole `@media
-      print`, `thead`/`th scope` sulle due tabelle che ne sono prive, footer
-      con la firma. Il piano sta in [UPGRADE.md](UPGRADE.md).
+Due cose che la Fase 11 chiedeva **non sono state fatte**, e sono decisioni,
+non caselle: il logo e il carattere del sito incorporati nel referto — li
+esclude il perimetro che hai fissato in U11.1, col costo misurato — e il
+white-label da TOML, che il piano stesso rimanda a quando MARS avrà una GUI.
 
 
 ---

@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.12.0"
+__version__ = "2.13.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —

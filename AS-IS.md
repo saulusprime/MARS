@@ -78,6 +78,7 @@
 | U10.1 | I punti deboli del giudizio come rilievi strutturati | 2026-08-28 |
 | C12.1 | `evaluate_answer` non era esercitata da alcun test | 2026-08-28 |
 | U10 | Giudizio LLM multi-modello, con due scarti di onestà | 2026-08-28 |
+| U11 | Il referto si stampa, le tabelle hanno un'intestazione, il piede firma | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2508,6 +2509,75 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### U11 — ✅ REALIZZATA (2026-08-28): il referto si stampa, e dichiara come è stato fatto
+
+*(fase UPGRADE, G14 e G15. Chiude il programma: resta la sola U12, che il piano
+dichiara opzionale.)*
+
+**Che cosa c'era.** Nessuna regola di stampa — e un referto di consulenza
+finisce in PDF: quadranti senza colore, schede spezzate a metà pagina. Nessun
+`thead` su sei tabelle, una senza alcuna intestazione, una con un `<th>`
+**vuoto**. Le barre annunciate ai lettori di schermo insieme al numero che
+ridisegnano. Nessun piede: il documento chiudeva senza dire chi l'avesse
+prodotto né con quale k.
+
+**La misura, con axe-core su Chromium, prima e dopo** — lo stesso banco di
+U11.1, sul referto sintetico completo:
+
+| | prima | dopo |
+|---|---|---|
+| regole WCAG 2.1 A/AA — violazioni | 0 | 0 |
+| regole WCAG 2.1 A/AA — superate | 25 | **26** |
+| regole complete — violazioni | **1** (`empty-table-header`, minor) | **0** |
+| regole complete — superate | 39 | **43** |
+
+Il `<th>` vuoto era quindi un **difetto vero**, non una scortesia: axe lo
+classifica best-practice, e il referto che misura l'accessibilità altrui lo
+portava addosso. Le quattro regole nuove sono `aria-hidden-focus`,
+`scope-attr-valid` e le due dei punti di riferimento `contentinfo` — queste
+ultime perché il piede sta **fuori** da `<main>`: dentro sarebbe il piede di
+quella sezione e non del documento.
+
+**Due cose che il piano chiedeva e che NON sono state fatte.** Non sono
+caselle rimaste aperte.
+
+- **Logo SVG e carattere del sito incorporati** (passo 5). Contraddicono il
+  perimetro che il proprietario ha fissato in **U11.1** — «la testata senza
+  logo e la favicon di MARS» — con il costo già misurato lì: ~72 KB di base64
+  su un referto di 57. Riaprirlo è una sua decisione, non una dimenticanza.
+- **L'indirizzo dei link esterni stampato via `::after`** (passo 1). Non ha
+  nulla su cui agire: il referto non contiene **alcun** `href` esterno, ed è
+  un invariante presidiato (`riferimenti_esterni` in `tests/test_report.py`).
+  L'ha scoperto il presidio stesso, facendo fallire il primo piede che
+  linkava le fonti. Le fonti sono quindi **testo**: un link non scarica
+  nulla, ma allargare la guardia dell'autoconsistenza per un piede sarebbe
+  scambiare una promessa per una comodità, e l'indirizzo si copia lo stesso.
+  Una regola CSS che non seleziona nulla non si scrive.
+
+**Il piede legge la k dal referto e non dalla costante.** `--rrf-k` la cambia
+(I3), e un piede che dichiarasse sempre 60 mentirebbe **proprio dove promette
+di dire come si è misurato**. Le fonti del metodo sono le stesse che il README
+elenca, e un test lo verifica: due elenchi della stessa cosa divergono, ed è
+la deriva che R32 ha già chiuso una volta. Scrivendo il test si è visto che
+WCAG 2.1 mancava fra le fonti del README, benché l'area 6 la misuri: aggiunta.
+
+**Prove.** `pytest` **1213 passed** (da 1207: sei test nuovi), `flake8 .` a
+zero. Golden dei cinque formati rigenerati e diff riletto. **Quattordici
+mutazioni su quattordici colte** con `PYTHONDONTWRITEBYTECODE=1`: blocco di
+stampa assente, colori scartati in stampa, schede spezzate fra le pagine,
+ancore stampate, `thead` tolto ai profili, `<th>` vuoto ripristinato, `scope`
+tolto, le due barre annunciate ai lettori di schermo, piede assente, piede
+dentro `<main>`, k dalla costante invece che dal referto, fonti del piede
+assenti, una fonte in meno del README. Il presidio delle tabelle gira sui
+**due** referti sintetici e non sulla fixture di `test_report.py`: quella ne
+accende tre su sei, e una tabella nuova senza intestazione sarebbe rimasta
+fuori dal controllo.
+
+**Che cosa resta NON verificato.** La resa su carta vera. `@media print` è
+stato provato per **presenza delle regole**, non aprendo un PDF: axe gira
+sullo schermo, e nessuno strumento in questo progetto rende una pagina
+stampata. Chi vuole la prova stampi un referto.
 
 ### U10 — ✅ REALIZZATA (2026-08-28): il giudizio LLM a quattro voci
 

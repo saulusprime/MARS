@@ -800,6 +800,15 @@ altri dal referto; scarti calcolati giusti su numeri costruiti.
    "Generato da mars_audit.py v{version} · formula RRF k={k}",
    riferimenti (Cormack et al. SIGIR 2009, Microsoft Learn, Elastic,
    Schema.org — `render.py:1361-1374`).
+> **I passi 5 e la parte `::after` del passo 1 non sono stati fatti**, il
+> 2026-08-28, e non sono caselle rimaste aperte. Il logo e il carattere
+> incorporati contraddicono il perimetro che il proprietario ha fissato in
+> **U11.1** («la testata senza logo e la favicon di MARS», col costo misurato:
+> ~72 KB di base64 su un referto di 57). L'`::after` sui link esterni non ha
+> nulla su cui agire: il referto non contiene alcun `href` esterno, ed è un
+> invariante presidiato — le fonti del piede sono testo. Vedi
+> [AS-IS.md](AS-IS.md).
+
 5. `_brand_logo_svg()` e `_brand_font_css()` portate da
    `render.py:80-115`, lette da una directory brand del progetto MARS/:
    logo SVG inline solo se il file esiste e inizia con `<svg` (altrimenti

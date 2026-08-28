@@ -272,3 +272,176 @@ def test_il_readme_dichiara_il_codice_di_scrittura():
     assert "--fail-under" in paragrafo
     assert "3" in paragrafo, "il codice di scrittura non e' documentato"
     assert "--output" in paragrafo
+
+
+# ----------------------------------------------------------------------
+# `evaluate_answer`: la misura centrale dello strumento (C12)
+# ----------------------------------------------------------------------
+#
+# Era chiamata SOLO di sponda, da `main()` attraverso `run_monitor`, e con
+# un provider finto che mette la stessa lista in `cited_urls` e in
+# `searched_urls` e non nomina alcun concorrente. Misurato prima di
+# scrivere: sei mutazioni su sei passavano inosservate — «citato» che
+# legge i consultati, «consultato» che legge i citati, i concorrenti letti
+# dalla lista sbagliata o non ordinati, `cited_urls` non pubblicati,
+# `error` non propagato. La suite era verde per ognuna.
+#
+# Qui la si esercita per quello che e': una funzione PURA, senza rete e
+# senza chiavi.
+
+SITO = "esempio.test"
+
+
+def _risposta(citati=(), consultati=(), ok=True, error="",
+              query="domanda"):
+    """Una risposta di provider con le due liste DISGIUNTE per default.
+
+    E' il punto: tenerle uguali — come fa `ProviderFinto`, dove e'
+    giusto perche' simula un provider vero — rende indistinguibili
+    «citato» e «consultato».
+    """
+    return ProviderAnswer(provider="finto", query=query, ok=ok,
+                          error=error, cited_urls=list(citati),
+                          searched_urls=list(consultati))
+
+
+def test_citato_e_consultato_leggono_due_liste_diverse():
+    """La distinzione su cui poggia la scala a tre stati del referto.
+
+    Un assistente che apre il sito e poi non lo cita e' il caso piu'
+    istruttivo dell'intero strumento: dice che il contenuto e' stato
+    raggiunto e scartato, non che era irraggiungibile."""
+    solo_consultato = mars_citations.evaluate_answer(
+        _risposta(citati=["https://altro.test/x"],
+                  consultati=["https://esempio.test/pagina"]), SITO, ())
+    assert solo_consultato["site_consulted"] is True
+    assert solo_consultato["site_cited"] is False
+
+    solo_citato = mars_citations.evaluate_answer(
+        _risposta(citati=["https://esempio.test/pagina"],
+                  consultati=["https://altro.test/x"]), SITO, ())
+    assert solo_citato["site_cited"] is True
+    assert solo_citato["site_consulted"] is False
+
+
+def test_un_sottodominio_conta_e_un_omonimo_no():
+    """`host_matches` include i sottodomini, e NON i domini che finiscono
+    per caso con lo stesso testo: `nonesempio.test` non e' un
+    sottodominio di `esempio.test`, ed e' la stessa difesa del filtro
+    same-host del crawler (R24)."""
+    esito = mars_citations.evaluate_answer(
+        _risposta(citati=["https://blog.esempio.test/articolo"]), SITO, ())
+    assert esito["site_cited"] is True
+    estraneo = mars_citations.evaluate_answer(
+        _risposta(citati=["https://nonesempio.test/articolo"]), SITO, ())
+    assert estraneo["site_cited"] is False
+
+
+CONCORRENTI = ("zeta.test", "alfa.test", "delta.test", "beta.test",
+               "gamma.test", "epsilon.test", "omega.test")
+
+
+def test_i_concorrenti_citati_sono_un_insieme_ordinato():
+    """Un insieme perche' due URL dello stesso concorrente sono UNA
+    citazione, ordinato perche' la riga del referto li stampa in fila:
+    un ordine che dipende dall'iterazione di un set cambierebbe la resa
+    a ogni esecuzione, e i golden di MARS esistono contro questo.
+
+    **Sette concorrenti e non due, ed e' il punto del test.** L'ordine
+    di iterazione di un set di stringhe e' randomizzato per processo
+    (`PYTHONHASHSEED`), quindi nessuna asserzione di valore puo'
+    distinguere `sorted(...)` da `list(...)` con certezza: con due
+    elementi la mutazione passava una volta su due, e nel giro di
+    mutazioni e' passata davvero. Con sette, le passa una volta su
+    5040. Non e' una prova deterministica e non si finge tale: e' il
+    massimo ottenibile senza fissare il seme in un sottoprocesso, che
+    per una riga di resa costerebbe piu' di quanto valga."""
+    esito = mars_citations.evaluate_answer(
+        _risposta(citati=["https://%s/a" % host for host in CONCORRENTI]
+                  + ["https://zeta.test/duplicato"]),
+        SITO, CONCORRENTI)
+    assert esito["competitors_cited"] == sorted(CONCORRENTI)
+    # Una LISTA, non un set: `sorted` senza la funzione intorno
+    # restituirebbe un set, e `json.dumps` del referto solleverebbe.
+    assert isinstance(esito["competitors_cited"], list)
+
+
+def test_un_concorrente_solo_consultato_non_e_citato():
+    """La stessa asimmetria del sito, sui concorrenti: `competitors_cited`
+    dice CITATO, e leggerlo dai consultati gonfierebbe il confronto."""
+    esito = mars_citations.evaluate_answer(
+        _risposta(consultati=["https://alfa.test/b"]), SITO, ("alfa.test",))
+    assert esito["competitors_cited"] == []
+
+
+def test_una_risposta_fallita_porta_con_se_il_motivo():
+    """`ok` ed `error` arrivano fino alla riga del referto: senza il
+    motivo, una query fallita e una query senza citazioni si leggono
+    allo stesso modo."""
+    esito = mars_citations.evaluate_answer(
+        _risposta(ok=False, error="HTTP 503"), SITO, ("alfa.test",))
+    assert esito["ok"] is False
+    assert esito["error"] == "HTTP 503"
+    assert esito["site_cited"] is False
+    assert esito["site_consulted"] is False
+    assert esito["competitors_cited"] == []
+
+
+def test_gli_url_citati_arrivano_interi_nel_dato():
+    """Il conteggio dice QUANTO, gli URL dicono DOVE: sono due domande
+    diverse, e senza la seconda il referto non e' verificabile da chi lo
+    riceve."""
+    urls = ["https://esempio.test/a", "https://esempio.test/b"]
+    esito = mars_citations.evaluate_answer(_risposta(citati=urls), SITO, ())
+    assert esito["cited_urls"] == urls
+    assert esito["query"] == "domanda"
+
+
+def test_evaluate_answer_pretende_un_host_gia_normalizzato():
+    """Precondizione, non difetto: `run_monitor` normalizza con
+    `norm_host` prima di chiamare, e rifarlo qui per ogni URL di ogni
+    query costerebbe senza aggiungere nulla.
+
+    Sta scritto in un test perche' e' una trappola per chi chiamasse la
+    funzione da fuori: un URL passato come `site_host` non solleva, non
+    avverte, e restituisce semplicemente «mai citato»."""
+    esito = mars_citations.evaluate_answer(
+        _risposta(citati=["https://esempio.test/a"]),
+        "https://esempio.test/", ())
+    assert esito["site_cited"] is False
+
+
+def test_la_scala_a_tre_stati_arriva_al_referto():
+    """La conseguenza osservabile: CITATO, consultato, assente.
+
+    Tre risposte costruite a mano attraversano `run_monitor` e la resa
+    testo. Senza questo test lo stato di mezzo era irraggiungibile: il
+    provider finto della suite mette la stessa lista nelle due, quindi
+    non produceva mai un «consultato e non citato»."""
+    class ProviderTreStati:
+        """Un provider che risponde una cosa diversa a ogni query."""
+
+        name = "tre"
+
+        RISPOSTE = {
+            "citata": dict(citati=["https://esempio.test/a"]),
+            "consultata": dict(consultati=["https://esempio.test/b"]),
+            "assente": dict(citati=["https://altro.test/c"]),
+        }
+
+        def ask(self, query):
+            return _risposta(query=query, **self.RISPOSTE[query])
+
+    payload = mars_citations.run_monitor(
+        "https://esempio.test/", list(ProviderTreStati.RISPOSTE),
+        [ProviderTreStati()], delay=0, verbose=False)
+    righe = mars_citations.render_text(payload).split("\n")
+    stati = {r.split()[0]: r.split()[-1] for r in righe
+             if r.startswith("    ") and r.split()[0]
+             in ProviderTreStati.RISPOSTE}
+    assert stati == {"citata": "CITATO", "consultata": "consultato",
+                     "assente": "assente"}
+    # Il conteggio d'aggregazione segue la stessa distinzione: il
+    # «consultato» non entra fra i citati.
+    assert payload["providers"]["tre"]["site_cited"] == 1
+    assert payload["providers"]["tre"]["answered"] == 3

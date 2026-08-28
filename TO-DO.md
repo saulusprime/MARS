@@ -19,14 +19,16 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Tre caselle aperte, e nessuna è una correzione.** Da R55 a R63 sono
+> **Due caselle aperte, e sono le due fasi UPGRADE residue.** Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
-> guardato da chi lo riceve, e R61 dal chiudere R60. Restano il programma
-> UPGRADE e una prova mancante: **C4/C2 è stata verificata sul campo** il
-> 2026-08-28, con una chiave vera e una chiamata vera, e la chiamata ha
-> trovato **R63**, chiusa lo stesso giorno. `__version__` è a **2.10.0**,
+> guardato da chi lo riceve, e R61 dal chiudere R60. Resta il solo programma
+> UPGRADE: **C4/C2 è stata verificata sul campo** il 2026-08-28, con una chiave
+> vera e una chiamata vera, e la chiamata ha trovato **R63**, chiusa lo stesso
+> giorno; l'ultima prova mancante — `evaluate_answer` — è chiusa lo stesso
+> giorno, e la misura che l'ha aperta è che **sei mutazioni su sei** su quella
+> funzione lasciavano la suite verde. `__version__` è a **2.10.0**,
 > perché da R63 i punteggi si muovono a sito invariato — a **2.11.0** da
 > U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi.
 >
@@ -64,17 +66,7 @@ ha una casella: se si decide di farla, la casella si aggiunge.
 
 ## Completamento
 
-La voce `C##` rimasta non è una funzione mancante: è una **prova mancante**.
-Il codice c'è, e nessuno ha verificato che faccia ciò che dichiara — è la
-regola 2, niente «funziona» senza prova. Il resto della famiglia è chiuso e sta
-in [AS-IS.md](AS-IS.md), **C4/C2 compresa**: il giudizio LLM è stato eseguito
-contro il servizio reale il 2026-08-28, e ha trovato **R63**.
-
-- [ ] **`evaluate_answer` di `mars_citations.py` non è chiamata da alcun
-      test.** È la funzione che decide se una risposta cita il sito — la
-      misura centrale dello strumento — ed è pura, quindi verificabile senza
-      rete né chiavi. Le altre due funzioni pure che la voce C12 nominava sono
-      coperte da `tests/test_citations.py` dal 2026-08-26 (R28).
+**Nessuna aperta**
 
 ---
 

@@ -76,6 +76,7 @@
 | R63 | Il menu di navigazione non entra più nel corpus | 2026-08-28 |
 | C4/C2 | Il giudizio LLM eseguito contro il servizio reale | 2026-08-28 |
 | U10.1 | I punti deboli del giudizio come rilievi strutturati | 2026-08-28 |
+| C12.1 | `evaluate_answer` non era esercitata da alcun test | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2506,6 +2507,69 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### C12.1 — ✅ VERIFICATA (2026-08-28): `evaluate_answer`, la misura centrale di `mars_citations`
+
+*(ultima voce della famiglia `C##`. Non una funzione mancante: una **prova**
+mancante — regola 2, niente «funziona» senza prova.)*
+
+**Che cosa mancava.** `evaluate_answer()` decide se una risposta di un
+assistente cita il sito, lo ha soltanto consultato, o nessuna delle due. Era
+chiamata **solo di sponda**, da `main()` attraverso `run_monitor`, e con un
+`ProviderFinto` che mette la **stessa lista** in `cited_urls` e in
+`searched_urls` e non nomina alcun concorrente. Le due decisioni che la
+funzione prende erano quindi indistinguibili nella suite.
+
+**La misura che ha dato la dimensione del buco**, fatta prima di scrivere una
+riga di test: **sei mutazioni su sei** lasciavano `pytest` verde.
+
+| mutazione | la suite |
+|---|---|
+| `site_consulted` legge `cited_urls` | verde |
+| `site_cited` legge `searched_urls` | verde |
+| i concorrenti letti dai consultati | verde |
+| i concorrenti non ordinati | verde |
+| `cited_urls` non pubblicati | verde |
+| `error` non propagato | verde |
+
+La prima riga è la più costosa: con quella mutazione lo stato **«consultato»**
+del referto — l'assistente ha aperto il sito e poi non l'ha citato, il caso più
+istruttivo dell'intero strumento — diventa **irraggiungibile**, e nulla lo
+segnala.
+
+**Che cosa si è fatto.** Otto test in `tests/test_citations.py`, tutti sulla
+funzione pura: le due liste disgiunte, il sottodominio che conta e l'omonimo
+che no (`nonesempio.test` non è un sottodominio di `esempio.test` — la stessa
+difesa di R24), i concorrenti come insieme ordinato, un concorrente solo
+consultato che non è citato, la risposta fallita che porta con sé il motivo,
+gli URL citati che arrivano interi, e la scala a tre stati **CITATO ·
+consultato · assente** verificata sulla resa testo attraverso `run_monitor`.
+
+**Una precondizione messa per iscritto in un test.** `evaluate_answer` pretende
+un `site_host` **già normalizzato**: `run_monitor` lo passa da `norm_host`, e
+rifarlo per ogni URL di ogni query costerebbe senza aggiungere nulla. Chi
+chiamasse la funzione da fuori passandole un URL non ottiene né eccezione né
+avviso: ottiene «mai citato». Non è un difetto, è una trappola, e ora è scritta
+dove si guarda.
+
+**La mutazione che non si può uccidere, e perché si dichiara invece di
+nasconderla.** `sorted({...})` → `list({...})` è passata al primo giro con due
+concorrenti: l'ordine di iterazione di un set di **stringhe** è randomizzato
+per processo (`PYTHONHASHSEED`), quindi nessuna asserzione di valore la
+distingue con certezza — una volta su due il set esce già ordinato. Il test usa
+ora **sette** concorrenti, dove la mutazione passerebbe una volta su 5040:
+riprovata **cinque volte su cinque, sempre colta**. Non è determinismo e il
+test non finge di esserlo: fissare il seme richiederebbe un sottoprocesso, e
+per una riga di resa costa più di quanto valga.
+
+**Prove.** `pytest` **1192 passed** (da 1184), `flake8 .` a zero. Nove
+mutazioni provate con `PYTHONDONTWRITEBYTECODE=1`, **otto colte al primo giro**
+— l'ultima dopo aver rafforzato il test, come sopra. Fra le nove anche una su
+`mars_core.host_matches`: tolto il punto da `endswith("." + target_host)`,
+`nonesempio.test` passerebbe per un sottodominio, e ora un test lo dice.
+
+**Nessuna riga di codice di produzione è cambiata**: la voce chiedeva una
+prova.
 
 ### U10.1 — ✅ REALIZZATA (2026-08-28): i punti deboli del giudizio come rilievi
 

@@ -16,7 +16,7 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1184 passed**.
+  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1192 passed**.
 - I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
@@ -51,9 +51,9 @@ contano per chi riprende:
 
 ## Prossimo passo
 
-Nessuna correzione aperta. Il [TO-DO](TO-DO.md) ha tre caselle: le due fasi
-UPGRADE residue (U10, U11) e la prova mancante su `evaluate_answer` di
-`mars_citations.py`. C4/C2 e U10.1 sono chiuse il 2026-08-28 e stanno in
+Nessuna correzione aperta, e nessuna prova mancante. Il [TO-DO](TO-DO.md) ha
+**due caselle**, entrambe fasi UPGRADE: **U10** (giudizio multi-modello) e
+**U11**. C4/C2, U10.1 e C12.1 sono chiuse il 2026-08-28 e stanno in
 [AS-IS.md](AS-IS.md); `__version__` è a **2.11.0**.
 
 U10.1 lascia dietro **una sola cosa da verificare**, e serve una chiave: lo

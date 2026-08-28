@@ -25,6 +25,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `sitemap` | statistiche della sitemap: `urls`, `with_lastmod`, `index_files`, `unreadable`… |
 | `delay` | ritardo **effettivo** fra due richieste, in secondi: robots.txt può averlo alzato con `Crawl-delay`. Chi rivisita le pagine (il browser di `mars_wcag`) deve rispettarlo |
 | `llm` | `auto` / `on` / `off`: governa il solo modulo che comporta una spesa |
+| `judge_models` | quali giudici interrogare, `provider[:modello],...` da `--judge-models` o dal corpo API; vuoto significa il solo `anthropic`. Ricevono **lo stesso campione e lo stesso prompt**: un confronto fra modelli interrogati diversamente non direbbe nulla sui modelli. Ogni giudice e' una spesa in piu' (U10) |
 | `lang` | lingua del referto, `it` (predefinita) o `en`. **Non e' solo resa**: e' anche la lingua che si chiede agli strumenti esterni, i cui testi nascono al momento della misura — `--locale` di Lighthouse, il file di locale di axe. Un modulo che porta testi di terzi dichiara in `params["text_lang"]` la lingua in cui sono davvero, cosi' il referto puo' dirlo |
 | `embeddings_model`, `force_proxy` | scelta del recuperatore vettoriale |
 | `market` | mercato per la citabilità: `global` (predefinito), `eu`, `us`, `cn`. Lo legge `mars_citability` — pesa gli assistenti e, dove c'è una ragione concreta, moltiplica un segnale (oggi solo l'accessibilità per `eu`, European Accessibility Act) |
@@ -32,7 +33,7 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `max_children` | tetto ai link che lo spider ZAP segue **per pagina**, da `--max-children` o dal corpo API; `0` è il default di ZAP, cioè nessun tetto. Non è un numero di pagine e non può esserlo — l'API dello spider non accetta nulla che limiti il totale — quindi `mars_wapt` dichiara il proprio perimetro come inesatto. Sta qui e non fra i parametri del `Crawler` perché non riguarda il crawler di MARS: è l'unica leva su un secondo crawler che scopre le pagine da sé (R56) |
 | `rrf_k` | il **k** della fusione RRF, da `--rrf-k` o dal corpo API; 60 è il valore del paper. Chi fonde due classifiche lo passa a `reciprocal_rank_fusion()` invece di lasciare il default: il referto dichiara in `rrf.k` con quale ha girato, e un modulo che non lo legge lo farebbe mentire. Non è una manopola di taratura — sposta il consenso aggregato, e con lui il segnale «Recuperabilità» del complessivo (I3) |
 | `owner_declaration` | dichiarazione di proprietà: abilita anche l'active scan WAPT |
-| `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); i moduli le preferiscono all'ambiente |
+| `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `openai_api_key`, `dashscope_api_key`, `moonshot_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); l'elenco vero e' `CREDENZIALI_NOTE` in `mars_core`, che CLI e API condividono. I moduli le preferiscono all'ambiente |
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
 `text` e `chunks` di una pagina **escludono menu, testata e piede**

@@ -177,6 +177,13 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "rrf_sensitivity": rrf_sensitivity(results, chunks, k_fusione),
         "citability": results.get("mars_citability"),
         "llm_judgement": results.get("mars_llm_judge"),
+        # Tutti i giudici, in cima e non sepolti dentro `llm_judgement`
+        # (U10): un consumatore che vuole confrontare i modelli non deve
+        # sapere che il primo di loro sta anche in cima. Additivo,
+        # quindi `schema_version` non si muove — `llm_judgement` resta
+        # dov'era e significa quello che significava.
+        "llm_judgements": ((results.get("mars_llm_judge") or {})
+                           .get("judgements") or []),
         "lexical": {"top_chunk":
                     (results.get("mars_lexical") or {}).get("top_chunk")},
         "semantic": {
@@ -1581,6 +1588,49 @@ def _area_di(referto: dict, modulo: str) -> dict:
     return {}
 
 
+def giudizi_del_referto(referto: dict) -> List[dict]:
+    """I giudici dell'area 9, dal piu' recente dei due campi.
+
+    `llm_judgements` esiste da U10 e li porta tutti; `llm_judgement`
+    e' il primo che ha risposto, ed e' quello che i consumatori
+    scritti prima di U10 leggono. Il ripiego serve a un referto
+    JSON archiviato prima di U10 e riaperto oggi: senza, quella
+    sezione sparirebbe dalla resa invece di mostrare cio' che c'e'.
+    """
+    giudizi = referto.get("llm_judgements") or []
+    if giudizi:
+        return [g for g in giudizi if isinstance(g, dict)]
+    legacy = referto.get("llm_judgement") or {}
+    if legacy.get("motivazione"):
+        return [dict(legacy, answered=True)]
+    return []
+
+
+def scarti_leggibili(giudizio: dict,
+                     lang: str = LINGUA_CANONICA) -> List[Tuple[str, str]]:
+    """Gli scarti di onesta' di un giudice, come coppie gia' rese.
+
+    Una funzione sola per le tre viste: la stessa aritmetica scritta
+    tre volte diverge, e qui non c'e' aritmetica ma una convenzione di
+    segno — giudizio meno euristica — che tre rese diverse
+    presenterebbero in tre modi.
+
+    Il segno si stampa SEMPRE, `+` compreso: uno scarto senza segno si
+    legge come un punteggio.
+    """
+    scarti = giudizio.get("scarti") or {}
+    righe: List[Tuple[str, str]] = []
+    composito = scarti.get("delta_composite")
+    if isinstance(composito, (int, float)):
+        righe.append((t("scarto vs indice composito:", lang),
+                      "%+.1f" % composito))
+    profilo = scarti.get("delta_profile")
+    if isinstance(profilo, (int, float)):
+        righe.append((t("scarto vs profilo %s:", lang)
+                      % scarti.get("profile", ""), "%+.1f" % profilo))
+    return righe
+
+
 def strumenti_in_altra_lingua(referto: dict,
                               lang: str = LINGUA_CANONICA) -> List[str]:
     """Gli strumenti i cui testi NON sono nella lingua del referto.
@@ -1766,21 +1816,38 @@ def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
                                     lang)[:3]:
             righe.append(f"  · {nota}")
 
-    llm = referto.get("llm_judgement") or {}
-    if llm.get("motivazione"):
+    giudizi = giudizi_del_referto(referto)
+    if giudizi:
         righe.append("-" * 55)
-        righe.append(t("Giudizio LLM (%s)  su %s passaggi", lang)
-                     % (llm.get("model"), llm.get("chunk_valutati")))
-        if llm.get("score") is not None:
-            righe.append("%s %s/100" % (t("  Citabilità stimata   :", lang),
-                                        llm["score"]))
-        righe.append(f"  {llm['motivazione']}")
-        if llm.get("passaggio_migliore"):
-            righe.append("%s %s" % (t("  Passaggio migliore   :", lang),
-                                    llm["passaggio_migliore"]))
-        for punto in (llm.get("punti_deboli") or [])[:2]:
-            righe.append("  · %s: %s"
-                         % (t("da migliorare", lang, "llm"), punto))
+        for giudizio in giudizi:
+            righe.append(t("Giudizio LLM (%s)  su %s passaggi", lang)
+                         % (giudizio.get("model"),
+                            giudizio.get("chunk_valutati")))
+            if not giudizio.get("answered"):
+                # Un giudice che non ha risposto si DICHIARA, non
+                # sparisce: il motivo e' nelle sue issues, e senza
+                # questa riga il referto mostrerebbe tre giudici dove
+                # se ne sono pagati quattro.
+                for motivo in giudizio.get("issues") or []:
+                    righe.append("  · %s" % motivo)
+                continue
+            if giudizio.get("score") is not None:
+                righe.append("%s %s/100"
+                             % (t("  Citabilità stimata   :", lang),
+                                giudizio["score"]))
+            righe.append("  %s" % giudizio.get("motivazione", ""))
+            for etichetta, valore in scarti_leggibili(giudizio, lang):
+                righe.append("  %-21s %s" % (etichetta, valore))
+            if giudizio.get("passaggio_migliore"):
+                righe.append("%s %s"
+                             % (t("  Passaggio migliore   :", lang),
+                                giudizio["passaggio_migliore"]))
+            for punto in (giudizio.get("punti_deboli") or [])[:2]:
+                righe.append("  · %s: %s"
+                             % (t("da migliorare", lang, "llm"), punto))
+        if any(scarti_leggibili(g, lang) for g in giudizi):
+            righe.append("  (%s)" % t("gli scarti confrontano un giudizio "
+                                      "con una stima euristica", lang))
 
     if referto["robots_ignored"]:
         righe.append("-" * 55)
@@ -3358,31 +3425,54 @@ def _azioni_di_profilo(referto: dict, p: List[str],
 
 def _sezione_llm(referto: dict, p: List[str],
                  lang: str = LINGUA_CANONICA) -> None:
-    llm = referto.get("llm_judgement") or {}
-    if not llm.get("motivazione"):
+    giudizi = giudizi_del_referto(referto)
+    if not giudizi:
         return
-    p.append("<h2>%s</h2><div class='card'>" % t("Giudizio LLM", lang))
-    p.append("<p class='meta'>%s · %s</p>"
-             % (_e(llm.get("model")),
-                t("%s passaggi valutati", lang)
-                % _e(llm.get("chunk_valutati"))))
-    if llm.get("score") is not None:
-        p.append("<p class='grande %s'>%s<span class='muted'>/100</span></p>"
-                 % (_classe(llm["score"]), _e(llm["score"])))
-    p.append("<p>%s</p>" % _e(llm["motivazione"]))
-    if llm.get("passaggio_migliore"):
-        p.append("<p class='meta'>%s <code>%s</code></p>"
-                 % (t("Passaggio migliore:", lang),
-                    _e(llm["passaggio_migliore"])))
-    for titolo, chiave in ((t("Punti di forza", lang), "punti_forti"),
-                           (t("Da migliorare", lang), "punti_deboli")):
-        voci = llm.get(chiave) or []
-        if voci:
-            p.append("<p class='strumento'><strong>%s</strong></p>"
-                     "<ul class='rilievi'>%s</ul>"
-                     % (titolo,
-                        "".join("<li>%s</li>" % _e(v) for v in voci)))
-    p.append("</div>")
+    p.append("<h2>%s</h2>" % t("Giudizio LLM", lang))
+    scarti_visti = False
+    for llm in giudizi:
+        p.append("<div class='card'>")
+        p.append("<p class='meta'>%s · %s · %s</p>"
+                 % (_e(llm.get("provider") or ""), _e(llm.get("model")),
+                    t("%s passaggi valutati", lang)
+                    % _e(llm.get("chunk_valutati"))))
+        if not llm.get("answered"):
+            # Il giudice che non ha risposto resta nella pagina col suo
+            # motivo: e' stato chiesto, e chi legge deve sapere che
+            # manca e perche'.
+            p.append("<ul class='rilievi'>%s</ul></div>"
+                     % "".join("<li>%s</li>" % _e(m)
+                               for m in llm.get("issues") or []))
+            continue
+        if llm.get("score") is not None:
+            p.append("<p class='grande %s'>%s"
+                     "<span class='muted'>/100</span></p>"
+                     % (_classe(llm["score"]), _e(llm["score"])))
+        p.append("<p>%s</p>" % _e(llm.get("motivazione") or ""))
+        righe = scarti_leggibili(llm, lang)
+        scarti_visti = scarti_visti or bool(righe)
+        for etichetta, valore in righe:
+            p.append("<p class='meta'>%s <strong>%s</strong></p>"
+                     % (_e(etichetta), _e(valore)))
+        if llm.get("passaggio_migliore"):
+            p.append("<p class='meta'>%s <code>%s</code></p>"
+                     % (t("Passaggio migliore:", lang),
+                        _e(llm["passaggio_migliore"])))
+        for titolo, chiave in ((t("Punti di forza", lang), "punti_forti"),
+                               (t("Da migliorare", lang), "punti_deboli")):
+            voci = llm.get(chiave) or []
+            if voci:
+                p.append("<p class='strumento'><strong>%s</strong></p>"
+                         "<ul class='rilievi'>%s</ul>"
+                         % (titolo,
+                            "".join("<li>%s</li>" % _e(v) for v in voci)))
+        p.append("</div>")
+    if scarti_visti:
+        # Una volta sola, sotto tutti i giudici: ripeterla per ciascuno
+        # la trasformerebbe in rumore, e chi legge la salterebbe.
+        p.append("<p class='meta'>%s</p>"
+                 % _e(t("gli scarti confrontano un giudizio "
+                        "con una stima euristica", lang)))
 
 
 # ======================================================================
@@ -3905,16 +3995,30 @@ def render_markdown(referto: dict,
                                                 cit["score"]))
         r += ["", "*%s*" % _md_cella(t(cit.get("disclaimer") or "", lang))]
 
-    llm = referto.get("llm_judgement") or {}
-    if llm.get("motivazione"):
-        r += ["", "## %s" % t("Giudizio LLM", lang), "",
-              t("Modello: %s, su %s passaggi.", lang)
-              % (_md_cella(llm.get("model")), llm.get("chunk_valutati"))]
-        if llm.get("score") is not None:
-            r.append("")
-            r.append(t("Citabilità stimata: **%s/100**", lang)
-                     % llm["score"])
-        r += ["", llm["motivazione"]]
+    giudizi = giudizi_del_referto(referto)
+    if giudizi:
+        r += ["", "## %s" % t("Giudizio LLM", lang)]
+        for llm in giudizi:
+            r += ["", "### %s" % _md_cella(llm.get("provider") or ""), "",
+                  t("Modello: %s, su %s passaggi.", lang)
+                  % (_md_cella(llm.get("model")),
+                     llm.get("chunk_valutati"))]
+            if not llm.get("answered"):
+                r += [""] + ["- %s" % _md_cella(m)
+                             for m in llm.get("issues") or []]
+                continue
+            if llm.get("score") is not None:
+                r += ["", t("Citabilità stimata: **%s/100**", lang)
+                      % llm["score"]]
+            r += ["", llm.get("motivazione") or ""]
+            righe = scarti_leggibili(llm, lang)
+            if righe:
+                r += [""] + ["- %s **%s**" % (_md_cella(e), v)
+                             for e, v in righe]
+        if any(scarti_leggibili(g, lang) for g in giudizi):
+            r += ["", "*%s*" % _md_cella(
+                t("gli scarti confrontano un giudizio con una stima "
+                  "euristica", lang))]
 
     simulazione = referto.get("rrf_simulation") or []
     if simulazione:

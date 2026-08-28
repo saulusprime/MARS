@@ -16,7 +16,7 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1192 passed**.
+  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1207 passed**.
 - I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
@@ -52,14 +52,25 @@ contano per chi riprende:
 ## Prossimo passo
 
 Nessuna correzione aperta, e nessuna prova mancante. Il [TO-DO](TO-DO.md) ha
-**due caselle**, entrambe fasi UPGRADE: **U10** (giudizio multi-modello) e
-**U11**. C4/C2, U10.1 e C12.1 sono chiuse il 2026-08-28 e stanno in
-[AS-IS.md](AS-IS.md); `__version__` è a **2.11.0**.
+**una casella**: **U11**, il deliverable rifinito. C4/C2, U10.1, C12.1 e
+**U10** sono chiuse il 2026-08-28 e stanno in [AS-IS.md](AS-IS.md);
+`__version__` è a **2.12.0**.
 
-U10.1 lascia dietro **una sola cosa da verificare**, e serve una chiave: lo
-`SCHEMA` del giudizio ora chiede al modello un array di oggetti con `enum`, e
-quella forma non è mai stata inviata all'API vera. Un audit con `--llm on` la
-chiude; se fosse rifiutata, l'area uscirebbe con `llm.status.api_failed`.
+**Che cosa resta da verificare con una chiave**, ed è tutto qui:
+
+- lo `SCHEMA` del giudizio chiede al modello un array di oggetti con `enum`, e
+  quella forma non è mai stata inviata all'API Anthropic vera (U10.1);
+- i tre giudici non-Anthropic — `openai`, `qwen`, `kimi` — non sono mai stati
+  interrogati davvero. Le forme delle richieste vengono dalla documentazione
+  dei fornitori letta il 2026-08-28, non da una chiamata; i test girano su un
+  server finto. Su DashScope in particolare `json_schema` dipende dal
+  **modello**, e il ripiego su `json_object` non è mai scattato contro il
+  servizio reale.
+
+Un audit con `--llm on --judge-models anthropic,openai,qwen,kimi` e le quattro
+chiavi chiude entrambi i punti. Un giudice che fallisce si dichiara con
+`llm.status.api_failed` e non toglie gli altri dal referto: la prova costa una
+sola esecuzione.
 
 ## Le due decisioni che tengono in vita questo file
 

@@ -20,9 +20,10 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT,
-                       MODULES_REGISTRY, RRF_K, __version__,
-                       load_external_module, normalizza_risultato)
+from mars_core import (CREDENZIALI_NOTE, DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
+                       DEFAULT_TIMEOUT, MODULES_REGISTRY, RRF_K,
+                       __version__, load_external_module,
+                       normalizza_risultato)
 from mars_core import build_context as core_build_context
 from mars_report import build_report
 
@@ -120,6 +121,20 @@ class Credentials(BaseModel):
                     "embedding ad accesso limitato o privati. Per i "
                     "modelli pubblici, incluso quello predefinito, non "
                     "serve.")
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        description="Abilita il giudice 'openai' del giudizio LLM "
+                    "(judge_models).")
+    dashscope_api_key: SecretStr | None = Field(
+        default=None,
+        description="Abilita il giudice 'qwen'. Il nome è quello del "
+                    "servizio che la chiede — DashScope — non quello "
+                    "del modello.")
+    moonshot_api_key: SecretStr | None = Field(
+        default=None,
+        description="Abilita il giudice 'kimi'. Il nome è quello del "
+                    "servizio che la chiede — Moonshot — non quello "
+                    "del modello.")
     zap_api_key: SecretStr | None = Field(
         default=None,
         description="Chiave API del daemon ZAP, se non è stato avviato "
@@ -157,6 +172,14 @@ class AuditRequest(BaseModel):
         description="Tetto ai link seguiti per pagina dallo spider ZAP, "
                     "che gira solo con i_own_this_domain. 0 = nessun "
                     "tetto, come il default di ZAP.")
+    judge_models: str = Field(
+        "",
+        description="Quali modelli interrogare per il giudizio LLM, "
+                    "separati da virgola, nella forma "
+                    "provider[:modello]. Noti: anthropic "
+                    "(predefinito), openai, qwen, kimi. Ricevono tutti "
+                    "lo stesso campione e lo stesso prompt. OGNI "
+                    "GIUDICE È UNA SPESA IN PIÙ.")
     rrf_k: int = Field(
         RRF_K, ge=0, le=100000,
         description="Il k della fusione RRF: decide quanto pesa la "
@@ -263,9 +286,15 @@ def _credenziali(req: AuditRequest) -> dict:
     if cred is None:
         return {}
     estratte = {}
-    for nome in ("anthropic_api_key", "hf_token", "zap_api_key"):
-        valore = getattr(cred, nome)
-        if valore is not None:
+    # Dall'elenco di `mars_core` e non da una lista scritta qui: era una
+    # seconda dichiarazione degli stessi nomi, e una credenziale nuova
+    # aggiunta al modello Pydantic e dimenticata in questo ciclo sarebbe
+    # stata accettata dall'API e mai passata ai moduli, senza un errore.
+    # `zap_proxy` resta fuori perche' non e' un SecretStr: e' un
+    # indirizzo, e si copia sotto.
+    for nome in CREDENZIALI_NOTE:
+        valore = getattr(cred, nome, None)
+        if isinstance(valore, SecretStr):
             estratte[nome] = valore.get_secret_value()
     if cred.zap_proxy:
         estratte["zap_proxy"] = cred.zap_proxy
@@ -280,7 +309,9 @@ def build_context(req: AuditRequest) -> dict:
                                  owner_declaration=req.i_own_this_domain,
                                  max_children=req.max_children,
                                  rrf_k=req.rrf_k,
-                                 llm=req.llm, queries=req.queries,
+                                 llm=req.llm,
+                                 judge_models=req.judge_models,
+                                 queries=req.queries,
                                  credentials=_credenziali(req))
     if context is None:
         raise HTTPException(

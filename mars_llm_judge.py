@@ -14,6 +14,8 @@ import os
 import sys
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
+import requests
+
 from mars_core import (SEV_INFO, Finding, describe_chunk,
                        reciprocal_rank_fusion, RRF_K)
 
@@ -22,6 +24,74 @@ MAX_CHUNK = 8          # quanti passaggi sottoporre al modello
 MAX_CARATTERI = 1200   # per passaggio
 MAX_TOKENS = 4000      # il giudizio e' breve: non serve di piu'
 EFFORT = "medium"
+TIMEOUT_HTTP = 120     # secondi, per i giudici OpenAI-compatibili
+
+
+class Giudice(NamedTuple):
+    """Un provider del giudizio, e come lo si interroga."""
+
+    model: str          # modello predefinito, sovrascrivibile dal flag
+    profile: str        # la chiave in citability["profiles"]
+    kind: str           # "anthropic" (SDK) oppure "openai" (HTTP)
+    base_url: str       # solo per kind "openai"
+    env: Tuple[str, ...]     # variabili d'ambiente della credenziale
+    credential: str          # nome in context["credentials"]
+    base_url_env: str        # variabile che sovrascrive base_url
+    tokens_field: str = ""   # come si chiama il tetto ai token generati
+
+
+# I giudici, e da dove vengono i loro indirizzi.
+# ----------------------------------------------------------------------
+# Tre dei quattro parlano lo stesso protocollo — `POST
+# /chat/completions` con `response_format`, risposta in
+# `choices[0].message.content` — quindi hanno UN solo percorso di codice.
+# Le forme sono state verificate sulla documentazione dei fornitori il
+# 2026-08-28, non ricordate:
+#
+#   openai  developers.openai.com/api/docs/api-reference/chat/create
+#   kimi    platform.kimi.ai/docs/api/chat
+#   qwen    alibabacloud.com/help/en/model-studio/
+#           compatibility-of-openai-with-dashscope
+#
+# `profile` aggancia il giudice al profilo che `mars_citability` stima
+# per quello stesso assistente: e' cio' che rende calcolabile lo scarto
+# fra quanto un modello si giudica citabile e quanto la nostra euristica
+# prevede che lo giudichi. Le chiavi sono quelle di `PESI_ASSISTENTE`,
+# che e' un dict nome -> punteggio: `'ChatGPT/Perplexity'` e non
+# `'openai'`.
+#
+# `base_url_env` esiste per i test: il server finto ci si aggancia senza
+# che il codice sappia di essere in prova.
+JUDGE_PROVIDERS: Dict[str, Giudice] = {
+    "anthropic": Giudice(
+        MODEL, "Claude", "anthropic", "",
+        ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
+        "anthropic_api_key", "ANTHROPIC_BASE_URL"),
+    "openai": Giudice(
+        "gpt-5.6", "ChatGPT/Perplexity", "openai",
+        "https://api.openai.com/v1", ("OPENAI_API_KEY",),
+        "openai_api_key", "OPENAI_BASE_URL",
+        # `max_tokens` e' deprecato su OpenAI e incompatibile con la
+        # serie o; i due compatibili documentano ancora il vecchio nome.
+        # Il campo sta nel registro invece che nel codice proprio
+        # perche' "OpenAI-compatibile" non vuol dire "identico".
+        "max_completion_tokens"),
+    "qwen": Giudice(
+        # L'endpoint internazionale: quello di Pechino
+        # (dashscope.aliyuncs.com) si sceglie con DASHSCOPE_BASE_URL.
+        "qwen-plus", "Qwen", "openai",
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        ("DASHSCOPE_API_KEY",), "dashscope_api_key",
+        "DASHSCOPE_BASE_URL",
+        "max_tokens"),
+    "kimi": Giudice(
+        "kimi-k2.5", "Kimi", "openai",
+        "https://api.moonshot.ai/v1", ("MOONSHOT_API_KEY",),
+        "moonshot_api_key", "MOONSHOT_BASE_URL",
+        "max_tokens"),
+}
+
+GIUDICE_PREDEFINITO = "anthropic"
 
 
 class Tema(NamedTuple):
@@ -216,8 +286,19 @@ def _stato(chiave: str, testo: str, dettaglio: str = "",
                    params=dict(params)).as_dict()
 
 
-def _derivato(tema: Tema, prosa: List[str], model: str) -> dict:
+def _derivato(tema: Tema, prosa: List[str], provider: str,
+              model: str) -> dict:
     """Un punto debole del modello, come rilievo.
+
+    **Un rilievo per giudice e per tema** (U10): quattro modelli che
+    nominano lo stesso tema danno quattro rilievi, non uno. Le chiavi
+    si ripetono quindi dentro l'area, e va saputo che non e' un
+    problema: chi indicizza per chiave o salta i derivati — piano di
+    interventi, storico, conteggi per gravita' — o guarda solo i
+    rilievi con un `fix`, che un derivato non ha mai (`_ancore` in
+    `mars_report`). Il provider entra nel TITOLO, non nella chiave: un
+    titolo porta valori variabili gia' altrove (`%(pagine)d di
+    %(totale)d`), una chiave non deve.
 
     **`derived: True` su ogni rilievo di questa famiglia**, ed e' un
     invariante, non un giudizio caso per caso: quello che il modello
@@ -243,12 +324,12 @@ def _derivato(tema: Tema, prosa: List[str], model: str) -> dict:
     inglese quella prosa resta italiana e il referto lo dichiara. Il
     `title` invece e' nostro, ed e' a catalogo.
     """
-    params: Dict[str, object] = {"derived": True, "model": model,
-                                 "text_lang": "it"}
+    params: Dict[str, object] = {"derived": True, "provider": provider,
+                                 "model": model, "text_lang": "it"}
     if tema.source:
         params["source_key"] = tema.source
     return Finding(area="mars_llm_judge", severity=SEV_INFO, key=tema.key,
-                   title=tema.title,
+                   title="%s — %s" % (tema.title, provider),
                    # Punto e virgola, non `\n`: `detail` finisce anche
                    # in un elenco Markdown, dove una seconda riga non
                    # rientrata esce dalla voce e spezza la lista.
@@ -283,6 +364,7 @@ def punti_deboli_etichettati(grezzi: object) -> List[Tuple[str, str]]:
 
 
 def rilievi_dei_punti_deboli(coppie: List[Tuple[str, str]],
+                             provider: str = GIUDICE_PREDEFINITO,
                              model: str = MODEL) -> List[dict]:
     """Un rilievo per TEMA, non per punto debole.
 
@@ -298,8 +380,142 @@ def rilievi_dei_punti_deboli(coppie: List[Tuple[str, str]],
     per_tema: Dict[str, List[str]] = {}
     for tema, testo in coppie:
         per_tema.setdefault(tema, []).append(testo)
-    return [_derivato(VOCABOLARIO.get(tema, TEMA_ALTRO), prosa, model)
+    return [_derivato(VOCABOLARIO.get(tema, TEMA_ALTRO), prosa,
+                      provider, model)
             for tema, prosa in per_tema.items()]
+
+
+def giudici_richiesti(context: dict
+                      ) -> Tuple[List[Tuple[str, Giudice, str]], List[str]]:
+    """I giudici scelti, e i nomi che il registro non conosce.
+
+    Il formato e' `provider[:modello],...`, da `--judge-models` o dal
+    corpo API. Un nome ignoto NON ferma l'audit e non sparisce: torna
+    nel secondo elenco, e diventa un rilievo di stato — sbagliare a
+    scrivere `qwn` non deve produrre un referto che tace.
+
+    Senza richiesta vale il solo `anthropic`, che e' quello che MARS
+    interrogava prima di U10: aggiungere provider e' una scelta, e
+    quest'area e' l'unica che spende.
+    """
+    grezzo = str(context.get("judge_models") or "").strip()
+    if not grezzo:
+        grezzo = GIUDICE_PREDEFINITO
+    scelti: List[Tuple[str, Giudice, str]] = []
+    ignoti: List[str] = []
+    visti = set()
+    for voce in grezzo.split(","):
+        voce = voce.strip()
+        if not voce:
+            continue
+        nome, _, modello = voce.partition(":")
+        nome = nome.strip().lower()
+        giudice = JUDGE_PROVIDERS.get(nome)
+        if giudice is None:
+            if nome not in ignoti:
+                ignoti.append(nome)
+            continue
+        # Lo stesso provider due volte e' quasi certamente un refuso, e
+        # interrogarlo due volte lo si paga due volte.
+        if nome in visti:
+            continue
+        visti.add(nome)
+        scelti.append((nome, giudice, modello.strip() or giudice.model))
+    return scelti, ignoti
+
+
+def credenziale_del_giudice(giudice: Giudice,
+                            context: Optional[dict] = None) -> str:
+    """La chiave di questo giudice: prima il chiamante, poi l'ambiente.
+
+    Stesso ordine di `credenziali_presenti` e di ogni altro modulo: chi
+    fa una richiesta API porta le proprie chiavi e non deve dipendere
+    dall'ambiente del server.
+    """
+    fornita = (context or {}).get("credentials", {}).get(giudice.credential)
+    if fornita:
+        return str(fornita)
+    for nome in giudice.env:
+        valore = os.environ.get(nome)
+        if valore:
+            return valore
+    return ""
+
+
+def indirizzo_del_giudice(giudice: Giudice) -> str:
+    """Il base_url, sovrascrivibile dall'ambiente.
+
+    Serve ai server finti dei test — che si agganciano senza che il
+    codice sappia di essere in prova — e a chi usa un endpoint
+    regionale: DashScope ne ha uno internazionale e uno di Pechino.
+    """
+    return os.environ.get(giudice.base_url_env) or giudice.base_url
+
+
+def interroga_openai(giudice: Giudice, modello: str, prompt: str,
+                     chiave: str, base_url: str,
+                     sessione: object = None) -> Tuple[dict, bool]:
+    """Unica funzione che tocca la rete per i giudici OpenAI-compatibili.
+
+    Restituisce `(giudizio, schema_imposto)`. Lo schema si chiede con
+    `response_format: json_schema`, che i tre fornitori documentano; su
+    DashScope pero' il supporto dipende dal MODELLO e non dal servizio,
+    quindi un rifiuto e' un esito previsto: si riprova una volta sola
+    con `json_object`, e `schema_imposto` diventa falso perche' il
+    referto deve poterlo dire. Senza quella dichiarazione un tema
+    inventato dal modello passerebbe per una scelta dal vocabolario.
+
+    Il ripiego scatta su un **400 qualunque**, ed e' deliberatamente
+    largo: distinguere «schema non supportato» da un'altra richiesta
+    malformata richiederebbe di indovinare messaggi d'errore che non
+    abbiamo verificato. Una richiesta davvero malformata fallisce due
+    volte, e il secondo errore e' quello che si riporta.
+    """
+    http = sessione if sessione is not None else requests
+    url = base_url.rstrip("/") + "/chat/completions"
+    intestazioni = {"Authorization": "Bearer %s" % chiave,
+                    "Content-Type": "application/json"}
+    corpo: Dict[str, object] = {
+        "model": modello,
+        "messages": [{"role": "system", "content": ISTRUZIONI},
+                     {"role": "user", "content": prompt}],
+        giudice.tokens_field: MAX_TOKENS,
+    }
+    formati = (
+        ({"type": "json_schema",
+          "json_schema": {"name": "giudizio_citabilita",
+                          "schema": SCHEMA["schema"], "strict": True}},
+         True),
+        ({"type": "json_object"}, False),
+    )
+    ultima: Optional[requests.Response] = None
+    for formato, imposto in formati:
+        resp = http.post(url, headers=intestazioni,
+                         json=dict(corpo, response_format=formato),
+                         timeout=TIMEOUT_HTTP)
+        if resp.status_code == 200:
+            return _leggi_scelta(resp.json()), imposto
+        ultima = resp
+        if resp.status_code != 400:
+            break
+    stato = ultima.status_code if ultima is not None else 0
+    raise requests.HTTPError("HTTP %d" % stato)
+
+
+def _leggi_scelta(dati: dict) -> dict:
+    """Il JSON del giudizio da una risposta chat/completions.
+
+    `refusal` e' un campo dell'assistente, non un codice di stato: un
+    rifiuto arriva con HTTP 200 e va riconosciuto, o si leggerebbe un
+    `content` vuoto come «giudizio non interpretabile».
+    """
+    scelte = dati.get("choices") or []
+    if not scelte:
+        raise KeyError("choices")
+    messaggio = (scelte[0] or {}).get("message") or {}
+    if messaggio.get("refusal"):
+        raise RichiestaDeclinata(str(messaggio["refusal"]))
+    return json.loads(messaggio.get("content") or "")
 
 
 def credenziali_presenti(context: Optional[dict] = None) -> bool:
@@ -417,6 +633,364 @@ def interroga(client, prompt: str, model: str = MODEL) -> dict:
     return json.loads(testo)
 
 
+def scarti_di_onesta(giudice: Giudice, punteggio: Optional[int],
+                     results: Optional[dict]) -> Dict[str, object]:
+    """Di quanto il modello si discosta da cio' che l'euristica prevede.
+
+    Due scarti, e sono due domande diverse. Il primo confronta il voto
+    del giudice con l'**indice composito** di `mars_citability`: quanto
+    l'opinione di un modello si allontana dalla stima complessiva. Il
+    secondo lo confronta col profilo che quella stessa euristica
+    calcola **per quell'assistente** — Claude contro il profilo
+    "Claude", ChatGPT contro "ChatGPT/Perplexity" — ed e' il piu'
+    stringente: li' l'euristica prova a prevedere proprio quel giudice.
+
+    Convenzione: **giudizio meno euristica**. Positivo significa che il
+    modello si giudica piu' citabile di quanto la nostra stima preveda.
+    Dichiararla e' necessario: uno scarto senza segno concordato si
+    legge al contrario.
+
+    `None` dove manca un termine, e non zero: `mars_citability` puo' non
+    aver calcolato il composito, e un profilo puo' non esserci. Zero
+    direbbe «coincidono».
+
+    Si puo' calcolare qui perche' l'area 8 gira PRIMA della 9 nel
+    registro: `context["results"]["mars_citability"]` c'e' gia'. Farlo
+    nei renderer significherebbe la stessa aritmetica in tre posti.
+    """
+    cit = (results or {}).get("mars_citability") or {}
+    composito = cit.get("score")
+    profilo = (cit.get("profiles") or {}).get(giudice.profile)
+
+    def scarto(atteso: object) -> Optional[float]:
+        if punteggio is None or not isinstance(atteso, (int, float)):
+            return None
+        return round(float(punteggio) - float(atteso), 1)
+
+    return {"profile": giudice.profile,
+            "composite_score": composito,
+            "profile_score": profilo,
+            "delta_composite": scarto(composito),
+            "delta_profile": scarto(profilo)}
+
+
+def _giudizio_vuoto(nome: str, giudice: Giudice, modello: str,
+                    issues: List[str], rilievi: List[dict]) -> dict:
+    """L'esito di un giudice che non ha risposto.
+
+    `answered` e' la sola cosa che distingue questo caso da un giudizio
+    riuscito senza punteggio: senza, «il modello non ha risposto» e «ha
+    risposto e non ha dato un voto» collasserebbero su `score: None`, che
+    e' la confusione che U1.9 aveva gia' tolto una volta.
+    """
+    return {"provider": nome, "model": modello, "profile": giudice.profile,
+            "status": "unavailable", "answered": False, "score": None,
+            "issues": issues, "findings": rilievi}
+
+
+def giudica(nome: str, giudice: Giudice, modello: str, context: dict,
+            chunks: List[dict], prompt: str,
+            costo: Dict[str, int]) -> dict:
+    """Interroga UN giudice e ne restituisce l'esito, senza mai sollevare.
+
+    Ogni ramo che esce senza giudizio porta con se' un rilievo di stato:
+    un giudice che manca si dichiara, non sparisce (principio 2). E un
+    giudice che fallisce non toglie gli altri dal referto — e' la ragione
+    per cui questa funzione cattura tutto e `run_judges` non ha un
+    `try`.
+    """
+    modalita = (context.get("llm") or "auto").lower()
+    stato = {"mode": modalita, "attempted": False, "provider": nome}
+    chiave = credenziale_del_giudice(giudice, context)
+    iniettato = context.get("_anthropic_client")
+
+    if modalita == "auto" and not chiave and not iniettato:
+        testo = ("%s non presente: giudizio LLM non eseguito "
+                 "(--llm on per tentare comunque)" % giudice.env[0])
+        # `not_attempted` e non `no_key`: la chiave manca anche in
+        # `no_credentials`, e cio' che distingue questo ramo e' che non
+        # si e' tentato — per politica di --llm auto, e infatti si
+        # ripara anche con --llm on.
+        return _giudizio_vuoto(nome, giudice, modello, [testo], [
+            _stato("llm.status.not_attempted", testo, **stato)])
+
+    if giudice.kind == "anthropic":
+        return _giudica_anthropic(nome, giudice, modello, context, chunks,
+                                  prompt, costo, stato, chiave)
+    return _giudica_openai(nome, giudice, modello, context, chunks,
+                           prompt, costo, stato, chiave)
+
+
+def _inviato(stato: dict, modello: str, chunks: List[dict],
+             costo: Dict[str, int]) -> dict:
+    """La traccia della spesa, per i rami che escono DOPO l'invio.
+
+    `costo_stimato` esce dal solo ramo di successo, cioe' sparirebbe
+    esattamente quando qualcosa e' andato storto dopo l'invio.
+    """
+    return dict(stato, attempted=True, model=modello,
+                chunks_sent=len(chunks),
+                estimated_input_tokens=costo["token_stimati_input"])
+
+
+def _annuncia(nome: str, modello: str, chunks: List[dict],
+              costo: Dict[str, int]) -> None:
+    """La spesa si dichiara PRIMA di farla, e su stderr (R59)."""
+    print("  Giudizio LLM [%s]: invio %d passaggi (~%d token stimati) a %s..."
+          % (nome, len(chunks), costo["token_stimati_input"], modello),
+          file=sys.stderr)
+
+
+def _giudica_anthropic(nome: str, giudice: Giudice, modello: str,
+                       context: dict, chunks: List[dict], prompt: str,
+                       costo: Dict[str, int], stato: dict,
+                       chiave: str) -> dict:
+    """Il giudice via SDK ufficiale."""
+    try:
+        import anthropic
+    except ImportError:
+        testo = ("Libreria anthropic non installata "
+                 "(pip install -r requirements-optional.txt)")
+        return _giudizio_vuoto(nome, giudice, modello, [testo], [
+            _stato("llm.status.no_library", testo, **stato)])
+
+    # Il client si costruisce PRIMA di annunciare la spesa, e la
+    # credenziale si verifica su di lui: annunciare un invio che non
+    # avverra' sarebbe fuorviante. Il `try` da solo non bastava —
+    # l'SDK 0.122.0 costruisce sempre e risolve alla richiesta, quindi
+    # non sollevava qui e l'annuncio si stampava lo stesso (R58). Resta
+    # perche' un'altra versione, o un argomento incoerente, puo'
+    # sollevare: e' l'altro modo in cui lo stesso fatto si presenta.
+    try:
+        client = (context.get("_anthropic_client")
+                  or (anthropic.Anthropic(api_key=chiave) if chiave
+                      else anthropic.Anthropic()))
+    except (TypeError, ValueError, anthropic.AnthropicError) as exc:
+        testo = "Nessuna credenziale Anthropic utilizzabile"
+        # Stessa chiave del ramo piu' sotto, con `stage` a distinguere il
+        # momento: che l'SDK sollevi costruendo il client o facendo la
+        # richiesta dipende dalla sua versione, non da un fatto
+        # sull'audit. Senza `stage`, un aggiornamento sposterebbe il
+        # fatto da un ramo all'altro senza lasciare traccia.
+        return _giudizio_vuoto(
+            nome, giudice, modello,
+            ["%s (%s)" % (testo, type(exc).__name__)],
+            [_stato("llm.status.no_credentials", testo,
+                    type(exc).__name__, stage="client", **stato)])
+    if not credenziale_risolta(client):
+        testo = "Nessuna credenziale Anthropic utilizzabile"
+        # Stesse chiave e `stage` del ramo qui sopra: e' lo stesso fatto
+        # — l'SDK non ha una credenziale da usare — visto prima che
+        # sollevi invece che dopo. `detail` resta vuoto perche' non c'e'
+        # un'eccezione da nominare.
+        return _giudizio_vuoto(nome, giudice, modello, [testo], [
+            _stato("llm.status.no_credentials", testo, stage="client",
+                   **stato)])
+
+    _annuncia(nome, modello, chunks, costo)
+    inviato = _inviato(stato, modello, chunks, costo)
+    try:
+        giudizio = interroga(client, prompt, modello)
+    except anthropic.APIError as exc:
+        # `api_failed` e non `api_error`: `llm.status.error` e' gia' la
+        # chiave che il referto sintetizza quando il MODULO solleva, e
+        # due chiavi che differiscono per una parola e significano cose
+        # diverse si confondono a mano.
+        #
+        # Da sapere: anthropic.AuthenticationError E' un APIError,
+        # quindi una chiave sbagliata o scaduta finisce QUI e non in
+        # `no_credentials`. I due fatti sono distinti e hanno riparazioni
+        # diverse — l'SDK non ha RISOLTO una credenziale contro l'API ha
+        # RIFIUTATO quella risolta — e `detail` porta il nome
+        # dell'eccezione, che si autonomina.
+        return _giudizio_vuoto(
+            nome, giudice, modello,
+            ["Errore API Anthropic: %s" % type(exc).__name__],
+            [_stato("llm.status.api_failed", "Errore API Anthropic",
+                    type(exc).__name__, **inviato)])
+    except TypeError as exc:
+        # L'SDK segnala l'assenza di credenziali con un TypeError, e lo
+        # fa al momento della richiesta, non della costruzione del
+        # client: senza questa distinzione un problema di chiave
+        # verrebbe riportato come "giudizio non interpretabile".
+        if "authentication" in str(exc).lower():
+            testo = "Nessuna credenziale Anthropic utilizzabile"
+            return _giudizio_vuoto(nome, giudice, modello, [testo], [
+                _stato("llm.status.no_credentials", testo,
+                       type(exc).__name__, stage="request", **inviato)])
+        # Fatto DIVERSO, quindi chiave diversa: un TypeError senza
+        # "authentication" nel messaggio vuol dire che la chiamata a
+        # interroga() e' malformata — un kwarg ignoto, un SDK
+        # incompatibile — ed e' un difetto nostro, non una credenziale
+        # mancante. Fonderli rifarebbe il difetto che C2 ha gia' chiuso.
+        return _giudizio_vuoto(
+            nome, giudice, modello, ["Chiamata non valida: %s" % exc],
+            # `str(exc)` in detail e non nel title: il titolo resta
+            # invariante come la chiave, e la issue quel messaggio lo
+            # pubblica gia'.
+            [_stato("llm.status.bad_call", "Chiamata non valida",
+                    str(exc), **inviato)])
+    except RichiestaDeclinata as exc:
+        return _rifiutato(nome, giudice, modello, exc, inviato)
+    except (RuntimeError, KeyError, StopIteration,
+            json.JSONDecodeError) as exc:
+        return _illeggibile(nome, giudice, modello, exc, inviato)
+    return _leggi_giudizio(nome, giudice, modello, giudizio, chunks,
+                           costo, inviato, context, True)
+
+
+def _giudica_openai(nome: str, giudice: Giudice, modello: str,
+                    context: dict, chunks: List[dict], prompt: str,
+                    costo: Dict[str, int], stato: dict,
+                    chiave: str) -> dict:
+    """Il giudice via endpoint OpenAI-compatibile.
+
+    `context["_judge_sessions"][nome]`, se c'e', prende il posto di
+    `requests`: e' il punto di iniezione dei test, gemello di
+    `_anthropic_client`, e permette di esercitare tutto il percorso
+    senza rete e senza spesa.
+    """
+    if not chiave:
+        testo = "Nessuna credenziale %s utilizzabile" % nome
+        return _giudizio_vuoto(nome, giudice, modello, [testo], [
+            _stato("llm.status.no_credentials", testo, stage="client",
+                   **stato)])
+
+    _annuncia(nome, modello, chunks, costo)
+    inviato = _inviato(stato, modello, chunks, costo)
+    sessione = (context.get("_judge_sessions") or {}).get(nome)
+    try:
+        giudizio, imposto = interroga_openai(
+            giudice, modello, prompt, chiave,
+            indirizzo_del_giudice(giudice), sessione)
+    except requests.RequestException as exc:
+        # Un solo ramo per rete e stato HTTP: dal punto di vista di chi
+        # legge il referto sono lo stesso fatto — il servizio non ha
+        # risposto come doveva — e `detail` porta il dettaglio.
+        return _giudizio_vuoto(
+            nome, giudice, modello,
+            ["Errore API %s: %s" % (nome, exc)],
+            [_stato("llm.status.api_failed", "Errore API %s" % nome,
+                    str(exc), **inviato)])
+    except RichiestaDeclinata as exc:
+        return _rifiutato(nome, giudice, modello, exc, inviato)
+    except (RuntimeError, KeyError, TypeError, StopIteration,
+            json.JSONDecodeError) as exc:
+        return _illeggibile(nome, giudice, modello, exc, inviato)
+    return _leggi_giudizio(nome, giudice, modello, giudizio, chunks,
+                           costo, inviato, context, imposto)
+
+
+def _rifiutato(nome: str, giudice: Giudice, modello: str,
+               exc: Exception, inviato: dict) -> dict:
+    """I classificatori del modello hanno declinato (R31).
+
+    Ramo e chiave propri: nel gruppo generico la vista compatta diceva
+    «Giudizio non interpretabile: RuntimeError», impreciso due volte —
+    non c'e' alcun giudizio da interpretare, e il nome dell'eccezione
+    Python non dice niente a chi legge un referto.
+    """
+    testo = "Richiesta declinata dai classificatori del modello"
+    return _giudizio_vuoto(nome, giudice, modello, [testo], [
+        _stato("llm.status.refused", testo, str(exc), **inviato)])
+
+
+def _illeggibile(nome: str, giudice: Giudice, modello: str,
+                 exc: Exception, inviato: dict) -> dict:
+    """Il modello ha risposto e la risposta non si legge.
+
+    Una chiave per piu' eccezioni — sono gia' indistinte nella issue, e
+    una chiave per ogni nome di eccezione Python farebbe della chiave un
+    dettaglio del linguaggio. Il messaggio entra in `detail` perche' e'
+    l'unico posto in cui sopravvive.
+    """
+    return _giudizio_vuoto(
+        nome, giudice, modello,
+        ["Giudizio non interpretabile: %s" % type(exc).__name__],
+        [_stato("llm.status.unreadable", "Giudizio non interpretabile",
+                "%s: %s" % (type(exc).__name__, exc), **inviato)])
+
+
+def _leggi_giudizio(nome: str, giudice: Giudice, modello: str,
+                    giudizio: dict, chunks: List[dict],
+                    costo: Dict[str, int], inviato: dict, context: dict,
+                    schema_imposto: bool) -> dict:
+    """Il giudizio del modello come esito d'area, per un solo giudice."""
+    indice: Optional[int] = giudizio.get("passaggio_migliore")
+    migliore = (describe_chunk(chunks[indice])
+                if isinstance(indice, int) and 0 <= indice < len(chunks)
+                else None)
+    # Il modello puo' rispondere con un JSON valido e ometterne il
+    # punteggio: e' una risposta, non una misura, e senza status
+    # finiva nel referto come score None indistinguibile da un'area
+    # mai eseguita.
+    citabilita = giudizio.get("citabilita")
+    deboli = punti_deboli_etichettati(giudizio.get("punti_deboli"))
+    prosa = [testo for _, testo in deboli]
+    issues = prosa[:3]
+    rilievi = rilievi_dei_punti_deboli(deboli, nome, modello)
+    if not schema_imposto:
+        # Va DETTO. Senza lo schema il `tema` non e' vincolato all'enum,
+        # quindi cio' che il modello scrive finisce in `llm.content.other`
+        # per la via del ripiego e non perche' l'abbia scelto: il referto
+        # farebbe passare per scelta da vocabolario una stringa inventata.
+        issues.append("Schema non imposto da %s: i temi dei punti deboli "
+                      "non sono vincolati al vocabolario" % nome)
+        rilievi.insert(0, _stato(
+            "llm.status.no_schema",
+            "Schema non imposto: i temi non sono vincolati al vocabolario",
+            **inviato))
+    if citabilita is None:
+        issues.insert(0, "Il modello ha risposto senza indicare un "
+                         "punteggio di citabilita'")
+        # In testa come la issue, e prima dei derivati: e' un fatto
+        # sulla risposta, e cio' che la risposta dice viene dopo.
+        # `info` e non `warning` benche' sia una delusione: e' una
+        # risposta, non una misura, e resta un fatto sull'esecuzione —
+        # nessuna modifica al sito lo ripara.
+        rilievi.insert(0, _stato(
+            "llm.status.no_score",
+            "Il modello ha risposto senza indicare un punteggio di "
+            "citabilita'", **inviato))
+    return {
+        "provider": nome,
+        "model": modello,
+        "profile": giudice.profile,
+        "status": None if citabilita is not None else "unavailable",
+        "answered": True,
+        "schema_enforced": schema_imposto,
+        "score": citabilita,
+        "issues": issues,
+        "findings": rilievi,
+        "motivazione": giudizio.get("motivazione"),
+        "punti_forti": giudizio.get("punti_forti"),
+        # La PROSA, non le coppie: la resa dei tre formati stampa i
+        # punti deboli come righe, e il tema vive gia' nei rilievi.
+        # Cambiare qui la forma del dato pubblicato spezzerebbe ogni
+        # consumatore del JSON senza dargli nulla in cambio.
+        "punti_deboli": prosa,
+        "passaggio_migliore": migliore,
+        "chunk_valutati": len(chunks),
+        "costo_stimato": costo,
+        "scarti": scarti_di_onesta(giudice, citabilita,
+                                   context.get("results")),
+    }
+
+
+def run_judges(context: dict, chunks: List[dict], prompt: str,
+               costo: Dict[str, int]) -> Tuple[List[dict], List[str]]:
+    """Tutti i giudici richiesti, nell'ordine in cui sono stati chiesti.
+
+    Nessun `try` qui: `giudica` non solleva mai, ed e' li' che la
+    promessa «un giudice che fallisce non toglie gli altri dal referto»
+    e' mantenuta. Un `try` in questo ciclo la manterrebbe lo stesso e
+    nasconderebbe dove sta davvero.
+    """
+    scelti, ignoti = giudici_richiesti(context)
+    return ([giudica(nome, giudice, modello, context, chunks, prompt, costo)
+             for nome, giudice, modello in scelti], ignoti)
+
+
 def audit(context: dict) -> dict:
     """Area 9: giudizio LLM sulla citabilità dei passaggi migliori.
 
@@ -425,9 +999,17 @@ def audit(context: dict) -> dict:
     E' l'unico modulo che spende denaro: non deve mai partire per
     sbaglio, e dichiara la dimensione dell'invio prima di inviarlo.
 
-    context["_anthropic_client"], se presente, viene usato al posto di
-    un client reale: e' il punto di iniezione per i test, che devono
-    poter esercitare tutto il percorso senza spendere nulla.
+    Da U10 i giudici sono piu' d'uno — `context["judge_models"]`,
+    `provider[:modello],...` — e ricevono **lo stesso campione e lo
+    stesso prompt**: un confronto fra modelli interrogati diversamente
+    non direbbe nulla sui modelli. Il dato canonico li porta tutti in
+    `judgements`; i campi in cima restano quelli del **primo giudice che
+    ha risposto**, per i consumatori scritti prima di U10.
+
+    context["_anthropic_client"] e context["_judge_sessions"], se
+    presenti, prendono il posto dei client reali: sono i punti di
+    iniezione per i test, che devono poter esercitare tutto il percorso
+    senza spendere nulla.
     """
     modalita = (context.get("llm") or "auto").lower()
     # `modalita`, non context["llm"]: con llm None o "OFF" il valore
@@ -445,29 +1027,8 @@ def audit(context: dict) -> dict:
                 # spostata di un livello.
                 "findings": [_stato(
                     "llm.status.disabled",
-                    "Giudizio LLM disattivato (--llm off)", **stato)]}
-    if modalita == "auto" and not credenziali_presenti(context):
-        return {"score": None, "status": "unavailable",
-                "issues": ["ANTHROPIC_API_KEY non presente: giudizio LLM "
-                           "non eseguito (--llm on per tentare comunque)"],
-                # `not_attempted` e non `no_key`: la chiave manca anche
-                # in `no_credentials`, e cio' che distingue questo ramo
-                # e' che non si e' tentato — per politica di --llm auto,
-                # e infatti si ripara anche con --llm on.
-                "findings": [_stato(
-                    "llm.status.not_attempted",
-                    "ANTHROPIC_API_KEY non presente: giudizio LLM non "
-                    "eseguito (--llm on per tentare comunque)", **stato)]}
-    try:
-        import anthropic
-    except ImportError:
-        return {"score": None, "status": "unavailable",
-                "issues": ["Libreria anthropic non installata "
-                           "(pip install -r requirements-optional.txt)"],
-                "findings": [_stato(
-                    "llm.status.no_library",
-                    "Libreria anthropic non installata "
-                    "(pip install -r requirements-optional.txt)", **stato)]}
+                    "Giudizio LLM disattivato (--llm off)", **stato)],
+                "judgements": []}
 
     chunks = seleziona_chunk(context)
     if not chunks:
@@ -478,179 +1039,48 @@ def audit(context: dict) -> dict:
                 # manca, non il fatto astratto che manchi un ingresso.
                 "findings": [_stato("llm.status.no_chunks",
                                     "Nessun passaggio da valutare",
-                                    **stato)]}
-
-    # Il client si costruisce PRIMA di annunciare la spesa, e la
-    # credenziale si verifica su di lui: annunciare un invio che non
-    # avverra' sarebbe fuorviante. Il `try` da solo non bastava —
-    # l'SDK 0.122.0 costruisce sempre e risolve alla richiesta, quindi
-    # non sollevava qui e l'annuncio si stampava lo stesso (R58). Resta
-    # perche' un'altra versione, o un argomento incoerente, puo'
-    # sollevare: e' l'altro modo in cui lo stesso fatto si presenta.
-    chiave = (context.get("credentials") or {}).get("anthropic_api_key")
-    try:
-        client = (context.get("_anthropic_client")
-                  or (anthropic.Anthropic(api_key=chiave) if chiave
-                      else anthropic.Anthropic()))
-    except (TypeError, ValueError, anthropic.AnthropicError) as exc:
-        return {"score": None, "status": "unavailable",
-                "issues": ["Nessuna credenziale Anthropic utilizzabile "
-                           "(%s)" % type(exc).__name__],
-                # Stessa chiave del ramo piu' sotto, con `stage` a
-                # distinguere il momento: che l'SDK sollevi costruendo
-                # il client o facendo la richiesta dipende dalla sua
-                # versione, non da un fatto sull'audit. Senza `stage`,
-                # un aggiornamento sposterebbe il fatto da un ramo
-                # all'altro senza lasciare traccia.
-                "findings": [_stato(
-                    "llm.status.no_credentials",
-                    "Nessuna credenziale Anthropic utilizzabile",
-                    type(exc).__name__, stage="client", **stato)]}
-    if not credenziale_risolta(client):
-        return {"score": None, "status": "unavailable",
-                "issues": ["Nessuna credenziale Anthropic utilizzabile"],
-                # Stesse chiave e `stage` del ramo qui sopra: e' lo
-                # stesso fatto — l'SDK non ha una credenziale da usare —
-                # visto prima che sollevi invece che dopo. `detail`
-                # resta vuoto perche' non c'e' un'eccezione da nominare.
-                "findings": [_stato(
-                    "llm.status.no_credentials",
-                    "Nessuna credenziale Anthropic utilizzabile",
-                    stage="client", **stato)]}
+                                    **stato)],
+                "judgements": []}
 
     prompt = costruisci_prompt(context.get("url", ""), chunks)
     costo = costo_stimato(prompt)
-    print("  Giudizio LLM: invio %d passaggi (~%d token stimati) a %s..."
-          % (len(chunks), costo["token_stimati_input"], MODEL), file=sys.stderr)
+    giudizi, ignoti = run_judges(context, chunks, prompt, costo)
 
-    # Da qui in avanti la richiesta e' partita: i rilievi lo dicono, e
-    # portano con se' la traccia della spesa. `costo_stimato` esce oggi
-    # solo dal ramo di successo, cioe' sparisce esattamente quando
-    # qualcosa e' andato storto dopo l'invio.
-    inviato = {"mode": modalita, "attempted": True, "model": MODEL,
-               "chunks_sent": len(chunks),
-               "estimated_input_tokens": costo["token_stimati_input"]}
-    try:
-        giudizio = interroga(client, prompt)
-    except anthropic.APIError as exc:
-        # `api_failed` e non `api_error`: `llm.status.error` e' gia' la
-        # chiave che il referto sintetizza quando il MODULO solleva, e
-        # due chiavi che differiscono per una parola e significano cose
-        # diverse si confondono a mano.
-        #
-        # Da sapere: anthropic.AuthenticationError E' un APIError,
-        # quindi una chiave sbagliata o scaduta finisce QUI e non in
-        # `no_credentials`. I due fatti sono distinti e hanno riparazioni
-        # diverse — l'SDK non ha RISOLTO una credenziale contro l'API ha
-        # RIFIUTATO quella risolta — e `detail` porta il nome
-        # dell'eccezione, che si autonomina.
-        return {"score": None, "status": "unavailable",
-                "issues": ["Errore API Anthropic: %s" % type(exc).__name__],
-                "findings": [_stato("llm.status.api_failed",
-                                    "Errore API Anthropic",
-                                    type(exc).__name__, **inviato)]}
-    except TypeError as exc:
-        # L'SDK segnala l'assenza di credenziali con un TypeError, e lo
-        # fa al momento della richiesta, non della costruzione del
-        # client: senza questa distinzione un problema di chiave
-        # verrebbe riportato come "giudizio non interpretabile".
-        credenziali = "authentication" in str(exc).lower()
-        if credenziali:
-            return {"score": None, "status": "unavailable",
-                    "issues": ["Nessuna credenziale Anthropic utilizzabile"],
-                    "findings": [_stato(
-                        "llm.status.no_credentials",
-                        "Nessuna credenziale Anthropic utilizzabile",
-                        type(exc).__name__, stage="request", **inviato)]}
-        # Fatto DIVERSO, quindi chiave diversa: un TypeError senza
-        # "authentication" nel messaggio vuol dire che la chiamata a
-        # interroga() e' malformata — un kwarg ignoto, un SDK
-        # incompatibile — ed e' un difetto nostro, non una credenziale
-        # mancante. Fonderli rifarebbe il difetto che C2 ha gia' chiuso.
-        return {"score": None, "status": "unavailable",
-                "issues": ["Chiamata non valida: %s" % exc],
-                # `str(exc)` in detail e non nel title: il titolo resta
-                # invariante come la chiave, e la issue quel messaggio
-                # lo pubblica gia'.
-                "findings": [_stato("llm.status.bad_call",
-                                    "Chiamata non valida",
-                                    str(exc), **inviato)]}
-    except RichiestaDeclinata as exc:
-        # Ramo e status propri (R31). Prima finiva nel gruppo generico
-        # qui sotto, e la vista compatta diceva «Giudizio non
-        # interpretabile: RuntimeError» — che e' impreciso due volte:
-        # non c'e' alcun giudizio da interpretare, e il nome
-        # dell'eccezione Python non dice niente a chi legge un referto.
-        # U1.9 aveva gia' portato il messaggio nel `detail`; la meta'
-        # che mancava e' questa.
-        #
-        # Resta `info` come gli altri `llm.status.*`: e' un fatto sulla
-        # scansione, non un difetto del sito, e non si ripara cambiando
-        # il sito. La richiesta e' comunque partita, quindi `inviato`
-        # porta con se' il conto dei passaggi e la stima dei token.
-        return {"score": None, "status": "unavailable",
-                "issues": ["Richiesta declinata dai classificatori del "
-                           "modello"],
-                "findings": [_stato(
-                    "llm.status.refused",
-                    "Richiesta declinata dai classificatori del modello",
-                    str(exc), **inviato)]}
-    except (RuntimeError, KeyError, StopIteration,
-            json.JSONDecodeError) as exc:
-        return {"score": None, "status": "unavailable",
-                "issues": ["Giudizio non interpretabile: %s"
-                           % type(exc).__name__],
-                # Una chiave per quattro eccezioni — sono gia' indistinte
-                # nella issue, e quattro chiavi per quattro nomi di
-                # eccezione Python farebbero della chiave un dettaglio
-                # del linguaggio. Il messaggio entra in `detail` perche'
-                # e' l'unico posto in cui sopravvive il "richiesta
-                # declinata dai classificatori" che interroga() solleva:
-                # la issue pubblica il solo tipo, RuntimeError.
-                "findings": [_stato(
-                    "llm.status.unreadable", "Giudizio non interpretabile",
-                    "%s: %s" % (type(exc).__name__, exc), **inviato)]}
+    issues: List[str] = []
+    rilievi: List[dict] = []
+    for nome in ignoti:
+        # Un nome sbagliato non deve produrre un referto che tace: chi
+        # scrive `--judge-models qwn` otterrebbe l'audit senza giudizio
+        # e senza sapere perche'.
+        testo = "Giudice sconosciuto: '%s' (noti: %s)" % (
+            nome, ", ".join(sorted(JUDGE_PROVIDERS)))
+        issues.append(testo)
+        rilievi.append(_stato("llm.status.unknown_provider", testo,
+                              requested=nome,
+                              known=sorted(JUDGE_PROVIDERS), **stato))
+    # Con piu' di un giudice ogni issue dice DI CHI e'. La vista
+    # compatta di un'area mostra le issues, e in italiano solo quelle:
+    # senza il prefisso, cinque righe di due modelli diversi si
+    # leggerebbero come il parere di uno solo. Con un giudice solo il
+    # prefisso non c'e', perche' non c'e' nulla da distinguere.
+    molti = len(giudizi) > 1
+    for giudizio in giudizi:
+        issues += [("[%s] %s" % (giudizio["provider"], testo)) if molti
+                   else testo for testo in giudizio["issues"]]
+        rilievi += giudizio["findings"]
 
-    indice: Optional[int] = giudizio.get("passaggio_migliore")
-    migliore = (describe_chunk(chunks[indice])
-                if isinstance(indice, int) and 0 <= indice < len(chunks)
-                else None)
-    # Il modello puo' rispondere con un JSON valido e ometterne il
-    # punteggio: e' una risposta, non una misura, e senza status
-    # finiva nel referto come score None indistinguibile da un'area
-    # mai eseguita.
-    citabilita = giudizio.get("citabilita")
-    deboli = punti_deboli_etichettati(giudizio.get("punti_deboli"))
-    prosa = [testo for _, testo in deboli]
-    issues = prosa[:3]
-    rilievi: List[dict] = rilievi_dei_punti_deboli(deboli)
-    if citabilita is None:
-        issues.insert(0, "Il modello ha risposto senza indicare un "
-                         "punteggio di citabilita'")
-        # In testa come la issue, e prima dei derivati: e' un fatto
-        # sulla risposta, e cio' che la risposta dice viene dopo.
-        # `info` e non `warning` benche' sia una delusione: e' una
-        # risposta, non una misura, e resta un fatto sull'esecuzione —
-        # nessuna modifica al sito lo ripara.
-        rilievi.insert(0, _stato(
-            "llm.status.no_score",
-            "Il modello ha risposto senza indicare un punteggio di "
-            "citabilita'", **inviato))
-
-    return {
-        "score": citabilita,
-        "findings": rilievi,
-        "status": None if citabilita is not None else "unavailable",
-        "issues": issues,
-        "model": MODEL,
-        "motivazione": giudizio.get("motivazione"),
-        "punti_forti": giudizio.get("punti_forti"),
-        # La PROSA, non le coppie: la resa dei tre formati stampa i
-        # punti deboli come righe, e il tema vive gia' nei rilievi.
-        # Cambiare qui la forma del dato pubblicato spezzerebbe ogni
-        # consumatore del JSON senza dargli nulla in cambio.
-        "punti_deboli": prosa,
-        "passaggio_migliore": migliore,
-        "chunk_valutati": len(chunks),
-        "costo_stimato": costo,
+    risposti = [g for g in giudizi if g.get("answered")]
+    esito: Dict[str, object] = {
+        "score": None, "status": "unavailable",
+        "issues": issues, "findings": rilievi,
+        "judgements": giudizi,
     }
+    if risposti:
+        primo = risposti[0]
+        esito["score"] = primo["score"]
+        esito["status"] = primo["status"]
+        for campo in ("model", "motivazione", "punti_forti", "punti_deboli",
+                      "passaggio_migliore", "chunk_valutati",
+                      "costo_stimato", "scarti"):
+            esito[campo] = primo[campo]
+    return esito

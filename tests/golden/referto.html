@@ -774,9 +774,11 @@ Disallow:</pre>
 </span>
 </div>
 <ul class='rilievi'>
-<li>Nessun prezzo verificabile</li>
-<li>Nessuna data di aggiornamento</li>
-<li>Il listino si legge come una promessa, non come un dato</li>
+<li>[anthropic] Nessun prezzo verificabile</li>
+<li>[anthropic] Nessuna data di aggiornamento</li>
+<li>[anthropic] Il listino si legge come una promessa, non come un dato</li>
+<li>[openai] Nessun riferimento a fonti o normative</li>
+<li>[openai] Alcuni passaggi rimandano a cio&#x27; che sta sopra</li>
 </ul>
 </div>
 <h2>Superficie</h2>
@@ -1301,10 +1303,14 @@ Disallow:</pre>
 </ul>
 <h2>Giudizio LLM</h2>
 <div class='card'>
-<p class='meta'>claude-opus-5 · 4 passaggi valutati</p>
+<p class='meta'>anthropic · claude-opus-5 · 4 passaggi valutati</p>
 <p class='grande warn'>61<span class='muted'>/100</span>
 </p>
 <p>I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e&#x27; verificabile.</p>
+<p class='meta'>scarto vs indice composito: <strong>+0.3</strong>
+</p>
+<p class='meta'>scarto vs profilo Claude: <strong>-1.3</strong>
+</p>
 <p class='meta'>Passaggio migliore: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
 </p>
 <p class='strumento'>
@@ -1324,6 +1330,32 @@ Disallow:</pre>
 <li>Nessuna firma sugli articoli</li>
 </ul>
 </div>
+<div class='card'>
+<p class='meta'>openai · gpt-5.6 · 4 passaggi valutati</p>
+<p class='grande bad'>44<span class='muted'>/100</span>
+</p>
+<p>Il contenuto risponde, ma nulla e&#x27; verificabile dall&#x27;esterno.</p>
+<p class='meta'>scarto vs indice composito: <strong>-16.7</strong>
+</p>
+<p class='meta'>scarto vs profilo ChatGPT/Perplexity: <strong>-15.5</strong>
+</p>
+<p class='meta'>Passaggio migliore: <code>https://esempio.test/servizi/ § Percorsi post-operatori</code>
+</p>
+<p class='strumento'>
+<strong>Punti di forza</strong>
+</p>
+<ul class='rilievi'>
+<li>Struttura a domanda e risposta</li>
+</ul>
+<p class='strumento'>
+<strong>Da migliorare</strong>
+</p>
+<ul class='rilievi'>
+<li>Nessun riferimento a fonti o normative</li>
+<li>Alcuni passaggi rimandano a cio&#x27; che sta sopra</li>
+</ul>
+</div>
+<p class='meta'>gli scarti confrontano un giudizio con una stima euristica</p>
 <h2>Cosa non è stato guardato</h2>
 <div class='card'>
 <p class='meta'>4 URL saltati:</p>

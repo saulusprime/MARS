@@ -255,12 +255,16 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ### 9. Giudizio LLM
 
-- [INFO] Affermazioni che nulla rende verificabili
+- [INFO] Affermazioni che nulla rende verificabili — anthropic
   Nessun prezzo verificabile; Nessuna data di aggiornamento
-- [INFO] Passaggi promozionali invece che informativi
+- [INFO] Passaggi promozionali invece che informativi — anthropic
   Il listino si legge come una promessa, non come un dato
-- [INFO] Altre osservazioni del modello sul contenuto
+- [INFO] Altre osservazioni del modello sul contenuto — anthropic
   Nessuna firma sugli articoli
+- [INFO] Affermazioni che nulla rende verificabili — openai
+  Nessun riferimento a fonti o normative
+- [INFO] Passaggi che non si reggono fuori dal loro contesto — openai
+  Alcuni passaggi rimandano a cio' che sta sopra
 
 ## Profili di citabilità IA
 
@@ -278,11 +282,29 @@ Mercato: eu
 
 ## Giudizio LLM
 
+### anthropic
+
 Modello: claude-opus-5, su 4 passaggi.
 
 Citabilità stimata: **61/100**
 
 I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
+
+- scarto vs indice composito: **+0.3**
+- scarto vs profilo Claude: **-1.3**
+
+### openai
+
+Modello: gpt-5.6, su 4 passaggi.
+
+Citabilità stimata: **44/100**
+
+Il contenuto risponde, ma nulla e' verificabile dall'esterno.
+
+- scarto vs indice composito: **-16.7**
+- scarto vs profilo ChatGPT/Perplexity: **-15.5**
+
+*gli scarti confrontano un giudizio con una stima euristica*
 
 ## Simulazione RRF
 

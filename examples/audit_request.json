@@ -10,8 +10,13 @@
     "l'estensione .local.json, che git ignora:",
     "    cp examples/audit_request.json examples/mio.local.json",
     "In alternativa, esportare le chiavi come variabili d'ambiente sul",
-    "server (ANTHROPIC_API_KEY, HF_TOKEN, ZAP_API_KEY) e omettere del",
-    "tutto il campo 'credentials'."
+    "server (ANTHROPIC_API_KEY, OPENAI_API_KEY, DASHSCOPE_API_KEY,",
+    "MOONSHOT_API_KEY, HF_TOKEN, ZAP_API_KEY) e omettere del tutto il",
+    "campo 'credentials'.",
+    "",
+    "'judge_models' vuoto significa il solo giudice anthropic. Ogni",
+    "giudice in piu' e' una spesa in piu': 'anthropic,openai,qwen,kimi'",
+    "paga quattro volte lo stesso campione."
   ],
   "url": "https://www.example.com",
   "max_pages": 25,
@@ -25,11 +30,15 @@
   "delay": 0.5,
   "timeout": 10,
   "llm": "auto",
+  "judge_models": "",
   "i_own_this_domain": false,
   "max_children": 0,
   "rrf_k": 60,
   "credentials": {
     "anthropic_api_key": "SEGNAPOSTO-sostituire-fuori-dal-repository",
+    "openai_api_key": "SEGNAPOSTO-solo-per-il-giudice-openai",
+    "dashscope_api_key": "SEGNAPOSTO-solo-per-il-giudice-qwen",
+    "moonshot_api_key": "SEGNAPOSTO-solo-per-il-giudice-kimi",
     "hf_token": "SEGNAPOSTO-solo-per-modelli-Hugging-Face-ad-accesso-limitato",
     "zap_api_key": "SEGNAPOSTO-oppure-omettere-se-api.disablekey=true",
     "zap_proxy": "http://127.0.0.1:8080"

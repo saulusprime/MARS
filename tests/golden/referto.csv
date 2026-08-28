@@ -31,6 +31,8 @@ https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Qualità SEO (2
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accessibilità (37/100);;;;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Accesso e indicizzabilità (57/100);;;;;;
 https://esempio.test/;8. Citabilità IA;info;1.0;Segnale debole: Sicurezza (57/100);;;;;;
-https://esempio.test/;9. Giudizio LLM;info;1.0;Affermazioni che nulla rende verificabili;"Nessun prezzo verificabile; Nessuna data di aggiornamento";;;;;
-https://esempio.test/;9. Giudizio LLM;info;1.0;Passaggi promozionali invece che informativi;Il listino si legge come una promessa, non come un dato;;;;;
-https://esempio.test/;9. Giudizio LLM;info;1.0;Altre osservazioni del modello sul contenuto;Nessuna firma sugli articoli;;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Affermazioni che nulla rende verificabili — anthropic;"Nessun prezzo verificabile; Nessuna data di aggiornamento";;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Passaggi promozionali invece che informativi — anthropic;Il listino si legge come una promessa, non come un dato;;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Altre osservazioni del modello sul contenuto — anthropic;Nessuna firma sugli articoli;;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Affermazioni che nulla rende verificabili — openai;Nessun riferimento a fonti o normative;;;;;
+https://esempio.test/;9. Giudizio LLM;info;1.0;Passaggi che non si reggono fuori dal loro contesto — openai;Alcuni passaggi rimandano a cio' che sta sopra;;;;;

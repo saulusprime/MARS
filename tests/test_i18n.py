@@ -187,6 +187,24 @@ def _params_del_banco(monkeypatch) -> dict:
         "force_proxy": True, "credentials": {}}
     raccogli(mars_semantic.audit(vuote))
 
+    # Area 9 (U10.1, U10): gli otto temi del vocabolario piu' il secchio,
+    # e il giudice sconosciuto. I golden ne accendono tre su nove: le
+    # altre le accende un sito vero, e allora e' tardi per scoprirle
+    # senza traduzione. `rilievi_dei_punti_deboli` E' il modulo che
+    # quei params li costruisce — chiamarlo e' esercitare il vero.
+    import mars_llm_judge
+    for chiave, tema in list(mars_llm_judge.VOCABOLARIO.items()) + [
+            (mars_llm_judge.FUORI_VOCABOLARIO, mars_llm_judge.TEMA_ALTRO)]:
+        for f in mars_llm_judge.rilievi_dei_punti_deboli(
+                [(chiave, "Osservazione del modello.")], "anthropic",
+                mars_llm_judge.MODEL):
+            veri.setdefault(f["key"], f["params"])
+    raccogli(mars_llm_judge.audit({
+        "url": "https://esempio.test/", "llm": "on",
+        "judge_models": "giudice-che-non-esiste",
+        "chunks": [{"url": "https://esempio.test/", "heading": "Titolo",
+                    "text": "Un passaggio qualunque."}]}))
+
     # Area 8: i sette segnali tutti deboli, poi tutti non misurati.
     # I due derivati non vengono da uno `score`: `answer_shaped` dal
     # rapporto di mars_semantic, `recuperabilita` dal consenso fra i due

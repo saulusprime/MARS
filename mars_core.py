@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.11.0"
+__version__ = "2.12.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1563,10 +1563,13 @@ def default_queries(pages: dict) -> List[str]:
 # modello Pydantic dell'API e dentro i singoli moduli: qui diventano
 # l'elenco unico che CLI e API condividono, perche' un nome che
 # diverge fra le due interfacce e' un file che l'una accetta e l'altra
-# ignora. Gli stessi quattro che `.claude/contratto-moduli.md`
-# dichiara per `context["credentials"]`.
-CREDENZIALI_NOTE = ("anthropic_api_key", "hf_token", "zap_api_key",
-                    "zap_proxy")
+# ignora. Gli stessi che `.claude/contratto-moduli.md` dichiara per
+# `context["credentials"]`. I tre giudici non-Anthropic (U10) prendono
+# il nome dal fornitore e non dal modello: `dashscope_api_key` e non
+# `qwen_api_key`, perche' e' il nome della chiave che si va a chiedere.
+CREDENZIALI_NOTE = ("anthropic_api_key", "openai_api_key",
+                    "dashscope_api_key", "moonshot_api_key",
+                    "hf_token", "zap_api_key", "zap_proxy")
 
 
 def load_credentials(path: str) -> Tuple[Dict[str, str], str]:
@@ -1784,6 +1787,7 @@ def build_context(url: str, max_pages: int = 10,
                   max_children: int = 0,
                   rrf_k: Optional[int] = None,
                   llm: str = "auto",
+                  judge_models: str = "",
                   queries: Optional[List[str]] = None,
                   credentials: Optional[dict] = None,
                   lang: str = "it") -> Optional[dict]:
@@ -1855,6 +1859,11 @@ def build_context(url: str, max_pages: int = 10,
         # secondi.
         "delay": crawler.delay,
         "llm": llm,
+        # Quali giudici interrogare, `provider[:modello],...`. Vuoto
+        # significa il solo `anthropic`, cioe' quello che MARS
+        # interrogava prima di U10: aggiungere un giudice e' una
+        # SCELTA, e quest'area e' l'unica che spende denaro.
+        "judge_models": str(judge_models or ""),
         # Credenziali del chiamante, alternative alle variabili
         # d'ambiente. Non finiscono nel referto: build_report() legge
         # chiavi nominate, non l'intero contesto.

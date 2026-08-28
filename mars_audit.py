@@ -38,7 +38,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               max_children: int = 0,
               rrf_k: int = RRF_K,
               credentials: dict | None = None,
-              llm: str = "auto", formato: str = "text",
+              llm: str = "auto", judge_models: str = "",
+              formato: str = "text",
               output: str | None = None,
               queries: list[str] | None = None,
               storico: str | None = None,
@@ -50,7 +51,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             max_children=max_children,
                             rrf_k=rrf_k,
                             credentials=credentials,
-                            llm=llm, queries=queries, lang=lang)
+                            llm=llm, judge_models=judge_models,
+                            queries=queries, lang=lang)
 
     if context is None:
         print("Nessuna pagina indicizzata.", file=sys.stderr)
@@ -359,6 +361,20 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "passaggi e quanti token partiranno.")
 
     parser.add_argument(
+        "--judge-models", metavar="ELENCO", default="",
+        help="Quali modelli interrogare per il giudizio, separati da "
+             "virgola, nella forma provider[:modello]. Noti: anthropic "
+             "(predefinito), openai, qwen, kimi. Ricevono tutti lo "
+             "STESSO campione e lo stesso prompt — un confronto fra "
+             "modelli interrogati diversamente non direbbe nulla sui "
+             "modelli. OGNI GIUDICE E' UNA SPESA IN PIU': con quattro "
+             "si paga quattro volte. Le chiavi si passano con "
+             "--credentials (openai_api_key, dashscope_api_key, "
+             "moonshot_api_key) o dall'ambiente (OPENAI_API_KEY, "
+             "DASHSCOPE_API_KEY, MOONSHOT_API_KEY). Esempio: "
+             "--judge-models anthropic,openai,qwen:qwen-max")
+
+    parser.add_argument(
         "--i-own-this-domain", action="store_true",
         dest="owner_declaration",
         help="DICHIARAZIONE: sono il proprietario del dominio e mi assumo "
@@ -409,6 +425,7 @@ def main(argv: list[str] | None = None) -> int:
                      owner_declaration=args.owner_declaration,
                      max_children=args.max_children,
                      rrf_k=args.rrf_k,
+                     judge_models=args.judge_models,
                      credentials=chiavi,
                      llm=args.llm, formato=args.formato,
                      output=args.output, queries=elenco_query,

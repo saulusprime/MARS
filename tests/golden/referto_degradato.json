@@ -881,8 +881,10 @@
           "attempted": false
         }
       }
-    ]
+    ],
+    "judgements": []
   },
+  "llm_judgements": [],
   "lexical": {
     "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?"
   },

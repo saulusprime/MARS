@@ -6026,7 +6026,10 @@ def test_llm_un_profilo_ant_auth_login_non_e_una_credenziale_assente(
     esito = mars_llm_judge.audit(ctx)
 
     assert esito["score"] == 71
-    assert "Giudizio LLM: invio" in capsys.readouterr().err
+    # Il giudice si NOMINA nell'annuncio (U10): con quattro
+    # possibili, «invio 8 passaggi» senza dire a chi non basta a
+    # sapere che cosa si sta pagando.
+    assert "Giudizio LLM [anthropic]: invio" in capsys.readouterr().err
 
 
 def test_llm_una_chiamata_malformata_non_e_una_credenziale_mancante(
@@ -6161,7 +6164,12 @@ def test_llm_ogni_tema_del_vocabolario_diventa_il_suo_rilievo(contesto):
                      _risposta_llm(_con_deboli((nome, "Osservazione."))))
         rilievi = _contenuto(esito)
         assert list(rilievi) == [tema.key], nome
-        assert rilievi[tema.key]["title"] == tema.title
+        # Il provider nel TITOLO e non nella chiave: con quattro giudici
+        # quattro rilievi con lo stesso titolo sarebbero indistinguibili
+        # nelle viste di prosa, e una chiave per provider moltiplicherebbe
+        # il catalogo di traduzione per quattro.
+        assert rilievi[tema.key]["title"] == "%s — anthropic" % tema.title
+        assert rilievi[tema.key]["params"]["provider"] == "anthropic"
         assert rilievi[tema.key]["detail"] == "Osservazione."
         assert tema.key == "llm.content.%s" % nome
         assert len(tema.key.split(".")) == 3
@@ -6297,6 +6305,270 @@ def test_llm_i_rilievi_di_contenuto_restano_fuori_dal_piano(contesto):
     assert riga_storico(referto)["findings"] == []
 
 
+# --- U10: il giudizio multi-modello ------------------------------------
+#
+# Tre dei quattro giudici parlano lo stesso protocollo — POST
+# /chat/completions, risposta in choices[0].message.content — quindi un
+# solo percorso di codice, e un solo server finto per provarlo. La
+# cucitura e' `context["_judge_sessions"]`, gemella di
+# `_anthropic_client`: nessuna rete, nessuna spesa.
+
+
+class _RispostaHTTP:
+    def __init__(self, payload, status_code=200):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class _SessioneFinta:
+    """Un endpoint OpenAI-compatibile che risponde come deciso.
+
+    Registra le richieste: senza, non si potrebbe verificare che lo
+    schema sia stato davvero chiesto, ne' che il ripiego sia UNA sola
+    richiesta in piu' e non un ciclo.
+    """
+
+    def __init__(self, *risposte):
+        self.risposte = list(risposte)
+        self.richieste = []
+
+    def post(self, url, headers=None, json=None, timeout=None):
+        self.richieste.append({"url": url, "headers": headers or {},
+                               "json": json or {}, "timeout": timeout})
+        esito = self.risposte.pop(0) if self.risposte else None
+        if isinstance(esito, BaseException):
+            raise esito
+        return esito
+
+
+def _ok_http(payload):
+    """La risposta di un giudice OpenAI-compatibile, riuscita."""
+    return _RispostaHTTP({"choices": [
+        {"message": {"content": json.dumps(payload)}}]})
+
+
+def _llm_openai(contesto, *risposte, **cambi):
+    """Un audit col solo giudice `openai`, servito dalla sessione finta."""
+    sessione = _SessioneFinta(*risposte)
+    ctx = dict(contesto, llm="on", judge_models="openai",
+               credentials={"openai_api_key": "finta"},
+               _judge_sessions={"openai": sessione}, **cambi)
+    return mars_llm_judge.audit(ctx), sessione
+
+
+def test_llm_il_giudice_openai_compatibile_parla_chat_completions(contesto):
+    """La forma della richiesta, verificata sulla documentazione dei tre
+    fornitori il 2026-08-28 e non ricordata.
+
+    Se divergesse, il giudice non fallirebbe in modo riconoscibile:
+    tornerebbe un 400 che il referto riporta come «Errore API»."""
+    esito, sessione = _llm_openai(contesto, _ok_http(GIUDIZIO))
+    assert esito["score"] == 71
+    richiesta = sessione.richieste[0]
+    assert richiesta["url"].endswith("/chat/completions")
+    assert richiesta["headers"]["Authorization"] == "Bearer finta"
+    corpo = richiesta["json"]
+    assert corpo["model"] == mars_llm_judge.JUDGE_PROVIDERS["openai"].model
+    assert [m["role"] for m in corpo["messages"]] == ["system", "user"]
+    assert corpo["messages"][0]["content"] == mars_llm_judge.ISTRUZIONI
+    # Il nome del tetto ai token viene dal REGISTRO: su OpenAI
+    # `max_tokens` e' deprecato, sui due compatibili e' ancora quello.
+    assert corpo["max_completion_tokens"] == mars_llm_judge.MAX_TOKENS
+    assert "max_tokens" not in corpo
+    formato = corpo["response_format"]
+    assert formato["type"] == "json_schema"
+    assert formato["json_schema"]["strict"] is True
+    assert formato["json_schema"]["schema"] is mars_llm_judge.SCHEMA["schema"]
+
+
+def test_llm_uno_schema_rifiutato_ripiega_e_lo_dichiara(contesto):
+    """Su DashScope `json_schema` dipende dal MODELLO, non dal servizio.
+
+    Il ripiego su `json_object` e' la degradazione dichiarata del
+    principio 2, e la dichiarazione e' la meta' che conta: senza,
+    un tema inventato dal modello passerebbe per una scelta dal
+    vocabolario chiuso."""
+    esito, sessione = _llm_openai(
+        contesto, _RispostaHTTP({}, 400), _ok_http(GIUDIZIO))
+    assert esito["score"] == 71
+    assert len(sessione.richieste) == 2, "una sola richiesta in piu'"
+    assert sessione.richieste[0]["json"]["response_format"]["type"] \
+        == "json_schema"
+    assert sessione.richieste[1]["json"]["response_format"] \
+        == {"type": "json_object"}
+    giudizio = esito["judgements"][0]
+    assert giudizio["schema_enforced"] is False
+    assert [f["key"] for f in giudizio["findings"]][0] \
+        == "llm.status.no_schema"
+    assert any("Schema non imposto" in i for i in esito["issues"])
+
+
+def test_llm_uno_schema_imposto_non_dichiara_nulla(contesto):
+    """Il verso opposto: dove lo schema regge, nessun rilievo di stato.
+
+    Un avviso che compare sempre e' un avviso che nessuno legge."""
+    esito, _ = _llm_openai(contesto, _ok_http(GIUDIZIO))
+    assert esito["judgements"][0]["schema_enforced"] is True
+    assert "llm.status.no_schema" not in [f["key"] for f in esito["findings"]]
+
+
+def test_llm_un_errore_diverso_da_400_non_si_riprova(contesto):
+    """Il ripiego serve allo schema, non a insistere su un servizio giu'.
+
+    Un 500 riprovato costerebbe una seconda richiesta per nulla."""
+    esito, sessione = _llm_openai(contesto, _RispostaHTTP({}, 500))
+    assert len(sessione.richieste) == 1
+    assert [f["key"] for f in esito["findings"]] == ["llm.status.api_failed"]
+    assert esito["score"] is None
+
+
+def test_llm_un_rifiuto_arriva_con_http_200(contesto):
+    """`refusal` e' un campo dell'assistente, non un codice di stato.
+
+    Senza riconoscerlo, un `content` vuoto si leggerebbe come «giudizio
+    non interpretabile», che e' un fatto diverso: li' il modello ha
+    risposto e la risposta non si legge, qui non ha risposto affatto."""
+    esito, _ = _llm_openai(contesto, _RispostaHTTP(
+        {"choices": [{"message": {"refusal": "no"}}]}))
+    assert [f["key"] for f in esito["findings"]] == ["llm.status.refused"]
+
+
+def test_llm_un_giudice_che_cade_non_toglie_gli_altri(contesto):
+    """La promessa di `giudica`, provata sul dato vero.
+
+    E' il principio 2 applicato al multi-modello: chi manca si
+    dichiara, e chi c'e' resta."""
+    sessione = _SessioneFinta(requests.ConnectionError("rete giu'"))
+    ctx = dict(contesto, llm="on", judge_models="anthropic,openai",
+               credentials={"openai_api_key": "finta"},
+               _judge_sessions={"openai": sessione},
+               _anthropic_client=_ClientLLM(_risposta_llm(GIUDIZIO)))
+    esito = mars_llm_judge.audit(ctx)
+    assert esito["score"] == 71, "il giudice riuscito resta"
+    assert [g["provider"] for g in esito["judgements"]] \
+        == ["anthropic", "openai"]
+    assert esito["judgements"][1]["answered"] is False
+    assert "llm.status.api_failed" in [f["key"] for f in esito["findings"]]
+    # Con piu' giudici ogni issue dice di chi e': la vista compatta di
+    # un'area mostra le issues, e in italiano solo quelle.
+    assert all(i.startswith("[") for i in esito["issues"])
+
+
+def test_llm_il_primo_che_risponde_resta_in_cima(contesto):
+    """I campi legacy sono del PRIMO giudice che ha risposto, non del
+    primo richiesto: un consumatore scritto prima di U10 non deve
+    leggere i campi di un giudice che non ha risposto."""
+    import anthropic
+    sessione = _SessioneFinta(_ok_http(dict(GIUDIZIO, citabilita=33)))
+    ctx = dict(contesto, llm="on", judge_models="anthropic,openai",
+               credentials={"openai_api_key": "finta"},
+               _judge_sessions={"openai": sessione},
+               # L'eccezione dell'SDK, non una di `requests`: il
+               # percorso anthropic cattura le sue, e usare l'altra
+               # proverebbe un ramo che in produzione non esiste.
+               _anthropic_client=_ClientLLM(
+                   anthropic.APIConnectionError(request=object())))
+    esito = mars_llm_judge.audit(ctx)
+    assert esito["score"] == 33
+    assert esito["model"] == mars_llm_judge.JUDGE_PROVIDERS["openai"].model
+
+
+def test_llm_ogni_giudice_riceve_lo_stesso_campione(contesto):
+    """Un confronto fra modelli interrogati diversamente non direbbe
+    nulla sui modelli: e' l'unico modo perche' gli scarti significhino
+    qualcosa."""
+    sessione = _SessioneFinta(_ok_http(GIUDIZIO))
+    visti = []
+
+    class _Spia(_ClientLLM):
+        def create(self, **kw):
+            visti.append(kw["messages"][0]["content"])
+            return self.esito
+
+    ctx = dict(contesto, llm="on", judge_models="anthropic,openai",
+               credentials={"openai_api_key": "finta"},
+               _judge_sessions={"openai": sessione},
+               _anthropic_client=_Spia(_risposta_llm(GIUDIZIO)))
+    mars_llm_judge.audit(ctx)
+    assert visti == [sessione.richieste[0]["json"]["messages"][1]["content"]]
+
+
+def test_llm_un_giudice_sconosciuto_si_dichiara(contesto):
+    """Scrivere `qwn` non deve produrre un referto che tace: l'audit
+    girerebbe senza giudizio e senza dire perche'."""
+    esito = _llm(dict(contesto, judge_models="qwn"),
+                 _risposta_llm(GIUDIZIO))
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert chiavi == ["llm.status.unknown_provider"]
+    params = esito["findings"][0]["params"]
+    assert params["requested"] == "qwn"
+    assert params["known"] == sorted(mars_llm_judge.JUDGE_PROVIDERS)
+    assert esito["judgements"] == [], "nessun giudice da interrogare"
+
+
+def test_llm_lo_stesso_giudice_due_volte_si_paga_una(contesto):
+    """Quasi certamente un refuso, e interrogarlo due volte lo si paga
+    due volte."""
+    scelti, ignoti = mars_llm_judge.giudici_richiesti(
+        {"judge_models": "anthropic,anthropic:altro"})
+    assert [n for n, _, _ in scelti] == ["anthropic"]
+    assert ignoti == []
+    # E il modello del flag vince su quello del registro.
+    scelti, _ = mars_llm_judge.giudici_richiesti(
+        {"judge_models": "qwen:qwen-max"})
+    assert [(n, m) for n, _, m in scelti] == [("qwen", "qwen-max")]
+
+
+def test_llm_senza_richiesta_gira_il_solo_anthropic():
+    """Aggiungere un giudice e' una SCELTA: quest'area e' l'unica che
+    spende, e un default che ne interroga quattro farebbe pagare
+    quattro volte chi non ha chiesto nulla."""
+    for contesto in ({}, {"judge_models": ""}, {"judge_models": "  "}):
+        scelti, ignoti = mars_llm_judge.giudici_richiesti(contesto)
+        assert [n for n, _, _ in scelti] == ["anthropic"]
+        assert ignoti == []
+
+
+def test_llm_gli_scarti_di_onesta_hanno_il_segno_dichiarato(contesto):
+    """Convenzione: giudizio meno euristica. Positivo = il modello si
+    giudica piu' citabile di quanto la nostra stima preveda.
+
+    Uno scarto senza segno concordato si legge al contrario."""
+    results = {"mars_citability": {"score": 50.0,
+                                   "profiles": {"Claude": 80.0}}}
+    esito = _llm(dict(contesto, results=results),
+                 _risposta_llm(dict(GIUDIZIO, citabilita=70)))
+    scarti = esito["scarti"]
+    assert scarti["profile"] == "Claude"
+    assert scarti["delta_composite"] == 20.0, "70 - 50"
+    assert scarti["delta_profile"] == -10.0, "70 - 80"
+
+
+def test_llm_uno_scarto_senza_termine_e_none_e_non_zero(contesto):
+    """Zero direbbe «coincidono». `mars_citability` puo' non aver
+    calcolato il composito, e un profilo puo' non esserci."""
+    esito = _llm(dict(contesto, results={"mars_citability": {}}),
+                 _risposta_llm(GIUDIZIO))
+    assert esito["scarti"]["delta_composite"] is None
+    assert esito["scarti"]["delta_profile"] is None
+    senza_voto = _llm(dict(contesto, results={
+        "mars_citability": {"score": 50.0, "profiles": {"Claude": 80.0}}}),
+        _risposta_llm(dict(GIUDIZIO, citabilita=None)))
+    assert senza_voto["scarti"]["delta_composite"] is None
+
+
+def test_llm_ogni_profilo_del_registro_esiste_in_citabilita():
+    """Il campo `profile` aggancia il giudice al profilo che l'area 8
+    stima per QUELLO assistente. Un nome che non esiste li' non
+    solleva: lo scarto uscirebbe `None` per sempre, e nessuno se ne
+    accorgerebbe."""
+    for nome, giudice in mars_llm_judge.JUDGE_PROVIDERS.items():
+        assert giudice.profile in mars_citability.PESI_ASSISTENTE, nome
+
+
 def test_llm_lo_schema_dichiara_il_vocabolario_chiuso():
     """Il modello la chiave non la scrive: la SCEGLIE dall'enum.
 
@@ -6335,6 +6607,20 @@ def test_llm_una_risposta_senza_punteggio_lo_dichiara_in_testa(contesto):
     # in testa come la issue corrispondente
     assert esito["issues"][0].startswith("Il modello ha risposto senza")
     assert rilievo["title"] == esito["issues"][0]
+
+
+def test_llm_un_post_dimenticato_non_passa_per_un_errore_di_rete():
+    """Il presidio che rende rumoroso un giudice senza sessione finta.
+
+    `NienteRete` eredita da `RequestException`, e `_giudica_openai` la
+    cattura e dichiara «Errore API»: un test che dimenticasse
+    `_judge_sessions` finirebbe VERDE sul ramo sbagliato. `nessuna_spesa`
+    registra il tentativo e fallisce in teardown — ma quel presidio, se
+    sparisse, non farebbe fallire nulla. Qui si verifica il MECCANISMO,
+    perche' verificarne l'effetto richiederebbe un test che fallisce
+    apposta."""
+    assert getattr(requests.post, "_mars_registra_il_tentativo", False), \
+        "un giudice senza sessione finta passerebbe per un errore di rete"
 
 
 def test_llm_la_rete_vera_e_bloccata_anche_per_httpx():

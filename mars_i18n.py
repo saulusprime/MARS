@@ -585,6 +585,13 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
     "llm.status.no_score": {
         "title": "The model answered without giving a citability score",
     },
+    "llm.status.no_schema": {
+        "title": "Schema not enforced: the themes are not bound to the "
+                 "vocabulary",
+    },
+    "llm.status.unknown_provider": {
+        "title": "Unknown judge: '%(requested)s' (known: %(known)s)",
+    },
 
     # I sette temi del vocabolario chiuso (U10.1). Solo il `title`: il
     # `detail` e' la prosa del modello, che nasce in italiano perche' in
@@ -593,28 +600,29 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
     # `mars_citability`: la prescrizione appartiene all'area che il
     # difetto lo misura, non a chi ne ha un'opinione.
     "llm.content.thin": {
-        "title": "Passages too thin to be quoted",
+        "title": "Passages too thin to be quoted — %(provider)s",
     },
     "llm.content.not_answer": {
-        "title": "Passages that do not answer a question",
+        "title": "Passages that do not answer a question — %(provider)s",
     },
     "llm.content.not_standalone": {
-        "title": "Passages that do not stand on their own",
+        "title": "Passages that do not stand on their own — %(provider)s",
     },
     "llm.content.duplicate": {
-        "title": "Passages that repeat the same content",
+        "title": "Passages that repeat the same content — %(provider)s",
     },
     "llm.content.boilerplate": {
-        "title": "Passages that are site scaffolding, not content",
+        "title": "Passages that are site scaffolding, not content — "
+                 "%(provider)s",
     },
     "llm.content.promotional": {
-        "title": "Passages that sell instead of informing",
+        "title": "Passages that sell instead of informing — %(provider)s",
     },
     "llm.content.unverifiable": {
-        "title": "Claims with nothing to make them verifiable",
+        "title": "Claims with nothing to make them verifiable — %(provider)s",
     },
     "llm.content.other": {
-        "title": "Other model observations on the content",
+        "title": "Other model observations on the content — %(provider)s",
     },
 }
 
@@ -1073,6 +1081,12 @@ _CORNICE_EN: Dict[str, str] = {
     "Modello: %s, su %s passaggi.": "Model: %s, on %s passages.",
     "  Citabilità stimata   :": "  Estimated citability :",
     "Citabilità stimata: **%s/100**": "Estimated citability: **%s/100**",
+    # I due scarti di onesta' (U10). L'etichetta porta il segno gia' nel
+    # valore, quindi qui non c'e' nulla da concordare.
+    "scarto vs indice composito:": "gap vs composite index:",
+    "scarto vs profilo %s:": "gap vs %s profile:",
+    "gli scarti confrontano un giudizio con una stima euristica":
+        "the gaps compare a judgement with a heuristic estimate",
     "  Passaggio migliore   :": "  Best passage         :",
     "Passaggio migliore:": "Best passage:",
     "Punti di forza": "Strengths",

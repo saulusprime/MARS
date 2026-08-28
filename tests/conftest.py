@@ -143,7 +143,7 @@ def niente_rete(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def nessuna_spesa(monkeypatch):
+def nessuna_spesa(monkeypatch, niente_rete):
     """L'unica area che spende denaro non deve poter spendere in un test.
 
     `niente_rete` copre `requests`; l'SDK Anthropic passa da **httpx**, e
@@ -177,6 +177,30 @@ def nessuna_spesa(monkeypatch):
     vietato._mars_blocca_la_rete = True
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", vietato,
                         raising=False)
+
+    # E i giudici OpenAI-compatibili (U10), che passano da `requests` e
+    # non da httpx. `niente_rete` li ferma gia', ma con una `NienteRete`
+    # che eredita da `RequestException`: `mars_llm_judge` la cattura e
+    # dichiara «Errore API», quindi un test che dimenticasse la sessione
+    # finta finirebbe VERDE esercitando il ramo sbagliato — R20 nella
+    # stessa forma, sull'area che presenta un conto. Qui il tentativo si
+    # REGISTRA, e l'asserzione dopo lo yield lo rende rumoroso.
+    #
+    # `niente_rete` e' CHIESTA come parametro, non solo definita prima:
+    # misurato, l'ordine di definizione non bastava — pytest applicava
+    # `niente_rete` per ultima e la sua sostituzione vinceva, lasciando
+    # questo presidio installato e inerte. Dipendere da lei forza
+    # l'ordine, e `test_llm_un_post_dimenticato_non_passa_per_un_errore_
+    # di_rete` verifica che il presidio giusto sia quello in piedi.
+    def post_vietata(*args, **kwargs):
+        tentati.append(str(args[0]) if args else "?")
+        raise NienteRete("un test ha tentato una richiesta di rete")
+
+    # Marcatore, per la stessa ragione dell'altro: un test puo'
+    # verificare che il presidio sia installato senza tentare una
+    # richiesta, e chi ci prova fallisce in teardown.
+    post_vietata._mars_registra_il_tentativo = True
+    monkeypatch.setattr("requests.post", post_vietata, raising=False)
     yield
     assert not tentati, ("un test ha tentato una richiesta HTTP reale: %s"
                          % tentati)

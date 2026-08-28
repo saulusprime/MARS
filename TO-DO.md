@@ -19,7 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Due caselle aperte, e sono le due fasi UPGRADE residue.** Da R55 a R63 sono
+> **Una casella aperta, ed è l'ultima fase UPGRADE non opzionale.** Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
@@ -30,7 +30,8 @@
 > giorno, e la misura che l'ha aperta è che **sei mutazioni su sei** su quella
 > funzione lasciavano la suite verde. `__version__` è a **2.10.0**,
 > perché da R63 i punteggi si muovono a sito invariato — a **2.11.0** da
-> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi.
+> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi, e
+> a **2.12.0** da U10.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -50,17 +51,16 @@
 
 Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
 decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
-ha ragione AS-IS. Restano due fasi, più **U12** (ancore esterne, Brave Search e
+ha ragione AS-IS. Resta **U11**, più **U12** (ancore esterne, Brave Search e
 confronto competitivo) che il piano dichiara **opzionale** e che per questo non
-ha una casella: se si decide di farla, la casella si aggiunge.
+ha una casella: se si decide di farla, la casella si aggiunge. **U10 è chiusa**
+il 2026-08-28 e sta in [AS-IS.md](AS-IS.md): quattro giudici, gli stessi
+passaggi a tutti, due scarti di onestà per giudizio.
 
-- [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
-      Kimi accanto a Claude. **U10.1 è chiusa** il 2026-08-28 e sta in
-      [AS-IS.md](AS-IS.md): i punti deboli del giudizio sono rilievi
-      `llm.content.*` etichettati su un vocabolario chiuso. Quel vocabolario è
-      il punto in cui U10 tocca terra — quattro modelli devono scegliere dallo
-      **stesso** elenco perché la concordanza sia misurabile — e `params`
-      dichiara già di quale modello sia l'opinione.
+- [ ] **U11 — Il deliverable rifinito** (G14, G15, Fase 11): regole `@media
+      print`, `thead`/`th scope` sulle due tabelle che ne sono prive, footer
+      con la firma. Il piano sta in [UPGRADE.md](UPGRADE.md).
+
 
 ---
 

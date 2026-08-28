@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.11.0
+Versione 2.12.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -274,10 +274,42 @@ nessuna credenziale risolvibile — ne' chiave, ne' token, ne' profilo
 utilizzabile» e non annuncia alcun invio. Fino al 2026-08-27 lo
 annunciava lo stesso (R58).
 
+Da U10 i giudici possono essere piu' d'uno: --judge-models
+provider[:modello],... (via API, il campo "judge_models"). Noti:
+anthropic (predefinito), openai, qwen, kimi. Il primo passa dall'SDK
+ufficiale, gli altri tre da POST /chat/completions su endpoint
+OpenAI-compatibile; le chiavi si danno con --credentials
+(openai_api_key, dashscope_api_key, moonshot_api_key) o dall'ambiente
+(OPENAI_API_KEY, DASHSCOPE_API_KEY, MOONSHOT_API_KEY), e *_BASE_URL
+sovrascrive l'indirizzo. OGNI GIUDICE E' UNA SPESA IN PIU': con quattro
+si paga quattro volte lo stesso campione.
+
+Ricevono tutti lo STESSO campione e lo stesso prompt — un confronto fra
+modelli interrogati diversamente non direbbe nulla sui modelli — e un
+giudice che fallisce non toglie gli altri dal referto: si dichiara col
+suo motivo. Il dato canonico li porta tutti in "llm_judgements";
+"llm_judgement" resta il primo che ha risposto, per i consumatori
+scritti prima di U10.
+
+Ogni giudizio porta due scarti di onesta': la differenza fra il voto del
+modello e l'indice composito di citabilita', e quella fra il voto e il
+profilo che l'euristica stima per QUELL'assistente (Claude contro
+"Claude", ChatGPT contro "ChatGPT/Perplexity"). Convenzione: giudizio
+meno euristica, quindi positivo significa che il modello si giudica piu'
+citabile di quanto la stima preveda.
+
+Lo schema JSON si chiede a tutti; dove il fornitore lo rifiuta si
+ripiega su json_object e il referto lo DICHIARA, perche' senza vincolo i
+temi dei punti deboli non sono piu' scelti da un vocabolario chiuso.
+
 Ogni punto debole che il modello nomina porta un tema scelto da un
 vocabolario chiuso — sette temi piu' «altro» — e diventa un rilievo
-`llm.content.*`, uno per tema: la chiave viene dal vocabolario e non
-dalla prosa, quindi vale lo stesso fra due esecuzioni. Sono rilievi
+`llm.content.*`, uno per tema E PER GIUDICE: la chiave viene dal
+vocabolario e non dalla prosa, quindi vale lo stesso fra due
+esecuzioni, e il provider sta nel titolo. Le chiavi si ripetono percio'
+dentro l'area, e non e' un problema: chi indicizza per chiave o salta i
+derivati o guarda i soli rilievi con una prescrizione, che un derivato
+non ha mai. Sono rilievi
 `derived`, come quelli della citabilita': restano fuori dal piano di
 interventi e dallo storico, perche' un giudizio del modello e'
 un'opinione e non una misura, e cambia a ogni giro. Cio' che nessun

@@ -347,6 +347,52 @@ def _giudizio_llm() -> dict:
                  "testo": "Nessuna firma sugli articoli"}]}
 
 
+class _RispostaHTTP:
+    """La risposta di un endpoint OpenAI-compatibile, gia' decisa."""
+
+    def __init__(self, payload, status_code=200):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class _SessioneGiudice:
+    """Il secondo giudice (U10), senza rete e senza spesa.
+
+    E' la cucitura documentata `context["_judge_sessions"]`, gemella di
+    `_anthropic_client`: il golden esercita cosi' il percorso
+    OpenAI-compatibile — `chat/completions`, `choices[0].message.content`
+    — passando dal codice di produzione.
+    """
+
+    def __init__(self, payload):
+        import json as _json
+        self._testo = _json.dumps(payload)
+
+    def post(self, url, headers=None, json=None, timeout=None):
+        return _RispostaHTTP({"choices": [
+            {"message": {"content": self._testo}}]})
+
+
+def _giudizio_openai() -> dict:
+    """Un secondo parere, DIVERSO dal primo: e' il punto di U10.
+
+    Due giudici che dicono la stessa cosa non mostrerebbero ne' gli
+    scarti ne' il fatto che i temi si ripetono per provider.
+    """
+    return {"citabilita": 44, "passaggio_migliore": 1,
+            "motivazione": "Il contenuto risponde, ma nulla e' "
+                           "verificabile dall'esterno.",
+            "punti_forti": ["Struttura a domanda e risposta"],
+            "punti_deboli": [
+                {"tema": "unverifiable",
+                 "testo": "Nessun riferimento a fonti o normative"},
+                {"tema": "not_standalone",
+                 "testo": "Alcuni passaggi rimandano a cio' che sta sopra"}]}
+
+
 class _ClientLLM:
     """Il client Anthropic, con la risposta gia' decisa.
 
@@ -439,7 +485,12 @@ def _esecuzione_precedente() -> dict:
 
 def _referto_completo(monkeypatch) -> dict:
     """Il sito misurato con ogni strumento a disposizione."""
-    contesto = _contesto(previous=_esecuzione_precedente())
+    contesto = _contesto(previous=_esecuzione_precedente(),
+                         # Due giudici (U10): un giudice solo non
+                         # congelerebbe ne' il ciclo delle rese ne' i
+                         # rilievi che si ripetono per provider.
+                         judge_models="anthropic,openai",
+                         credentials={"openai_api_key": "finta"})
     risultati = {}
     for nome, _ in MODULES_REGISTRY:
         modulo = _modulo(nome)
@@ -465,6 +516,8 @@ def _referto_completo(monkeypatch) -> dict:
         if nome == "mars_llm_judge":
             monkeypatch.setitem(sys.modules, "anthropic", _anthropic_finto())
             contesto["_anthropic_client"] = _ClientLLM(_giudizio_llm())
+            contesto["_judge_sessions"] = {
+                "openai": _SessioneGiudice(_giudizio_openai())}
         risultati[nome] = modulo.audit(contesto)
     return mars_report.build_report(risultati, contesto)
 

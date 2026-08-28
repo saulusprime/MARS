@@ -77,6 +77,7 @@
 | C4/C2 | Il giudizio LLM eseguito contro il servizio reale | 2026-08-28 |
 | U10.1 | I punti deboli del giudizio come rilievi strutturati | 2026-08-28 |
 | C12.1 | `evaluate_answer` non era esercitata da alcun test | 2026-08-28 |
+| U10 | Giudizio LLM multi-modello, con due scarti di onestà | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2507,6 +2508,108 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### U10 — ✅ REALIZZATA (2026-08-28): il giudizio LLM a quattro voci
+
+*(fase UPGRADE, G08. Il piano è in [UPGRADE.md](UPGRADE.md); dove diverge da
+questa voce, ha ragione questa.)*
+
+**Che cosa c'era.** Un solo giudice, Anthropic, con esito aggregato. Il piano
+descriveva l'esito di ciascun giudice come `verdicts: [{query, score,
+reason}]` — un giudizio **per query**, la forma di marsbeacon.
+
+**La prima divergenza dal piano, e perché.** MARS non giudica per query:
+`costruisci_prompt()` non riceve le query, manda gli **otto passaggi** che la
+fusione RRF seleziona e chiede un giudizio solo. Passare al per-query avrebbe
+moltiplicato la spesa per (query × modelli) e buttato via U10.1, i cui temi
+sono giudizi sull'insieme dei passaggi. **Decisa dall'utente** la forma
+aggregata, una richiesta per giudice.
+
+**Le forme delle tre API, verificate e non ricordate** (regola 1). Le tre non
+Anthropic parlano lo stesso protocollo, quindi hanno **un solo percorso di
+codice**: `POST {base}/chat/completions`, risposta in
+`choices[0].message.content`, `response_format` per lo schema.
+
+| giudice | base_url | tetto ai token | fonte, letta il 2026-08-28 |
+|---|---|---|---|
+| openai | `api.openai.com/v1` | `max_completion_tokens` | developers.openai.com, chat/create |
+| qwen | `dashscope-intl.aliyuncs.com/compatible-mode/v1` | `max_tokens` | alibabacloud.com, compatibility-of-openai-with-dashscope |
+| kimi | `api.moonshot.ai/v1` | `max_tokens` | platform.kimi.ai/docs/api/chat |
+
+Il nome del tetto ai token **sta nel registro e non nel codice**, ed è la
+misura che lo giustifica: su OpenAI `max_tokens` è deprecato e incompatibile
+con la serie o, sui due compatibili è ancora quello. «OpenAI-compatibile» non
+vuol dire «identico», e una sola costante avrebbe fatto fallire due giudici su
+tre.
+
+**Il ripiego dello schema, e perché si dichiara.** Tutti e tre documentano
+`response_format: json_schema`, ma su DashScope il supporto dipende dal
+**modello** e non dal servizio. Un 400 fa riprovare **una volta sola** con
+`json_object`, e `schema_enforced` diventa falso. La dichiarazione è la metà
+che conta: senza vincolo il `tema` non è legato all'`enum`, quindi ciò che il
+modello scrive finisce in `llm.content.other` **per la via del ripiego e non
+perché l'abbia scelto** — il referto farebbe passare per scelta da vocabolario
+una stringa inventata. Il ripiego scatta su un 400 qualunque, ed è
+deliberatamente largo: distinguere «schema non supportato» da un'altra
+richiesta malformata richiederebbe di indovinare messaggi d'errore non
+verificati.
+
+**Un rilievo per giudice e per tema**, deciso dall'utente contro la
+raccomandazione di fonderli con una misura di concordanza. L'obiezione che
+avevo sollevato — le chiavi che si ripetono dentro l'area romperebbero le
+ancore del referto HTML — **era sbagliata, e verificarla lo ha mostrato**:
+`_ancore()` assegna un'ancora ai soli rilievi con `fix` o `example`, e un
+derivato non ne ha mai (lo vieta `tests/test_fixes.py`). Piano e storico
+saltano i derivati da R41. Resta vero che quattro rilievi con lo **stesso
+titolo** sarebbero indistinguibili nelle viste di prosa: il provider entra
+quindi nel **titolo**, con un `%(provider)s` a catalogo, e non nella chiave —
+un titolo porta valori variabili già altrove, una chiave no.
+
+**I due scarti di onestà.** Giudizio meno indice composito, e giudizio meno
+profilo che l'area 8 stima **per quell'assistente**. Si calcolano in
+`mars_llm_judge` e non nei renderer perché l'area 8 gira **prima** della 9 nel
+registro: `context["results"]["mars_citability"]` c'è già, e la stessa
+aritmetica in tre rese diverge. La convenzione di segno è dichiarata —
+positivo significa che il modello si giudica più citabile di quanto la stima
+preveda — perché uno scarto senza segno concordato si legge al contrario.
+`None` e non zero dove un termine manca: zero direbbe «coincidono».
+
+**Un difetto di sicurezza della suite, trovato scrivendo.** `NienteRete`
+eredita da `requests.RequestException` — di proposito, così un modulo che
+ripiega esercita il ripiego. Ma `_giudica_openai` la cattura e dichiara
+«Errore API»: un test che dimenticasse `_judge_sessions` sarebbe finito
+**verde sul ramo sbagliato**, contro il servizio vero. È R20 nella stessa
+forma, sull'area che presenta un conto. `nessuna_spesa` registra ora anche i
+`requests.post` e fallisce in teardown nominando l'URL.
+
+**E il presidio non mordeva.** Al primo tentativo `niente_rete` si applicava
+**dopo** `nessuna_spesa` e la sua sostituzione vinceva: il presidio era
+installato e inerte. L'ha colto il test che lo presidia — quello che verifica
+il meccanismo e non l'effetto — ed è esattamente il motivo per cui una fixture
+va presidiata da un test. Ora `nessuna_spesa` **chiede** `niente_rete` come
+parametro, così l'ordine è dichiarato e non accidentale. Verificato a mano che
+la guardia morde: un audit `openai` senza sessione finta fallisce in teardown
+con `https://api.openai.com/v1/chat/completions`.
+
+**Prove.** `pytest` **1207 passed** (da 1192), `flake8 .` a zero. Golden dei
+cinque formati rigenerati e diff riletto: il referto sintetico ha ora **due**
+giudici, con pareri diversi, così il ciclo delle rese, gli scarti e i rilievi
+che si ripetono per provider restano congelati. **Tredici mutazioni su tredici
+colte** con `PYTHONDONTWRITEBYTECODE=1`: nessun giudice di default, provider
+ripetuto non dedotto, modello del flag ignorato, schema sempre dichiarato
+imposto, ripiego su ogni errore invece che sul solo 400, tetto ai token
+cablato, `refusal` non riconosciuto, segno dello scarto invertito, scarto
+assente uguale a zero, campi legacy dal primo giudice **richiesto** invece che
+dal primo che ha risposto, issues senza il nome del giudice, intestazione
+senza `Bearer`, profilo agganciato all'assistente sbagliato.
+
+**Che cosa resta NON verificato**, ed è la parte che nessun test può chiudere:
+i tre giudici non-Anthropic **non sono mai stati interrogati davvero**. Le
+forme vengono dalla documentazione dei fornitori, i test da un server finto.
+Su DashScope in particolare il ripiego su `json_object` non è mai scattato
+contro il servizio reale. Un audit con `--judge-models
+anthropic,openai,qwen,kimi` e le quattro chiavi lo chiude in una sola
+esecuzione: un giudice che fallisce si dichiara e non toglie gli altri.
 
 ### C12.1 — ✅ VERIFICATA (2026-08-28): `evaluate_answer`, la misura centrale di `mars_citations`
 

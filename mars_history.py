@@ -171,18 +171,35 @@ def _semver(versione: object) -> Optional[tuple]:
     return tuple(int(p) for p in trovato.groups())
 
 
-def migrazioni_fra(precedente: object, corrente: object) -> List[dict]:
-    """Le migrazioni di chiave avvenute fra due versioni.
+# Le MISURE cambiate, dichiarate.
+#
+# Diverso da MIGRAZIONI_CHIAVE, e per questo un elenco suo: li' cambia
+# il NOME di un controllo, qui cambia che cosa si misura. I numeri si
+# muovono senza che il sito sia cambiato, e la sezione «rispetto
+# all'esecuzione precedente» direbbe «migliorato» di una cosa che non e'
+# successa. Il confronto non si butta via: si dichiara indebolito.
+MISURE_CAMBIATE = (
+    {"since": "2.10.0",
+     # Il MOTIVO, non la conseguenza: quella la mette la resa, e
+     # ripeterla qui produceva una frase che si mordeva la coda.
+     "reason": "il menu di navigazione, la testata e il piede non "
+               "entrano piu' nel corpus dei passaggi ne' nel "
+               "conteggio delle parole (R63)"},
+)
 
-    Una versione precedente **illeggibile** fa dichiarare tutte le
-    migrazioni: non si puo' concludere che l'archivio sia recente
-    guardando una stringa che non si capisce, e un caveat di troppo si
-    legge, uno mancante no.
+
+def _dichiarazioni_fra(voci: tuple, precedente: object,
+                       corrente: object) -> List[dict]:
+    """Le voci che riguardano il confronto fra due versioni.
+
+    Una versione precedente **illeggibile** le fa dichiarare tutte: non
+    si puo' concludere che l'archivio sia recente guardando una stringa
+    che non si capisce, e un caveat di troppo si legge, uno mancante no.
     """
     prima = _semver(precedente)
     dopo = _semver(corrente)
     esito = []
-    for voce in MIGRAZIONI_CHIAVE:
+    for voce in voci:
         soglia = _semver(voce["since"])
         if soglia is None:
             continue
@@ -194,6 +211,17 @@ def migrazioni_fra(precedente: object, corrente: object) -> List[dict]:
         if prima is None or prima < soglia:
             esito.append(dict(voce))
     return esito
+
+
+def migrazioni_fra(precedente: object, corrente: object) -> List[dict]:
+    """Le migrazioni di chiave avvenute fra due versioni."""
+    return _dichiarazioni_fra(MIGRAZIONI_CHIAVE, precedente, corrente)
+
+
+def misure_cambiate_fra(precedente: object,
+                        corrente: object) -> List[dict]:
+    """I cambiamenti di misura avvenuti fra due versioni."""
+    return _dichiarazioni_fra(MISURE_CAMBIATE, precedente, corrente)
 
 
 def _k_cambiato(precedente: dict, corrente: dict) -> Optional[dict]:
@@ -271,6 +299,10 @@ def compute_delta(precedente: Optional[dict],
         # prima di I3 non lo porta, e inventarlo direbbe una cosa che
         # non si sa.
         "rrf_k_changed": _k_cambiato(precedente, corrente),
+        # Non le chiavi ma le MISURE: quando cambia che cosa si conta,
+        # i numeri si muovono a sito invariato.
+        "measure_changes": misure_cambiate_fra(precedente.get("version"),
+                                               corrente.get("version")),
     }
 
 

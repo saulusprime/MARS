@@ -73,6 +73,8 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - Content Security Policy (CSP) Header Not Set
 - CSP: Wildcard Directive
 
+*È cambiato che cosa si misura — il menu di navigazione, la testata e il piede non entrano piu' nel corpus dei passaggi ne' nel conteggio delle parole (R63): i numeri si muovono anche a sito invariato.*
+
 *Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39): in quest'area «risolto» e «comparso» non sono fatti del sito.*
 
 ## Piano di interventi

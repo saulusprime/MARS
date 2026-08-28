@@ -19,14 +19,15 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte**, di cui una correzione — **R63**, che il giudizio
-> LLM ha trovato alla sua prima esecuzione vera. Da R55 a R62 sono
+> **Quattro caselle aperte, e nessuna è una correzione.** Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
 > guardato da chi lo riceve, e R61 dal chiudere R60. Restano il programma
 > UPGRADE e una prova mancante: **C4/C2 è stata verificata sul campo** il
-> 2026-08-28, con una chiave vera e una chiamata vera.
+> 2026-08-28, con una chiave vera e una chiamata vera, e la chiamata ha
+> trovato **R63**, chiusa lo stesso giorno. `__version__` è a **2.10.0**,
+> perché da R63 i punteggi si muovono a sito invariato.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -38,52 +39,9 @@
 
 ## Correzioni
 
-### R63 — 🟠 SERIO: il menu di navigazione entra nel corpus come contenuto
-
-Trovato il 2026-08-28 **dal giudizio LLM alla sua prima esecuzione vera**
-(C4/C2): «6 passaggi su 8 sono solo menu di navigazione senza informazione
-utile». Non è un'opinione del modello, ed è stato misurato subito dopo sul
-corpus vero di `lymphatechnologies.com`, 8 pagine e 128 chunk:
-
-| misura | valore |
-|---|---|
-| chunk senza alcun heading | **23 su 128 (18%)** |
-| parole che stanno in quei chunk | 2314 su 13969 (**17%**) |
-| chunk **identici** ripetuti su più pagine | 37, in 9 gruppi |
-| i tre gruppi più grandi | il megamenu, l'elenco delle policy del piede, il menu dei servizi — **8 volte ciascuno, una per pagina** |
-
-**Causa.** Il chunker segmenta per heading, e tutto ciò che sta **prima** del
-primo heading diventa un passaggio con `heading` vuoto. Su un sito con un
-megamenu quella è la navigazione: «Salta al contenuto principale · Home · Chi
-siamo · Panoramica…».
-
-**Perché conta**, e non è cosmesi: quei passaggi entrano nel corpus su cui
-lavorano **entrambi** i recuperatori, quindi
-
-- gonfiano le frequenze documentali di BM25 con parole che stanno su ogni
-  pagina, e vincono le query generiche perché contengono molte parole chiave —
-  è il motivo per cui la fusione RRF ha consegnato al modello sei menu su otto;
-- abbassano `answer_shaped_ratio`, che su questo sito vale 20% e produce un
-  rilievo **grave**: un menu non è in forma di risposta, e non potrebbe esserlo;
-- entrano nella matematica della superficie e nel conteggio dei passaggi
-  recuperabili, cioè in un numero che il referto pubblica.
-
-**Da decidere prima di scrivere**, perché ognuna sbaglia in un modo diverso:
-
-| | Strada | Sbaglia quando |
-|---|---|---|
-| a | scartare i chunk senza heading | il sito mette un paragrafo di apertura prima del primo `<h*>` — è contenuto vero, e si perde |
-| b | scartare i chunk **identici su più pagine** (boilerplate misurato) | un sito di due pagine non dà evidenza sufficiente; e un testo legittimamente ripetuto (un claim, un disclaimer) sparisce |
-| c | segmentare dentro `<main>`/`<article>` quando c'è | dipende dal markup del sito, che il crawler non può pretendere; ma è l'unica che tocca la CAUSA |
-
-Le tre non si escludono. Qualunque scelta **cambia i punteggi** di tutti i siti
-già misurati, quindi va dichiarata nel referto e nel confronto con lo storico —
-la stessa questione di `rrf_k_changed` (I3).
-
-- [ ] Decidere la strada, misurarne l'effetto sul corpus reale prima e dopo, e
-      presidiarla con un test che parta da una pagina con megamenu.
-
-**Nessuna altra aperta.** Le quattro del 2026-08-27 sono chiuse lo stesso giorno e
+**Nessuna aperta.** **R63** — il menu di navigazione nel corpus — è aperta e
+chiusa il 2026-08-28 e sta in [AS-IS.md](AS-IS.md). Le quattro del 2026-08-27
+sono chiuse lo stesso giorno e
 stanno in [AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di
 passare una credenziale — `--credentials FILE`), **R58** (l'annuncio della
 spesa si

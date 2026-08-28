@@ -2807,6 +2807,12 @@
         "reason": "gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39)"
       }
     ],
-    "rrf_k_changed": null
+    "rrf_k_changed": null,
+    "measure_changes": [
+      {
+        "since": "2.10.0",
+        "reason": "il menu di navigazione, la testata e il piede non entrano piu' nel corpus dei passaggi ne' nel conteggio delle parole (R63)"
+      }
+    ]
   }
 }

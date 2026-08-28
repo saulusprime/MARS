@@ -698,6 +698,9 @@ def _testi_dal_dato() -> set:
     # variabile — lo scanner dei letterali non la vede (R39).
     import mars_history
     testi |= {m["reason"] for m in mars_history.MIGRAZIONI_CHIAVE}
+    # Stessa storia per le misure cambiate (R63): prosa italiana in una
+    # tabella, che arriva a `t()` come variabile.
+    testi |= {m["reason"] for m in mars_history.MISURE_CAMBIATE}
     # Le due discovery del crawler, e i due nomi dei segnali derivati.
     testi |= {"sitemap", "link interni"}
     testi |= {"Recuperabilità", "In forma di risposta"}

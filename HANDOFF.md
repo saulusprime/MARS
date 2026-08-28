@@ -46,7 +46,8 @@ contano per chi riprende:
   passati a `t()` vanno scritti **in linea**, non in una costante —
   `test_ogni_letterale_della_cornice_e_a_catalogo` indicizza sull'AST, e
   una costante scollega la traduzione senza rompere nulla.
-- **`schema_version` è a 3** (R53). `__version__` resta 2.9.0.
+- **`schema_version` è a 3** (R53). `__version__` è a **2.10.0** da
+  R63: i punteggi si muovono a sito invariato, e il delta lo dichiara.
 
 ## Prossimo passo
 

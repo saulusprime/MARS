@@ -611,7 +611,8 @@ def test_le_rese_non_contengono_campi_volatili(monkeypatch):
     # rete resta tesa su tutto il resto invece di aprirsi una volta per
     # migrazione.
     dichiarate = ['"since": "%s"' % m["since"]
-                  for m in mars_history.MIGRAZIONI_CHIAVE]
+                  for m in (mars_history.MIGRAZIONI_CHIAVE
+                            + mars_history.MISURE_CAMBIATE)]
     for dataset in DATASET:
         for formato, reso in _rendi(dataset, monkeypatch).items():
             dove = "%s/%s" % (dataset, formato)

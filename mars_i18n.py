@@ -711,6 +711,19 @@ _CORNICE_EN: Dict[str, str] = {
     "Come si aggiusta": "How to fix it",
     "al variare di k:": "as k varies:",
     "in uso": "in use",
+    "  (e' cambiato che cosa si misura: i numeri si "
+    "muovono anche a sito invariato)":
+        "  (what is measured has changed: the numbers move "
+        "even on an unchanged site)",
+    "È cambiato che cosa si misura — %s: i numeri si "
+    "muovono anche a sito invariato.":
+        "What is measured has changed — %s: the numbers move "
+        "even on an unchanged site.",
+    "il menu di navigazione, la testata e il piede non "
+    "entrano piu' nel corpus dei passaggi ne' nel "
+    "conteggio delle parole (R63)":
+        "navigation, header and footer no longer enter the "
+        "passage corpus nor the word count (R63)",
     "  (il k della fusione è cambiato, da %d a %d: il "
     "consenso aggregato non è la stessa misura)":
         "  (the fusion k changed, from %d to %d: the aggregate "

@@ -341,3 +341,37 @@ def test_il_delta_dichiara_un_k_cambiato():
     del vecchia["rrf_k"]
     assert st.compute_delta(vecchia, dopo)["rrf_k_changed"] is None, \
         "una riga scritta prima di I3 non porta il k: non si inventa"
+
+
+def test_una_misura_cambiata_si_dichiara_come_una_chiave_migrata():
+    """R63 ha cambiato CHE COSA si misura, non come si chiama: il menu
+    non entra piu' nel corpus, quindi i chunk calano e i punteggi si
+    muovono senza che il sito sia cambiato. Sul sito che ha aperto la
+    voce: complessivo da 59.2 a 67.1, con lo stesso identico HTML.
+
+    Un archivio scritto prima non e' confrontabile alla pari, ed e' la
+    stessa scelta di `MIGRAZIONI_CHIAVE`: il confronto non si butta
+    via, si dichiara indebolito."""
+    prima = {"generated_at": "ieri", "version": "2.9.0", "scores": {},
+             "findings": []}
+    dopo = {"generated_at": "oggi", "version": "2.10.0", "scores": {},
+            "findings": []}
+    delta = st.compute_delta(prima, dopo)
+    assert len(delta["measure_changes"]) == 1
+    assert delta["measure_changes"][0]["since"] == "2.10.0"
+    assert "menu" in delta["measure_changes"][0]["reason"]
+
+    entrambe_vecchie = st.compute_delta(prima, dict(dopo, version="2.9.0"))
+    assert entrambe_vecchie["measure_changes"] == []
+    entrambe_nuove = st.compute_delta(dict(prima, version="2.10.0"), dopo)
+    assert entrambe_nuove["measure_changes"] == []
+
+
+def test_una_versione_illeggibile_fa_dichiarare_le_misure_cambiate():
+    """Stessa prudenza delle migrazioni di chiave: da una stringa che
+    non si capisce non si conclude che l'archivio sia recente."""
+    prima = {"generated_at": "ieri", "version": "sconosciuta", "scores": {},
+             "findings": []}
+    dopo = {"generated_at": "oggi", "version": "2.10.0", "scores": {},
+            "findings": []}
+    assert st.compute_delta(prima, dopo)["measure_changes"]

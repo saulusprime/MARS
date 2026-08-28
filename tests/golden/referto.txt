@@ -59,6 +59,7 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
     · Il documento non ha una meta descrizione
     · ... e altri 16
   (le chiavi sec.zap. hanno cambiato forma: li' «risolto» e «comparso» non sono fatti del sito)
+  (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
 PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
   1 quick win · 4 senza recupero · 11 senza sforzo dichiarato

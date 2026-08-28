@@ -35,6 +35,15 @@ ordine. Aggiungere un'area = un file più una riga nel registro.
 | `credentials` | chiavi fornite dal chiamante API (`anthropic_api_key`, `hf_token`, `zap_api_key`, `zap_proxy`); i moduli le preferiscono all'ambiente |
 | `skipped` | motivo di ogni URL scartato dal crawler |
 
+`text` e `chunks` di una pagina **escludono menu, testata e piede**
+(`nav` sempre; `header` e `footer` solo se stanno fuori da `main` e
+`article`, perché dentro un articolo portano titolo, data e firma). Il
+DOM invece resta intero: i link del menu servono al grafo interno e a
+`links_internal`, quindi si salta camminando e non si decompone nulla.
+Lo ha aperto il giudizio LLM alla sua prima esecuzione vera — «sei
+passaggi su otto sono solo menu» — e la misura gli ha dato ragione: 23
+chunk su 128 senza heading, 37 identici su più pagine (R63).
+
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
 `chunks`, `json_ld`, `images`, `meta_robots`, `meta_robots_by_agent`,
 `canonical`, `x_robots_tag`, più la struttura che `estrai_struttura()`

@@ -3235,3 +3235,34 @@ def test_le_viste_dichiarano_il_k_cambiato_fra_due_esecuzioni(referto):
         assert "k" in reso, formato
         riga = [r for r in reso.split("\n") if "10" in r and "60" in r]
         assert riga, "%s: i due k non compaiono insieme" % formato
+
+
+def test_le_viste_dichiarano_una_misura_cambiata(referto):
+    """R63: quando cambia CHE COSA si misura, i numeri si muovono a sito
+    invariato — sul sito che ha aperto la voce, complessivo da 59.2 a
+    67.1 con lo stesso HTML. La sezione «rispetto a prima» lo direbbe
+    «migliorato», e non sarebbe vero.
+
+    Il numero di versione NON compare nella resa: è volatile, e sta in
+    `since` nel JSON per chi deve sapere da quando."""
+    con_delta = dict(referto)
+    con_delta["delta"] = {"previous_run": "2025-12-01T09:00:00+0000",
+                          "previous_version": "0.0.0", "scores": [],
+                          "overall": None, "resolved": [], "new": [],
+                          "by_title_fallback": False, "key_migrations": [],
+                          "rrf_k_changed": None,
+                          "measure_changes": [
+                              {"since": "9.9.9-SENTINELLA",
+                               "reason": "il menu resta fuori dal corpus"}]}
+    for formato in ("text", "markdown", "html"):
+        reso = RENDERERS[formato](con_delta)
+        assert "cambiato che cosa si misura" in reso, formato
+        # Il MOTIVO solo dove c'e' spazio, come per le migrazioni di
+        # chiave: la vista testo sta in 55 colonne e si ferma al fatto.
+        if formato != "text":
+            assert "il menu resta fuori dal corpus" in reso, formato
+        # Una sentinella al posto della versione: cercare «2.10.0»
+        # avrebbe trovato la versione che il referto dichiara in testa,
+        # che e' un'altra cosa e ci deve stare.
+        assert "SENTINELLA" not in reso, \
+            "%s: la versione e' volatile e non va nella resa" % formato

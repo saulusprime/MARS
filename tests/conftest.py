@@ -58,7 +58,12 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
         v if isinstance(v, list) else [v]))
     dati = {
         "title": titolo,
-        "text": soup.get_text(" ", strip=True),
+        # La stessa funzione del crawler, non un get_text() a mano: da
+        # R63 il testo di pagina esclude menu, testata e piede, e un
+        # banco di prova che li includesse esercirebbe una pagina che
+        # in produzione non esiste — la trappola dell'adattatore finto
+        # infedele, gia' pagata una volta.
+        "text": mars_core.testo_contenuto(soup),
         "headings": [h.get_text(strip=True)
                      for h in soup.find_all(["h1", "h2", "h3"])],
         "html": html,

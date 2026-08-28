@@ -1509,6 +1509,12 @@ def _delta_testo(referto: dict,
         righe.append(t("  (le chiavi %s hanno cambiato forma: li' "
                        "«risolto» e «comparso» non sono fatti del sito)",
                        lang) % migrazione["prefix"])
+    for cambio in delta.get("measure_changes") or []:
+        # Senza il numero di versione: e' un campo volatile, e il
+        # presidio dei golden lo vieta nelle rese. Sta nel JSON, in
+        # `since`, per chi deve sapere da quando.
+        righe.append(t("  (e' cambiato che cosa si misura: i numeri si "
+                       "muovono anche a sito invariato)", lang))
     return righe
 
 
@@ -3159,6 +3165,11 @@ def _sezione_delta(referto: dict, p: List[str],
         p.append("<p class='meta'>%s</p>"
                  % t("Qualche rilievo non ha una chiave stabile: il "
                      "confronto usa il titolo, ed è più debole.", lang))
+    for cambio in delta.get("measure_changes") or []:
+        p.append("<p class='meta'>%s</p>"
+                 % (_e(t("È cambiato che cosa si misura — %s: i numeri si "
+                         "muovono anche a sito invariato.", lang)
+                       % t(cambio["reason"], lang))))
     for migrazione in delta.get("key_migrations") or []:
         # Il MOTIVO per esteso, qui e nel Markdown: la vista compatta
         # ha una riga sola e si ferma al prefisso, ma chi legge il
@@ -3813,6 +3824,12 @@ def render_markdown(referto: dict,
             r += ["", "*%s*"
                   % t("Qualche rilievo non ha una chiave stabile: il "
                       "confronto usa il titolo, ed è più debole.", lang)]
+        for cambio in delta.get("measure_changes") or []:
+            r += ["", "*%s*"
+                  % _md_cella(
+                      t("È cambiato che cosa si misura — %s: i numeri si "
+                        "muovono anche a sito invariato.", lang)
+                      % t(cambio["reason"], lang))]
         for migrazione in delta.get("key_migrations") or []:
             r += ["", "*%s*"
                   % _md_cella(

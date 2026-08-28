@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| R63 | Il menu di navigazione non entra più nel corpus | 2026-08-28 |
 | C4/C2 | Il giudizio LLM eseguito contro il servizio reale | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
@@ -2375,6 +2376,91 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R63 — ✅ (2026-08-28): il menu di navigazione non è contenuto
+
+*(l'ha trovato **il giudizio LLM alla sua prima esecuzione vera** — C4/C2 —
+non una revisione: «sei passaggi su otto sono solo menu di navigazione».)*
+
+**Il difetto.** `chunk_page` segmenta per heading, e tutto ciò che sta prima
+del primo `<h*>` diventa un passaggio con `heading` vuoto. Su un sito con un
+megamenu quella è la navigazione. Misurato sul corpus reale, 8 pagine:
+
+| | prima | dopo |
+|---|---|---|
+| chunk del corpus | 128 | **94** |
+| chunk senza alcun heading | 23 (18%) | **0** |
+| chunk identici su più pagine | 37 | **9** |
+| parole nel corpus | 13 969 | 9 959 |
+
+I nove rimasti non sono navigazione: sono il blocco «Potrebbe interessarti
+anche», che sta dentro `<article>`, e due elenchi di prerequisiti identici fra
+due tutorial. Contenuto vero, e resta.
+
+**La regola, e perché non le altre due.** Escono `nav` sempre — è navigazione
+per definizione, briciole di pane e indici di pagina compresi — e `header` /
+`footer` **solo quando stanno fuori da `main` e `article`**. Le altre due
+strade che il TO-DO elencava sono state misurate e scartate:
+
+- *scartare i chunk senza heading* butta via contenuto vero: su questo sito
+  l'attacco di ogni articolo — data, firma, prima frase — sta dentro un
+  `<header>` **di sezione**, ed è esattamente il caso che la condizione
+  «fuori da main/article» protegge;
+- *scartare i chunk ripetuti su più pagine* funziona solo con abbastanza
+  pagine, e cancellerebbe un claim o un disclaimer legittimamente ripetuto.
+
+**Non si decompone nulla**: si cammina e si salta. Il DOM resta intero perché
+il grafo dei link ha bisogno proprio dei link del menu, e `links_internal`
+pure. Il testo di pagina (`pagina["text"]`) segue la stessa regola: regge il
+controllo «sotto le N parole» di `mars_lexical`, e contarci dentro un megamenu
+fa passare per piena una pagina vuota — sul sito misurato il menu vale fra il
+**19% e il 36%** delle parole.
+
+**Effetto end-to-end, stesso sito e stesso HTML:**
+
+| | prima | dopo |
+|---|---|---|
+| quota in forma di risposta | 19,5% | **28,7%** |
+| consenso aggregato | 0/3 | 1/3 |
+| citabilità IA | 63,8 | 71,0 |
+| **complessivo** | **59,2** | **67,1** |
+| passaggio più recuperabile | un URL senza heading | l'articolo sul server proxy |
+
+Il sito non è migliorato: MARS ha smesso di misurare la propria navigazione.
+
+**Perché la versione sale a 2.10.0.** I numeri si muovono a sito invariato,
+quindi un archivio scritto prima non è confrontabile alla pari. Il delta lo
+dichiara con `measure_changes`, un elenco gemello di `MIGRAZIONI_CHIAVE`: là
+cambia il NOME di un controllo, qui cambia che cosa si misura. Il confronto
+non si butta via, si dichiara indebolito — la stessa scelta di
+`by_title_fallback` e di `rrf_k_changed`. `schema_version` resta **3**:
+nessuna chiave cambia forma.
+
+**Prove.**
+
+- Sei mutazioni. **Due sono sopravvissute al primo giro**, e sono la parte che
+  vale la pena registrare:
+  1. togliere `nav` dall'elenco lasciava tutto verde, perché nel primo HTML di
+     prova il `<nav>` di pagina stava dentro `<header>` — già escluso — e
+     quello dentro `main` era troppo corto per diventare un chunk. La prova
+     passava per la ragione sbagliata;
+  2. rimettere `soup.get_text()` dentro il crawler lasciava tutto verde,
+     perché `conftest.pagina()` chiama `testo_contenuto` per conto suo: il
+     banco di prova provava la funzione e **non la cucitura**. È R56 in un
+     altro punto — un anello che nessun test attraversava.
+
+  Chiuse tutt'e due: un `<nav>` di pagina lungo abbastanza da fare un chunk, e
+  un test che passa dal `Crawler` vero con l'adattatore finto montato. Al
+  secondo giro le sei mutazioni sono tutte colte.
+- Golden rigenerati e diff riveduto. Le pagine sintetiche non hanno
+  `nav`/`header`/`footer`, quindi **il corpus dei golden non si è mosso di un
+  carattere**: l'unica differenza è la nuova nota del delta.
+- Nel farlo è emerso un difetto del banco di prova: il golden congelava la
+  versione **dopo** aver composto il referto, quindi le dichiarazioni che
+  dipendono dalla versione entravano con quella viva. La guardia dei campi
+  volatili lo ha rilevato, e la si è estesa a `MISURE_CAMBIATE` come già
+  faceva per le migrazioni di chiave.
+- `pytest` **1176 passed**, `flake8 .` a zero.
 
 ### C4/C2 — ✅ VERIFICATA SUL CAMPO (2026-08-28): il giudizio LLM contro il servizio reale
 

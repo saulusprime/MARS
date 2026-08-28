@@ -1851,3 +1851,116 @@ def test_credenziali_un_file_leggibile_da_tutti_si_segnala(tmp_path):
     chiavi, errore = mars_core.load_credentials(p)
     assert chiavi == {"hf_token": "hf-finto"}, "si legge lo stesso"
     assert "permessi" in errore.lower() or "leggibile" in errore.lower()
+
+
+# ----------------------------------------------------------------------
+# R63: il menu di navigazione non e' contenuto
+# ----------------------------------------------------------------------
+
+HTML_CON_MENU = """<html lang="it"><body>
+<header><a href="/">Lympha</a></header>
+<nav>Home Chi siamo Panoramica Identita e valori La nostra storia
+Percorso di crescita Mission Servizi Data Center Cyber Security
+Business Continuity Private Cloud Contatti Richiedi una consulenza</nav>
+<main>
+<nav>Home Guide pratiche Installare la GUI sul tuo VPS Ubuntu Server
+Indice dell articolo Prerequisiti Aggiornamento Installazione</nav>
+<article>
+<header><h1>Installare la GUI</h1>
+<p>10 dicembre 2022 · 4 min di lettura · Redazione. Ubuntu Server nasce
+senza interfaccia grafica, e di solito e' la scelta giusta per un
+server che deve solo servire pagine e non mostrarle a nessuno.</p>
+</header>
+<h2>Prerequisiti</h2>
+<p>Serve un VPS con Ubuntu Server e un utente con privilegi di
+amministrazione, perche' i pacchetti si installano da root e il
+display manager va abilitato all'avvio della macchina.</p>
+<footer>Scritto dalla Redazione</footer>
+</article>
+</main>
+<footer>Privacy e Cookie Policy Politica per la qualità Codice etico
+Sede legale Via Marconi 32 Bologna Partita IVA 03099141206</footer>
+</body></html>"""
+
+
+def _chunks(html: str) -> list:
+    soup = BeautifulSoup(html, "lxml")
+    return mars_core.chunk_page(soup, "https://x/")
+
+
+def test_il_menu_non_entra_nei_passaggi():
+    """R63, trovato dal giudizio LLM alla sua prima esecuzione vera: sei
+    passaggi su otto consegnati al modello erano il menu del sito.
+
+    Misurato sul corpus reale: 23 chunk su 128 senza alcun heading — il
+    megamenu, che sta prima del primo `<h*>` — e 37 chunk identici
+    ripetuti su piu' pagine."""
+    testo = " ".join(c["text"] for c in _chunks(HTML_CON_MENU))
+    assert "Chi siamo Panoramica" not in testo, "il menu di pagina"
+    assert "Indice dell articolo" not in testo, "l'indice DENTRO main"
+    assert "Privacy e Cookie Policy" not in testo, "il piede di pagina"
+    assert "Partita IVA" not in testo
+
+
+def test_il_contenuto_dell_articolo_resta_tutto():
+    """L'altro verso, ed e' la ragione per cui non basta scartare i
+    passaggi senza heading: su questo sito l'attacco dell'articolo — con
+    data, autore e prima frase — sta dentro un `<header>` DI SEZIONE, e
+    scartarlo butterebbe via contenuto vero."""
+    testo = " ".join(c["text"] for c in _chunks(HTML_CON_MENU))
+    assert "Ubuntu Server nasce senza interfaccia grafica" in testo
+    assert "Redazione" in testo, "data e firma sono contenuto"
+    assert "il display manager va abilitato" in testo
+    assert "Scritto dalla Redazione" in testo, "il piede DI SEZIONE resta"
+
+
+def test_il_testo_di_pagina_non_conta_il_menu():
+    """Le parole della pagina reggono il controllo «sotto le 300
+    parole» di mars_lexical: contarci dentro un megamenu che sta su
+    ogni pagina fa passare per piena una pagina vuota. Misurato sul
+    sito reale: il menu vale fra il 19% e il 36% delle parole."""
+    from conftest import pagina as _p
+    dati = _p(HTML_CON_MENU, "https://x/")
+    assert "Chi siamo Panoramica" not in dati["text"]
+    assert "Ubuntu Server nasce" in dati["text"]
+
+
+def test_una_pagina_tutta_menu_non_resta_senza_testo():
+    """Il ripiego dichiarato: se togliendo i punti di riferimento non
+    resta nulla, il testo grezzo torna intero. Una pagina che e' solo
+    navigazione esiste, e sparire dall'audit sarebbe peggio."""
+    soup = BeautifulSoup("<html><body><nav>Home Contatti</nav></body></html>",
+                         "lxml")
+    assert "Home Contatti" in mars_core.testo_contenuto(soup)
+
+
+def test_il_crawler_consegna_una_pagina_senza_menu():
+    """L'anello che il banco di prova non attraversava.
+
+    `conftest.pagina()` chiama `testo_contenuto` per conto suo, quindi
+    provava la funzione e non la CUCITURA: rimettere
+    `soup.get_text()` dentro il crawler lasciava verde tutta la suite —
+    misurato, e' una mutazione sopravvissuta al primo giro. Qui la
+    pagina passa dal Crawler vero, con l'adattatore finto montato."""
+    crawler = _crawler_finto(
+        {"http://esempio.test/": (HTML_CON_MENU, "text/html; charset=utf-8")})
+    pagine = crawler.crawl()
+    pagina_dati = pagine["http://esempio.test/"]
+    assert "Chi siamo Panoramica" not in pagina_dati["text"]
+    assert "Ubuntu Server nasce" in pagina_dati["text"]
+    testo_chunk = " ".join(c["text"] for c in pagina_dati["chunks"])
+    assert "Chi siamo Panoramica" not in testo_chunk
+    # E i link del menu restano: il grafo interno ci poggia sopra.
+    assert pagina_dati["links"], "i link della pagina non spariscono"
+
+
+def test_il_grafo_dei_link_vede_ancora_il_menu():
+    """I link del menu restano: servono al grafo interno e a
+    `links_internal`. Si esclude il menu dal CONTENUTO, non dal DOM —
+    e infatti non si decompone nulla, si salta camminando."""
+    soup = BeautifulSoup(HTML_CON_MENU, "lxml")
+    mars_core.chunk_page(soup, "https://x/")
+    assert soup.find("nav") is not None, "il DOM non e' stato mutato"
+    struttura = mars_core.estrai_struttura(soup)
+    assert any("Lympha" in (voce["text"] or "")
+               for voce in struttura["links"])

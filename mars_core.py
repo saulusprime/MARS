@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.9.0"
+__version__ = "2.10.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1056,7 +1056,9 @@ class Crawler:
                 # WCAG 3.1.1) e a mars_semantic per scegliere i termini
                 # interrogativi giusti.
                 "lang": lingua.strip().lower()[:2],
-                "text": soup.get_text(separator=" ", strip=True),
+                # Senza menu, testata e piede: sono su ogni pagina e
+                # non sono contenuto di nessuna (R63).
+                "text": testo_contenuto(soup),
                 # I link in USCITA, deduplicati e ordinati: la stessa
                 # voce di menu su ogni pagina e' un arco solo, e
                 # l'ordine dev'essere stabile perche' il disegno del
@@ -1439,6 +1441,58 @@ MIN_CHUNK_CHARS = 120  # sotto, non e' un passaggio autoconsistente
 HEADINGS = ("h1", "h2", "h3")
 NON_CONTENUTO = ("script", "style", "noscript", "template")
 
+# I punti di riferimento del documento che NON sono contenuto della
+# pagina: il menu, la testata e il piede. Li ha trovati il giudizio LLM
+# alla sua prima esecuzione vera — «sei passaggi su otto sono solo menu
+# di navigazione» — e la misura gli ha dato ragione: sul corpus reale 23
+# chunk su 128 non avevano alcun heading, ed erano il megamenu, che sta
+# prima del primo `<h*>`; 37 chunk erano identici su piu' pagine (R63).
+#
+# `nav` esce sempre: e' navigazione per definizione, briciole di pane e
+# indici di pagina compresi. `header` e `footer` escono SOLO quando sono
+# di pagina, cioe' fuori da `main` e da `article`: dentro un articolo
+# portano il titolo, la data, la firma — contenuto vero, e su questo
+# sito e' proprio li' che sta l'attacco del pezzo. E' anche la ragione
+# per cui non basta scartare i passaggi senza heading.
+NAVIGAZIONE = ("nav",)
+NAVIGAZIONE_DI_PAGINA = ("header", "footer")
+CONTENITORI_DI_CONTENUTO = ("main", "article")
+
+
+def _dentro_la_navigazione(nodo: Tag) -> bool:
+    """Vero se il nodo sta in un punto di riferimento di navigazione."""
+    if nodo.find_parent(NAVIGAZIONE):
+        return True
+    riferimento = nodo.find_parent(NAVIGAZIONE_DI_PAGINA)
+    return bool(riferimento
+                and not riferimento.find_parent(CONTENITORI_DI_CONTENUTO))
+
+
+def testo_contenuto(soup: BeautifulSoup) -> str:
+    """Il testo della pagina senza menu, testata e piede.
+
+    Le parole della pagina reggono il controllo «sotto le N parole» di
+    `mars_lexical`: contarci dentro un megamenu che sta su ogni pagina
+    fa passare per piena una pagina vuota. Misurato sul sito che ha
+    aperto R63: il menu vale fra il 19% e il 36% delle parole.
+
+    **Non decompone nulla**: cammina e salta. Il DOM resta intero per
+    chi lo attraversa dopo — il grafo dei link ha bisogno proprio dei
+    link del menu, e `links_internal` pure.
+
+    Ripiego dichiarato: se non resta nulla, torna il testo intero. Una
+    pagina che e' soltanto navigazione esiste, e sparire dall'audit
+    sarebbe peggio che contarla male.
+    """
+    parti = [" ".join(str(nodo).split())
+             for nodo in soup.descendants
+             if isinstance(nodo, NavigableString)
+             and not isinstance(nodo, Comment)
+             and not nodo.find_parent(NON_CONTENUTO)
+             and not _dentro_la_navigazione(nodo)]
+    testo = " ".join(p for p in parti if p)
+    return testo or soup.get_text(separator=" ", strip=True)
+
 
 def split_windows(testo: str, size: int = CHUNK_CHARS,
                   overlap: int = CHUNK_OVERLAP) -> List[str]:
@@ -1695,6 +1749,9 @@ def chunk_page(soup: BeautifulSoup, url: str, titolo: str = "") -> List[dict]:
         if isinstance(nodo, Comment) or not isinstance(nodo, NavigableString):
             continue
         if nodo.find_parent(NON_CONTENUTO + HEADINGS):
+            continue
+        # Il menu non e' un passaggio del sito: vedi NAVIGAZIONE (R63).
+        if _dentro_la_navigazione(nodo):
             continue
         testo = " ".join(str(nodo).split())
         if testo:

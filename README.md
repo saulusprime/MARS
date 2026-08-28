@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.9.0
+Versione 2.10.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -108,6 +108,14 @@ Il profilo si ottiene con l'audit completo (CLI, oppure POST
 /audit/full), perche' e' una sintesi dei punteggi delle altre aree.
 Per MISURARE le citazioni reali invece di stimarle c'e'
 mars_citations.py.
+
+Il corpus su cui lavorano i recuperatori esclude menu, testata e piede:
+sono su ogni pagina e non sono contenuto di nessuna. Misurato sul sito
+che ha aperto la voce (R63): 23 chunk su 128 erano il megamenu, 37
+erano identici su piu' pagine, e la quota di passaggi in forma di
+risposta e' passata dal 19,5% al 28,7% - il sito non era cambiato, MARS
+aveva smesso di misurare la propria navigazione. Il DOM resta intero:
+i link del menu servono al grafo interno.
 
 Implementato nativamente le parti algoritmiche più complesse
 (il crawler, il retriever lessicale BM25, il proxy vettoriale TF-IDF

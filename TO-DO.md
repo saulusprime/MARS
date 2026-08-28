@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R62**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R63**, idee fino a
 > **I17**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,12 +19,14 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Cinque caselle aperte, e nessuna è una correzione**: da R55 a R62 sono
+> **Cinque caselle aperte**, di cui una correzione — **R63**, che il giudizio
+> LLM ha trovato alla sua prima esecuzione vera. Da R55 a R62 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
 > guardato da chi lo riceve, e R61 dal chiudere R60. Restano il programma
-> UPGRADE e due prove mancanti.
+> UPGRADE e una prova mancante: **C4/C2 è stata verificata sul campo** il
+> 2026-08-28, con una chiave vera e una chiamata vera.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -36,7 +38,52 @@
 
 ## Correzioni
 
-**Nessuna aperta.** Le quattro del 2026-08-27 sono chiuse lo stesso giorno e
+### R63 — 🟠 SERIO: il menu di navigazione entra nel corpus come contenuto
+
+Trovato il 2026-08-28 **dal giudizio LLM alla sua prima esecuzione vera**
+(C4/C2): «6 passaggi su 8 sono solo menu di navigazione senza informazione
+utile». Non è un'opinione del modello, ed è stato misurato subito dopo sul
+corpus vero di `lymphatechnologies.com`, 8 pagine e 128 chunk:
+
+| misura | valore |
+|---|---|
+| chunk senza alcun heading | **23 su 128 (18%)** |
+| parole che stanno in quei chunk | 2314 su 13969 (**17%**) |
+| chunk **identici** ripetuti su più pagine | 37, in 9 gruppi |
+| i tre gruppi più grandi | il megamenu, l'elenco delle policy del piede, il menu dei servizi — **8 volte ciascuno, una per pagina** |
+
+**Causa.** Il chunker segmenta per heading, e tutto ciò che sta **prima** del
+primo heading diventa un passaggio con `heading` vuoto. Su un sito con un
+megamenu quella è la navigazione: «Salta al contenuto principale · Home · Chi
+siamo · Panoramica…».
+
+**Perché conta**, e non è cosmesi: quei passaggi entrano nel corpus su cui
+lavorano **entrambi** i recuperatori, quindi
+
+- gonfiano le frequenze documentali di BM25 con parole che stanno su ogni
+  pagina, e vincono le query generiche perché contengono molte parole chiave —
+  è il motivo per cui la fusione RRF ha consegnato al modello sei menu su otto;
+- abbassano `answer_shaped_ratio`, che su questo sito vale 20% e produce un
+  rilievo **grave**: un menu non è in forma di risposta, e non potrebbe esserlo;
+- entrano nella matematica della superficie e nel conteggio dei passaggi
+  recuperabili, cioè in un numero che il referto pubblica.
+
+**Da decidere prima di scrivere**, perché ognuna sbaglia in un modo diverso:
+
+| | Strada | Sbaglia quando |
+|---|---|---|
+| a | scartare i chunk senza heading | il sito mette un paragrafo di apertura prima del primo `<h*>` — è contenuto vero, e si perde |
+| b | scartare i chunk **identici su più pagine** (boilerplate misurato) | un sito di due pagine non dà evidenza sufficiente; e un testo legittimamente ripetuto (un claim, un disclaimer) sparisce |
+| c | segmentare dentro `<main>`/`<article>` quando c'è | dipende dal markup del sito, che il crawler non può pretendere; ma è l'unica che tocca la CAUSA |
+
+Le tre non si escludono. Qualunque scelta **cambia i punteggi** di tutti i siti
+già misurati, quindi va dichiarata nel referto e nel confronto con lo storico —
+la stessa questione di `rrf_k_changed` (I3).
+
+- [ ] Decidere la strada, misurarne l'effetto sul corpus reale prima e dopo, e
+      presidiarla con un test che parta da una pagina con megamenu.
+
+**Nessuna altra aperta.** Le quattro del 2026-08-27 sono chiuse lo stesso giorno e
 stanno in [AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di
 passare una credenziale — `--credentials FILE`), **R58** (l'annuncio della
 spesa si
@@ -84,17 +131,12 @@ ha una casella: se si decide di farla, la casella si aggiunge.
 
 ## Completamento
 
-Le due voci `C##` rimaste non sono funzioni mancanti: sono **prove mancanti**.
-In entrambe il codice c'è, e nessuno ha verificato che faccia ciò che dichiara
-— è la regola 2, niente «funziona» senza prova. Il resto della famiglia è
-chiuso e sta in [AS-IS.md](AS-IS.md).
+La voce `C##` rimasta non è una funzione mancante: è una **prova mancante**.
+Il codice c'è, e nessuno ha verificato che faccia ciò che dichiara — è la
+regola 2, niente «funziona» senza prova. Il resto della famiglia è chiuso e sta
+in [AS-IS.md](AS-IS.md), **C4/C2 compresa**: il giudizio LLM è stato eseguito
+contro il servizio reale il 2026-08-28, e ha trovato **R63**.
 
-- [ ] **Verificare sul campo il giudizio LLM (C4/C2)** con una credenziale
-      Anthropic reale: la chiamata non è mai stata eseguita, solo simulata, ed
-      è l'unica area del referto in questa condizione. Il README la promette
-      ([README.md:246](README.md#L246)). Il referto JSON conserva per intero
-      motivazione, punti forti e deboli, quindi è il formato giusto per
-      controllarne l'esito. **Bloccata su una chiave**, non sul codice.
 - [ ] **`evaluate_answer` di `mars_citations.py` non è chiamata da alcun
       test.** È la funzione che decide se una risposta cita il sito — la
       misura centrale dello strumento — ed è pura, quindi verificabile senza

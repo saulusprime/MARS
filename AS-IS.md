@@ -73,6 +73,7 @@
 | I1 | Audit differenziale — realizzata da U7, in altra forma | 2026-08-25 |
 | I13 | Test diretti del `Crawler` — realizzata da R15-R24 | 2026-08-25 |
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
+| C4/C2 | Il giudizio LLM eseguito contro il servizio reale | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2374,6 +2375,49 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### C4/C2 — ✅ VERIFICATA SUL CAMPO (2026-08-28): il giudizio LLM contro il servizio reale
+
+*(era l'unica area del referto mai eseguita davvero: **bloccata su una chiave**,
+non sul codice. L'utente ne ha messa una in un file `--credentials`.)*
+
+**Che cosa è stato eseguito.** Un audit completo di `lymphatechnologies.com`
+(8 pagine, cinque query di dominio, `--embeddings none`) con `--llm on` e la
+chiave vera. Non una simulazione: **la richiesta è partita**, il modello ha
+risposto, e il referto porta l'esito.
+
+| | |
+|---|---|
+| modello | `claude-opus-5` |
+| passaggi inviati | 8 |
+| costo dichiarato prima dell'invio | ~2187 token stimati (8750 caratteri) |
+| citabilità stimata | **18/100** |
+| rilievi prodotti | nessuno, ed è previsto (U1.9: un giudizio riuscito non ne produce) |
+
+**Che cosa la verifica ha provato**, e che nessun test poteva provare:
+
+- il percorso reale dell'SDK funziona — costruzione del client dalla chiave del
+  file, richiesta beta con `output_config` in JSON schema, `thinking:
+  adaptive`, e la risposta **si analizza**: `citabilita`, `motivazione`,
+  `punti_forti`, `punti_deboli`, `passaggio_migliore` arrivano tutti;
+- l'annuncio della spesa compare **una volta sola e prima dell'invio**, che è
+  ciò che R58 ha corretto ieri: «Giudizio LLM: invio 8 passaggi (~2187 token
+  stimati) a claude-opus-5…»;
+- il referto conserva la prosa per intero in JSON e la rende leggibile nella
+  vista testo, motivazione compresa;
+- **la chiave non compare nel referto**, né intera né in un frammento di venti
+  caratteri: verificato cercandola nel file prodotto.
+
+**Il giudizio ha trovato un difetto di MARS, non del sito.** La motivazione
+dice: «la maggior parte dei passaggi recuperati è puro boilerplate di
+navigazione (menu del sito)», e il primo punto debole è «6 passaggi su 8 sono
+solo menu di navigazione». È vero, ed è misurato: vedi **R63** nel TO-DO. Il
+primo uso reale dell'area 9 ha quindi fatto esattamente ciò per cui esiste —
+guardare i passaggi che una ricerca ibrida selezionerebbe davvero — e ha
+segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
+
+**Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
+questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
 
 ### I3 — ✅ REALIZZATA (2026-08-27): `--rrf-k`, e che cosa cambia davvero
 

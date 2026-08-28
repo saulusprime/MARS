@@ -24,15 +24,17 @@
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
-> guardato da chi lo riceve, e R61 dal chiudere R60. Resta il solo programma
-> UPGRADE: **C4/C2 è stata verificata sul campo** il 2026-08-28, con una chiave
-> vera e una chiamata vera, e la chiamata ha trovato **R63**, chiusa lo stesso
-> giorno; l'ultima prova mancante — `evaluate_answer` — è chiusa lo stesso
-> giorno, e la misura che l'ha aperta è che **sei mutazioni su sei** su quella
-> funzione lasciavano la suite verde. `__version__` è a **2.10.0**,
-> perché da R63 i punteggi si muovono a sito invariato — a **2.11.0** da
-> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi, a
-> **2.12.0** da U10 e a **2.13.0** da U11.
+> guardato da chi lo riceve, e R61 dal chiudere R60. **Il 2026-08-28 si è
+> chiuso il resto**: C4/C2 verificata sul campo con una chiave vera e una
+> chiamata vera, e la chiamata ha trovato **R63**; l'ultima prova mancante —
+> `evaluate_answer` — chiusa lo stesso giorno, e la misura che l'ha aperta è
+> che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
+> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma.
+>
+> `__version__` è salita a **2.10.0** con R63, perché da lì i punteggi si
+> muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
+> punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10 e a
+> **2.13.0** con U11.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -45,24 +47,6 @@
 ## Correzioni
 
 **Nessuna aperta.**
-
----
-
-## Programma UPGRADE
-
-Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
-decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
-ha ragione AS-IS. **Nessuna fase resta aperta**: U10 e U11 sono chiuse il
-2026-08-28 e stanno in [AS-IS.md](AS-IS.md). Resta la sola **U12** (ancore
-esterne, Brave Search e confronto competitivo), che il piano dichiara
-**opzionale** e che per questo non ha una casella: se si decide di farla, la
-casella si aggiunge.
-
-Due cose che la Fase 11 chiedeva **non sono state fatte**, e sono decisioni,
-non caselle: il logo e il carattere del sito incorporati nel referto — li
-esclude il perimetro che hai fissato in U11.1, col costo misurato — e il
-white-label da TOML, che il piano stesso rimanda a quando MARS avrà una GUI.
-
 
 ---
 

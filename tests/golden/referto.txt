@@ -37,7 +37,7 @@ COMPLESSIVO          :  60/100  (da migliorare)
   ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
 9. Giudizio LLM      :  61/100
   ⚠ Nessun prezzo verificabile
-  ⚠ Nessuna fonte citata
+  ⚠ Nessuna data di aggiornamento
 -------------------------------------------------------
 SUPERFICIE
   profondità ignota      3  ███
@@ -103,7 +103,7 @@ Giudizio LLM (claude-opus-5)  su 4 passaggi
   I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
   Passaggio migliore   : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
   · da migliorare: Nessun prezzo verificabile
-  · da migliorare: Nessuna fonte citata
+  · da migliorare: Nessuna data di aggiornamento
 -------------------------------------------------------
 URL saltati          : 4
   · vietato da robots.txt: https://esempio.test/privato

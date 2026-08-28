@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.10.0
+Versione 2.11.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -273,6 +273,15 @@ nessuna credenziale risolvibile — ne' chiave, ne' token, ne' profilo
 'ant auth login' — il referto dice «Nessuna credenziale Anthropic
 utilizzabile» e non annuncia alcun invio. Fino al 2026-08-27 lo
 annunciava lo stesso (R58).
+
+Ogni punto debole che il modello nomina porta un tema scelto da un
+vocabolario chiuso — sette temi piu' «altro» — e diventa un rilievo
+`llm.content.*`, uno per tema: la chiave viene dal vocabolario e non
+dalla prosa, quindi vale lo stesso fra due esecuzioni. Sono rilievi
+`derived`, come quelli della citabilita': restano fuori dal piano di
+interventi e dallo storico, perche' un giudizio del modello e'
+un'opinione e non una misura, e cambia a ogni giro. Cio' che nessun
+tema descrive finisce in `llm.content.other` e resta prosa.
 
 Installazione. Le dipendenze sono divise per ruolo:
 
@@ -628,7 +637,11 @@ Cio' che nessuna lingua puo' tradurre resta com'e', e il referto lo dice: le
 evidenze citate dal sito analizzato (un titolo mancante, il testo di un link
 generico) e la prosa del giudizio LLM, che e' scritta dal modello. Le aree
 lessicale e semantica erano nell'elenco finche' non producevano rilievi
-strutturati; da U13 li producono, quindi si traducono come le altre.
+strutturati; da U13 li producono, quindi si traducono come le altre. Del
+giudizio LLM da U10.1 si traducono i TITOLI dei rilievi, che vengono dal
+vocabolario dei temi; la prosa del modello resta nel `detail`, in italiano
+perche' in italiano gli si e' chiesto, e ogni rilievo lo dichiara in
+`params["text_lang"]` come fanno axe, ZAP e Lighthouse.
 
 Il JSON e' **canonico e resta in italiano** per tutto cio' che scrive MARS,
 in ogni lingua: e' il dato da cui le altre viste derivano, e due JSON diversi

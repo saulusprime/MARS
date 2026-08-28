@@ -16,7 +16,7 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento a fine sessione: `flake8` 0, `pytest` **1138 passed**.
+  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1184 passed**.
 - I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
@@ -51,10 +51,15 @@ contano per chi riprende:
 
 ## Prossimo passo
 
-Nessuna correzione aperta. Il [TO-DO](TO-DO.md) ha cinque caselle: le tre
-fasi UPGRADE residue (U10, U10.1, U11) e le due prove mancanti (C4, il
-giudizio LLM mai eseguito contro il servizio reale — **bloccata su una
-chiave**, non sul codice — e `evaluate_answer` di `mars_citations.py`).
+Nessuna correzione aperta. Il [TO-DO](TO-DO.md) ha tre caselle: le due fasi
+UPGRADE residue (U10, U11) e la prova mancante su `evaluate_answer` di
+`mars_citations.py`. C4/C2 e U10.1 sono chiuse il 2026-08-28 e stanno in
+[AS-IS.md](AS-IS.md); `__version__` è a **2.11.0**.
+
+U10.1 lascia dietro **una sola cosa da verificare**, e serve una chiave: lo
+`SCHEMA` del giudizio ora chiede al modello un array di oggetti con `enum`, e
+quella forma non è mai stata inviata all'API vera. Un audit con `--llm on` la
+chiude; se fosse rifiutata, l'area uscirebbe con `llm.status.api_failed`.
 
 ## Le due decisioni che tengono in vita questo file
 
@@ -81,6 +86,7 @@ Il modello è `examples/credentials.json` e **non** `audit_request.json`,
 che è il corpo di una richiesta API: passato a `--credentials` consegna
 quattro segnaposto come se fossero chiavi (R62).
 
-**C4 resta non verificata**: il giudizio LLM non è mai stato eseguito contro
-il servizio reale. L'esecuzione dell'utente di oggi non fa fede — la chiave
-non era nel processo, e il referto lo dichiarava.
+**C4 è verificata** dal 2026-08-28: il giudizio LLM è stato eseguito contro il
+servizio reale, con una chiave vera, e la chiamata ha trovato R63. Quello che
+resta da provare con una chiave è un'altra cosa, ed è scritto in «Prossimo
+passo»: la forma nuova dello `SCHEMA`.

@@ -5753,13 +5753,15 @@ def test_llm_seleziona_i_chunk_dall_rrf(contesto):
     assert scelti[0] is contesto["chunks"][1]
 
 
-# --- U1.9: i rilievi di stato di mars_llm_judge ------------------------
+# --- U1.9 e U10.1: i rilievi di mars_llm_judge -------------------------
 #
-# Quest'area emette SOLO llm.status.*: i punti deboli che il modello
-# nomina restano issues, perche' prosa libera non ha una chiave stabile.
-# Conseguenza dichiarata: quando il giudizio RIESCE l'area non produce
-# rilievi, ed e' l'unico punto della fase in cui la vista compatta dice
-# piu' del dato canonico.
+# Due famiglie, e non si mescolano. `llm.status.*` (U1.9) dice se il
+# giudizio c'e' stato; `llm.content.*` (U10.1) dice che cosa il giudizio
+# ha detto del SITO. U1.9 la seconda non l'aveva: i punti deboli erano
+# prosa libera, e una chiave ricavata da prosa non e' stabile. U10.1 la
+# apre facendo SCEGLIERE al modello un tema da un vocabolario chiuso —
+# la chiave viene dal vocabolario, non dalla prosa — e ogni rilievo che
+# ne nasce e' `derived`, perche' resta un'opinione e non una misura.
 
 def _risposta_llm(payload, stop="end_turn"):
     """Una risposta dell'SDK, nella forma che `interroga` legge."""
@@ -5798,8 +5800,16 @@ class _ClientLLM:
 
 
 GIUDIZIO = {"citabilita": 71, "motivazione": "Motivo.",
-            "punti_forti": ["A"], "punti_deboli": ["B", "C"],
+            "punti_forti": ["A"],
+            "punti_deboli": [{"tema": "altro", "testo": "B"},
+                             {"tema": "altro", "testo": "C"}],
             "passaggio_migliore": 0}
+
+
+def _con_deboli(*coppie):
+    """Il giudizio finto con altri punti deboli: `(tema, testo)`."""
+    return dict(GIUDIZIO,
+                punti_deboli=[{"tema": t, "testo": x} for t, x in coppie])
 
 
 def _llm(contesto, esito=None, **cambi):
@@ -5851,21 +5861,32 @@ def test_llm_ogni_ramo_senza_giudizio_porta_un_rilievo(contesto, monkeypatch):
     for chiave, esegui in _rami_llm(contesto, monkeypatch):
         esito = esegui()
         assert esito["score"] is None, chiave
-        assert [f["key"] for f in esito["findings"]] == [chiave], chiave
+        assert esito["findings"][0]["key"] == chiave, chiave
+        # `no_score` e' l'unico di questi rami in cui il modello ha
+        # comunque RISPOSTO: i suoi punti deboli diventano rilievi come
+        # in un giudizio riuscito, e seguono lo stato invece di
+        # precederlo.
+        for f in esito["findings"][1:]:
+            assert f["key"].startswith("llm.content."), chiave
 
 
 def test_llm_le_chiavi_sono_tutte_di_stato_e_ben_formate(
         contesto, monkeypatch):
     """Tre segmenti, prefisso d'area preso dalla costante e non cablato:
     `llm.status.error` lo costruisce il referto proprio da AREA_PREFIX, e
-    due spazi di nomi diversi non darebbero alcun errore."""
+    due spazi di nomi diversi non darebbero alcun errore.
+
+    `_rami_llm` sono i rami che escono SENZA un giudizio, e li' non c'e'
+    nulla da dire sul sito: `status` e' l'unica famiglia ammessa. I
+    `llm.content.*` di U10.1 nascono solo dove un giudizio c'e', e li
+    guarda il loro test."""
     chiavi = []
     for chiave, esegui in _rami_llm(contesto, monkeypatch):
         chiavi += [f["key"] for f in esegui()["findings"]]
     for chiave in chiavi:
         parti = chiave.split(".")
         assert parti[0] == AREA_PREFIX["mars_llm_judge"] == "llm"
-        assert parti[1] == "status", "quest'area emette SOLO stati"
+        assert parti[1] in ("status", "content"), "due famiglie, non tre"
         assert len(parti) == 3
     assert "llm.status.error" not in chiavi, "quella e' del referto"
 
@@ -6107,18 +6128,201 @@ def test_llm_prima_dell_invio_non_c_e_traccia_di_spesa(contesto,
         assert "model" not in params
 
 
-def test_llm_un_giudizio_riuscito_non_produce_rilievi(contesto):
-    """Conseguenza dichiarata dell'ambito "solo llm.status.*": l'area
-    compare negli elenchi basati sui findings SOLO quando non ha
-    prodotto un giudizio.
+def test_llm_un_giudizio_riuscito_produce_rilievi(contesto):
+    """U10.1 rovescia la conseguenza dichiarata da U1.9.
 
-    Qui la vista compatta dice piu' del dato canonico — le issues
-    portano fino a tre punti deboli — ed e' l'unico punto della Fase 1
-    in cui la divergenza va in questa direzione."""
+    Fino a U10.1 un giudizio riuscito non produceva alcun rilievo, e
+    l'area spariva da ogni vista basata sui findings proprio quando
+    aveva qualcosa da dire. Ora ogni punto debole diventa un rilievo, e
+    le issues restano la vista compatta della stessa cosa."""
     esito = _llm(contesto, _risposta_llm(GIUDIZIO))
     assert esito["score"] == 71
-    assert esito["findings"] == []
-    assert esito["issues"] == ["B", "C"], "i punti deboli restano issues"
+    assert esito["issues"] == ["B", "C"], "le issues restano la prosa"
+    assert esito["punti_deboli"] == ["B", "C"], "e il dato pubblicato pure"
+    assert [f["key"] for f in esito["findings"]] == ["llm.content.other"]
+
+
+def _contenuto(esito):
+    """chiave -> rilievo, per i soli `llm.content.*`."""
+    return {f["key"]: f for f in esito["findings"]
+            if f["key"].startswith("llm.content.")}
+
+
+def test_llm_ogni_tema_del_vocabolario_diventa_il_suo_rilievo(contesto):
+    """La chiave viene dal VOCABOLARIO, non dalla prosa.
+
+    E' l'intera ragione di U10.1: `Finding.key` deve valere lo stesso
+    fra due esecuzioni e fra due modelli, e una chiave scritta dal
+    modello non lo sarebbe. Qui si esercita ogni tema, non uno
+    campione: un tema nuovo senza chiave ben formata deve diventare
+    rosso il giorno in cui nasce."""
+    for nome, tema in mars_llm_judge.VOCABOLARIO.items():
+        esito = _llm(dict(contesto),
+                     _risposta_llm(_con_deboli((nome, "Osservazione."))))
+        rilievi = _contenuto(esito)
+        assert list(rilievi) == [tema.key], nome
+        assert rilievi[tema.key]["title"] == tema.title
+        assert rilievi[tema.key]["detail"] == "Osservazione."
+        assert tema.key == "llm.content.%s" % nome
+        assert len(tema.key.split(".")) == 3
+
+
+def test_llm_due_osservazioni_sullo_stesso_tema_sono_un_rilievo_solo(
+        contesto):
+    """Un rilievo e' un CONTROLLO, non un'occorrenza — la regola di
+    tutta MARS.
+
+    E qui non e' solo coerenza: due rilievi con la stessa chiave nella
+    stessa area si sovrascriverebbero fra le ancore del referto HTML,
+    che le indicizza per chiave."""
+    esito = _llm(contesto, _risposta_llm(_con_deboli(
+        ("unverifiable", "Nessuna data"),
+        ("promotional", "Slogan in apertura"),
+        ("unverifiable", "Nessun prezzo"))))
+    rilievi = _contenuto(esito)
+    # Ordine di prima apparizione, non alfabetico: le issues mostrano i
+    # primi tre punti deboli, e riordinare farebbe divergere le viste.
+    # I due temi sono scelti perche' l'ordine alfabetico li rovescia:
+    # con `promotional` prima, il test passerebbe anche ordinando.
+    assert list(rilievi) == ["llm.content.unverifiable",
+                             "llm.content.promotional"]
+    assert rilievi["llm.content.unverifiable"]["detail"] == \
+        "Nessuna data; Nessun prezzo"
+    # Punto e virgola e non "\n": `detail` finisce in un elenco
+    # Markdown, dove una seconda riga non rientrata spezza la voce.
+    assert "\n" not in rilievi["llm.content.unverifiable"]["detail"]
+
+
+def test_llm_cio_che_il_vocabolario_non_copre_non_si_perde(contesto):
+    """`altro` — e qualunque tema che l'enum non prevede — finisce in
+    `llm.content.other`.
+
+    Senza quel secchio la prosa senza tema sparirebbe dalla resa
+    Markdown, che di un'area preferisce i rilievi alle issues: cioe'
+    proprio dalla vista che U10.1 doveva raggiungere."""
+    esito = _llm(contesto, _risposta_llm(_con_deboli(
+        ("altro", "Nessuna firma sugli articoli"),
+        ("inventato_dal_modello", "Tema che l'enum non prevede"))))
+    # Sulla LISTA e non sul dict: due temi ignoti diversi darebbero due
+    # rilievi con la stessa chiave, che un dict collasserebbe in uno.
+    assert [f["key"] for f in esito["findings"]] == ["llm.content.other"]
+    assert esito["findings"][0]["detail"] == \
+        "Nessuna firma sugli articoli; Tema che l'enum non prevede"
+    assert esito["punti_deboli"] == ["Nessuna firma sugli articoli",
+                                     "Tema che l'enum non prevede"]
+
+
+def test_llm_una_stringa_nuda_vale_prosa_senza_tema(contesto):
+    """La forma che il modello dava prima di U10.1.
+
+    Lo SCHEMA obbliga alla coppia, ma la risposta resta dato esterno:
+    una stringa non deve far perdere l'osservazione."""
+    esito = _llm(contesto, _risposta_llm(
+        dict(GIUDIZIO, punti_deboli=["Prosa vecchia", {"testo": "   "},
+                                     42])))
+    assert esito["punti_deboli"] == ["Prosa vecchia"], "il vuoto si scarta"
+    assert list(_contenuto(esito)) == ["llm.content.other"]
+
+
+def test_llm_i_rilievi_di_contenuto_sono_opinione_non_misura(contesto):
+    """`derived` su OGNI rilievo di contenuto, ed e' un invariante.
+
+    Il giudizio del modello e' un'opinione: cambia a ogni esecuzione
+    (`thinking: adaptive`), quindi nello storico comparirebbe fra i
+    «risolti» un difetto che nessuno ha toccato. `info` a peso 1.0 come
+    i derivati di `mars_citability`, e per la stessa ragione: la
+    severita' e' l'asse su cui il piano si ordina, e una sintesi non
+    deve mai scavalcare la misura."""
+    esito = _llm(contesto, _risposta_llm(_con_deboli(
+        ("thin", "Due righe e basta"), ("boilerplate", "E' il menu"))))
+    for chiave, f in _contenuto(esito).items():
+        assert f["area"] == "mars_llm_judge"
+        assert f["severity"] == SEV_INFO, chiave
+        assert f["weight"] == 1.0
+        assert f["source_severity"] == ""
+        assert f["params"]["derived"] is True
+        assert "penalty" not in f["params"]
+        # Il modello che l'ha espressa: U10 ne mettera' quattro, e senza
+        # questo campo non si saprebbe di chi e' l'opinione.
+        assert f["params"]["model"] == mars_llm_judge.MODEL
+        # `detail` e' testo di terzi, e nasce italiano perche' in
+        # italiano gli si e' chiesto: un referto inglese lo dichiara.
+        assert f["params"]["text_lang"] == "it"
+        # Non sa su quali pagine: `urls` si omette, e omettere non e'
+        # una lista vuota.
+        assert "urls" not in f["params"]
+    # `source_key` c'e' dove un'area quel difetto lo MISURA, e manca
+    # dove nessuna lo fa: l'assenza e' il significato.
+    contenuto = _contenuto(esito)
+    assert contenuto["llm.content.thin"]["params"]["source_key"] == \
+        "lex.words.thin"
+    assert "source_key" not in \
+        contenuto["llm.content.boilerplate"]["params"]
+
+
+def test_llm_la_chiave_dorigine_non_e_la_chiave_del_rilievo():
+    """Perche' `llm.content.thin` e non `lex.words.thin`.
+
+    `mars_fixes.vesti()` veste per CHIAVE: riusare quella d'origine
+    avrebbe messo su un'opinione la prescrizione della misura, e il
+    piano d'interventi l'avrebbe prescritta due volte. La chiave
+    d'origine resta pero' una chiave VERA, e lo si prova contro il
+    catalogo di traduzione, che le indicizza tutte."""
+    import mars_fixes
+    import mars_i18n
+    for nome, tema in mars_llm_judge.VOCABOLARIO.items():
+        assert tema.key not in mars_fixes.CATALOGO, nome
+        vestito = mars_fixes.vesti({"key": tema.key, "fix": "",
+                                    "example": ""})
+        assert not vestito["fix"] and not vestito["example"], nome
+        if tema.source:
+            assert tema.source in mars_i18n.RILIEVI["en"], tema.source
+            assert tema.source != tema.key
+
+
+def test_llm_i_rilievi_di_contenuto_restano_fuori_dal_piano(contesto):
+    """Un'opinione non si prescrive e non entra nello storico.
+
+    Lo garantisce `derived`, che i due consumatori saltano gia' da R41:
+    qui si prova sul dato vero del modulo, non su un rilievo finto."""
+    from mars_history import riga_storico
+    from mars_report import build_report
+    esito = _llm(contesto, _risposta_llm(_con_deboli(
+        ("promotional", "Slogan in apertura"))))
+    referto = build_report({"mars_llm_judge": esito},
+                           {"url": "https://esempio.test/"})
+    # `build_report` costruisce gia' il piano: chiamarlo di nuovo qui
+    # proverebbe l'aritmetica invece del referto vero.
+    assert referto["remediation"] == []
+    assert riga_storico(referto)["findings"] == []
+
+
+def test_llm_lo_schema_dichiara_il_vocabolario_chiuso():
+    """Il modello la chiave non la scrive: la SCEGLIE dall'enum.
+
+    Se lo schema e il vocabolario divergessero, il modello risponderebbe
+    con temi che il modulo scarta — e li scarterebbe in silenzio, in
+    `llm.content.other`, senza che nulla fallisca."""
+    voce = mars_llm_judge.SCHEMA["schema"]["properties"]["punti_deboli"]
+    tema = voce["items"]["properties"]["tema"]
+    assert tema["enum"] == list(mars_llm_judge.TEMI_AMMESSI)
+    assert voce["items"]["required"] == ["tema", "testo"]
+    # `additionalProperties: false` e' richiesto su OGNI oggetto dello
+    # schema: senza, l'API rifiuta la richiesta.
+    assert voce["items"]["additionalProperties"] is False
+    # L'enum e' ordinato: il prompt e' un prefisso di cache, e un dict
+    # riordinato lo invaliderebbe senza motivo.
+    assert list(mars_llm_judge.TEMI_AMMESSI[:-1]) == \
+        sorted(mars_llm_judge.VOCABOLARIO)
+    assert mars_llm_judge.TEMI_AMMESSI[-1] == \
+        mars_llm_judge.FUORI_VOCABOLARIO
+    # E ogni tema si spiega nelle ISTRUZIONI: un enum senza glossa
+    # lascerebbe il modello a indovinare cosa significhi "thin".
+    for nome, voce_tema in mars_llm_judge.VOCABOLARIO.items():
+        assert "- %s: %s" % (nome, voce_tema.gloss) \
+            in mars_llm_judge.ISTRUZIONI, nome
+    assert mars_llm_judge.TEMA_ALTRO.key not in mars_llm_judge.ISTRUZIONI, \
+        "al modello si offre `altro`, non la chiave del secchio"
 
 
 def test_llm_una_risposta_senza_punteggio_lo_dichiara_in_testa(contesto):

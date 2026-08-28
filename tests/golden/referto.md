@@ -255,9 +255,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ### 9. Giudizio LLM
 
-- Nessun prezzo verificabile
-- Nessuna fonte citata
-- Nessuna data di aggiornamento
+- [INFO] Affermazioni che nulla rende verificabili
+  Nessun prezzo verificabile; Nessuna data di aggiornamento
+- [INFO] Passaggi promozionali invece che informativi
+  Il listino si legge come una promessa, non come un dato
+- [INFO] Altre osservazioni del modello sul contenuto
+  Nessuna firma sugli articoli
 
 ## Profili di citabilità IA
 

@@ -585,6 +585,37 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
     "llm.status.no_score": {
         "title": "The model answered without giving a citability score",
     },
+
+    # I sette temi del vocabolario chiuso (U10.1). Solo il `title`: il
+    # `detail` e' la prosa del modello, che nasce in italiano perche' in
+    # italiano gli si e' chiesto, e ogni rilievo lo dichiara in
+    # `params["text_lang"]`. Nessun `fix`, come per i derivati di
+    # `mars_citability`: la prescrizione appartiene all'area che il
+    # difetto lo misura, non a chi ne ha un'opinione.
+    "llm.content.thin": {
+        "title": "Passages too thin to be quoted",
+    },
+    "llm.content.not_answer": {
+        "title": "Passages that do not answer a question",
+    },
+    "llm.content.not_standalone": {
+        "title": "Passages that do not stand on their own",
+    },
+    "llm.content.duplicate": {
+        "title": "Passages that repeat the same content",
+    },
+    "llm.content.boilerplate": {
+        "title": "Passages that are site scaffolding, not content",
+    },
+    "llm.content.promotional": {
+        "title": "Passages that sell instead of informing",
+    },
+    "llm.content.unverifiable": {
+        "title": "Claims with nothing to make them verifiable",
+    },
+    "llm.content.other": {
+        "title": "Other model observations on the content",
+    },
 }
 
 # Il fallimento di un'area indossa nove chiavi — una per prefisso —

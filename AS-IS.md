@@ -75,6 +75,7 @@
 | — | Programma UPGRADE: le decisioni D1-D4 e il quadro delle fasi | 2026-08-25 |
 | R63 | Il menu di navigazione non entra più nel corpus | 2026-08-28 |
 | C4/C2 | Il giudizio LLM eseguito contro il servizio reale | 2026-08-28 |
+| U10.1 | I punti deboli del giudizio come rilievi strutturati | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -1428,8 +1429,9 @@ il ramo sbagliato.
 poggiano il confronto fra esecuzioni e i cataloghi di traduzione: una chiave
 ricavata da prosa libera sarebbe o **variabile** — vietato — o **ripetuta**,
 che distrugge l'identità e impedisce a un delta di distinguere «lo stesso punto
-debole persiste» da «ne è comparso un altro». Registrato in **U10.1** con le
-due condizioni che permetterebbero di riaprirla.
+debole persiste» da «ne è comparso un altro». **U10.1 l'ha riaperta** il
+2026-08-28, e non contraddice questa riga: la chiave non viene più dalla prosa,
+viene da un vocabolario chiuso che il modello *sceglie*.
 
 #### Che cosa ha insegnato la Fase 1
 
@@ -2478,7 +2480,7 @@ risposto, e il referto porta l'esito.
 | passaggi inviati | 8 |
 | costo dichiarato prima dell'invio | ~2187 token stimati (8750 caratteri) |
 | citabilità stimata | **18/100** |
-| rilievi prodotti | nessuno, ed è previsto (U1.9: un giudizio riuscito non ne produce) |
+| rilievi prodotti | nessuno, ed era previsto (U1.9: un giudizio riuscito non ne produceva; da U10.1 ne produce) |
 
 **Che cosa la verifica ha provato**, e che nessun test poteva provare:
 
@@ -2504,6 +2506,103 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### U10.1 — ✅ REALIZZATA (2026-08-28): i punti deboli del giudizio come rilievi
+
+*(fase UPGRADE. Il TO-DO la dava dipendente da U10, o «da una decisione che non
+richiede U10». È la seconda.)*
+
+**Che cosa c'era.** U1.9 aveva lasciato i `punti_deboli` del modello come prosa
+nelle `issues`, di proposito: `Finding.key` deve valere lo stesso fra due
+esecuzioni e fra due modelli, e una chiave ricavata da prosa libera sarebbe o
+variabile — `thinking: adaptive` — o ripetuta. Il prezzo era che l'unica prosa
+orientata al miglioramento dell'intero referto restava fuori da ogni vista
+basata sui findings.
+
+**La misura che ha scartato la via (a) del TO-DO.** La voce proponeva di far
+etichettare al modello ogni punto debole con **una delle chiavi che le altre
+otto aree già producono**. Contando cosa il modello può davvero osservare —
+`costruisci_prompt()` gli consegna l'URL e otto passaggi, non l'HTML, non i
+`<title>`, non le query, non robots.txt — quelle chiavi si riducono a **tre**:
+
+| chiave d'origine | il modello la vede? |
+|---|---|
+| `lex.words.thin`, `sem.answer_shaped.low`, `lex.title.dup` | sì |
+| `sd.jsonld.missing`, `sem.chunks.few`, `*.query.no_match` | no: non riceve HTML, né il totale dei passaggi, né le query |
+| `tech.*`, `sec.*`, `wcag.*`, `seo.*` | no, e le ISTRUZIONI gli vietano di giudicarle |
+
+Il punto debole vero della prima esecuzione reale — «6 passaggi su 8 sono solo
+menu», che ha aperto R63 — non sta in nessuna delle tre. Con la via (a) il
+vocabolario sarebbe stato di tre voci e quasi tutta la prosa sarebbe rimasta
+prosa: il prezzo non sarebbe stato pagato. **Decisa dall'utente** la terza via:
+un vocabolario **proprio dell'area 9**, di sette temi che il modello è in
+condizione di osservare.
+
+**Che cosa si è fatto.** `VOCABOLARIO` in `mars_llm_judge.py` — sette `Tema`
+con chiave, titolo stabile, glossa e l'indirizzo dell'area che quel difetto lo
+*misura*, dove ce n'è una. Le glosse entrano nelle `ISTRUZIONI` e le chiavi
+nello `SCHEMA` come `enum`, da una sola fonte: il modello la chiave non la
+scrive, la **sceglie**. Ogni punto debole diventa un rilievo `llm.content.*`,
+**uno per tema** — due osservazioni sullo stesso tema sono lo stesso controllo,
+e due rilievi con la stessa chiave si sovrascriverebbero fra le ancore del
+referto HTML.
+
+**Tre decisioni che meritano il perché.**
+
+- **La chiave non è quella d'origine.** `mars_fixes.vesti()` veste per chiave:
+  un rilievo con chiave `lex.words.thin` avrebbe indossato la prescrizione
+  della misura, cioè una prescrizione su un'opinione. La chiave è nostra,
+  `llm.content.*`, e l'indirizzo sta in `params["source_key"]` — presente su
+  due temi su sette, assente sugli altri cinque, e l'assenza è il significato.
+- **`derived: True` su ogni rilievo**, e la ragione è più forte che per
+  `mars_citability`: là il derivato *ridice* una misura, qui non c'è misura
+  affatto. Un'opinione che cambia a ogni giro, dentro lo storico, farebbe
+  comparire fra i «risolti» un difetto che nessuno ha toccato. Restano quindi
+  fuori dal piano d'interventi e dal confronto U7, che i derivati saltano da
+  R41 — e per la stessa ragione non muovono alcun punteggio.
+- **`llm.content.other` esiste per una misura, non per simmetria.** Il primo
+  giro lasciava fuori dai rilievi la prosa senza tema; il golden ha mostrato
+  che la resa Markdown di un'area preferisce i rilievi alle `issues`, quindi
+  quella prosa spariva **proprio dalla vista che U10.1 doveva raggiungere**.
+  Il secchio ha una chiave stabile perché non viene dalla prosa, ed è
+  `derived` come gli altri.
+
+**Un dettaglio di resa colto dal golden.** Il `detail` univa le osservazioni
+con `\n`, e in un elenco Markdown la seconda riga non rientrata esce dalla
+voce e spezza la lista. Unite con `; `.
+
+**Che cosa cambia nel referto.** L'area 9 esce ora anche dal JSON, dal CSV e
+dal Markdown per la via dei findings, e i titoli si traducono (sette voci nuove
+in `mars_i18n`, senza `fix`, come i derivati della citabilità). La prosa del
+modello resta italiana e ogni rilievo lo dichiara in `params["text_lang"]`,
+come fanno axe, ZAP e Lighthouse.
+
+**Una conseguenza fuori dall'area 9.** Fino a ieri il giudizio LLM era l'unica
+area con `issues` e senza rilievi, e i due referti sintetici esercitavano da
+soli `aree_non_tradotte()` — la nota «Queste aree si esprimono solo in
+italiano». Ora nessuna area del progetto è in quel caso: il ramo resta, perché
+un modulo di terzi non è tenuto a emettere rilievi, ma il caso si costruisce
+apposta in `tests/test_i18n.py` invece di appoggiarsi a un'area che non lo
+esercita più.
+
+**Prove.** `pytest` **1184 passed** (da 1176: otto test nuovi), `flake8 .` a
+zero. Golden dei cinque formati rigenerati e **diff riletto**: il fixture del
+giudizio finto porta ora due osservazioni sullo stesso tema, un secondo tema e
+una fuori vocabolario, così i tre casi restano congelati. **Undici mutazioni su
+undici colte**, con `PYTHONDONTWRITEBYTECODE=1`: `derived` tolto, nessun
+raggruppamento, ordine alfabetico invece che di prima apparizione, `detail` su
+più righe, `source_key` sempre presente, `text_lang` sbagliata, tema ignoto non
+normalizzato, `enum` scollegato dal vocabolario, punto debole vuoto non
+scartato, prosa non pubblicata, `altro` perso.
+
+**Che cosa resta NON verificato.** Lo `SCHEMA` nuovo — un array di oggetti con
+`enum` e `additionalProperties: false` — **non è mai stato inviato all'API
+vera**: i test iniettano il client, e la validazione dello schema è
+server-side. Entrambi i costrutti sono documentati come supportati dagli
+structured outputs, ma è documentazione, non una misura. È lo stesso genere di
+buco che C4 ha chiuso il 2026-08-28, e si chiude allo stesso modo: un audit con
+`--llm on` e una chiave vera. Se lo schema fosse rifiutato, l'area uscirebbe
+con `llm.status.api_failed` e il referto lo direbbe.
 
 ### I3 — ✅ REALIZZATA (2026-08-27): `--rrf-k`, e che cosa cambia davvero
 

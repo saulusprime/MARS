@@ -19,7 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Quattro caselle aperte, e nessuna è una correzione.** Da R55 a R63 sono
+> **Tre caselle aperte, e nessuna è una correzione.** Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
 > giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
@@ -27,7 +27,8 @@
 > UPGRADE e una prova mancante: **C4/C2 è stata verificata sul campo** il
 > 2026-08-28, con una chiave vera e una chiamata vera, e la chiamata ha
 > trovato **R63**, chiusa lo stesso giorno. `__version__` è a **2.10.0**,
-> perché da R63 i punteggi si muovono a sito invariato.
+> perché da R63 i punteggi si muovono a sito invariato — a **2.11.0** da
+> U10.1, che non muove alcun punteggio ma aggiunge una famiglia di rilievi.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -39,21 +40,7 @@
 
 ## Correzioni
 
-**Nessuna aperta.** **R63** — il menu di navigazione nel corpus — è aperta e
-chiusa il 2026-08-28 e sta in [AS-IS.md](AS-IS.md). Le quattro del 2026-08-27
-sono chiuse lo stesso giorno e
-stanno in [AS-IS.md](AS-IS.md): **R57** (la CLI non aveva **alcun** modo di
-passare una credenziale — `--credentials FILE`), **R58** (l'annuncio della
-spesa si
-stampava anche quando nulla sarebbe partito) e **R59** (diagnostica e referto
-sullo stesso canale). Chiudendo R59 si è misurato che la seconda voce che
-quella lasciava intravedere — le stampe di `mars_citations.py` — **non
-esisteva**: là i due canali erano già separati. **R60** — gli esempi di
-correzione si leggevano come contenuto misurato del sito — ne ha aperta e
-chiusa una sesta, **R61**: l'etichetta «Correzione:» stava nel CSS, e un
-referto inglese la diceva in italiano. **R62** chiude l'ultima segnalazione
-dell'utente: `--credentials` diceva quali chiavi accetta e mai che forma ha il
-file, e il modello che l'aiuto indicava era il corpo di una richiesta API.
+**Nessuna aperta.**
 
 ---
 
@@ -61,29 +48,17 @@ file, e il modello che l'aiuto indicava era il corpo di una richiesta API.
 
 Il piano sta in [UPGRADE.md](UPGRADE.md), il quadro delle nove fasi chiuse e le
 decisioni D1-D4 in [AS-IS.md](AS-IS.md). Dove piano e realizzazione divergono
-ha ragione AS-IS. Restano tre fasi, più **U12** (ancore esterne, Brave Search e
+ha ragione AS-IS. Restano due fasi, più **U12** (ancore esterne, Brave Search e
 confronto competitivo) che il piano dichiara **opzionale** e che per questo non
 ha una casella: se si decide di farla, la casella si aggiunge.
 
 - [ ] **U10 — Giudizio LLM multi-modello** (G08, Fase 10): ChatGPT, Qwen e
-      Kimi accanto a Claude.
-- [ ] **U10.1 — I `punti_deboli` del giudizio come rilievi strutturati.**
-      U1.9 li ha lasciati fuori di proposito: sono prosa libera, senza chiave
-      stabile, diversi a ogni esecuzione (`thinking: adaptive`) e a ogni
-      modello, quindi né confrontabili (U7) né traducibili (U9) — e
-      `Finding.key` è proprio ciò su cui quelle due fasi poggiano. Il prezzo è
-      che l'**unica prosa orientata al miglioramento** dell'intero referto
-      resta fuori dal piano U4 e da ogni esportazione basata sui findings.
-      Riaprirla richiede prima **una** delle due cose che oggi mancano:
-      *(a)* far etichettare al modello ogni punto debole con una delle chiavi
-      che le altre otto aree già producono — allora il rilievo è un derivato di
-      quella chiave, con la prosa in `detail` e `params["derived"] = True` come
-      in `mars_citability`, e la chiave resta stabile perché il modello la
-      sceglie da un vocabolario chiuso invece di scriverla; *(b)* il giudizio
-      multi-modello, dove la **concordanza** fra modelli è la misura che oggi
-      manca e che renderebbe il rilievo una misura invece di un'opinione.
-      Senza (a) o (b) resta prosa, e va lasciata dov'è. Dipende quindi da U10,
-      o da una decisione che non richiede U10.
+      Kimi accanto a Claude. **U10.1 è chiusa** il 2026-08-28 e sta in
+      [AS-IS.md](AS-IS.md): i punti deboli del giudizio sono rilievi
+      `llm.content.*` etichettati su un vocabolario chiuso. Quel vocabolario è
+      il punto in cui U10 tocca terra — quattro modelli devono scegliere dallo
+      **stesso** elenco perché la concordanza sia misurabile — e `params`
+      dichiara già di quale modello sia l'opinione.
 
 ---
 
@@ -104,20 +79,6 @@ contro il servizio reale il 2026-08-28, e ha trovato **R63**.
 ---
 
 ## Idee
-
-**Proposte, non lavoro deciso: nessuna ha una casella, e nessuna si esegue
-senza conferma.** Una riga a testa; il ragionamento completo di ciascuna è
-nella storia di git, `git show 8e80211:TO-DO.md`. Quando una si decide,
-diventa una voce con la sua analisi e la sua casella.
-
-Due portano qui una **misura**, e non una proposta, perché rifarla costerebbe:
-sono I5 e I15, ed è l'unica ragione per cui sono più lunghe di una riga.
-
-**I3 è stata decisa e realizzata** il 2026-08-27 e sta in
-[AS-IS.md](AS-IS.md): `--rrf-k` esiste, e il referto mostra come cambia il
-consenso al variare di k. La voce la dava «didattica, quasi gratis»; misurando
-si è visto che quel parametro sposta il segnale «Recuperabilità» del
-complessivo — da 100 a 0 sullo stesso sito, fra k=10 e k=60.
 
 - **I2** — `--fail-under` per `mars_audit`, con exit code ≠ 0 sotto la soglia.
   Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per

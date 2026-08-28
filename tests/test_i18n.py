@@ -948,6 +948,22 @@ def test_l_html_dichiara_la_lingua_che_parla(monkeypatch):
     assert "<html lang='en'>" in _resa(monkeypatch, "referto", "html", "en")
 
 
+def _referto_con_area_muta() -> dict:
+    """Un referto con un'area che ha `issues` e nessun rilievo.
+
+    Fino a U10.1 quell'area era il giudizio LLM, e i due referti
+    sintetici la portavano da soli: i `punti_deboli` erano prosa, e
+    prosa senza chiave non si traduce. Da U10.1 ogni area del progetto
+    emette rilievi, quindi il caso — che resta possibile, e per un
+    modulo di terzi resta il caso normale — si costruisce qui invece di
+    contare su un'area che non lo esercita piu'.
+    """
+    from mars_report import build_report
+    return build_report(
+        {"mars_lexical": {"score": 50, "issues": ["prosa italiana"]}},
+        {"url": "https://esempio.test/"})
+
+
 def test_la_nota_di_onesta_compare_solo_fuori_dall_italiano(monkeypatch):
     """E nomina le aree, invece di dire genericamente che qualcosa non
     è stato tradotto."""
@@ -956,18 +972,11 @@ def test_la_nota_di_onesta_compare_solo_fuori_dall_italiano(monkeypatch):
     assert "evidence quoted from the audited site" in inglese
     assert "evidence quoted" not in italiano
     assert "Nota: le evidenze" not in italiano
-    # Le aree non tradotte sono nominate per esteso — e la prova si fa
-    # SULLA RIGA della nota, non sul referto intero: «9. LLM Judgement»
-    # compare anche nella riga d'area, quindi cercarlo dappertutto
-    # sarebbe un test che passa da solo.
-    riga = [r for r in inglese.split("\n")
-            if r.startswith("These areas speak Italian only:")]
-    assert len(riga) == 1
-    assert "9. LLM Judgement" in riga[0], riga[0]
-    # E le aree che non dicono NULLA non ci sono: nel referto sintetico
-    # lessicale e semantica non hanno ne' issues ne' rilievi, quindi non
-    # c'e' alcun italiano da dichiarare.
-    assert "Lexical" not in riga[0] and "Semantic" not in riga[0]
+    # Sul referto sintetico la seconda riga della nota NON c'e' piu', ed
+    # e' un fatto su U10.1: ogni area emette rilievi, quindi non resta
+    # italiano da dichiarare. Asserirlo qui fa fallire il giorno in cui
+    # un'area smettesse di emetterne senza che nessuno se ne accorga.
+    assert "These areas speak Italian only" not in inglese
 
 
 def test_l_intestazione_del_csv_e_tradotta(monkeypatch):
@@ -975,19 +984,17 @@ def test_l_intestazione_del_csv_e_tradotta(monkeypatch):
     assert prima.lstrip("﻿").startswith("site;area;severity;weight")
 
 
-def test_le_aree_senza_rilievi_restano_dichiarate(monkeypatch):
+def test_le_aree_senza_rilievi_restano_dichiarate():
     """`_righe_compatte` mostra i titoli dei rilievi fuori dall'italiano,
     ma dove i rilievi non ci sono le issues restano italiane: e' un
     fatto, e va dichiarato invece che nascosto."""
-    from mars_report import aree_non_tradotte
-    referto = DATASET["referto"](monkeypatch)
+    from mars_report import aree_non_tradotte, render_text
+    referto = _referto_con_area_muta()
     assert aree_non_tradotte(referto, "it") == []
-    rimaste = aree_non_tradotte(referto, "en")
-    assert rimaste, "il referto sintetico ha aree senza findings"
-    for etichetta in rimaste:
-        area = [a for a in referto["areas"]
-                if mars_i18n.t(a["label"], "en") == etichetta][0]
-        assert area["issues"] and not area.get("findings")
+    assert aree_non_tradotte(referto, "en") == ["3. Lexical"]
+    riga = [r for r in render_text(referto, "en").split("\n")
+            if r.startswith("These areas speak Italian only:")]
+    assert riga == ["These areas speak Italian only: 3. Lexical."]
 
 
 # ======================================================================

@@ -331,9 +331,20 @@ def _giudizio_llm() -> dict:
                            "verificabile.",
             "punti_forti": ["Titoli interrogativi con risposta immediata",
                             "Durata e modalita' della seduta dichiarate"],
-            "punti_deboli": ["Nessun prezzo verificabile",
-                             "Nessuna fonte citata",
-                             "Nessuna data di aggiornamento"]}
+            # Etichettati (U10.1), e i quattro casi che contano: due
+            # osservazioni sullo stesso tema — che devono diventare UN
+            # rilievo — un secondo tema, e una che nel vocabolario non
+            # sta e resta prosa.
+            "punti_deboli": [
+                {"tema": "unverifiable",
+                 "testo": "Nessun prezzo verificabile"},
+                {"tema": "unverifiable",
+                 "testo": "Nessuna data di aggiornamento"},
+                {"tema": "promotional",
+                 "testo": "Il listino si legge come una promessa, non "
+                          "come un dato"},
+                {"tema": "altro",
+                 "testo": "Nessuna firma sugli articoli"}]}
 
 
 class _ClientLLM:

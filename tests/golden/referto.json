@@ -1251,10 +1251,62 @@
       "status": null,
       "issues": [
         "Nessun prezzo verificabile",
-        "Nessuna fonte citata",
-        "Nessuna data di aggiornamento"
+        "Nessuna data di aggiornamento",
+        "Il listino si legge come una promessa, non come un dato"
       ],
-      "findings": [],
+      "findings": [
+        {
+          "area": "mars_llm_judge",
+          "severity": "info",
+          "title": "Affermazioni che nulla rende verificabili",
+          "key": "llm.content.unverifiable",
+          "detail": "Nessun prezzo verificabile; Nessuna data di aggiornamento",
+          "fix": "",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "derived": true,
+            "model": "claude-opus-5",
+            "text_lang": "it"
+          }
+        },
+        {
+          "area": "mars_llm_judge",
+          "severity": "info",
+          "title": "Passaggi promozionali invece che informativi",
+          "key": "llm.content.promotional",
+          "detail": "Il listino si legge come una promessa, non come un dato",
+          "fix": "",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "derived": true,
+            "model": "claude-opus-5",
+            "text_lang": "it"
+          }
+        },
+        {
+          "area": "mars_llm_judge",
+          "severity": "info",
+          "title": "Altre osservazioni del modello sul contenuto",
+          "key": "llm.content.other",
+          "detail": "Nessuna firma sugli articoli",
+          "fix": "",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "derived": true,
+            "model": "claude-opus-5",
+            "text_lang": "it"
+          }
+        }
+      ],
       "tool": null,
       "reference_score": null,
       "reference_tool": null,
@@ -1448,12 +1500,64 @@
   },
   "llm_judgement": {
     "score": 61,
-    "findings": [],
+    "findings": [
+      {
+        "area": "mars_llm_judge",
+        "severity": "info",
+        "title": "Affermazioni che nulla rende verificabili",
+        "key": "llm.content.unverifiable",
+        "detail": "Nessun prezzo verificabile; Nessuna data di aggiornamento",
+        "fix": "",
+        "example": "",
+        "doc_url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "derived": true,
+          "model": "claude-opus-5",
+          "text_lang": "it"
+        }
+      },
+      {
+        "area": "mars_llm_judge",
+        "severity": "info",
+        "title": "Passaggi promozionali invece che informativi",
+        "key": "llm.content.promotional",
+        "detail": "Il listino si legge come una promessa, non come un dato",
+        "fix": "",
+        "example": "",
+        "doc_url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "derived": true,
+          "model": "claude-opus-5",
+          "text_lang": "it"
+        }
+      },
+      {
+        "area": "mars_llm_judge",
+        "severity": "info",
+        "title": "Altre osservazioni del modello sul contenuto",
+        "key": "llm.content.other",
+        "detail": "Nessuna firma sugli articoli",
+        "fix": "",
+        "example": "",
+        "doc_url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "derived": true,
+          "model": "claude-opus-5",
+          "text_lang": "it"
+        }
+      }
+    ],
     "status": null,
     "issues": [
       "Nessun prezzo verificabile",
-      "Nessuna fonte citata",
-      "Nessuna data di aggiornamento"
+      "Nessuna data di aggiornamento",
+      "Il listino si legge come una promessa, non come un dato"
     ],
     "model": "claude-opus-5",
     "motivazione": "I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.",
@@ -1463,8 +1567,9 @@
     ],
     "punti_deboli": [
       "Nessun prezzo verificabile",
-      "Nessuna fonte citata",
-      "Nessuna data di aggiornamento"
+      "Nessuna data di aggiornamento",
+      "Il listino si legge come una promessa, non come un dato",
+      "Nessuna firma sugli articoli"
     ],
     "passaggio_migliore": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
     "chunk_valutati": 4,

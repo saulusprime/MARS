@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.10.0"
+__version__ = "2.11.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -487,8 +487,9 @@ class Finding:
     campo scalare sarebbe vuoto per costruzione ovunque il difetto
     ricorra, che e' il caso normale. Ogni modulo che sappia su quali
     pagine ha guardato dichiara `params["urls"]`; chi non lo sa (i
-    rilievi derivati di `mars_citability`, gli stati d'esecuzione) lo
-    omette, e omettere e' diverso da una lista vuota.
+    rilievi derivati di `mars_citability` e di `mars_llm_judge`, gli
+    stati d'esecuzione) lo omette, e omettere e' diverso da una lista
+    vuota.
     """
 
     area: str

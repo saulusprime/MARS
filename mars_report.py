@@ -1656,9 +1656,11 @@ def _righe_compatte(area: dict,
     controllo — ed e' scritto qui invece che in tre renderer perche'
     testo, HTML e Markdown non possano divergere.
 
-    Dove i rilievi non ci sono — il giudizio LLM, che e' prosa del
-    modello — restano le issues italiane, e il referto lo dichiara in
-    testa. Le due aree di classifica ne producono da U13.
+    Dove i rilievi non ci sono restano le issues italiane, e il referto
+    lo dichiara in testa. Da U10.1 nessuna area del progetto e' piu' in
+    quel caso — il giudizio LLM, che era l'ultima, etichetta i propri
+    punti deboli — ma il ramo resta: un modulo di terzi non e' tenuto a
+    emettere rilievi.
     """
     if lang == LINGUA_CANONICA:
         return list(area.get("issues") or [])

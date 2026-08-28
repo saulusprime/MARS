@@ -180,6 +180,12 @@ della fase che li incontra, per non deciderli "di fatto" scrivendo codice.
 > fra loro — U11 e U12 si possono fare in qualunque ordine, U10 porta con sé
 > **U10.1** (i punti deboli del giudizio come rilievi strutturati), che senza
 > il multi-modello non ha la misura che le serve.
+>
+> **La previsione su U10.1 è stata smentita** il 2026-08-28: la dipendenza da
+> U10 non c'era. Un vocabolario chiuso di temi rende la chiave stabile senza
+> alcuna concordanza fra modelli, e il rilievo si dichiara opinione con
+> `derived` invece di fingersi misura. Realizzata prima di U10, che ora eredita
+> quel vocabolario come punto di contatto. Vedi [AS-IS.md](AS-IS.md).
 
 Il divario G01 (modello dati dei rilievi) è il **prerequisito** di quasi
 tutto: G02, G03, G05, G06, G07 (tile e donut), G11. Va chiuso per primo.

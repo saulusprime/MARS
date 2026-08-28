@@ -29,14 +29,19 @@
 > chiamata vera, e la chiamata ha trovato **R63**; l'ultima prova mancante —
 > `evaluate_answer` — chiusa lo stesso giorno, e la misura che l'ha aperta è
 > che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
-> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2** è
-> la prima idea decisa dopo la chiusura del programma: non aveva una casella,
-> e l'ha avuta quando l'utente ha detto di farla.
+> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2** e
+> **I8** sono le prime idee decise dopo la chiusura del programma: non avevano
+> una casella, e l'hanno avuta quando l'utente ha detto di farle. I8 è stata
+> realizzata **in forma ridotta e dichiarata**: un modulo `mars_config.py`, non
+> il file di configurazione che l'idea chiedeva — la ragione sta in
+> [AS-IS.md](AS-IS.md), e chi volesse il file esterno riapra una voce invece di
+> credere che I8 lo abbia già fatto.
 >
 > `__version__` è salita a **2.10.0** con R63, perché da lì i punteggi si
 > muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
 > punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10, a
-> **2.13.0** con U11 e a **2.14.0** con I2.
+> **2.13.0** con U11 e a **2.14.0** con I2. I8 non l'ha mossa: nessun
+> punteggio cambia e nessuna interfaccia con lei.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -72,8 +77,6 @@
 - **I6** — cache HTTP su disco (URL + ETag/Last-Modified): rende iterabile lo
   sviluppo dei moduli senza martellare il sito bersaglio.
 - **I7** — `--compare a.com b.com c.com` con tabella affiancata.
-- **I8** — pesi, soglie ed elenchi (crawler IA, termini answer-shaped) in un
-  file di configurazione invece che costanti sparse nel codice.
 - **I10** — un `mars_perf.py` con i **controlli** dei Core Web Vitals, letti
   dallo stesso LHR senza un secondo Lighthouse. I punteggi di categoria li
   pubblica già R45: manca la parte azionabile, LCP, CLS, INP e le loro soglie.

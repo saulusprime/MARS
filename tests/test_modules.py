@@ -21,6 +21,7 @@ import requests
 from requests.structures import CaseInsensitiveDict
 
 import mars_citability
+import mars_config
 import mars_core
 import mars_lexical
 import mars_llm_judge
@@ -1066,7 +1067,7 @@ def test_tech_la_vista_compatta_usa_la_parola_italiana():
     assert issues[0].startswith("[critico] ")
     for issue in issues:
         prefisso = issue.split("]")[0].lstrip("[")
-        assert prefisso in mars_tech.PESI, \
+        assert prefisso in mars_config.PENALITA, \
             "prefisso %r fuori dalla scala di MARS" % prefisso
 
 
@@ -3935,15 +3936,6 @@ def test_semantic_la_quota_in_forma_di_risposta_bassa_e_un_rilievo():
     # Dove: le pagine che non portano un solo passaggio in forma di
     # risposta, cosi' la treemap colora quelle e non l'intero sito.
     assert rilievo["params"]["urls"] == sorted(pagine)
-
-
-def test_la_soglia_in_forma_di_risposta_e_quella_della_citabilita():
-    """Due soglie sullo stesso numero: sotto 60 `mars_citability`
-    dichiara il segnale debole. Se qui fosse 10, il referto direbbe
-    «segnale debole» accanto a un'area che non ha nulla da segnalare —
-    e nessun errore lo rivelerebbe."""
-    assert (mars_semantic.SOGLIA_ANSWER_SHAPED
-            == mars_citability.SOGLIA_DEBOLE)
 
 
 def _chunk_risposta(url: str) -> dict:

@@ -13,31 +13,12 @@ import re
 from collections import defaultdict
 from typing import List, Optional, Tuple
 
+from mars_config import (MIN_PAROLE, PENALITA, SOGLIA_ANSWER_SHAPED,
+                         SOGLIA_CHUNK)
 from mars_core import (SEV_INFO, Finding, VectorRetriever,
                        describe_chunk, normalizza_severita,
                        reciprocal_rank_fusion, RRF_K)
 
-MIN_PAROLE = 40
-
-# Sotto questo numero di passaggi il sito offre poche occasioni di
-# comparire in una lista di risultati: nella somma RRF il numero di
-# chunk pertinenti e' il moltiplicatore, e venti e' il punto sotto il
-# quale un sito non ha abbastanza superficie perche' la fusione dica
-# qualcosa. Soglia editoriale, e viaggia nei `params`.
-SOGLIA_CHUNK = 20
-
-# Sotto questa quota di passaggi in forma di risposta l'area lo
-# dichiara. **Deve restare uguale a `mars_citability.SOGLIA_DEBOLE`**,
-# che sullo stesso numero fa nascere `cit.answer_shaped.weak`: con due
-# soglie diverse il referto direbbe "segnale debole" accanto a un'area
-# che non ha nulla da segnalare, e nessun errore lo rivelerebbe. A
-# tenerle insieme non c'e' un accorgimento ma un test — i moduli sono
-# plugin e non si importano fra loro.
-SOGLIA_ANSWER_SHAPED = 60
-
-# Penalita' per CONTROLLO, sulla scala editoriale "mars": vedi la
-# tabella gemella in `mars_lexical`, che porta la ragione per esteso.
-PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
 
 # Termini interrogativi per lingua. Il modello di embedding di default
 # e' multilingue: limitarsi all'italiano rendeva la metrica cieca su

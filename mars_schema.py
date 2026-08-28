@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import List
 
+from mars_config import PENALITA_SCHEMA
 from mars_core import SEV_INFO, Finding, normalizza_severita
 
 # Quest'area non ha una scala di gravita' propria: nel modulo esiste
@@ -26,10 +27,6 @@ from mars_core import SEV_INFO, Finding, normalizza_severita
 # invisibile, e appiattire la differenza toglierebbe senso al livello
 # piu' alto.
 GRAVITA = {"missing": "grave", "malformed": "medio", "empty": "lieve"}
-
-# Penalita' per OCCORRENZA. Sono quelle di sempre: il punteggio non
-# cambia con l'adeguamento, e i test lo verificano.
-PENALITA = {"missing": 50, "malformed": 10, "empty": 5}
 
 
 def _rilievo(caso: str, testo: str, chiave: str, quante: int = 1,
@@ -57,7 +54,7 @@ def _rilievo(caso: str, testo: str, chiave: str, quante: int = 1,
         area="mars_schema", severity=severita, weight=peso,
         title=testo, key=chiave,
         params=dict(params, n=quante, **canonico,
-                    penalty=float(PENALITA[caso] * quante)))
+                    penalty=float(PENALITA_SCHEMA[caso] * quante)))
 
 
 def audit(context: dict) -> dict:
@@ -93,20 +90,20 @@ def audit(context: dict) -> dict:
             # catturava e riportava "malformato" su un blocco vuoto.
             if not raw:
                 issues.append(f"JSON-LD vuoto su {url}")
-                score -= PENALITA["empty"]
+                score -= PENALITA_SCHEMA["empty"]
                 vuoti.append(url)
                 continue
             try:
                 json.loads(raw)
             except json.JSONDecodeError:
                 issues.append(f"JSON-LD malformato su {url}")
-                score -= PENALITA["malformed"]
+                score -= PENALITA_SCHEMA["malformed"]
                 malformati.append(url)
 
     rilievi: List[Finding] = []
     if found == 0:
         issues.append("Nessun JSON-LD / Schema.org trovato")
-        score -= PENALITA["missing"]
+        score -= PENALITA_SCHEMA["missing"]
         rilievi.append(_rilievo(
             "missing", "Nessun JSON-LD / Schema.org trovato",
             "sd.jsonld.missing", ricorre=False, pagine=len(pages)))

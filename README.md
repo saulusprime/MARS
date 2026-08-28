@@ -735,6 +735,25 @@ referti con soglie diverse non sarebbero confrontabili alla pari, e la chiave
 c'è da subito perché il giorno che lo diventeranno nessuno debba distinguere
 «assente perché vecchio» da «assente perché di serie».
 
+I pesi e le soglie stanno tutti in **mars_config.py** (I8): quanto costa un
+rilievo grave, sotto quante parole una pagina è sottile, quanto pesa un'area
+nel complessivo. Sono diciotto valori il cui contenuto è una **scelta**, non
+un fatto, e prima stavano sparsi in dieci file — la scala editoriale
+`{critico: 40, grave: 20, medio: 8, lieve: 3}` era scritta **tre volte
+identica**, con un commento che dichiarava la ripetizione deliberata e nessun
+test che le legasse. Le ragioni si sono spostate con i valori: chi vuole
+sapere come misura MARS legge quel file, non dieci.
+
+Restano fuori gli elenchi che descrivono il mondo — quali crawler IA
+esistono, quali header di sicurezza contano — perché non sono tarabili e
+vivono meglio accanto al codice che li interroga.
+
+**Non è un file di configurazione**, ed è deliberato: è un modulo Python.
+Un valore letto a runtime da un file esterno renderebbe ogni punteggio
+condizionato a un file non versionato, e il referto dovrebbe dichiarare con
+quale configurazione ha girato — che è esattamente ciò che `thresholds`
+qui sopra tiene in serbo, e perché resta `null`.
+
 Con --history il referto guadagna la sezione «rispetto all'esecuzione
 precedente»: una riga compatta per esecuzione in un file JSONL append-only,
 e il confronto dei rilievi per **chiave stabile** — cosi' un conteggio che

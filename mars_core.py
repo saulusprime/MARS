@@ -25,6 +25,11 @@ from urllib.robotparser import RobotFileParser
 import requests
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 
+# I pesi e le soglie stanno tutti in mars_config (I8). Il modulo non
+# importa nulla del progetto: e' una foglia, e puo' quindi essere
+# letto anche da mars_core senza un ciclo.
+from mars_config import LH_PESO_CRITICO
+
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
@@ -270,12 +275,9 @@ SEV_OK = "ok"
 # elenco di rilievi, e serve come chiave di ordinamento.
 SEVERITA = (SEV_CRITICAL, SEV_WARNING, SEV_INFO, SEV_OK)
 
-# Il peso e' una scala CHIUSA, non un float libero. Serve a conservare
-# la granularita' che le quattro severita' perdono: mars_tech distingue
-# "grave" da "medio", axe "serious" da "moderate", e senza il peso i due
-# livelli collasserebbero indistinguibili. Dichiararla chiusa evita che
-# fra qualche fase compaia un 1.7 e l'ordinamento diventi illeggibile.
-WEIGHTS = (1.0, 1.5, 2.0, 3.0)
+# La scala chiusa dei pesi sta in mars_config (`WEIGHTS`): la tabella
+# qui sotto ne usa i valori, e un test verifica che non ne produca
+# altri.
 
 # Prefisso di chiave per area. Descrive il SOGGETTO, non il file del
 # plugin: i moduli sono sostituibili per progetto (principio 3), le
@@ -362,15 +364,6 @@ def normalizza_severita(scala: str, valore: object = "") -> Tuple[str, float]:
 # calcola, e per questo sta in una funzione sua invece che dentro
 # _SCALE_SEVERITA con una firma allargata.
 #
-# La soglia non e' arbitraria. Nella categoria SEO Lighthouse assegna
-# peso 1 a ogni audit tranne due: `is-crawlable` pesa 93/23 (~4,04) — e
-# il commento nel suo default-config.js dice perche', e' calibrato
-# perche' quel solo fallimento faccia fallire l'intera categoria (>=31%
-# del punteggio) — mentre gli audit manuali pesano 0. Una soglia a 3
-# separa quindi esattamente cio' che Lighthouse stesso considera
-# rompi-categoria, e lo zero esattamente cio' che non e' misurato.
-LH_PESO_CRITICO = 3.0
-
 # Modalita' in cui Lighthouse dichiara di NON aver misurato: non sono
 # fallimenti, e trattarle come tali sarebbe inventare un difetto.
 #

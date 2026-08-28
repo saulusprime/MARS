@@ -80,6 +80,7 @@
 | U10 | Giudizio LLM multi-modello, con due scarti di onestà | 2026-08-28 |
 | U11 | Il referto si stampa, le tabelle hanno un'intestazione, il piede firma | 2026-08-28 |
 | I2 | `--fail-under`: il complessivo decide il codice di uscita | 2026-08-28 |
+| I8 | Pesi e soglie in `mars_config.py`, e la scala non è più tripla | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2510,6 +2511,109 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### I8 — ✅ REALIZZATA (2026-08-28): i pesi e le soglie in un posto solo
+
+*(idea, decisa dall'utente. Nessun punteggio si muove e nessuna interfaccia
+cambia: `__version__` resta **2.14.0**.)*
+
+**Che cosa c'era.** Diciotto valori il cui contenuto è una *scelta* — quanto
+costa un rilievo grave, sotto quante parole una pagina è sottile, quanto pesa
+un'area nel complessivo — sparsi in dieci file. E, misurato prima di
+decidere, una duplicazione vera:
+
+```
+mars_lexical.py:41   PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
+mars_semantic.py:40  PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
+mars_tech.py:93      PESI     = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
+```
+
+Tre copie identiche della scala editoriale, **dichiarate deliberate** da un
+commento: «la tabella è ripetuta e non importata perché i moduli sono plugin
+e non si importano fra loro». Nessun test le legava: se una fosse cambiata, i
+punteggi di quell'area si sarebbero mossi e nulla si sarebbe rotto.
+
+**La ragione della ripetizione non reggeva.** Vale fra plugin, ma la
+duplicazione non era fra due plugin: sarebbe stato un import da un modulo
+*condiviso*, e **tutti e nove i moduli d'area importano già da `mars_core`**
+(`Finding`, `SEV_INFO`, `normalizza_severita`). Misurato prima di scrivere.
+
+**La forma, decisa e non dedotta.** L'idea diceva «un file di
+configurazione», che è un'altra cosa e ha un costo che la deduplicazione non
+ha: un valore letto a runtime da un file esterno rende ogni punteggio
+condizionato a un file non versionato, e il referto dovrebbe dichiarare con
+quale configurazione ha girato — il precedente di `--rrf-k` (I3), che per una
+sola manopola è costato al referto la chiave `rrf.k` e un sondaggio di
+sensibilità. Il progetto lo aveva **già scritto**: `thresholds` è `null` nel
+referto «finché le soglie non sono configurabili, e dichiararlo è il punto:
+due referti con soglie diverse non si confrontano alla pari»
+([mars_report.py:147](mars_report.py#L147)).
+
+Scelta quindi la forma **A**, un modulo Python `mars_config.py`, e scartato
+il file esterno: nessuno ha mai avuto bisogno di tarare un peso senza toccare
+il codice (YAGNI), e A è comunque il prerequisito di B — per sovrascrivere
+serve prima un posto solo da cui leggere.
+
+**Perimetro.** I soli pesi e soglie **numerici** che decidono un punteggio.
+Restano fuori gli elenchi che descrivono il mondo (`CRAWLER_IA`, i termini
+interrogativi, `SECURITY_HEADERS`, `TESTI_GENERICI`) e le tabelle
+controllo→gravità (`mars_wcag.STATICI`, `mars_schema.GRAVITA`): non sono
+tarabili, e vivono meglio accanto al codice che le interroga.
+
+**Le ragioni si sono spostate con i valori.** Spostare un numero lontano dal
+commento che lo giustifica lo renderebbe arbitrario, ed è il difetto che il
+file esiste per non introdurre. Un test lo presidia.
+
+**Un guadagno non previsto.** `mars_semantic.SOGLIA_ANSWER_SHAPED` e
+`mars_citability.SOGLIA_DEBOLE` **devono** essere uguali — sullo stesso
+numero nasce `cit.answer_shaped.weak`, e con due soglie diverse il referto
+direbbe «segnale debole» accanto a un'area che non ha nulla da segnalare. Il
+commento diceva: «a tenerle insieme non c'è un accorgimento ma un test».
+Ora sono un valore solo, e il test è passato dall'uguaglianza (diventata
+tautologica) al valore.
+
+**Rinomine, solo dove i nomi collidevano** nello spazio condiviso:
+`mars_tech.PESI` → `PENALITA` (è la scala condivisa), `mars_schema.PENALITA`
+→ `PENALITA_SCHEMA` (valori diversi), `mars_wapt.PENALITA_IGNOTA` →
+`PENALITA_IGNOTA_ZAP` (2, contro il 5 di `mars_tech`). Tutti gli altri nomi
+sono quelli di prima.
+
+**File toccati.** Nuovo `mars_config.py` (18 costanti) e nuovo
+`tests/test_config.py` (5 test); `mars_core.py`, `mars_report.py`,
+`mars_tech.py`, `mars_lexical.py`, `mars_semantic.py`, `mars_schema.py`,
+`mars_wcag.py`, `mars_wapt.py`, `mars_citability.py` perdono le definizioni e
+guadagnano un import; `tests/test_core.py`, `tests/test_modules.py`,
+`README.md`.
+
+**Il presidio.** Riunire non basta: la stessa divergenza si riottiene
+riscrivendo il nome in un modulo. `test_nessun_modulo_riscrive_una_costante_di_mars_config`
+guarda il CODICE con `ast` — un'assegnazione al livello del modulo a un nome
+che viene da `mars_config` è esattamente il difetto chiuso — ed è affiancato
+da `test_la_scala_editoriale_e_un_oggetto_solo`, che pretende l'**identità**
+e non l'uguaglianza: è l'identità a distinguere «una tabella condivisa» da
+«tre tabelle che per ora coincidono», ed era la seconda che il progetto
+aveva.
+
+**Verifiche.** `flake8 .` a zero, `pytest` **1231 passed** (da 1227: cinque
+test nuovi, uno tolto perché diventato tautologico). I **golden sono rimasti
+verdi senza rigenerazione**, ed è la prova che conta: congelano la pipeline
+intera, quindi un punteggio spostato dalla migrazione li avrebbe fatti
+fallire.
+
+**Dieci mutazioni su dieci colte**: `mars_lexical` che si riscrive la scala,
+`mars_tech` che se la riscrive *diversa*, la soglia delle risposte che torna
+a divergere, il valore della scala editoriale, `SOGLIA_DEBOLE`,
+`PESO_SEGNALE_DERIVATO`, `PENALITA_STATICA`, `SOGLIA_BUONO`, una costante che
+perde la propria ragione, e `mars_config` che importa dal progetto. **Due
+erano mal fatte** al primo giro e sono state rifatte: togliere una riga da un
+commento di cinque non toglie la ragione, e `import mars_core` dentro
+`mars_config` è un ciclo vero — il file non si importa più, quindi la guardia
+non veniva esercitata; ci vuole un modulo che non cicli (`mars_fixes`).
+
+**End-to-end**, stesso sito statico locale di I2, stesso minuto: complessivo
+**64,9** prima e dopo, e le nove aree con gli stessi punteggi
+(`tech 69, seo 90, lex 60, sem 72, sd 50, wcag 100, wapt 60, cit 60.5,
+llm None`). Non verificato: nulla.
 
 ### I2 — ✅ REALIZZATA (2026-08-28): `--fail-under`, e il codice 1 non è più riservato
 

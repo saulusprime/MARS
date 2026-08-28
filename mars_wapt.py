@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 
 import requests
 
+from mars_config import PENALITA_IGNOTA_ZAP, ZAP_PENALTIES
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
                        normalizza_severita)
 
@@ -31,25 +32,6 @@ ZAP_API_KEY = os.environ.get("ZAP_API_KEY", "")
 
 ZAP_TIMEOUT_SCAN = 900   # secondi per spider + active scan
 ZAP_ATTESA = 3           # secondi fra due controlli di avanzamento
-
-# Penalita' per livello di rischio. Scelta editoriale dichiarata: non
-# sono calibrate su un corpus di scansioni reali, e finche' non lo
-# saranno vanno lette come un ordinamento, non come una misura.
-ZAP_PENALTIES = {"High": 25, "Medium": 10, "Low": 3, "Informational": 0}
-
-# Penalita' di un livello di rischio che ZAP introducesse e noi non
-# conoscessimo. Era cablata due volte come `2` dentro le `.get()`; ora
-# ha un nome, perche' i punti che la usano sono tre e perche' e' un
-# valore editoriale, non un dettaglio: un livello nuovo peserebbe 2
-# invece di sparire.
-#
-# Da sapere: la stessa gravita' ignota, passata a
-# `normalizza_severita("zap", ...)`, degrada a (info, 1.0). Un rischio
-# sconosciuto esce quindi come rilievo `info` che pero' costa punti. Le
-# due tabelle vivono in file diversi — questa qui, la scala in
-# mars_core — e chi ne aggiornasse una sola non romperebbe nulla: c'e'
-# un test che verifica che coprano gli stessi livelli.
-PENALITA_IGNOTA = 2
 
 # I tre header del ripiego: penalita', testo della issue, gravita'
 # editoriale e chiave stabile del rilievo. L'ordine di dichiarazione e'
@@ -367,7 +349,7 @@ def score_from_alerts(alerts: List[dict]) -> dict:
         quanti = max(len(urls), 1)
         diffusione = 1.0 + min(quanti, 10) / 10.0
         rischio = varianti[0]["risk"]
-        costo = ZAP_PENALTIES.get(rischio, PENALITA_IGNOTA) * diffusione
+        costo = ZAP_PENALTIES.get(rischio, PENALITA_IGNOTA_ZAP) * diffusione
         penalita += costo
         conteggio[rischio] = conteggio.get(rischio, 0) + 1
         for voce in varianti:
@@ -390,11 +372,11 @@ def score_from_alerts(alerts: List[dict]) -> dict:
     # l'utente legge. Per i quattro livelli noti i due ordini
     # coincidono comunque — High sta in [27.5, 50], Medium in [11, 20],
     # Low in [3.3, 6] — mentre un livello IGNOTO, che costa
-    # PENALITA_IGNOTA, sta in [2.2, 4.0] e puo' quindi sovrapporsi a un
+    # PENALITA_IGNOTA_ZAP, sta in [2.2, 4.0] e puo' quindi sovrapporsi a un
     # Low.
     ordinate = sorted(per_variante.values(),
                       key=lambda v: -ZAP_PENALTIES.get(v["risk"],
-                                                       PENALITA_IGNOTA))
+                                                       PENALITA_IGNOTA_ZAP))
     # La vista compatta ne mostra cinque; il dato li porta tutti.
     issues = ["[ZAP:%s] %s (%d URL)" % (v["risk"], v["name"], v["n"])
               for v in ordinate[:5]]

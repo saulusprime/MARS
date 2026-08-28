@@ -14,6 +14,7 @@ import os
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
+from mars_config import PENALITA_STATICA, PESI_AXE
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
                        normalizza_severita)
 
@@ -52,9 +53,6 @@ def percorso_locale_axe(lang: str) -> str:
 MAX_PAGINE_AXE = 5
 TIMEOUT_AXE = 30000  # millisecondi
 
-# Penalita' per gravita' axe. Scelta editoriale, dichiarata come tale.
-PESI_AXE = {"critical": 25, "serious": 12, "moderate": 5, "minor": 2}
-
 TESTI_GENERICI = {"clicca qui", "click here", "leggi tutto", "read more",
                   "qui", "here", "link", "continua", "more", "vai"}
 
@@ -77,13 +75,6 @@ STATICI = {
     "wcag.tabindex.positive": ("medio", "2.4.3"),
     "wcag.link.generic": ("lieve", "2.4.4"),
 }
-
-# Quanto costa un rilievo statico NEL SOLO ramo di ripiego: e' il
-# 100 - len(statici) * 12 di sempre. Nel ramo axe i controlli statici
-# non entrano nel punteggio, che viene dalle violazioni, quindi la
-# loro penalita' li' e' zero — e dirlo conta, perche' la Fase 4
-# calcolera' i guadagni proprio da quel numero.
-PENALITA_STATICA = 12
 
 
 def _statico(chiave: str, testo: str,

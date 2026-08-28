@@ -20,8 +20,9 @@ from bs4 import BeautifulSoup
 
 import mars_core
 from conftest import HTML_BASE
+from mars_config import WEIGHTS
 from mars_core import (AREA_PREFIX, MAX_REDIRECT, MODULES_REGISTRY,
-                       SEV_CRITICAL, SEV_INFO, SEV_WARNING, WEIGHTS, Crawler,
+                       SEV_CRITICAL, SEV_INFO, SEV_WARNING, Crawler,
                        Finding, LexicalRetriever, VectorRetriever,
                        pagine_del_rilievo,
                        chiave_esterna, chunk_page, decode_html,

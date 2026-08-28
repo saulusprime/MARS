@@ -23,6 +23,8 @@ from urllib.parse import urlsplit
 
 import mars_history
 import mars_remediation
+from mars_config import (PESO_AREA, PESO_SEGNALE_DERIVATO,
+                         SOGLIA_BUONO, SOGLIA_MEDIO)
 from mars_i18n import (LINGUA_CANONICA, finding_texts, normalizza_lingua,
                        t)
 from mars_core import (AREA_PREFIX, JSON_SCHEMA_VERSION, MODULES_REGISTRY,
@@ -236,13 +238,6 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
 # quindi sparirebbe dal complessivo per non tornare.
 AREE_FUORI_DAL_COMPLESSIVO = ("mars_citability", "mars_llm_judge",
                               "mars_lexical", "mars_semantic")
-
-# I due segnali derivati pesano una volta e mezza un'area: non vengono
-# da uno strumento esterno ma dal CONFRONTO fra i due recuperatori,
-# che e' la domanda del progetto — un passaggio verrebbe davvero
-# scelto da una ricerca ibrida?
-PESO_AREA = 1.0
-PESO_SEGNALE_DERIVATO = 1.5
 
 
 def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
@@ -1946,14 +1941,6 @@ def _plurale(quante: int, singolare: str, plurale: str,
                       t(singolare if quante == 1 else plurale, lang,
                         "singolare" if quante == 1 else "plurale"))
 
-
-# Soglie e colori di Lighthouse, adottati perche' il referto gli
-# somigli: chi legge entrambi non deve tradurre due scale diverse.
-# ATTENZIONE: la scala precedente di MARS era 80/50; questa e' 90/50,
-# quindi lo stesso punteggio puo' cambiare colore rispetto ai referti
-# generati prima. Il colore e' una convenzione, il numero no.
-SOGLIA_BUONO = 90
-SOGLIA_MEDIO = 50
 
 CSS = """
 /* La palette e' quella di lymphatechnologies.com, misurata sugli stili

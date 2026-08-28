@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from typing import Dict, List, Optional, Set, Tuple
 from urllib.robotparser import RobotFileParser
 
+from mars_config import PENALITA, PENALITA_IGNOTA
 from mars_core import (USER_AGENT, Finding, norm_host,
                        normalizza_severita)
 
@@ -87,15 +88,6 @@ _DIRETTIVE_CON_VALORE = re.compile(
 # dove finisce, in `scadenza_dichiarata()`.
 _SCADENZA = re.compile(r"\bunavailable_after\s*:\s*(.*)", re.IGNORECASE)
 
-# Penalita' per gravita'. Sostituiscono il vecchio 100 - len(issues)*15,
-# che dava lo stesso peso a un noindex sull'intero sito e a un lastmod
-# mancante. Scelta editoriale dichiarata.
-PESI = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
-# Penalita' di una gravita' che non conosciamo. Non e' teorica: se
-# un giorno si aggiungesse un livello e si dimenticasse questa
-# tabella, il rilievo peserebbe 5 invece di sparire.
-PENALITA_IGNOTA = 5
-
 
 def _rilievo(gravita: str, testo: str, chiave: str,
              istanze: Optional[Tuple[str, int]] = None,
@@ -132,7 +124,7 @@ def _rilievo(gravita: str, testo: str, chiave: str,
     return Finding(
         area="mars_tech", severity=severita, weight=peso,
         source_severity=gravita, title=testo, key=chiave,
-        params=dict(params, penalty=float(PESI.get(gravita, PENALITA_IGNOTA))))
+        params=dict(params, penalty=float(PENALITA.get(gravita, PENALITA_IGNOTA))))
 
 
 def controlla_robots(context: dict) -> List[Finding]:

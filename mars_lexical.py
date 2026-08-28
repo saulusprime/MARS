@@ -12,33 +12,10 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from mars_config import PENALITA, SOGLIA_PAROLE
 from mars_core import (SEV_INFO, Finding, LexicalRetriever, describe_chunk,
                        normalizza_severita, reciprocal_rank_fusion,
                        RRF_K, tokenize)
-
-# Sotto questa soglia una pagina non porta abbastanza testo perche' i
-# suoi termini raggiungano una frequenza che BM25 possa valorizzare: la
-# formula normalizza la frequenza sulla lunghezza del documento, quindi
-# due paragrafi competono male con una pagina che tratta lo stesso tema
-# per esteso. E' prassi editoriale e non uno standard — per questo il
-# numero viaggia nei `params` del rilievo invece di restare solo qui:
-# un referto che dica "sotto la soglia" senza dire quale afferma una
-# misura che il lettore non puo' rifare.
-SOGLIA_PAROLE = 300
-
-# Penalita' per CONTROLLO, sulla scala editoriale "mars". Stessi numeri
-# di `mars_tech.PESI` perche' e' la stessa scala: `normalizza_severita`
-# traduce la parola, questa tabella la prezza, e due aree che dicono
-# "grave" devono togliere lo stesso. La tabella e' ripetuta e non
-# importata perche' i moduli sono plugin e non si importano fra loro —
-# la stessa ragione per cui `mars_schema` ha la propria.
-#
-# Fisse, **non moltiplicate per le occorrenze**: un rilievo e' un
-# controllo, e su un sito da cinquanta pagine il solo `lex.words.thin`
-# saturerebbe il punteggio da solo. Quante volte il difetto ricorra lo
-# dicono i `params`, che e' la stessa separazione di R47 fra il
-# conteggio e il luogo.
-PENALITA = {"critico": 40, "grave": 20, "medio": 8, "lieve": 3}
 
 
 def _rilievo(gravita: str, testo: str, chiave: str,

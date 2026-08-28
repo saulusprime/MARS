@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from mars_config import SOGLIA_DEBOLE
 from mars_core import SEV_INFO, Finding
 
 # ======================================================================
@@ -124,12 +125,6 @@ ORIGINE: Dict[str, Tuple[str, ...]] = {
     "recuperabilita": ("mars_lexical", "mars_semantic"),
     "answer_shaped": ("mars_semantic",),
 }
-
-# Sotto quale punteggio un segnale si dichiara debole. Soglia editoriale,
-# gia' nel codice da C1: qui prende un nome perche' entra anche nei
-# rilievi — un `cit.sicurezza.weak` che viaggi da solo nel piano o in un
-# catalogo di traduzione deve poter dire sotto quale soglia lo sia.
-SOGLIA_DEBOLE = 60
 
 
 def _derivato(chiave: str, testo: str, **params: object) -> dict:

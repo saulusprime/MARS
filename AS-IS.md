@@ -81,6 +81,7 @@
 | U11 | Il referto si stampa, le tabelle hanno un'intestazione, il piede firma | 2026-08-28 |
 | I2 | `--fail-under`: il complessivo decide il codice di uscita | 2026-08-28 |
 | I8 | Pesi e soglie in `mars_config.py`, e la scala non è più tripla | 2026-08-28 |
+| I4+I9 | Il consenso dice anche QUALI passaggi divergono, e da che parte | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2511,6 +2512,85 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### I4 + I9 — ✅ REALIZZATE (2026-08-28): quali passaggi stanno fuori dall'intersezione
+
+*(due idee, una domanda sola vista da due lati — il TO-DO diceva «chi ne apre
+una apra l'altra». `__version__` a **2.15.0**: il referto guadagna contenuto,
+nessun punteggio si muove. `schema_version` resta **3**, l'aggiunta è
+additiva.)*
+
+**Che cosa c'era.** `consensus_top3` dice **quanti** passaggi i due
+recuperatori hanno in comune nei primi tre. Il numero «1/3» è un fatto vero e
+non azionabile: non dice quali due passaggi divergono, né da che parte
+stanno.
+
+**La misura che ha aperto la voce.** Su un sito locale da 13 chunk e quattro
+query di dominio, con `consensus_top3` a 1/3:
+
+```
+solo LESSICALE  /tagliando.html § Tagliando periodico
+solo LESSICALE  /prezzi.html § Quali sono i prezzi
+solo SEMANTICO  /tagliando.html § Ogni quanto si fa
+solo SEMANTICO  /freni.html § Impianto frenante
+```
+
+**La direzione è la diagnosi**, e sono due difetti editoriali *opposti*. Un
+passaggio nei primi tre del solo lessicale ripete i termini della domanda
+senza rispondere: è trovato dalle parole e non dal significato. Uno del solo
+semantico risponde ma non usa le parole con cui la domanda si scrive — chi
+cerca quei termini non lo raggiunge. Si correggono in modi contrari, e il
+conteggio non permetteva di scegliere quale.
+
+**La soluzione.** `_divergenti()` in [mars_report.py](mars_report.py), e due
+chiavi nuove su ogni voce del consenso — `only_lexical`, `only_semantic` —
+con `label` e `url` per passaggio. Stanno sia su `rrf_aggregate` sia su ogni
+voce di `rrf_simulation`, perché il JSON è il dato canonico e chi lo consuma
+deve poter guardare la singola domanda; le tre viste umane mostrano il solo
+aggregato, che è la misura più solida.
+
+**Nell'ordine del proprio recuperatore, non dell'indice del chunk.** Un `set`
+di interi si itera per valore: ordinare per indice sarebbe deterministico e
+privo di significato. Chi legge vuole sapere qual è il **primo** dei passaggi
+che solo quel recuperatore ha trovato.
+
+**Liste vuote e non `None`** quando la query non ha riscontro: il conteggio
+manca perché non c'è nulla su cui concordare, e per la stessa ragione non c'è
+nulla su cui divergere.
+
+**Un difetto trovato rivedendo il diff dei golden.** Il blocco nuovo era
+finito *prima* dell'elenco per query, che non ha un'intestazione propria: le
+tre query rientrate di due spazi sembravano una terza direzione della
+divergenza. Spostato dopo, dove il titolo a colonna zero chiude la sezione
+invece di aprirne una che ingloba ciò che segue. È esattamente il motivo per
+cui i golden si rivedono e non si rigenerano.
+
+**File toccati.** `mars_report.py` (`_divergenti`, `_consenso`,
+`divergenze_leggibili` e le tre viste), `mars_i18n.py` (tre stringhe di
+cornice), `tests/test_report.py` (+14 test), i quattro golden, `README.md`,
+`mars_core.py` (`__version__`).
+
+`divergenze_leggibili()` è scritta una volta perché la leggono in tre — testo,
+HTML e markdown — e tre formulazioni dello stesso fatto divergerebbero senza
+che nulla si rompa: è l'argomento di `segnali_derivati` e del `tokenize`
+condiviso (R18).
+
+**Verifiche.** `flake8 .` a zero, `pytest` **1248 passed** (da 1231). Golden
+rigenerati e **diff riveduto riga per riga**: 46 righe aggiunte, zero
+rimosse, nessun punteggio mosso. **Dodici mutazioni su dodici colte** —
+direzioni scambiate, nessun tetto ai primi tre, esclusione su tutta la lista
+altrui invece che sui primi tre, condizione invertita, ordine per indice del
+chunk, indice fuori corpus non filtrato, `None` invece di lista vuota, le tre
+viste che non li mostrano, la direzione che si perde, e l'ordine invertito
+nella vista testo. **Una era mal fatta** al primo giro: dichiarava di
+invertire l'ordine e invece cancellava l'elenco per query — un'altra
+mutazione, colta per un'altra ragione; rifatta scambiando davvero i due
+blocchi.
+
+**End-to-end** su un sito statico locale da sei pagine e 13 chunk: la sezione
+del referto riproduce esattamente ciò che la sonda aveva misurato prima di
+scrivere una riga. **axe-core su Chromium sul referto HTML: zero violazioni**
+WCAG 2.1 A + AA, come dopo U11. Non verificato: nulla.
 
 ### I8 — ✅ REALIZZATA (2026-08-28): i pesi e le soglie in un posto solo
 

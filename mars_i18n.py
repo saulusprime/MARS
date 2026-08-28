@@ -749,6 +749,14 @@ _CORNICE_EN: Dict[str, str] = {
     "Nessun rilievo.": "No findings.",
     "Come si aggiusta": "How to fix it",
     "al variare di k:": "as k varies:",
+    # I4+I9: la direzione della divergenza fra i due recuperatori.
+    # «by the words» e non «lexically»: chi riceve il referto non
+    # deve conoscere il nome del recuperatore per capire il difetto.
+    "Fuori dall'intersezione:": "Outside the intersection:",
+    "trovato solo dalle parole, non dal significato":
+        "found by the words only, not by the meaning",
+    "trovato solo dal significato, non dalle parole":
+        "found by the meaning only, not by the words",
     "in uso": "in use",
     "  (e' cambiato che cosa si misura: i numeri si "
     "muovono anche a sito invariato)":

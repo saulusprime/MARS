@@ -1020,6 +1020,25 @@ def link_graph_data(pagine: List[dict], base: str,
     }
 
 
+def _divergenti(propri: List[int], altrui: List[int],
+                chunks: List[dict]) -> List[Dict[str, object]]:
+    """I primi tre di `propri` che non stanno nei primi tre di `altrui`.
+
+    **Nell'ordine di `propri`**, non dell'indice del chunk: un `set` di
+    interi si itera per valore, quindi ordinare per indice sarebbe
+    deterministico e privo di significato. Chi legge vuole sapere qual
+    e' il PRIMO dei passaggi che solo quel recuperatore ha trovato.
+
+    Gli indici arrivano dai moduli, che sono plugin: uno oltre il
+    corpus e' dato ostile e si scarta, come gia' fa il passaggio in
+    testa.
+    """
+    esclusi = set(altrui[:3])
+    return [{"label": describe_chunk(chunks[i]), "url": chunks[i]["url"]}
+            for i in propri[:3]
+            if i not in esclusi and 0 <= i < len(chunks)]
+
+
 def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
               query: str, k: int, misurabile: bool = True) -> dict:
     """Consenso fra due classifiche sui primi tre chunk.
@@ -1034,7 +1053,11 @@ def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
     if not misurabile:
         return {"query": query, "consensus_top3": None,
                 "consensus_out_of": None, "top_chunk": None,
-                "top_chunk_url": None, "matched": False}
+                "top_chunk_url": None, "matched": False,
+                # Liste VUOTE e non `None`: il conteggio non c'e'
+                # perche' non c'e' nulla su cui concordare, e per la
+                # stessa ragione non c'e' nulla su cui divergere.
+                "only_lexical": [], "only_semantic": []}
     attesi = min(3, len(rank_a), len(rank_b))
     # `k` obbligatorio e senza default: e' il passaggio in cui il
     # referto puo' cominciare a dire il falso — dichiarare un k e
@@ -1050,7 +1073,39 @@ def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
         "top_chunk": describe_chunk(chunks[top]) if top is not None else None,
         "top_chunk_url": chunks[top]["url"] if top is not None else None,
         "matched": True,
+        # QUALI passaggi stanno fuori dall'intersezione, non quanti
+        # (I4 + I9). Sono due difetti editoriali opposti: un passaggio
+        # nei primi tre del solo lessicale e' trovato dalle PAROLE e
+        # non dal significato — spesso perche' ripete i termini della
+        # domanda senza rispondere — mentre uno del solo semantico
+        # risponde ma non usa le parole con cui la domanda si scrive.
+        # Il conteggio "1/3" non permette di distinguerli.
+        "only_lexical": _divergenti(rank_a, rank_b, chunks),
+        "only_semantic": _divergenti(rank_b, rank_a, chunks),
     }
+
+
+def divergenze_leggibili(voce: dict, lang: str = LINGUA_CANONICA
+                         ) -> List[Tuple[str, List[dict]]]:
+    """Le due direzioni della divergenza, con la loro diagnosi (I4+I9).
+
+    Scritta una volta perche' la leggono in tre — testo, HTML e
+    markdown — e tre formulazioni dello stesso fatto divergerebbero
+    senza che nulla si rompa. E' l'argomento di `segnali_derivati`.
+
+    La direzione E' la diagnosi: elencare sei passaggi senza dire da
+    che parte stanno sarebbe peggio del conteggio che sostituisce.
+    """
+    esito: List[Tuple[str, List[dict]]] = []
+    for chiave, diagnosi in (
+            ("only_lexical",
+             t("trovato solo dalle parole, non dal significato", lang)),
+            ("only_semantic",
+             t("trovato solo dal significato, non dalle parole", lang))):
+        divergenti = voce.get(chiave) or []
+        if divergenti:
+            esito.append((diagnosi, divergenti))
+    return esito
 
 
 def rrf_simulation(results: dict, chunks: List[dict],
@@ -1791,6 +1846,18 @@ def render_text(referto: dict, lang: str = LINGUA_CANONICA) -> str:
         for voce in referto["rrf_simulation"]:
             righe.append("  %-34s %s" % (voce["query"][:34],
                                          _consenso_leggibile(voce, lang)))
+        # DOPO l'elenco per query, non prima: l'elenco non ha
+        # un'intestazione propria, e un blocco rientrato infilato sopra
+        # se lo prendeva — le tre query sembravano una terza direzione
+        # della divergenza. Qui il titolo a colonna zero chiude la
+        # sezione invece di aprirne una che ingloba cio' che segue.
+        divergenze = divergenze_leggibili(aggregato, lang)
+        if divergenze:
+            righe.append(t("Fuori dall'intersezione:", lang))
+            for diagnosi, divergenti in divergenze:
+                righe.append("  %s" % diagnosi)
+                for passaggio in divergenti:
+                    righe.append("    %s" % passaggio["label"])
 
     cit = referto.get("citability")
     if cit and cit.get("profiles"):
@@ -3358,6 +3425,11 @@ def _sezione_rrf(referto: dict, p: List[str],
         if sensibilita:
             p.append("<p class='meta'>%s <b>%s</b></p>"
                      % (t("al variare di k:", lang), _e(sensibilita)))
+        for diagnosi, divergenti in divergenze_leggibili(aggregato, lang):
+            p.append("<p class='meta'>%s</p><ul>%s</ul>"
+                     % (_e(diagnosi),
+                        "".join("<li><code>%s</code></li>"
+                                % _e(v["label"]) for v in divergenti)))
         p.append("</div>")
     if simulazione:
         p.append("<table><thead><tr><th scope='col'>%s</th>"
@@ -4134,6 +4206,10 @@ def render_markdown(referto: dict,
         if sensibilita:
             r += ["", "%s %s" % (t("al variare di k:", lang),
                                  _md_cella(sensibilita))]
+        for diagnosi, divergenti in divergenze_leggibili(
+                referto.get("rrf_aggregate") or {}, lang):
+            r += ["", "%s" % _md_cella(diagnosi), ""]
+            r += ["- `%s`" % _md_cella(v["label"]) for v in divergenti]
 
     if referto.get("skipped"):
         r += ["", "## %s" % t("Cosa non è stato guardato", lang), ""]

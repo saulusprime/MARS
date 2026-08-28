@@ -87,6 +87,11 @@ Top Chunk Ibrido     : https://esempio.test/ § Che cos'e' il drenaggio linfatic
   drenaggio linfatico                3/3
   quanto costa una seduta di drenagg 3/3
   parcheggio riservato               nessun riscontro
+Fuori dall'intersezione:
+  trovato solo dalle parole, non dal significato
+    https://esempio.test/ § Quanto dura una seduta?
+  trovato solo dal significato, non dalle parole
+    https://esempio.test/faq/ § Serve la prescrizione medica?
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: eu)
   Claude                62.3  ████████████

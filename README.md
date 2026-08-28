@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.14.0
+Versione 2.15.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -619,6 +619,27 @@ e' recuperabile davvero, mentre un consenso su una sola domanda puo'
 essere un caso. E' pero' anche l'unico dei due che dipende da k — il
 consenso di una query e' l'incrocio dei primi tre di due classifiche, e
 la fusione non entra nel conto.
+
+Il consenso dice QUANTI passaggi i due recuperatori hanno in comune; il
+referto dice anche QUALI stanno fuori, e da che parte (I4+I9). La
+direzione e' la diagnosi, e sono due difetti editoriali opposti:
+
+    Fuori dall'intersezione:
+      trovato solo dalle parole, non dal significato
+        https://sito.it/prezzi § Quali sono i prezzi
+      trovato solo dal significato, non dalle parole
+        https://sito.it/tagliando § Ogni quanto si fa
+
+Un passaggio nei primi tre del solo LESSICALE ripete i termini della
+domanda senza rispondere: e' trovato dalle parole e non dal
+significato. Uno del solo SEMANTICO risponde ma non usa le parole con
+cui la domanda si scrive — chi cerca quei termini non lo raggiunge. Il
+numero «1/3» non permetteva di distinguerli, e i due si correggono in
+modi opposti.
+
+Nel JSON stanno in only_lexical e only_semantic, su rrf_aggregate e su
+ogni voce di rrf_simulation: ogni passaggio porta label e url. Le viste
+umane mostrano il solo aggregato, che e' la misura piu' solida.
 
 Il k della fusione (--rrf-k, predefinito 60, il valore del paper
 Cormack 2009) decide quanto pesa la POSIZIONE rispetto alla PRESENZA in

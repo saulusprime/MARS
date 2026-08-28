@@ -1366,7 +1366,9 @@
       "consensus_out_of": 3,
       "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
       "top_chunk_url": "https://esempio.test/",
-      "matched": true
+      "matched": true,
+      "only_lexical": [],
+      "only_semantic": []
     },
     {
       "query": "quanto costa una seduta di drenaggio linfatico",
@@ -1374,7 +1376,9 @@
       "consensus_out_of": 3,
       "top_chunk": "https://esempio.test/ § Quanto dura una seduta?",
       "top_chunk_url": "https://esempio.test/",
-      "matched": true
+      "matched": true,
+      "only_lexical": [],
+      "only_semantic": []
     },
     {
       "query": "parcheggio riservato",
@@ -1382,7 +1386,9 @@
       "consensus_out_of": null,
       "top_chunk": null,
       "top_chunk_url": null,
-      "matched": false
+      "matched": false,
+      "only_lexical": [],
+      "only_semantic": []
     }
   ],
   "rrf_aggregate": {
@@ -1392,6 +1398,18 @@
     "top_chunk": "https://esempio.test/ § Che cos'e' il drenaggio linfatico?",
     "top_chunk_url": "https://esempio.test/",
     "matched": true,
+    "only_lexical": [
+      {
+        "label": "https://esempio.test/ § Quanto dura una seduta?",
+        "url": "https://esempio.test/"
+      }
+    ],
+    "only_semantic": [
+      {
+        "label": "https://esempio.test/faq/ § Serve la prescrizione medica?",
+        "url": "https://esempio.test/faq/"
+      }
+    ],
     "queries": [
       "drenaggio linfatico",
       "quanto costa una seduta di drenaggio linfatico",

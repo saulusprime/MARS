@@ -316,6 +316,14 @@ Il contenuto risponde, ma nulla e' verificabile dall'esterno.
 
 al variare di k: k=0 2/3 · k=10 2/3 · k=60 (in uso) 2/3 · k=300 2/3
 
+trovato solo dalle parole, non dal significato
+
+- `https://esempio.test/ § Quanto dura una seduta?`
+
+trovato solo dal significato, non dalle parole
+
+- `https://esempio.test/faq/ § Serve la prescrizione medica?`
+
 ## Cosa non è stato guardato
 
 - vietato da robots.txt: https://esempio.test/privato

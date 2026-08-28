@@ -3390,3 +3390,130 @@ def test_le_fonti_del_piede_sono_quelle_del_README():
     for autore in ("Cormack", "Robertson", "Zaragoza"):
         assert autore in readme
         assert any(autore in testo for testo, _ in mars_report.RIFERIMENTI)
+
+
+# ----------------------------------------------------------------------
+# I4 + I9: QUALI passaggi stanno fuori dall'intersezione
+# ----------------------------------------------------------------------
+
+def _referto_divergente(rank_lex=(0, 1, 2), rank_sem=(2, 3, 4),
+                        quanti_chunk=6):
+    """Due classifiche che concordano su un solo passaggio."""
+    chunks = [{"url": "https://x/p%d" % i, "heading": "H%d" % i,
+               "text": "t"} for i in range(quanti_chunk)]
+    voce_lex = {"query": "q", "rank": list(rank_lex), "matched": True}
+    voce_sem = {"query": "q", "rank": list(rank_sem), "matched": True}
+    return build_report(
+        {"mars_lexical": {"rank": list(rank_lex), "per_query": [voce_lex],
+                          "queries": ["q"]},
+         "mars_semantic": {"rank": list(rank_sem), "per_query": [voce_sem]}},
+        {"url": "https://x/", "market": "global", "pages": {"a": {}},
+         "queries": ["q"], "discovery": "sitemap", "skipped": [],
+         "chunks": chunks})
+
+
+def test_il_consenso_dice_quali_passaggi_divergono():
+    """I4 + I9: `consensus_top3` dice QUANTI, non QUALI.
+
+    Un passaggio nei primi tre del solo lessicale e' trovato dalle
+    PAROLE e non dal significato; uno del solo semantico e' il
+    contrario. Sono due difetti editoriali diversi e opposti, e il
+    conteggio 1/3 non permette di distinguerli.
+    """
+    aggregato = _referto_divergente()["rrf_aggregate"]
+    assert aggregato["consensus_top3"] == 1, "l'intersezione e' {2}"
+    assert [v["url"] for v in aggregato["only_lexical"]] == \
+        ["https://x/p0", "https://x/p1"]
+    assert [v["url"] for v in aggregato["only_semantic"]] == \
+        ["https://x/p3", "https://x/p4"]
+
+
+def test_i_passaggi_divergenti_portano_l_etichetta_leggibile():
+    """Un indice numerico non dice nulla a chi legge: e' la stessa
+    ragione per cui esiste `describe_chunk`."""
+    aggregato = _referto_divergente()["rrf_aggregate"]
+    assert aggregato["only_lexical"][0]["label"] == "https://x/p0 § H0"
+
+
+def test_i_divergenti_sono_nell_ordine_del_loro_recuperatore():
+    """Non nell'ordine dell'indice del chunk.
+
+    Un `set` di interi si itera per valore, quindi ordinarlo per
+    indice sembrerebbe deterministico e sarebbe privo di significato:
+    chi legge vuole sapere qual e' il PRIMO dei passaggi che solo quel
+    recuperatore ha trovato.
+    """
+    aggregato = _referto_divergente(rank_lex=(5, 4, 2),
+                                    rank_sem=(2, 1, 0))["rrf_aggregate"]
+    assert [v["url"] for v in aggregato["only_lexical"]] == \
+        ["https://x/p5", "https://x/p4"]
+    assert [v["url"] for v in aggregato["only_semantic"]] == \
+        ["https://x/p1", "https://x/p0"]
+
+
+def test_ogni_query_porta_i_propri_divergenti():
+    """Non solo l'aggregato: il JSON e' il dato canonico, e chi lo
+    consuma deve poter guardare la singola domanda."""
+    voce = _referto_divergente()["rrf_simulation"][0]
+    assert [v["url"] for v in voce["only_lexical"]] == \
+        ["https://x/p0", "https://x/p1"]
+
+
+def test_una_query_senza_riscontro_non_ha_divergenti():
+    """`None` per il conteggio, liste VUOTE per i quali: non c'e'
+    nulla su cui divergere, e inventare due elenchi direbbe il falso."""
+    voce = _referto_rrf(matched_lex=False)["rrf_simulation"][0]
+    assert voce["only_lexical"] == []
+    assert voce["only_semantic"] == []
+
+
+def test_un_indice_fuori_dai_chunk_non_fa_cadere_il_referto():
+    """I ranghi arrivano dai moduli, che sono plugin: un indice oltre
+    il corpus e' dato ostile, e `_consenso` gia' se ne guarda per il
+    passaggio in testa."""
+    aggregato = _referto_divergente(rank_lex=(0, 99), rank_sem=(1, 2),
+                                    quanti_chunk=3)["rrf_aggregate"]
+    assert [v["url"] for v in aggregato["only_lexical"]] == ["https://x/p0"]
+
+
+def test_consenso_pieno_non_ha_divergenti():
+    aggregato = _referto_divergente(rank_lex=(0, 1, 2),
+                                    rank_sem=(0, 1, 2))["rrf_aggregate"]
+    assert aggregato["consensus_top3"] == 3
+    assert aggregato["only_lexical"] == []
+    assert aggregato["only_semantic"] == []
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html, render_markdown],
+                         ids=["testo", "html", "markdown"])
+def test_le_viste_dicono_quali_passaggi_divergono(vista):
+    """Il dato nel JSON e basta non serve a chi riceve il referto: il
+    numero 1/3 lo vede gia', ed e' il QUALE che gli manca."""
+    testo = vista(_referto_divergente())
+    assert "https://x/p0" in testo, "il divergente lessicale"
+    assert "https://x/p3" in testo, "il divergente semantico"
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html, render_markdown],
+                         ids=["testo", "html", "markdown"])
+def test_le_viste_dicono_la_direzione_della_divergenza(vista):
+    """Elencare sei URL senza dire da che parte stanno sarebbe peggio
+    del conteggio: la direzione E' la diagnosi."""
+    testo = vista(_referto_divergente())
+    assert "solo dalle parole" in testo
+    assert "solo dal significato" in testo
+
+
+@pytest.mark.parametrize("vista", [render_text, render_html, render_markdown],
+                         ids=["testo", "html", "markdown"])
+def test_le_viste_tacciono_quando_non_c_e_divergenza(vista):
+    testo = vista(_referto_divergente(rank_lex=(0, 1, 2), rank_sem=(0, 1, 2)))
+    assert "solo dalle parole" not in testo
+
+
+def test_nel_testo_i_divergenti_stanno_dopo_l_elenco_per_query():
+    """L'elenco per query non ha un'intestazione propria: un blocco
+    rientrato messo sopra se lo prendeva, e le query sembravano una
+    terza direzione della divergenza."""
+    testo = render_text(_referto_divergente())
+    assert testo.index("Fuori dall'intersezione:") > testo.index("  q  ")

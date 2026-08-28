@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.15.0
+Versione 2.16.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -86,6 +86,29 @@ sito, li fonde con la formula del Reciprocal Rank Fusion
 e misura il *consenso*, cioe' quante volte lo stesso chunk compare in
 alto in entrambe le liste. E' esattamente la logica con cui i motori
 di ricerca ibridi e le pipeline RAG selezionano i passaggi da citare.
+
+Corpus e query passano per la STESSA tokenizzazione, che toglie la
+punteggiatura di confine e, da I15, l'articolo o la preposizione elisi
+in testa a un token: "l'assistenza" nel testo si trova cercando
+"assistenza". Fino a I15 non si trovava, e il difetto era silenzioso —
+nessun errore, solo una classifica sbagliata. Vale anche per
+l'apostrofo tipografico, che i CMS inseriscono da soli.
+
+E' un ELENCO dichiarato di nove articoli e preposizioni (l, un, d,
+dell, dall, nell, sull, all, coll), non una regola generale: spezzare
+su ogni non-parola manderebbe in pezzi info@esempio.it, 3,14 e
+COVID-19. Restano interi anche c'e', com'era e Sant'Ambrogio, dove il
+pezzo dopo l'apostrofo non e' il sostantivo. Il clitico si butta
+invece di diventare un token a se': BM25 normalizza sulla lunghezza
+del documento, e un indice pieno di "l" abbasserebbe ogni altro
+termine dello stesso passaggio.
+
+Un suffisso di una sola lettera non si elide, e non e' pignoleria:
+senza quel limite il possessivo inglese "all's" diventerebbe "s".
+Misurato sulle 104.334 voci di /usr/share/dict/american-english, le
+voci alterate passano da 17 a 10, e le dieci che restano sono nomi
+propri stranieri (d'Arezzo, L'Oreal) dove corpus e query subiscono la
+stessa elisione e non si perde nulla.
 
 Dai punteggi di area deriva i **profili di citabilita'** per
 assistente IA (Claude, ChatGPT/Perplexity, Qwen, Kimi) con indice

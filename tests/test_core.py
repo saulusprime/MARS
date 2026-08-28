@@ -222,16 +222,20 @@ def test_tokenize_toglie_la_punteggiatura_di_confine(testo, atteso):
     ("COVID-19", ["covid-19"]),
     ("3,14", ["3,14"]),
     ("info@esempio.it", ["info@esempio.it"]),
-    ("l'azienda", ["l'azienda"]),
     ("C++", ["c++"]),          # "+" e' un simbolo (Sm), non punteggiatura
 ])
 def test_tokenize_conserva_la_punteggiatura_interna(testo, atteso):
     """Si toglie solo il CONFINE, ed e' una scelta deliberata.
 
     Spezzare su ogni non-parola manderebbe in pezzi indirizzi, prezzi
-    e sigle, e riempirebbe l'indice di frammenti ("l", "dell") che
-    gonfiano la lunghezza dei documenti — cioe' la normalizzazione
-    BM25. Vedi I15 per la questione dell'elisione italiana.
+    e sigle, e riempirebbe l'indice di frammenti che gonfiano la
+    lunghezza dei documenti — cioe' la normalizzazione BM25.
+
+    Il caso `l'azienda` stava QUI fino a I15, e ci stava per la stessa
+    ragione: non era un difetto ma la scelta di non spezzare. I15 ha
+    cambiato quella scelta per i soli articoli e preposizioni, sulla
+    misura riportata in AS-IS — l'elisione ora si prova nei test qui
+    sotto, e il resto della riga non si muove.
     """
     assert tokenize(testo) == atteso
 
@@ -1965,3 +1969,104 @@ def test_il_grafo_dei_link_vede_ancora_il_menu():
     struttura = mars_core.estrai_struttura(soup)
     assert any("Lympha" in (voce["text"] or "")
                for voce in struttura["links"])
+
+
+# ----------------------------------------------------------------------
+# I15: l'elisione italiana, su un elenco dichiarato
+# ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("testo, atteso", [
+    ("l'azienda", ["azienda"]),
+    ("L'Azienda", ["azienda"]),          # tokenize abbassa prima di tutto
+    ("un'altra", ["altra"]),
+    ("d'ambiente", ["ambiente"]),
+    ("dell'area", ["area"]),
+    ("dall'utente", ["utente"]),
+    ("all'ordine", ["ordine"]),
+    ("nell'html", ["html"]),
+    ("sull'argomento", ["argomento"]),
+    ("coll'ago", ["ago"]),
+    ("l’azienda", ["azienda"]),          # apostrofo TIPOGRAFICO
+])
+def test_tokenize_elide_articoli_e_preposizioni(testo, atteso):
+    """I15: `l'azienda` non si trovava cercando «azienda».
+
+    L'articolo non porta alcun segnale di recupero e la sua presenza
+    rendeva il token diverso dalla parola che l'utente digita. Si
+    tiene la parte DOPO l'apostrofo e si butta il clitico, che e' un
+    trattamento da stopword.
+
+    L'apostrofo tipografico non e' un caso di scuola: i CMS lo
+    inseriscono da soli, e un elenco che coprisse il solo ASCII
+    fallirebbe su meta' dei siti italiani.
+    """
+    assert tokenize(testo) == atteso
+
+
+@pytest.mark.parametrize("testo", [
+    "c'è",           # pronome, non articolo: `c` + `è` sarebbe rumore
+    "com'era",       # avverbio
+    "dev'essere",    # verbo
+    "tutt'altro",
+    "quest'area",    # dimostrativo: fuori dall'elenco per scelta
+    "quell'anno",
+    "sant'ambrogio",  # UN nome solo: spezzarlo sarebbe un difetto
+    "nessun'altra",
+])
+def test_tokenize_non_elide_cio_che_non_e_articolo(testo):
+    """L'elenco e' DICHIARATO e chiuso, non una regola generale.
+
+    E' la ragione per cui I15 e' rimasta aperta: `re.findall(r"\\w+")`
+    avrebbe spezzato anche questi, piu' indirizzi e prezzi.
+    """
+    assert tokenize(testo) == [testo.lower()]
+
+
+@pytest.mark.parametrize("testo", ["all's", "d's", "dell's", "l'a"])
+def test_tokenize_non_elide_un_suffisso_di_una_lettera(testo):
+    """Il guardiano che rende la regola sicura fuori dall'italiano.
+
+    Misurato sul dizionario `/usr/share/dict/american-english`: senza
+    di lui il possessivo inglese `all's` diventa `s`, e con lui le
+    voci alterate scendono da 17 a 10 — tutte nomi propri stranieri
+    (`d'Arezzo`, `L'Oreal`) dove l'elisione non toglie nulla, perche'
+    corpus e query la subiscono uguale.
+    """
+    assert tokenize(testo) == [testo]
+
+
+def test_tokenize_l_elisione_resta_simmetrica_fra_corpus_e_query():
+    """R18 vale anche qui: se corpus e query non elidessero uguale, la
+    query smetterebbe di trovare cio' che l'indice contiene, e non ci
+    sarebbe alcun errore — solo punteggi sbagliati."""
+    corpus = [tokenize("l'azienda offre un servizio"),
+              tokenize("ricette di cucina tradizionale")]
+    bm25 = LexicalRetriever(corpus)
+    assert bm25.get_scores(tokenize("azienda"))[0] > 0
+    assert bm25.get_scores(tokenize("l'azienda"))[0] > 0
+    assert (bm25.get_scores(tokenize("azienda"))[0]
+            == pytest.approx(bm25.get_scores(tokenize("l'azienda"))[0]))
+
+
+def test_tokenize_l_articolo_non_gonfia_la_lunghezza_del_documento():
+    """La ragione per cui si BUTTA il clitico invece di tenerlo come
+    token a se': BM25 normalizza sulla lunghezza del documento, e
+    quattro `l` in piu' abbassano ogni altro termine dello stesso
+    passaggio. E' l'obiezione che teneva aperta I15 contro `\\w+`."""
+    assert len(tokenize("l'uno l'altro dell'uno dall'altro")) == 4
+    assert "l" not in tokenize("l'uno l'altro dell'uno dall'altro")
+
+
+def test_tokenize_taglia_sul_primo_dei_due_apostrofi():
+    """Un token puo' portarli tutti e due: un CMS che sostituisce
+    l'apostrofo tipografico non sempre li converte tutti. Tagliare
+    sull'ultimo darebbe `l'anno` come prefisso, che nell'elenco non
+    c'e', e il token resterebbe intero."""
+    assert tokenize("l'anno\u201980") == ["anno\u201980"]
+    assert tokenize("l\u2019anno'80") == ["anno'80"]
+
+
+def test_tokenize_un_po_resta_una_parola():
+    """`po'` ha l'apostrofo in CODA: lo toglie gia' `_spoglia`, e
+    l'elisione non deve trovarci nulla da fare."""
+    assert tokenize("un po' di tempo") == ["un", "po", "di", "tempo"]

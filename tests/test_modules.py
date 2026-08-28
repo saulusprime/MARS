@@ -6718,3 +6718,38 @@ def test_wcag_il_confronto_c_e_anche_nel_ramo_di_ripiego(contesto,
     esito = mars_wcag.audit(contesto)
     assert esito["status"] == "surface"
     assert esito["reference_score"] == 97.0
+
+
+# ----------------------------------------------------------------------
+# I15: l'elisione arriva fino al recupero, non si ferma a tokenize()
+# ----------------------------------------------------------------------
+
+def test_lexical_una_query_trova_il_passaggio_con_l_articolo_eliso(contesto):
+    """La tubatura intera, non la sola funzione: chunk -> tokenize ->
+    BM25 -> rank -> per_query.
+
+    Prima di I15 `l'azienda` nel testo e `azienda` nella domanda erano
+    due token diversi, e il passaggio che rispondeva davvero non
+    prendeva alcun credito. Il difetto era silenzioso — nessun errore,
+    solo una classifica sbagliata — ed e' la stessa famiglia di R18.
+    """
+    contesto["chunks"] = [
+        {"url": "https://esempio.test/a", "heading": "A",
+         "text": "l'azienda offre consulenza e assistenza continuativa"},
+        {"url": "https://esempio.test/b", "heading": "B",
+         "text": "ricette di cucina tradizionale della nonna"},
+    ]
+    contesto["queries"] = ["azienda"]
+    esito = mars_lexical.audit(contesto)
+    voce = esito["per_query"][0]
+    assert voce["matched"] is True
+    assert voce["rank"][0] == 0, "il passaggio con l'articolo eliso e' primo"
+
+
+def test_lexical_il_clitico_non_diventa_un_termine_dell_indice(contesto):
+    """`l` e `dell` non devono comparire fra i token indicizzati: sono
+    articoli, non parole, e la loro presenza gonfierebbe la lunghezza
+    su cui BM25 normalizza."""
+    from mars_core import tokenize
+    testo = "l'azienda e dell'ordine e dall'inizio"
+    assert tokenize(testo) == ["azienda", "e", "ordine", "e", "inizio"]

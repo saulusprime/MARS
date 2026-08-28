@@ -16,7 +16,7 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1248 passed**.
+  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1276 passed**.
 - I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
@@ -52,13 +52,16 @@ contano per chi riprende:
 ## Prossimo passo
 
 **Il TO-DO non ha più caselle.** C4/C2, U10.1, C12.1, U10, U11, **I2**,
-**I8** e **I4+I9** sono chiuse il 2026-08-28 e stanno in [AS-IS.md](AS-IS.md); `__version__` è a
-**2.15.0**. Del programma UPGRADE resta la sola **U12**, che il piano dichiara
-opzionale e che non ha una casella finché non si decide di farla. I2, I8 e I4+I9 erano
+**I8**, **I4+I9** e **I15** sono chiuse il 2026-08-28 e stanno in [AS-IS.md](AS-IS.md); `__version__` è a
+**2.16.0**. Del programma UPGRADE resta la sola **U12**, che il piano dichiara
+opzionale e che non ha una casella finché non si decide di farla. I2, I8, I4+I9 e I15 erano
 idee, non caselle: l'hanno avuta quando sono state decise, ed è il precedente
 per le altre in fondo al TO-DO. **Da sapere prima di toccare un punteggio**:
 da I8 i pesi e le soglie stanno tutti in `mars_config.py`, e riscriverne uno
 in un modulo fa fallire `tests/test_config.py`, che legge l'AST dei sorgenti.
+**E una sui golden**: da I15 si sa che NON presidiano `tokenize` — il ritorno
+a `.lower().split()`, cioè la regressione di R18, li lascia verdi. Chi tocca
+la tokenizzazione si affidi ai test unitari di `tests/test_core.py`.
 
 **Che cosa resta da verificare con una chiave**, ed è tutto qui:
 

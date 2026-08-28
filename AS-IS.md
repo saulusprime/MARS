@@ -82,6 +82,7 @@
 | I2 | `--fail-under`: il complessivo decide il codice di uscita | 2026-08-28 |
 | I8 | Pesi e soglie in `mars_config.py`, e la scala non è più tripla | 2026-08-28 |
 | I4+I9 | Il consenso dice anche QUALI passaggi divergono, e da che parte | 2026-08-28 |
+| I15 | L'elisione italiana, su un elenco dichiarato di nove | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2512,6 +2513,110 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### I15 — ✅ REALIZZATA (2026-08-28): l'elisione italiana, su un elenco dichiarato
+
+*(idea. `__version__` a **2.16.0**: da qui i punteggi lessicali si muovono a
+sito invariato, come per R63.)*
+
+**Che cosa c'era.** `l'azienda` era un token solo, diverso da `azienda`: il
+passaggio che rispondeva davvero non prendeva alcun credito per quella
+parola. Stessa famiglia di R18 — nessun errore, solo una classifica
+sbagliata. La voce era aperta da mesi con una **correzione già scartata**:
+`re.findall(r"\w+")` manda in pezzi `info@esempio.it`, `3,14` e `COVID-19`, e
+riempie l'indice di frammenti che gonfiano la lunghezza su cui BM25
+normalizza. Serviva «un elenco dichiarato di articoli e preposizioni
+elidibili».
+
+**La misura che ha scritto l'elenco.** Tokenizzando 72.241 parole di prosa
+italiana (i `.md` del progetto): **1,69% dei token porta un apostrofo**, 426
+distinti, e i prefissi prima dell'apostrofo sono un elenco corto e chiuso —
+`l` 613, `un` 121, `c` 97, `dell` 80, `d` 67, `dall` 51, `all` 40, `sull` 35,
+`nell` 29, `com` 22, `quell` 17.
+
+**Il confine, deciso e non dedotto.** Solo articoli e preposizioni, come
+chiedeva la voce. `c'è`, `com'era`, `dev'essere` restano interi: il clitico
+non è un determinante, e la parte che resta — `è`, `era` — non è il
+sostantivo. Spezzare `c'è` darebbe `c` + `è`, cioè rumore. **Estendere ai
+dimostrativi è stato provato e misurato**: `quest'`, `quell'`, `nessun'`
+recuperano **8 token su 72.000**, e trascinerebbero dentro `sant'`, che
+spezzerebbe `Sant'Ambrogio` in due. Scartato.
+
+**Il clitico si butta, non diventa un token.** È l'obiezione con cui I15
+aveva scartato `\w+`: BM25 normalizza sulla lunghezza del documento, e quattro
+`l` in più abbassano ogni altro termine dello stesso passaggio.
+
+**Il guardiano che rende la regola sicura fuori dall'italiano.** Il suffisso
+deve avere almeno due caratteri, e la soglia è **misurata sulle 104.334 voci
+di `/usr/share/dict/american-english`**: senza, il possessivo `all's` diventa
+`s` e le voci alterate sono 17; con, scendono a 10 — tutte nomi propri
+stranieri (`d'Arezzo`, `d'Estaing`, `L'Amour`, `L'Oreal`, `L'Ouverture`) dove
+non si perde nulla, perché corpus e query subiscono la stessa elisione.
+Portare la soglia a 3 non cambia nulla.
+
+**Entrambi gli apostrofi**, ASCII e tipografico. Nella prosa del progetto il
+tipografico compare 2 volte contro 5857 — ma il progetto scrive in ASCII, e un
+CMS no: la prova end-to-end qui sotto gira proprio su una pagina che usa `’`.
+
+**Niente regex.** `mars_core` non ne usa una in tutto il file, e `_elidi` gira
+su ogni token di ogni chunk: due `find` costano meno, e il prefisso non ha
+bisogno di essere validato come parola perché deve stare in un elenco di nove
+stringhe corte.
+
+**Un test è cambiato, e si dice.** `tokenize("l'azienda") == ["l'azienda"]`
+stava fra i casi della punteggiatura interna, e non era sbagliato: fissava la
+scelta di *non* spezzare. I15 cambia quella scelta per i soli articoli e
+preposizioni; il resto della riga — `e-mail`, `COVID-19`, `3,14`,
+`info@esempio.it`, `C++` — non si muove, e i test lo provano.
+
+**I golden NON presidiano il tokenizzatore, ed è stato misurato.** Sono
+rimasti verdi a tokenizzazione cambiata. Il primo sospetto — «il fixture non
+ha elisioni» — era giusto ma non bastava: introdotta un'elisione nel corpus
+sintetico, i golden sono rimasti verdi lo stesso, perché nessuna query del
+fixture cerca un termine che compare solo eliso. Il ritocco al fixture è stato
+quindi **tolto**, perché non comprava la copertura per cui era stato fatto.
+Tre sonde sul solo `tokenize`, con i golden per giudice:
+
+| mutazione | golden |
+|---|---|
+| elisione tolta | verdi |
+| ritorno a `.lower().split()` — cioè **la regressione di R18** | verdi |
+| tokenizzatore che restituisce `[]` | rossi |
+
+I golden colgono un tokenizzatore morto, non uno sbagliato. Il presidio di
+`tokenize` sono i test unitari e i due test di modulo che attraversano
+`mars_lexical.audit`, ed è dichiarato qui invece che assunto.
+
+**File toccati.** `mars_core.py` (`ELIDIBILI`, `MIN_SUFFISSO`, `APOSTROFI`,
+`_elidi`, `tokenize`, `__version__`), `tests/test_core.py` (+25 casi),
+`tests/test_modules.py` (+2), `README.md`. L'elenco sta accanto a `tokenize`
+e **non** in `mars_config`: I8 ha escluso dal suo perimetro gli elenchi che
+descrivono il mondo, e questo è uno di quelli.
+
+**Verifiche.** `flake8 .` a zero, `pytest` **1276 passed** (da 1248). **Nove
+mutazioni su nove colte** — elisione non applicata, apostrofo tipografico
+ignorato, nessun suffisso minimo, elenco aperto a tutto, `sant'` nell'elenco,
+`l'` fuori dall'elenco, si tiene il clitico invece del resto, ultimo apostrofo
+invece del primo, suffisso misurato male. **Due erano sfuggite** al primo
+giro, e sono due cose diverse: l'ultimo-apostrofo mancava di un test (token
+con **entrambi** gli apostrofi, che un CMS produce quando la conversione è
+parziale) e ora ce l'ha; l'altra — «apostrofo in posizione 0 non escluso» — è
+sfuggita perché era una **mutazione nulla**: con taglio 0 il prefisso è la
+stringa vuota, che nell'elenco non c'è. Il `if i > 0` era codice morto ed è
+stato tolto.
+
+**End-to-end** su un sito locale da due pagine, con l'apostrofo **tipografico**
+come lo scrive un CMS. La pagina che risponde dice `L’assistenza copre…`; la
+query è `assistenza`:
+
+| | `matched` | passaggio in testa |
+|---|---|---|
+| senza elisione | `False` | nessuno |
+| con elisione | `True` | `/assistenza.html § Che cosa comprende` |
+
+Non verificato: la frequenza dell'apostrofo tipografico sui siti reali
+italiani — l'unico corpus misurato è la prosa del progetto, che è scritta in
+ASCII e non è rappresentativa. Entrambi sono gestiti per costruzione.
 
 ### I4 + I9 — ✅ REALIZZATE (2026-08-28): quali passaggi stanno fuori dall'intersezione
 

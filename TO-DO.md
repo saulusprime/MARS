@@ -30,7 +30,8 @@
 > `evaluate_answer` — chiusa lo stesso giorno, e la misura che l'ha aperta è
 > che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
 > **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2**,
-> **I8** e **I4+I9** sono le prime idee decise dopo la chiusura del programma: non avevano
+> **I8**, **I4+I9** e **I15** sono le prime idee decise dopo la chiusura del
+> programma: non avevano
 > una casella, e l'hanno avuta quando l'utente ha detto di farle. I8 è stata
 > realizzata **in forma ridotta e dichiarata**: un modulo `mars_config.py`, non
 > il file di configurazione che l'idea chiedeva — la ragione sta in
@@ -40,9 +41,15 @@
 > `__version__` è salita a **2.10.0** con R63, perché da lì i punteggi si
 > muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
 > punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10, a
-> **2.13.0** con U11, a **2.14.0** con I2 e a **2.15.0** con I4+I9, che
-> aggiunge contenuto al referto. I8 non l'ha mossa: nessun punteggio cambia e
-> nessuna interfaccia con lei.
+> **2.13.0** con U11, a **2.14.0** con I2, a **2.15.0** con I4+I9, che
+> aggiunge contenuto al referto, e a **2.16.0** con I15, da cui i punteggi
+> lessicali si muovono a sito invariato. I8 non l'ha mossa: nessun punteggio
+> cambia e nessuna interfaccia con lei.
+>
+> **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
+> uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
+> li lascia verdi. Misurato, e scritto in [AS-IS.md](AS-IS.md): il presidio di
+> `tokenize` sono i test unitari.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -66,14 +73,6 @@
 
 ## Idee
 
-- **I5** — crawling concorrente. *Misurato il 2026-08-26:* **non realizzabile
-  com'è scritta.** `_get` serializza le richieste su `self._last_request`
-  ([mars_core.py:722](mars_core.py#L722)) per rispettare `Crawl-delay`, quindi
-  un pool che non passa di lì viola robots.txt e uno che ci passa non guadagna
-  niente. Da riscrivere su ciò che sta *attorno* al fetch — parsing,
-  estrazione — oppure da chiudere.
-- **I6** — cache HTTP su disco (URL + ETag/Last-Modified): rende iterabile lo
-  sviluppo dei moduli senza martellare il sito bersaglio.
 - **I7** — `--compare a.com b.com c.com` con tabella affiancata.
 - **I10** — un `mars_perf.py` con i **controlli** dei Core Web Vitals, letti
   dallo stesso LHR senza un secondo Lighthouse. I punteggi di categoria li
@@ -84,12 +83,6 @@
 - **I14** — tetto alla dimensione della risposta HTTP: `_get` scarica il corpo
   intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
   byte.
-- **I15** — elisione italiana nella tokenizzazione: `l'azienda` resta un token
-  solo. *Misurato chiudendo R18:* la correzione ovvia, `re.findall(r"\w+")`,
-  è **scartata** — manda in pezzi `info@esempio.it`, `3,14` e `COVID-19`, e
-  riempie l'indice di frammenti che gonfiano la lunghezza su cui BM25
-  normalizza. Serve un elenco dichiarato di articoli e preposizioni elidibili,
-  non una regola generale.
 - **I17** — il consenso aggregato regge il segnale «Recuperabilità», che entra
   nel complessivo, ed è **fragile rispetto a k**. *Misurato il 2026-08-27
   chiudendo I3, sullo stesso sito e nello stesso minuto:* 3/3 e complessivo

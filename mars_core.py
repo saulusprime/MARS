@@ -33,7 +33,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.15.0"
+__version__ = "2.16.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1237,6 +1237,73 @@ def _spoglia(token: str) -> str:
     return token[inizio:fine]
 
 
+# Gli articoli e le preposizioni che in italiano si elidono davanti a
+# vocale (I15). E' un elenco DICHIARATO e chiuso, non una regola: la
+# regola generale — spezzare su ogni non-parola, `re.findall(r"\w+")` —
+# manderebbe in pezzi `info@esempio.it`, `3,14` e `COVID-19`, ed e' il
+# motivo per cui I15 e' rimasta aperta finche' qualcuno non ha scritto
+# l'elenco.
+#
+# Solo articoli e preposizioni, e il confine e' misurato: `c'e'` e
+# `com'era` restano interi perche' il clitico non e' un determinante e
+# la parte che resta — `e'`, `era` — non e' il sostantivo. Estendere ai
+# dimostrativi (`quest'`, `quell'`, `nessun'`) e' stato provato:
+# recupera 8 token su 72.000 di prosa italiana, e trascinerebbe dentro
+# `sant'`, che spezzerebbe `Sant'Ambrogio` in due.
+ELIDIBILI = frozenset({"l", "un", "d", "dell", "dall", "nell",
+                       "sull", "all", "coll"})
+
+# Il suffisso minimo. E' il guardiano che rende la regola sicura fuori
+# dall'italiano, e non e' teorico: misurato sulle 104.334 voci di
+# /usr/share/dict/american-english, senza di lui il possessivo `all's`
+# diventa `s`, e le voci alterate sono 17; con lui scendono a 10, tutte
+# nomi propri stranieri (`d'Arezzo`, `L'Oreal`) dove l'elisione non
+# toglie nulla perche' corpus e query la subiscono uguale.
+MIN_SUFFISSO = 2
+
+# Entrambi gli apostrofi. Quello tipografico non e' un caso di scuola:
+# i CMS lo inseriscono da soli, e un elenco che coprisse il solo ASCII
+# fallirebbe proprio sui siti curati. `_spoglia` li tratta gia' tutti e
+# due, perche' guarda la categoria Unicode invece di elencare i segni.
+APOSTROFI = ("'", "\u2019")
+
+
+def _elidi(token: str) -> str:
+    """Toglie l'articolo o la preposizione elisa in testa al token.
+
+    `l'azienda` -> `azienda`. Il clitico si BUTTA invece di diventare
+    un token a se': BM25 normalizza sulla lunghezza del documento, e
+    quattro `l` in piu' abbassano ogni altro termine dello stesso
+    passaggio — che e' l'obiezione con cui I15 aveva scartato la
+    regola generale.
+
+    Niente regex: `mars_core` non ne usa una, e questa funzione gira
+    su ogni token di ogni chunk. Il prefisso non ha bisogno di essere
+    validato come parola, perche' deve stare in un elenco di nove
+    stringhe corte.
+
+    Un passaggio solo, sul PRIMO apostrofo: `dell'una'altra` non
+    esiste, e la ricorsione aggiungerebbe un caso che nessun testo
+    produce.
+    """
+    tagli = [i for i in (token.find(a) for a in APOSTROFI) if i >= 0]
+    if not tagli:
+        return token
+    # Il PRIMO dei due apostrofi, non l'ultimo: un token puo' portarli
+    # tutti e due — `l'anno'80` con l'apostrofo tipografico nel mezzo —
+    # e tagliare sull'ultimo darebbe `l'anno` come prefisso, che
+    # nell'elenco non c'e' e lascerebbe il token intero.
+    #
+    # Un apostrofo in posizione 0 non ha bisogno di un caso suo:
+    # `_spoglia` lo ha gia' tolto, e se anche non lo avesse il
+    # prefisso sarebbe la stringa vuota, che nell'elenco non c'e'.
+    taglio = min(tagli)
+    if (token[:taglio] in ELIDIBILI
+            and len(token) - taglio - 1 >= MIN_SUFFISSO):
+        return token[taglio + 1:]
+    return token
+
+
 def tokenize(testo: str) -> List[str]:
     """Testo in token per il recuperatore lessicale.
 
@@ -1255,9 +1322,16 @@ def tokenize(testo: str) -> List[str]:
 
     Si toglie solo la punteggiatura di CONFINE: "e-mail", "COVID-19",
     "3,14" e "info@esempio.it" restano interi, perche' spezzarli
-    sarebbe una scelta diversa e non misurata (vedi I15).
+    manderebbe in pezzi indirizzi, prezzi e sigle.
+
+    L'unica eccezione e' l'elisione italiana (I15): davanti a un
+    articolo o a una preposizione dichiarati in `ELIDIBILI` il clitico
+    cade, cosi' "l'azienda" si trova cercando "azienda". E' un elenco
+    chiuso e non una regola generale — la ragione sta accanto
+    all'elenco.
     """
-    return [t for t in (_spoglia(p) for p in testo.lower().split()) if t]
+    return [t for t in (_elidi(_spoglia(p)) for p in testo.lower().split())
+            if t]
 
 
 class LexicalRetriever:

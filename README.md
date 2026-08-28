@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.13.0
+Versione 2.14.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta sette aree strategiche.
@@ -228,9 +228,9 @@ parziali vengono riportati come tali.
 Un daemon ZAP eleva molto il valore dell'audit di sicurezza: si passa da un
 controllo degli header a una scansione vera delle pagine analizzate, e con la
 dichiarazione di proprieta' anche allo spidering e all'active scan delle
-vulnerabilita' comuni — XSS, SQLi, path traversal. Oltre al Docker qui sopra si puo' installare il pacchetto di
-sistema: `sudo snap install zaproxy --classic`, poi avviarlo in modalita'
-daemon.
+vulnerabilita' comuni — XSS, SQLi, path traversal. Oltre al Docker qui sopra 
+si puo' installare il pacchetto di sistema: `sudo snap install zaproxy --classic`,
+poi avviarlo in modalita' daemon.
 
     NON serve alcun pacchetto pip. MARS parla direttamente l'API JSON di ZAP
     con `requests`, che e' gia' una dipendenza: ne' `zapcli` ne' il client
@@ -246,6 +246,22 @@ torchvision torchaudio sentence-transformers numpy), lo script
 caricherà automaticamente il modello multilingue di default per generare 
 embedding reali (paraphrase-multilingual-MiniLM-L12-v2) invece del 
 proxy Char-TFIDF (che usa i n-grammi sui caratteri).
+
+Nota: La scelta del miglior modello di Sentence Transformers per convertire
+testi in vettori numerici (embedding) e confrontarne il significato semantico
+dipende dal bilanciamento necessario tra accuratezza, lingua del testo e risorse
+hardware. I modelli più performanti ed efficienti compatibili con la libreria
+sentence-transformers vanno dal migliore per testi Multilingua e Italiano
+(Massima Accuratezza). Se i testi sono in italiano o richiedono il passaggio
+da una lingua all'altra, serve un modello nativamente multilingua.
+
+ - BAAI/bge-m3
+ - intfloat/multilingual-e5-large-instruct
+ - sentence-transformers/all-MiniLM-L6-v2
+ - sentence-transformers/all-MiniLM-L12-v2
+ - Qwen/Qwen3-Embedding-4B
+ - Qwen/Qwen3-Embedding-8B
+ - google/embeddinggemma-300m
 
 Per il monitoraggio delle citazioni IA e per il giudizio LLM sulla
 citabilità installare la libreria Anthropic (e' in
@@ -744,10 +760,24 @@ su: …» e json.loads moriva sulla prima colonna (R59). Da notare che con
 Vale per mars_audit.py e per i moduli; mars_citations.py separava gia' i
 due canali.
 
-Codici di uscita di mars_audit.py: 0 referto prodotto; 2 nessuna pagina
-indicizzata **oppure** errore d'uso (argomento non valido, file di --queries
-illeggibile); 3 impossibile scrivere il file di --output. Il valore 1 resta
-libero per una futura soglia --fail-under.
+Codici di uscita di mars_audit.py: 0 referto prodotto; 1 complessivo sotto
+la soglia di --fail-under; 2 nessuna pagina indicizzata **oppure** errore
+d'uso (argomento non valido, file di --queries illeggibile); 3 impossibile
+scrivere il file di --output.
+
+Con --fail-under una pipeline si ferma sotto una soglia:
+
+    python3 mars_audit.py https://sito.it --fail-under 70 \
+        --format json --output referto.json
+
+Il referto viene prodotto **lo stesso** — serve proprio a capire perche' il
+sito e' sotto — e il 3 di una scrittura fallita vince sul 1: un disco pieno
+non e' un giudizio sul sito. Alla pari non fallisce, come in
+mars_citations.py. Se nessuna area e' stata misurata la soglia non si
+applica e il programma lo dichiara su stderr: «non misurato» non e' uno
+zero, e un'uscita 0 silenziosa farebbe credere che la soglia sia stata
+verificata. La soglia si valida a riga di comando, prima che parta una
+richiesta: --fail-under 150 esce con 2 senza toccare il sito.
 
 Monitoraggio delle citazioni IA effettive di un sito.
 

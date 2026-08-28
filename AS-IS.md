@@ -79,6 +79,7 @@
 | C12.1 | `evaluate_answer` non era esercitata da alcun test | 2026-08-28 |
 | U10 | Giudizio LLM multi-modello, con due scarti di onestà | 2026-08-28 |
 | U11 | Il referto si stampa, le tabelle hanno un'intestazione, il piede firma | 2026-08-28 |
+| I2 | `--fail-under`: il complessivo decide il codice di uscita | 2026-08-28 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2509,6 +2510,67 @@ segnalato che quei passaggi, su questo sito, sono in buona parte il menu.
 
 **Nessuna riga di codice è cambiata**: la voce chiedeva una prova, e la prova è
 questa. `pytest` **1167 passed**, `flake8 .` a zero, invariati.
+
+### I2 — ✅ REALIZZATA (2026-08-28): `--fail-under`, e il codice 1 non è più riservato
+
+*(idea, decisa dall'utente. `__version__` a 2.14.0: nuovo flag e nuovo codice
+di uscita, nessun punteggio si muove.)*
+
+**Che cosa c'era.** Un commento in [mars_audit.py](mars_audit.py) diceva «il
+valore 1 resta libero per una futura soglia --fail-under», e il README lo
+ripeteva. `mars_citations.py` la soglia ce l'aveva da C3; `mars_audit.py` no,
+quindi chi metteva l'audit in una pipeline doveva rileggersi il JSON e
+confrontare `overall.score` da sé. Il commento era una **promessa senza
+controparte**, la stessa forma del difetto che ha aperto R28.
+
+**La soluzione.** `--fail-under PUNTEGGIO` e `EXIT_SOTTO_SOGLIA = 1`. Quattro
+decisioni, tutte prese per non mentire alla pipeline:
+
+- **Il referto esce comunque.** Chi ferma una pipeline sotto la soglia vuole
+  proprio il documento che dice *perché* il sito è sotto. Il controllo è
+  l'ultima cosa che `run_audit` fa.
+- **Il 3 vince sul 1.** Una scrittura fallita esce con `EXIT_SCRITTURA` anche
+  con la soglia superata: un disco pieno non è un giudizio sul sito. È
+  letteralmente R28 al contrario, ed è presidiato da un test che sposta il
+  controllo prima della scrittura e lo vede fallire.
+- **Alla pari non fallisce** (`<`, non `<=`), come `mars_citations`: due CLI
+  nella stessa pipeline non possono rispondere diversamente alla stessa
+  domanda.
+- **Un complessivo non misurato non si giudica.** `overall` è `None` quando
+  nessuna area ha un punteggio, e non è uno zero (principio 5). Uscire con 1
+  direbbe che il sito è sotto la soglia; uscire con 0 in silenzio farebbe
+  credere che la soglia sia stata verificata. Si esce con 0 e **lo si
+  dichiara su stderr**.
+
+La soglia si valida in argparse (`soglia_percentuale`, 0–100), per lo stesso
+motivo di `k_non_negativo`: `--fail-under 150` uscirebbe con 1 su qualunque
+sito, ma solo dopo aver fatto lavorare il sito per l'intera scansione.
+
+**File toccati.** `mars_audit.py` (costanti, `soglia_percentuale`,
+`esito_della_soglia`, il flag, `main`, l'epilogo), `tests/test_cli.py`
+(+14 test), `tests/test_citations.py` (il test della scala condivisa, che
+diceva «il solo che mars_audit non ha ancora»), `README.md`, `mars_core.py`
+(`__version__`). L'API non cambia: il codice di uscita è un concetto della
+CLI, e chi chiama `/audit/full` riceve `overall.score` e decide da sé.
+
+**Verifiche.** `flake8 .` a zero, `pytest` **1227 passed** (da 1213).
+**Dieci mutazioni su dieci colte** — soglia `<=` invece di `<`, il ramo
+`fail_under is None` disattivato, il non-misurato giudicato, il non-misurato
+che esce con 1, la soglia mai valutata, la soglia spostata prima della
+scrittura, il flag non propagato da `main`, il validatore senza intervallo,
+`EXIT_SOTTO_SOGLIA` a 4, la riga del codice 1 tolta dall'epilogo. **Una era
+sfuggita** al primo giro: il test dell'aiuto cercava `--fail-under`
+nell'aiuto intero, quindi togliere la riga dall'elenco dei codici lasciava
+verde: ora guarda dentro il blocco `codici di uscita:` e pretende
+`{0, 1, 2, 3}`.
+
+**End-to-end**, su un sito statico locale servito da `http.server` (due
+pagine, `--embeddings none --llm off`): complessivo reale **64,9**;
+`--fail-under 1` → uscita 0, `--fail-under 99` → uscita 1 con «Complessivo
+64.9 sotto la soglia 99.0» su stderr, `--fail-under 150` → uscita 2 **senza
+alcuna richiesta al sito**. Non verificato: nulla — il caso «nessuna area
+misurata» è coperto dal solo test, perché riprodurlo end-to-end vorrebbe dire
+un sito su cui tutti e nove i moduli falliscono.
 
 ### U11 — ✅ REALIZZATA (2026-08-28): il referto si stampa, e dichiara come è stato fatto
 

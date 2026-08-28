@@ -16,7 +16,7 @@
   Il clone ha già `core.sshCommand` legato a `~/.ssh/id_ed25519_2`
   (`saulusprime`) — se sparisse, il push tornerebbe «Permission denied».
 - `flake8` e `pytest` **non sono nel PATH**: si invocano da `.venv/bin/`.
-  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1213 passed**.
+  Riferimento al 2026-08-28: `flake8` 0, `pytest` **1227 passed**.
 - I commit del 2026-08-27 sono **su `origin/main`**.
 
 ## Che cosa è stato fatto oggi
@@ -51,10 +51,12 @@ contano per chi riprende:
 
 ## Prossimo passo
 
-**Il TO-DO non ha più caselle.** C4/C2, U10.1, C12.1, U10 e U11 sono chiuse il
-2026-08-28 e stanno in [AS-IS.md](AS-IS.md); `__version__` è a **2.13.0**. Del
-programma UPGRADE resta la sola **U12**, che il piano dichiara opzionale e che
-non ha una casella finché non si decide di farla.
+**Il TO-DO non ha più caselle.** C4/C2, U10.1, C12.1, U10, U11 e **I2** sono
+chiuse il 2026-08-28 e stanno in [AS-IS.md](AS-IS.md); `__version__` è a
+**2.14.0**. Del programma UPGRADE resta la sola **U12**, che il piano dichiara
+opzionale e che non ha una casella finché non si decide di farla. I2 era
+un'idea, non una casella: l'ha avuta quando è stata decisa, ed è il precedente
+per le altre in fondo al TO-DO.
 
 **Che cosa resta da verificare con una chiave**, ed è tutto qui:
 

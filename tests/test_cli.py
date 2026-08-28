@@ -556,3 +556,138 @@ def test_l_aiuto_mostra_come_si_scrive_il_file_delle_chiavi(aiuto):
     assert '"anthropic_api_key"' in aiuto, "il nome della chiave, in JSON"
     assert "examples/credentials.json" in aiuto
     assert "--credentials" in aiuto
+
+
+# ----------------------------------------------------------------------
+# I2: --fail-under, la soglia che decide il codice di uscita
+# ----------------------------------------------------------------------
+
+class _ModuloNonMisurato:
+    """Un'area che non e' stata guardata: `score` None, non zero."""
+
+    @staticmethod
+    def audit(context):
+        return {"score": None, "status": "unavailable",
+                "issues": ["strumento assente"], "findings": []}
+
+
+def _audit_con_soglia(monkeypatch, capsys, contesto, soglia,
+                      modulo=_ModuloConPunteggio, output=None):
+    monkeypatch.setattr(mars_audit, "MODULES_REGISTRY",
+                        [("mars_tech", "1. Tecnica")])
+    monkeypatch.setattr(mars_audit, "load_external_module",
+                        lambda nome: modulo)
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: contesto)
+    codice = mars_audit.run_audit("https://x/", 1, "none", "global",
+                                  fail_under=soglia, output=output)
+    return codice, capsys.readouterr()
+
+
+def test_cli_il_complessivo_dell_area_sola_e_il_suo_punteggio(monkeypatch,
+                                                              capsys,
+                                                              contesto):
+    """L'ancora dei test della soglia: con un'area sola e nessun
+    segnale derivato il complessivo E' 57, quindi 56, 57 e 58 sono
+    davvero sotto, alla pari e sopra. Senza questa misura le tre
+    asserzioni qui sotto proverebbero solo se stesse."""
+    codice, uscita = _audit_con_soglia(monkeypatch, capsys, contesto, None)
+    assert codice == mars_audit.EXIT_OK
+    assert "57" in uscita.out
+
+
+def test_cli_fail_under_esce_uno_sotto_la_soglia(monkeypatch, capsys,
+                                                 contesto):
+    codice, _ = _audit_con_soglia(monkeypatch, capsys, contesto, 58.0)
+    assert codice == mars_audit.EXIT_SOTTO_SOGLIA
+
+
+def test_cli_fail_under_esce_zero_sopra_la_soglia(monkeypatch, capsys,
+                                                  contesto):
+    codice, _ = _audit_con_soglia(monkeypatch, capsys, contesto, 56.0)
+    assert codice == mars_audit.EXIT_OK
+
+
+def test_cli_fail_under_alla_pari_non_fallisce(monkeypatch, capsys, contesto):
+    """`<` e non `<=`: «sotto la soglia» esclude la soglia, come in
+    `mars_citations`. Una soglia di 57 su un sito da 57 e' rispettata,
+    e le due CLI non possono rispondere diversamente alla stessa
+    domanda."""
+    codice, _ = _audit_con_soglia(monkeypatch, capsys, contesto, 57.0)
+    assert codice == mars_audit.EXIT_OK
+
+
+def test_cli_senza_soglia_un_punteggio_basso_esce_zero(monkeypatch, capsys,
+                                                       contesto):
+    """Il comportamento di prima resta il predefinito: chi non chiede
+    la soglia non deve vedere cambiare il codice di uscita."""
+    codice, _ = _audit_con_soglia(monkeypatch, capsys, contesto, None)
+    assert codice == mars_audit.EXIT_OK
+
+
+def test_cli_fail_under_non_giudica_un_complessivo_non_misurato(monkeypatch,
+                                                                capsys,
+                                                                contesto):
+    """Principio 5: «non misurato» non e' uno zero, e una soglia non lo
+    puo' giudicare. Uscire con 1 direbbe alla pipeline che il sito e'
+    sotto la soglia; uscirne con 0 in silenzio le farebbe credere che
+    la soglia sia stata verificata. Si esce con 0 e LO SI DICHIARA."""
+    codice, uscita = _audit_con_soglia(monkeypatch, capsys, contesto, 90.0,
+                                       modulo=_ModuloNonMisurato)
+    assert codice == mars_audit.EXIT_OK
+    assert "--fail-under" in uscita.err
+
+
+def test_cli_la_scrittura_fallita_vince_sulla_soglia(monkeypatch, capsys,
+                                                     contesto, tmp_path):
+    """R28 al contrario: un disco pieno non deve uscire con il codice
+    della soglia, o la pipeline leggerebbe un guasto della macchina
+    come un giudizio sul sito. Il 3 viene prima."""
+    codice, _ = _audit_con_soglia(
+        monkeypatch, capsys, contesto, 90.0,
+        output=str(tmp_path / "assente" / "referto.txt"))
+    assert codice == mars_audit.EXIT_SCRITTURA
+
+
+def test_cli_il_flag_fail_under_esiste_e_non_ha_un_default():
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).fail_under is None
+    assert parser.parse_args(["https://x/",
+                              "--fail-under", "70"]).fail_under == 70.0
+
+
+@pytest.mark.parametrize("valore", ["-1", "101", "molte", ""])
+def test_cli_fail_under_rifiuta_una_soglia_impossibile(valore):
+    """Come `--rrf-k`: il valore si valida PRIMA della scansione. Una
+    soglia di 150 uscirebbe con 1 su qualunque sito, ma solo dopo aver
+    fatto lavorare il sito per dieci minuti."""
+    with pytest.raises(SystemExit):
+        mars_audit.costruisci_parser().parse_args(
+            ["https://x/", "--fail-under", valore])
+
+
+def test_cli_main_propaga_fail_under_fino_a_run_audit(monkeypatch):
+    """La tubatura argparse -> run_audit, che senza un test si rompe in
+    silenzio: l'audit gira, il flag e' accettato, e il codice di uscita
+    resta 0 comunque."""
+    visti = {}
+    monkeypatch.setattr(mars_audit, "run_audit",
+                        lambda *a, **k: visti.update(k) or 0)
+    mars_audit.main(["https://x/", "--fail-under", "70"])
+    assert visti.get("fail_under") == 70.0
+
+
+def test_aiuto_dichiara_il_codice_uno(aiuto):
+    """L'epilogo elencava tre codici e diceva che «1 resta libero».
+    Ora non lo e' piu': un elenco che ne tace uno e' peggio di nessun
+    elenco, perche' chi lo legge lo crede completo.
+
+    Si guarda dentro il BLOCCO dei codici, non l'aiuto intero: la sola
+    presenza di `--fail-under` non basta, e una mutazione che toglieva
+    la riga dall'elenco lasciando il flag e' sfuggita per questo.
+    """
+    assert "resta libero" not in aiuto
+    blocco = aiuto.split("codici di uscita:")[1].split("\n\n")[0]
+    codici = {riga.split()[0] for riga in blocco.splitlines() if riga.strip()}
+    assert codici == {"0", "1", "2", "3"}, blocco
+    assert "--fail-under" in blocco

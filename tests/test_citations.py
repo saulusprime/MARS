@@ -227,8 +227,10 @@ def test_i_codici_di_uscita_sono_quelli_di_mars_audit():
     assert mars_citations.EXIT_OK == mars_audit.EXIT_OK == 0
     assert mars_citations.EXIT_USO == mars_audit.EXIT_USO == 2
     assert mars_citations.EXIT_SCRITTURA == mars_audit.EXIT_SCRITTURA == 3
-    # Il solo che mars_audit non ha ancora: la soglia e' l'idea I2.
-    assert mars_citations.EXIT_SOTTO_SOGLIA == 1
+    # Da I2 la scala e' completa in tutti e due: il 1 era riservato
+    # alla soglia da un commento, e ora e' la soglia.
+    assert (mars_citations.EXIT_SOTTO_SOGLIA
+            == mars_audit.EXIT_SOTTO_SOGLIA == 1)
 
 
 def test_la_soglia_resta_distinta_dal_guasto_di_scrittura(

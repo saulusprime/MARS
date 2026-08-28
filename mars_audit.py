@@ -23,9 +23,11 @@ from mars_i18n import LINGUA_CANONICA, LINGUE
 from mars_report import RENDERERS, build_report
 
 
-# Codici di uscita, allineati a quelli di mars_citations.py.
-# Il valore 1 resta libero per una futura soglia --fail-under (idea I2).
+# Codici di uscita, allineati a quelli di mars_citations.py: il 1 e'
+# la soglia in tutte e due, e le due CLI finiscono nella stessa
+# pipeline.
 EXIT_OK = 0
+EXIT_SOTTO_SOGLIA = 1
 EXIT_NESSUNA_PAGINA = 2
 EXIT_SCRITTURA = 3
 EXIT_USO = 2
@@ -43,6 +45,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               output: str | None = None,
               queries: list[str] | None = None,
               storico: str | None = None,
+              fail_under: float | None = None,
               lang: str = LINGUA_CANONICA) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}", file=sys.stderr)
     context = build_context(url, max_pages, embeddings_model, market,
@@ -127,6 +130,36 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
         # un'eccezione da ricordare — ed e' l'eccezione dimenticata che
         # rendeva illeggibile `--format json > referto.json`.
         sys.stdout.write(testo + "\n")
+
+    # La soglia si giudica per ULTIMA, dopo che il referto e' stato
+    # consegnato: chi la usa in una pipeline vuole comunque il referto
+    # che dice PERCHE' il sito e' sotto. E dopo EXIT_SCRITTURA, che
+    # vince: un disco pieno non e' un giudizio sul sito, ed e' il
+    # difetto che ha aperto R28 in mars_citations.
+    return esito_della_soglia(referto, fail_under)
+
+
+def esito_della_soglia(referto: dict, fail_under: float | None) -> int:
+    """Il codice di uscita dato il referto e la soglia richiesta.
+
+    `EXIT_SOTTO_SOGLIA` solo se il complessivo e' stato MISURATO e sta
+    sotto. Un complessivo assente — nessuna area misurata — non e' uno
+    zero (principio 5) e non lo si puo' giudicare: si esce con 0, ma lo
+    si dichiara, perche' un 0 silenzioso farebbe credere alla pipeline
+    che la soglia sia stata verificata.
+    """
+    if fail_under is None:
+        return EXIT_OK
+    complessivo = referto.get("overall")
+    if not complessivo or complessivo.get("score") is None:
+        print("Nessuna area misurata: --fail-under non e' stato "
+              "applicato.", file=sys.stderr)
+        return EXIT_OK
+    voto = complessivo["score"]
+    if voto < fail_under:
+        print(f"Complessivo {voto} sotto la soglia {fail_under}.",
+              file=sys.stderr)
+        return EXIT_SOTTO_SOGLIA
     return EXIT_OK
 
 
@@ -169,6 +202,10 @@ esempi:
   # confronto con l'esecuzione precedente dello stesso sito
   mars_audit.py https://example.com --history storico.jsonl
 
+  # in una pipeline: sotto 70 il comando fallisce, e il referto resta
+  mars_audit.py https://example.com --fail-under 70 \\
+      --format json --output referto.json
+
   # sito proprio: robots.txt ignorato e scansione WAPT attiva
   mars_audit.py https://miosito.it --i-own-this-domain
 
@@ -177,6 +214,7 @@ esempi:
 
 codici di uscita:
   0  referto prodotto
+  1  complessivo sotto la soglia di --fail-under
   2  nessuna pagina indicizzata, o errore d'uso
   3  impossibile scrivere il file di --output
 
@@ -209,6 +247,27 @@ def k_non_negativo(valore: str) -> int:
         raise argparse.ArgumentTypeError(
             "--rrf-k non puo' essere negativo: la formula divide per "
             "(k + posizione + 1)")
+    return numero
+
+
+def soglia_percentuale(valore: str) -> float:
+    """La soglia di --fail-under: un numero fra 0 e 100.
+
+    Stesso argomento di `k_non_negativo`: il complessivo e' un
+    punteggio 0-100, quindi `--fail-under 150` uscirebbe con 1 su
+    qualunque sito e `--fail-under -1` su nessuno — ma solo DOPO aver
+    fatto lavorare il sito per l'intera scansione. Argparse lo dice
+    prima che parta una richiesta.
+    """
+    try:
+        numero = float(valore)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "--fail-under vuole un numero, non %r" % valore)
+    if not 0.0 <= numero <= 100.0:
+        raise argparse.ArgumentTypeError(
+            "--fail-under sta fra 0 e 100: il complessivo e' un "
+            "punteggio su 100, e %s non e' raggiungibile" % valore)
     return numero
 
 
@@ -336,6 +395,16 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "scrivibile.")
 
     parser.add_argument(
+        "--fail-under", type=soglia_percentuale, metavar="PUNTEGGIO",
+        help="Esce con il codice 1 se il punteggio COMPLESSIVO e' sotto "
+             "questa soglia, per fermare una pipeline. Esempi: 70 per un "
+             "sito curato, 50 per un minimo. Alla pari non fallisce. Il "
+             "referto viene prodotto lo stesso — serve proprio a capire "
+             "perche'. Se nessuna area e' stata misurata la soglia non "
+             "si applica e il programma lo dichiara: «non misurato» non "
+             "e' uno zero.")
+
+    parser.add_argument(
         "--history", metavar="FILE", dest="storico",
         help="File JSONL dello storico, per confrontare questa "
              "esecuzione con la precedente dello stesso sito. Esempio: "
@@ -429,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
                      credentials=chiavi,
                      llm=args.llm, formato=args.formato,
                      output=args.output, queries=elenco_query,
+                     fail_under=args.fail_under,
                      lang=args.lang,
                      storico=(None if args.senza_storico else
                               args.storico

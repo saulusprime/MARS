@@ -29,12 +29,14 @@
 > chiamata vera, e la chiamata ha trovato **R63**; l'ultima prova mancante —
 > `evaluate_answer` — chiusa lo stesso giorno, e la misura che l'ha aperta è
 > che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
-> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma.
+> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2** è
+> la prima idea decisa dopo la chiusura del programma: non aveva una casella,
+> e l'ha avuta quando l'utente ha detto di farla.
 >
 > `__version__` è salita a **2.10.0** con R63, perché da lì i punteggi si
 > muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
-> punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10 e a
-> **2.13.0** con U11.
+> punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10, a
+> **2.13.0** con U11 e a **2.14.0** con I2.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -58,9 +60,6 @@
 
 ## Idee
 
-- **I2** — `--fail-under` per `mars_audit`, con exit code ≠ 0 sotto la soglia.
-  Fatto in `mars_citations`; il codice di uscita `1` è già **riservato** per
-  questo in [mars_audit.py:27](mars_audit.py#L27).
 - **I4 + I9** — **quali** chunk stiano fuori dall'intersezione fra i due
   recuperatori, non quanti: `consensus_top3` già dice quanti. Le due idee sono
   una domanda sola vista da due lati, e chi ne apre una apra l'altra.

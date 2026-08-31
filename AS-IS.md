@@ -86,6 +86,7 @@
 | I18 | La correzione con esempio anche per l'area SEO | 2026-08-28 |
 | I10 | L'area Prestazioni: i Core Web Vitals dallo stesso LHR | 2026-08-31 |
 | R64 | La diffusione axe partiva dal massimo sul campione di una pagina | 2026-08-31 |
+| I16 | `--form-factor`: il confronto like-for-like col PSI desktop | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2388,6 +2389,79 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I16 — ✅ REALIZZATA (2026-08-31): `--form-factor`, il confronto like-for-like col PSI
+
+*(decisa insieme a R64, dalla stessa segnalazione: il committente confronta
+il referto MARS col PageSpeed **desktop** che ha sotto gli occhi, e MARS
+misurava solo mobile.)*
+
+**Che cosa fa.** `--form-factor {mobile,desktop}` da CLI, campo
+`form_factor` nel corpo API. Il default resta mobile — il default di
+Lighthouse, e ciò che Google usa per l'indicizzazione — e l'invocazione
+mobile è **identica a prima che il flag esistesse**: solo l'esatto valore
+`desktop` aggiunge `--preset=desktop`. Il valore si **confronta, non si
+interpola** negli argomenti: un valore ostile arrivato da un chiamante che
+salta la validazione delle due interfacce non raggiunge la riga di comando
+(regola di [.claude/sicurezza.md](.claude/sicurezza.md), e un test lo
+prova). I valori ammessi stanno in `FORM_FACTORS` (`mars_core`): argparse
+li monta in `choices`, Pydantic nel `pattern` — un elenco solo, o le due
+interfacce divergono in silenzio (principio 4).
+
+**Perché conta, misurato.** Stesso sito, stessa ora, Lighthouse 13.4.1:
+performance **83 desktop, 58 mobile**. Chi confronta il referto MARS
+mobile con un PSI desktop vede una «discrepanza» che non è dei pesi: sullo
+stesso LHR il voto MARS sta sopra quello di Lighthouse per costruzione
+(penalizziamo solo le metriche sotto 0,9, Lighthouse tutte quelle sotto
+1,0). Il referto dichiara il form factor **dal LHR**
+(`configSettings.formFactor`), non dal flag: dice ciò che è stato
+misurato, non ciò che è stato chiesto.
+
+**Il titolo LCP ha perso i numeri.** Le curve di punteggio cambiano col
+dispositivo — LCP: p10 2500 ms su mobile, **1200 ms su desktop**
+(verificato in `largest-contentful-paint.js` 13.4.1) — quindi su un run
+desktop un LCP di 1,5 s scatta col vecchio titolo che diceva «entro
+2,5 s»: ogni frase vera, insieme un titolo fuorviante. Ora LCP è
+senza numeri come FCP, TBT e Speed Index; il solo CLS li mantiene
+(0,1/0,25), perché la sua curva è l'unica identica sui due dispositivi.
+I 4 s dell'LCP restano nel `detail` come classificazione CWV di campo,
+vera ovunque.
+
+**La revisione avversariale pre-commit ha trovato tre difetti veri**,
+corretti prima del commit. (1) **Lo storico non registrava il form
+factor** e il delta non lo dichiarava: run mobile ieri e desktop oggi →
+«Prestazioni +25» attribuito al sito e l'LCP fra i «comparsi». Il metro
+era già fissato da I3 — il k si archivia e si dichiara **nello stesso
+cambiamento** che introduce il flag — e ora `riga_storico` porta
+`form_factor` (dal LHR via le aree, None senza Lighthouse),
+`compute_delta` pubblica `form_factor_changed` (None quando coincidono
+o quando la riga vecchia non lo porta: non si inventa) e le tre viste
+rendono la nota «le curve di punteggio non sono le stesse», IT e EN.
+(2) **«Tocca le sole aree 2 e 3» era inesatto**: anche il numero di
+riferimento dell'area 7 viene dallo stesso LHR, e la categoria
+accessibility di Lighthouse dipende dal viewport (`color-contrast`,
+`target-size`); i due help ora lo dicono. (3) Un errore di editing
+aveva **sostituito** la riga `embeddings_model, force_proxy` del
+contratto dei moduli invece di affiancarla — la classe di sparizione
+silenziosa che CLAUDE.md descrive — ripristinata. Un quarto rilievo
+(«il flag muove anche la Citabilità») è stato **confutato** con la
+misura: il segnale `seo` della citabilità legge un punteggio che in
+Lighthouse 13.4.1 non ha curve dipendenti dal dispositivo, e sul sito
+reale vale 100 su entrambi i form factor.
+
+**Le prove.** Test su tutti gli anelli — `build_context` porta la
+chiave, `esegui_lighthouse` monta il preset (e non monta nulla per un
+valore non riconosciuto), CLI e API la passano e rifiutano `tablet`
+prima della scansione, la riga di storico registra il dispositivo, il
+delta lo dichiara e le tre viste lo rendono; 14/14 mutazioni colte in
+due giri (una per anello della catena del flag; riga, confronto e tre
+rese per lo storico); golden rigenerati — titolo LCP e
+`form_factor_changed: null` nel delta — e diff riletto. End-to-end desktop sul sito
+reale: Prestazioni **83.4** con riferimento Lighthouse **83.0** e
+`form_factor: desktop` dichiarato dal LHR — e il caso previsto si è
+presentato al primo run: LCP **1,5 s** segnalato (curva desktop), dove
+il vecchio titolo avrebbe detto «entro 2,5 s» accanto a un valore che
+la rispetta.
 
 ### R64 — ✅ (2026-08-31): la diffusione axe partiva dal massimo proprio dove non c'è informazione
 

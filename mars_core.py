@@ -33,7 +33,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.18.0"
+__version__ = "2.19.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1849,6 +1849,14 @@ def chunk_page(soup: BeautifulSoup, url: str, titolo: str = "") -> List[dict]:
     return chunks
 
 
+# I form factor ammessi, nell'ordine (default per primo). Elenco unico
+# per le due interfacce: argparse lo monta in `choices`, Pydantic nel
+# `pattern` — due elenchi separati divergerebbero in silenzio
+# (principio 4). Mobile per primo perche' e' il default di Lighthouse
+# ed e' cio' che Google usa per l'indicizzazione.
+FORM_FACTORS = ("mobile", "desktop")
+
+
 def build_context(url: str, max_pages: int = 10,
                   embeddings_model: str = DEFAULT_EMBEDDINGS,
                   market: str = "global",
@@ -1861,7 +1869,8 @@ def build_context(url: str, max_pages: int = 10,
                   judge_models: str = "",
                   queries: Optional[List[str]] = None,
                   credentials: Optional[dict] = None,
-                  lang: str = "it") -> Optional[dict]:
+                  lang: str = "it",
+                  form_factor: str = FORM_FACTORS[0]) -> Optional[dict]:
     """Scansiona il sito UNA volta e prepara il contesto per i moduli.
 
     Unica fonte di verita' per CLI e API: prima ognuna costruiva il
@@ -1935,6 +1944,13 @@ def build_context(url: str, max_pages: int = 10,
         # interrogava prima di U10: aggiungere un giudice e' una
         # SCELTA, e quest'area e' l'unica che spende denaro.
         "judge_models": str(judge_models or ""),
+        # Il dispositivo che Lighthouse emula (I16): mobile, il suo
+        # default, o desktop — per il confronto like-for-like col
+        # referto PageSpeed che il committente ha sotto gli occhi.
+        # Due referti con form factor diversi non si confrontano alla
+        # pari: le curve di punteggio cambiano, e il referto dichiara
+        # quale ha usato leggendolo dal LHR, non da qui.
+        "form_factor": str(form_factor or FORM_FACTORS[0]),
         # Credenziali del chiamante, alternative alle variabili
         # d'ambiente. Non finiscono nel referto: build_report() legge
         # chiavi nominate, non l'intero contesto.

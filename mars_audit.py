@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
-                       DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT,
+                       DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT, FORM_FACTORS,
                        MODULES_REGISTRY, RRF_K, __version__, build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
@@ -46,7 +46,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               queries: list[str] | None = None,
               storico: str | None = None,
               fail_under: float | None = None,
-              lang: str = LINGUA_CANONICA) -> int:
+              lang: str = LINGUA_CANONICA,
+              form_factor: str = FORM_FACTORS[0]) -> int:
     print(f"Avvio scansione MARS Beacon su: {url}", file=sys.stderr)
     context = build_context(url, max_pages, embeddings_model, market,
                             delay=delay, timeout=timeout,
@@ -55,7 +56,8 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             rrf_k=rrf_k,
                             credentials=credentials,
                             llm=llm, judge_models=judge_models,
-                            queries=queries, lang=lang)
+                            queries=queries, lang=lang,
+                            form_factor=form_factor)
 
     if context is None:
         print("Nessuna pagina indicizzata.", file=sys.stderr)
@@ -336,6 +338,20 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "quale ha usato.")
 
     parser.add_argument(
+        "--form-factor", choices=FORM_FACTORS, default=FORM_FACTORS[0],
+        help="Il dispositivo che Lighthouse emula. Valori: mobile "
+             "(predefinito, il default di Lighthouse e cio' che Google "
+             "usa per l'indicizzazione), desktop per il confronto "
+             "like-for-like con un referto PageSpeed desktop. Tocca "
+             "tutto cio' che viene da quel run Lighthouse: le aree 2 e "
+             "3, e il numero di riferimento che l'area 7 dichiara "
+             "accanto al proprio. Le curve di punteggio cambiano col "
+             "dispositivo, quindi due referti con form factor diversi "
+             "non si confrontano alla pari: il referto dichiara quale "
+             "ha usato, lo storico lo registra e il confronto con "
+             "un'esecuzione diversa lo segnala.")
+
+    parser.add_argument(
         "--queries", metavar="FILE",
         help="File di testo con una query per riga (UTF-8). Esempio: "
              "domande.txt. Senza, si usano quattro query generiche nella "
@@ -501,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
                      output=args.output, queries=elenco_query,
                      fail_under=args.fail_under,
                      lang=args.lang,
+                     form_factor=args.form_factor,
                      storico=(None if args.senza_storico else
                               args.storico
                               or mars_history.percorso_storico(args.output)))

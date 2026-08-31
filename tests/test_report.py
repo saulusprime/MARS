@@ -3237,6 +3237,25 @@ def test_le_viste_dichiarano_il_k_cambiato_fra_due_esecuzioni(referto):
         assert riga, "%s: i due k non compaiono insieme" % formato
 
 
+def test_le_viste_dichiarano_un_form_factor_cambiato(referto):
+    """I16, il gemello del k: 83 desktop contro 58 mobile misurati a
+    sito invariato — senza la nota la sezione «rispetto a prima»
+    direbbe «migliorato» di una cosa che non e' successa."""
+    con_delta = dict(referto)
+    con_delta["delta"] = {"previous_run": "2025-12-01T09:00:00+0000",
+                          "previous_version": "0.0.0", "scores": [],
+                          "overall": None, "resolved": [], "new": [],
+                          "by_title_fallback": False, "key_migrations": [],
+                          "rrf_k_changed": None,
+                          "form_factor_changed": {"before": "mobile",
+                                                  "after": "desktop"}}
+    for formato in ("text", "markdown", "html"):
+        reso = RENDERERS[formato](con_delta)
+        riga = [r for r in reso.split("\n")
+                if "mobile" in r and "desktop" in r]
+        assert riga, "%s: i due dispositivi non compaiono insieme" % formato
+
+
 def test_le_viste_dichiarano_una_misura_cambiata(referto):
     """R63: quando cambia CHE COSA si misura, i numeri si muovono a sito
     invariato — sul sito che ha aperto la voce, complessivo da 59.2 a

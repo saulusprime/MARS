@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R63**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R64**, idee fino a
 > **I18**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -48,7 +48,11 @@
 > cambia e nessuna interfaccia con lei. **I10** (2026-08-31) l'ha portata a
 > **2.18.0**: nasce l'area «3. Prestazioni» e le aree 3-9 diventano 4-10 —
 > le chiavi dei rilievi e lo storico non si muovono, il complessivo nemmeno,
-> perché l'area ne resta fuori per decisione dichiarata.
+> perché l'area ne resta fuori per decisione dichiarata. Il primo confronto
+> del committente col PSI (2026-08-31) ha aperto e chiuso **R64** — la
+> diffusione axe partiva dal massimo sul campione di una pagina, e da lì i
+> punteggi WCAG si muovono a sito invariato — e ha deciso **I16**, che con
+> `--form-factor` porta la versione a **2.19.0**.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -94,5 +98,3 @@
   che da k non dipenda — per esempio la sovrapposizione media fra i primi N
   delle due liste per query, che è il consenso per query e infatti non si
   muove. Frontiera: **I17**.
-- **I16** — `--form-factor {mobile,desktop}` per confrontare like-for-like con
-  il referto PageSpeed che il committente ha sotto gli occhi.

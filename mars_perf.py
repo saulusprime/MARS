@@ -47,22 +47,22 @@ from typing import Dict
 from mars_config import SOGLIA_BUONO, SOGLIA_MEDIO
 from mars_core import Finding, SEV_INFO, SEV_WARNING, chiave_esterna
 
-# id Lighthouse -> (chiave MARS, titolo del rilievo). Le soglie scritte
-# nei titoli (2,5 s / 4 s per LCP, 0,1 / 0,25 per CLS) sono i valori
-# che Google documenta per i Core Web Vitals: fatti del mondo, non
-# tarature, quindi vivono nei testi accanto al codice e non in
-# mars_config (perimetro di I8). FCP, TBT e Speed Index non portano
-# numeri nel titolo: le loro curve cambiano col form factor, e un
-# numero valido per il solo mobile diventerebbe falso su un referto
-# desktop senza che nulla lo segnali.
+# id Lighthouse -> (chiave MARS, titolo del rilievo). Il solo CLS porta
+# numeri nel titolo (0,1 / 0,25): sono i valori che Google documenta
+# per quel Core Web Vital — fatti del mondo, non tarature, quindi
+# vivono nel testo e non in mars_config (perimetro di I8) — e la sua
+# curva e' l'unica identica su mobile e desktop. Le altre quattro
+# cambiano col form factor (LCP: 2,5 s su mobile, 1,2 s su desktop —
+# verificato in largest-contentful-paint.js 13.4.1), e da I16 il run
+# desktop si puo' chiedere davvero: un numero valido per il solo
+# mobile diventerebbe falso senza che nulla lo segnali.
 CONTROLLI: Dict[str, tuple] = {
     "first-contentful-paint": (
         "perf.fcp.slow",
         "Primo contenuto lento: FCP %(valore)s"),
     "largest-contentful-paint": (
         "perf.lcp.slow",
-        "LCP lento: %(valore)s — il contenuto principale dovrebbe "
-        "comparire entro 2,5 s (scarso oltre 4 s)"),
+        "Contenuto principale lento: LCP %(valore)s"),
     "total-blocking-time": (
         "perf.tbt.high",
         "Thread principale bloccato: TBT %(valore)s (proxy di "

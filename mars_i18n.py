@@ -783,8 +783,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                    "}",
     },
     "perf.lcp.slow": {
-        "title": "Slow LCP: %(valore)s — the main content should "
-                 "appear within 2.5 s (poor beyond 4 s)",
+        "title": "Slow main content: LCP %(valore)s",
         "detail": "Largest Contentful Paint is a Core Web Vital: it "
                   "measures when the main element of the page appears. "
                   "Beyond 4 seconds Google rates it poor.",
@@ -1005,6 +1004,15 @@ _CORNICE_EN: Dict[str, str] = {
     "aggregato delle due esecuzioni non è la stessa misura.":
         "The fusion k changed, from %d to %d: the aggregate consensus "
         "of the two runs is not the same measure.",
+    "  (il dispositivo emulato è cambiato, da %s a %s: "
+    "le curve di punteggio non sono le stesse)":
+        "  (the emulated device changed, from %s to %s: the "
+        "scoring curves are not the same)",
+    "Il dispositivo emulato da Lighthouse è cambiato, "
+    "da %s a %s: le curve di punteggio delle due "
+    "esecuzioni non sono le stesse.":
+        "The device Lighthouse emulates changed, from %s to %s: the "
+        "scoring curves of the two runs are not the same.",
     "Esempio — non è contenuto del tuo sito":
         "Example — not content from your site",
     "Link a questo rilievo": "Link to this finding",

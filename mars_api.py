@@ -21,8 +21,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from mars_core import (CREDENZIALI_NOTE, DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
-                       DEFAULT_TIMEOUT, MODULES_REGISTRY, RRF_K,
-                       __version__, load_external_module,
+                       DEFAULT_TIMEOUT, FORM_FACTORS, MODULES_REGISTRY,
+                       RRF_K, __version__, load_external_module,
                        normalizza_risultato)
 from mars_core import build_context as core_build_context
 from mars_report import build_report
@@ -198,6 +198,22 @@ class AuditRequest(BaseModel):
                     "robots.txt — dal crawler di MARS e dallo spider di "
                     "ZAP, che non lo rispetta — e per l'active scan; "
                     "viene registrata nel referto.")
+    form_factor: str = Field(
+        FORM_FACTORS[0],
+        pattern="^(%s)$" % "|".join(FORM_FACTORS),
+        description="Il dispositivo che Lighthouse emula: 'mobile' "
+                    "(predefinito, il default di Lighthouse e ciò che "
+                    "Google usa per l'indicizzazione) o 'desktop', per "
+                    "il confronto like-for-like con un referto "
+                    "PageSpeed desktop. Tocca tutto ciò che viene da "
+                    "quel run Lighthouse: le aree 2 e 3, e il numero "
+                    "di riferimento che l'area 7 dichiara accanto al "
+                    "proprio. Le curve di punteggio cambiano col "
+                    "dispositivo, quindi due referti con form factor "
+                    "diversi non si confrontano alla pari: il referto "
+                    "dichiara quale ha usato, lo storico lo registra e "
+                    "il confronto con un'esecuzione diversa lo "
+                    "segnala.")
 
 
 class AuditResponse(BaseModel):
@@ -312,7 +328,8 @@ def build_context(req: AuditRequest) -> dict:
                                  llm=req.llm,
                                  judge_models=req.judge_models,
                                  queries=req.queries,
-                                 credentials=_credenziali(req))
+                                 credentials=_credenziali(req),
+                                 form_factor=req.form_factor)
     if context is None:
         raise HTTPException(
             status_code=404,

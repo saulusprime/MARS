@@ -127,6 +127,14 @@ def riga_storico(referto: dict) -> dict:
         # dipendono. Archiviato e non dedotto: dalla riga di ieri il k
         # di ieri non si ricava in nessun altro modo (I3).
         "rrf_k": (referto.get("rrf") or {}).get("k"),
+        # Il dispositivo che Lighthouse ha emulato: stesso argomento del
+        # k — dalla riga di ieri il dispositivo di ieri non si ricava in
+        # nessun altro modo, e le curve di punteggio cambiano con lui
+        # (I16). Si legge dalle aree perche' e' un fatto del LHR, non
+        # del flag; None quando Lighthouse non ha girato.
+        "form_factor": next((area.get("form_factor")
+                             for area in referto.get("areas") or []
+                             if area.get("form_factor")), None),
         "findings": rilievi,
     }
 
@@ -232,6 +240,16 @@ def _k_cambiato(precedente: dict, corrente: dict) -> Optional[dict]:
     return {"before": prima, "after": dopo} if prima != dopo else None
 
 
+def _form_factor_cambiato(precedente: dict,
+                          corrente: dict) -> Optional[dict]:
+    """Il dispositivo emulato da Lighthouse, se e' cambiato."""
+    prima = precedente.get("form_factor")
+    dopo = corrente.get("form_factor")
+    if not isinstance(prima, str) or not isinstance(dopo, str):
+        return None
+    return {"before": prima, "after": dopo} if prima != dopo else None
+
+
 def compute_delta(precedente: Optional[dict],
                   corrente: dict) -> Optional[dict]:
     """Che cosa e' cambiato fra due esecuzioni.
@@ -299,6 +317,12 @@ def compute_delta(precedente: Optional[dict],
         # prima di I3 non lo porta, e inventarlo direbbe una cosa che
         # non si sa.
         "rrf_k_changed": _k_cambiato(precedente, corrente),
+        # Il gemello del k, per I16: mobile ieri e desktop oggi non
+        # confrontano la stessa misura — le curve di punteggio cambiano
+        # col dispositivo. `None` quando coincidono e quando uno dei
+        # due manca: una riga scritta prima di I16 non lo porta.
+        "form_factor_changed": _form_factor_cambiato(precedente,
+                                                     corrente),
         # Non le chiavi ma le MISURE: quando cambia che cosa si conta,
         # i numeri si muovono a sito invariato.
         "measure_changes": misure_cambiate_fra(precedente.get("version"),

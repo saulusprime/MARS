@@ -444,3 +444,29 @@ def test_api_un_k_negativo_e_rifiutato(client, auth):
     esito = client.post("/audit/full", json=dict(CORPO, rrf_k=-1),
                         headers=auth)
     assert esito.status_code == 422
+
+
+def test_api_form_factor_arriva_al_contesto(client, auth, monkeypatch):
+    """I16, la stessa lezione di R56 e del k: un campo che si ferma al
+    modello Pydantic e' indistinguibile da uno che funziona."""
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_api, "core_build_context", finto)
+    client.post("/audit/full", json=dict(CORPO, form_factor="desktop"),
+                headers=auth)
+    assert visti.get("form_factor") == "desktop"
+    client.post("/audit/full", json=dict(CORPO), headers=auth)
+    assert visti.get("form_factor") == "mobile"
+
+
+def test_api_un_form_factor_ignoto_e_rifiutato(client, auth):
+    """Lighthouse non ha un preset `tablet`: il modello lo ferma prima
+    della scansione, come `choices` da riga di comando."""
+    esito = client.post("/audit/full",
+                        json=dict(CORPO, form_factor="tablet"),
+                        headers=auth)
+    assert esito.status_code == 422

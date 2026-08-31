@@ -19,7 +19,7 @@ COMPLESSIVO          :  63/100  (da migliorare)
 3. Prestazioni       :  58/100
   Lighthouse 13.4.1 · mobile · Lighthouse 56/100 (1 pagina, scala diversa: la nostra è più indulgente) · 1 controlli superati, 4 falliti
   ⚠ Primo contenuto lento: FCP 2,6 s
-  ⚠ LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+  ⚠ Contenuto principale lento: LCP 4,3 s
   → Primo contenuto lento: FCP 2,6 s
     Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.
   → Pagina lenta a riempirsi: Speed Index 4,2 s

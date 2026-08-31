@@ -44,8 +44,12 @@ def _area(modulo="mars_tech", score=57, rilievi=None) -> dict:
 
 def test_la_riga_tiene_solo_cio_che_serve_al_confronto():
     riga = st.riga_storico(_referto([_area(rilievi=[_rilievo()])]))
+    # `form_factor` da I16, per la stessa ragione di `rrf_k` (I3): due
+    # esecuzioni con dispositivi diversi non confrontano la stessa
+    # misura, e dalla riga di ieri il dispositivo non si ricava.
     assert set(riga) == {"generated_at", "url", "version", "schema_version",
-                         "scores", "overall", "findings", "rrf_k"}
+                         "scores", "overall", "findings", "rrf_k",
+                         "form_factor"}
     assert riga["scores"] == {"mars_tech": 57}
     assert riga["overall"] == 70.0
     # `params` accanto a `title` da U9.2: il delta si RENDE, e un
@@ -341,6 +345,48 @@ def test_il_delta_dichiara_un_k_cambiato():
     del vecchia["rrf_k"]
     assert st.compute_delta(vecchia, dopo)["rrf_k_changed"] is None, \
         "una riga scritta prima di I3 non porta il k: non si inventa"
+
+
+def test_la_riga_di_storico_registra_il_form_factor():
+    """I16 segue I3: con `--form-factor` due esecuzioni dello stesso
+    sito possono aver misurato con dispositivi diversi, e le curve di
+    punteggio cambiano col dispositivo (83 desktop contro 58 mobile,
+    stessi byte). Si archivia il fatto del LHR — l'area lo dichiara —
+    non il flag; None quando Lighthouse non ha girato, perche' dalla
+    riga di ieri il dispositivo di ieri non si ricava altrimenti."""
+    referto = {"generated_at": "x", "url": "https://x/", "version": "1",
+               "areas": [{"module": "mars_tech", "score": 1},
+                         {"module": "mars_seo", "score": 2,
+                          "form_factor": "desktop"}],
+               "overall": {"score": 50}}
+    assert st.riga_storico(referto)["form_factor"] == "desktop"
+    senza = {"generated_at": "x", "url": "https://x/", "version": "1",
+             "areas": [{"module": "mars_tech", "score": 1}],
+             "overall": {"score": 50}}
+    assert st.riga_storico(senza)["form_factor"] is None
+
+
+def test_il_delta_dichiara_un_form_factor_cambiato():
+    """Il gemello del k: mobile ieri e desktop oggi non confrontano la
+    stessa misura, e senza la nota il delta attribuirebbe al sito il
+    cambio di curva — l'LCP che su desktop scatta a 1,2 s finirebbe fra
+    i «comparsi» come se la pagina fosse peggiorata."""
+    prima = {"generated_at": "ieri", "version": "1",
+             "form_factor": "mobile", "scores": {}, "findings": []}
+    dopo = {"generated_at": "oggi", "version": "1",
+            "form_factor": "desktop", "scores": {}, "findings": []}
+    delta = st.compute_delta(prima, dopo)
+    assert delta["form_factor_changed"] == {"before": "mobile",
+                                            "after": "desktop"}
+
+    uguale = st.compute_delta(dict(prima, form_factor="desktop"), dopo)
+    assert uguale["form_factor_changed"] is None, \
+        "nessuna nota se il dispositivo e' lo stesso"
+
+    vecchia = dict(prima)
+    del vecchia["form_factor"]
+    assert st.compute_delta(vecchia, dopo)["form_factor_changed"] is None, \
+        "una riga scritta prima di I16 non lo porta: non si inventa"
 
 
 def test_una_misura_cambiata_si_dichiara_come_una_chiave_migrata():

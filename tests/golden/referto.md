@@ -60,7 +60,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - Il documento non ha una meta descrizione
 - I link non hanno testo descrittivo
 - Gli elementi immagine non hanno attributi `[alt]`
-- LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+- Contenuto principale lento: LCP 4,3 s
 - Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)
 - 3/3 pagine sotto le 300 parole
 - 1/3 query senza un riscontro lessicale
@@ -121,7 +121,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
       Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
-- [ ] [AVVISO] LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s) — *Prestazioni · sforzo: giorni · +14 punti d'area*
+- [ ] [AVVISO] Contenuto principale lento: LCP 4,3 s — *Prestazioni · sforzo: giorni · +14 punti d'area*
       Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.
 - [ ] [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi — *Semantica · sforzo: giorni · +8 punti d'area*
       Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
@@ -230,7 +230,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
     font-display: swap;
   }
   ```
-- [AVVISO] LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+- [AVVISO] Contenuto principale lento: LCP 4,3 s
   Il Largest Contentful Paint e' un Core Web Vital: misura quando compare l'elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.
   *Correzione:* Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.
 

@@ -1584,6 +1584,11 @@ def _delta_testo(referto: dict,
         righe.append(t("  (il k della fusione è cambiato, da %d a %d: il "
                        "consenso aggregato non è la stessa misura)", lang)
                      % (cambio_k["before"], cambio_k["after"]))
+    cambio_ff = delta.get("form_factor_changed")
+    if cambio_ff:
+        righe.append(t("  (il dispositivo emulato è cambiato, da %s a %s: "
+                       "le curve di punteggio non sono le stesse)", lang)
+                     % (cambio_ff["before"], cambio_ff["after"]))
     if delta.get("by_title_fallback"):
         righe.append(t("  (qualche rilievo non ha una chiave stabile: "
                        "confrontato sul titolo)", lang))
@@ -3351,6 +3356,13 @@ def _sezione_delta(referto: dict, p: List[str],
                       "consenso aggregato delle due esecuzioni non è la "
                       "stessa misura.", lang)
                     % (cambio_k["before"], cambio_k["after"])))
+    cambio_ff = delta.get("form_factor_changed")
+    if cambio_ff:
+        p.append("<p class='meta'>%s</p>"
+                 % (t("Il dispositivo emulato da Lighthouse è cambiato, "
+                      "da %s a %s: le curve di punteggio delle due "
+                      "esecuzioni non sono le stesse.", lang)
+                    % (_e(cambio_ff["before"]), _e(cambio_ff["after"]))))
     if delta.get("by_title_fallback"):
         p.append("<p class='meta'>%s</p>"
                  % t("Qualche rilievo non ha una chiave stabile: il "
@@ -4107,6 +4119,14 @@ def render_markdown(referto: dict,
                        "consenso aggregato delle due esecuzioni non è la "
                        "stessa misura.", lang)
                      % (cambio_k["before"], cambio_k["after"]))]
+        cambio_ff = delta.get("form_factor_changed")
+        if cambio_ff:
+            r += ["", "*%s*"
+                  % _md_cella(
+                      t("Il dispositivo emulato da Lighthouse è cambiato, "
+                        "da %s a %s: le curve di punteggio delle due "
+                        "esecuzioni non sono le stesse.", lang)
+                      % (cambio_ff["before"], cambio_ff["after"]))]
         if delta.get("by_title_fallback"):
             r += ["", "*%s*"
                   % t("Qualche rilievo non ha una chiave stabile: il "

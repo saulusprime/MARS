@@ -452,6 +452,32 @@ def test_cli_rrf_k_arriva_al_contesto(monkeypatch):
     mars_audit.main(["https://x/", "--rrf-k", "11"])
     assert visti.get("rrf_k") == 11, "e anche dalla riga di comando"
 
+
+def test_cli_il_form_factor_esiste_e_arriva_al_contesto(monkeypatch):
+    """I16: come per `--rrf-k`, un flag che si ferma prima di
+    `build_context` e' indistinguibile da uno che funziona."""
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).form_factor == "mobile"
+    assert parser.parse_args(
+        ["https://x/", "--form-factor", "desktop"]).form_factor == "desktop"
+    visti = {}
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: visti.update(k) or None)
+    mars_audit.main(["https://x/", "--form-factor", "desktop"])
+    assert visti.get("form_factor") == "desktop"
+    mars_audit.main(["https://x/"])
+    assert visti.get("form_factor") == "mobile"
+
+
+def test_cli_un_form_factor_ignoto_e_un_errore_d_uso(capsys):
+    """`choices` ferma il valore prima della scansione: Lighthouse non
+    ha un preset `tablet`, e scoprirlo a crawl finito costerebbe
+    l'intero giro di richieste al sito."""
+    with pytest.raises(SystemExit):
+        mars_audit.costruisci_parser().parse_args(
+            ["https://x/", "--form-factor", "tablet"])
+    assert "form-factor" in capsys.readouterr().err
+
 # ----------------------------------------------------------------------
 # R59: diagnostica su stderr, referto su stdout
 # ----------------------------------------------------------------------

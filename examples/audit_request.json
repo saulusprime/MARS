@@ -34,6 +34,7 @@
   "i_own_this_domain": false,
   "max_children": 0,
   "rrf_k": 60,
+  "form_factor": "mobile",
   "credentials": {
     "anthropic_api_key": "SEGNAPOSTO-sostituire-fuori-dal-repository",
     "openai_api_key": "SEGNAPOSTO-solo-per-il-giudice-openai",

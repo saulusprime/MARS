@@ -700,17 +700,26 @@ def riassumi(lhr: dict) -> dict:
 
 
 def esegui_lighthouse(url: str, lighthouse: str,
-                      locale: str = LOCALE) -> Optional[dict]:
+                      locale: str = LOCALE,
+                      form_factor: str = "mobile") -> Optional[dict]:
     """L'unica parte con I/O. None se non e' stato possibile misurare.
 
     L'URL arriva dall'utente (via CLI o dal corpo di una richiesta API):
     va passato come argomento di una lista con shell=False, MAI
     interpolato in una stringa di shell. Con shell=True un URL come
     'https://x/; rm -rf ~ #' verrebbe eseguito dalla shell.
+
+    Lo stesso vale per `form_factor` (I16): il valore si CONFRONTA, non
+    si interpola — solo l'esatto "desktop" aggiunge `--preset=desktop`,
+    tutto il resto e' il default mobile di Lighthouse, con l'invocazione
+    identica a prima che il flag esistesse.
     """
+    argomenti = [lighthouse, url, "--output=json", "--quiet",
+                 "--chrome-flags=--headless", "--locale=%s" % locale]
+    if form_factor == "desktop":
+        argomenti.append("--preset=desktop")
     result = subprocess.run(
-        [lighthouse, url, "--output=json", "--quiet",
-         "--chrome-flags=--headless", "--locale=%s" % locale],
+        argomenti,
         capture_output=True, text=True, check=True,
         timeout=LIGHTHOUSE_TIMEOUT,
     )
@@ -762,7 +771,8 @@ def audit(context: dict) -> dict:
                                     tool="lighthouse")]}
     try:
         return riassumi(esegui_lighthouse(
-            context["url"], lighthouse, context.get("lang") or LOCALE))
+            context["url"], lighthouse, context.get("lang") or LOCALE,
+            context.get("form_factor") or "mobile"))
     except subprocess.TimeoutExpired:
         return {"score": None, "status": "unavailable",
                 "issues": ["Lighthouse: timeout dopo %ds"

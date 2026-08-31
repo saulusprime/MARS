@@ -606,7 +606,7 @@
       "status": null,
       "issues": [
         "Primo contenuto lento: FCP 2,6 s",
-        "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+        "Contenuto principale lento: LCP 4,3 s",
         "Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)",
         "Pagina lenta a riempirsi: Speed Index 4,2 s"
       ],
@@ -638,7 +638,7 @@
         {
           "area": "mars_perf",
           "severity": "warning",
-          "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+          "title": "Contenuto principale lento: LCP 4,3 s",
           "key": "perf.lcp.slow",
           "detail": "Il Largest Contentful Paint e' un Core Web Vital: misura quando compare l'elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.",
           "fix": "Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.",
@@ -3036,7 +3036,7 @@
       "area": "mars_perf",
       "area_label": "3. Prestazioni",
       "severity": "warning",
-      "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+      "title": "Contenuto principale lento: LCP 4,3 s",
       "fix": "Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.",
       "example": "<link rel=\"preload\" as=\"image\" href=\"/img/hero.avif\">\n<img src=\"/img/hero.avif\" width=\"1200\" height=\"600\"\n     alt=\"La sala trattamenti\" fetchpriority=\"high\">",
       "doc_url": "",
@@ -3357,7 +3357,7 @@
       {
         "area": "mars_perf",
         "key": "perf.lcp.slow",
-        "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+        "title": "Contenuto principale lento: LCP 4,3 s",
         "severity": "warning",
         "params": {
           "rule": "largest-contentful-paint",
@@ -3649,6 +3649,7 @@
       }
     ],
     "rrf_k_changed": null,
+    "form_factor_changed": null,
     "measure_changes": [
       {
         "since": "2.10.0",

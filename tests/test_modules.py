@@ -2534,6 +2534,54 @@ def test_seo_riassume_con_conteggi_e_strumento():
     assert esito["audited_url"] == "https://esempio.test/"
 
 
+def test_seo_il_form_factor_desktop_diventa_il_preset_di_lighthouse(
+        monkeypatch):
+    """I16: `--preset=desktop` solo su richiesta esplicita.
+
+    Mobile resta l'invocazione di sempre — e' il default di Lighthouse,
+    e passare un flag in piu' cambierebbe il run per tutti. Il valore
+    del form factor NON si interpola negli argomenti: si confronta, e
+    tutto cio' che non e' esattamente "desktop" resta mobile — un
+    valore ostile arrivato da un chiamante che salta la validazione
+    delle due interfacce non deve raggiungere la riga di comando."""
+    chiamate = []
+
+    class _Esito:
+        stdout = "{}"
+
+    monkeypatch.setattr(
+        mars_seo.subprocess, "run",
+        lambda argv, **kw: chiamate.append(list(argv)) or _Esito())
+    mars_seo.esegui_lighthouse("https://x/", "lighthouse")
+    mars_seo.esegui_lighthouse("https://x/", "lighthouse",
+                               form_factor="desktop")
+    mars_seo.esegui_lighthouse("https://x/", "lighthouse",
+                               form_factor="desktop --no-sandbox")
+    assert not [a for a in chiamate[0] if "preset" in a]
+    assert "--preset=desktop" in chiamate[1]
+    assert chiamate[2] == chiamate[0], \
+        "un valore non riconosciuto non aggiunge argomenti"
+
+
+def test_seo_audit_passa_il_form_factor_del_contesto(monkeypatch):
+    """I16, lo stesso anello di R56: un context key che `audit()` non
+    legge e' indistinguibile da uno che funziona."""
+    visti = {}
+
+    def finto(url, lighthouse, locale="it", form_factor="mobile"):
+        visti["form_factor"] = form_factor
+        raise subprocess.TimeoutExpired(cmd="lighthouse", timeout=1)
+
+    monkeypatch.setattr(mars_seo, "trova_lighthouse", lambda: "lighthouse")
+    monkeypatch.setattr(mars_seo, "esegui_lighthouse", finto)
+    mars_seo.audit({"url": "https://x/", "lang": "it",
+                    "form_factor": "desktop"})
+    assert visti["form_factor"] == "desktop"
+    mars_seo.audit({"url": "https://x/", "lang": "it"})
+    assert visti["form_factor"] == "mobile", \
+        "senza la chiave vale il default, non un KeyError"
+
+
 def _finto_lighthouse(cartella) -> str:
     """Un eseguibile finto dentro `cartella`, come lo lascia npm."""
     comando = cartella / "lighthouse"

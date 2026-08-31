@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.18.0
+Versione 2.19.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -169,9 +169,14 @@ deve potersi distinguere da un controllo che non e' stato eseguito. I
 titoli arrivano da Lighthouse stesso, nella lingua del referto
 (--locale), non da una nostra traduzione.
 
-Il referto dichiara sempre versione di Lighthouse e tipo di dispositivo
-(oggi mobile, il predefinito dello strumento): un referto mobile e uno
-desktop non sono confrontabili.
+Il referto dichiara sempre versione di Lighthouse e tipo di dispositivo:
+un referto mobile e uno desktop non sono confrontabili, perche' le curve
+di punteggio cambiano col dispositivo. Il predefinito e' mobile — il
+default di Lighthouse, e cio' che Google usa per l'indicizzazione — ma
+da I16 il dispositivo si sceglie con --form-factor {mobile,desktop} da
+CLI o col campo form_factor nel corpo API: serve al confronto
+like-for-like con un referto PageSpeed desktop, che su un sito reale ha
+misurato 83 dove il run mobile dava 58, con gli stessi byte.
 
 Prestazioni (Core Web Vitals): l'area 3 legge le metriche di
 performance dallo STESSO referto Lighthouse dell'area 2 — nessun

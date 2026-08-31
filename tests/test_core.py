@@ -1694,6 +1694,38 @@ def test_build_context_porta_il_k_della_fusione(monkeypatch):
         "il default resta quello del paper (Cormack 2009)"
 
 
+def test_build_context_porta_il_form_factor(monkeypatch):
+    """I16: il form factor sta nel context e non fra i parametri del
+    `Crawler` per la stessa ragione di `max_children` — non riguarda la
+    scansione, riguarda il solo strumento che emula un dispositivo.
+    Default mobile: e' il default di Lighthouse ed e' cio' che Google
+    usa per l'indicizzazione; due referti con form factor diversi non
+    si confrontano alla pari, e il referto dichiara quale ha usato."""
+    class _CrawlerFinto:
+        def __init__(self, *a, **k):
+            self.delay = 0.0
+            self.robots_info = {"found": False, "text": "", "sitemaps": []}
+            self.sitemap_info = {}
+            self.discovery = "link interni"
+            self.skipped = {}
+
+        def crawl(self):
+            return {"https://x/": {"title": "x", "text": "x", "lang": "it",
+                                   "html": "<p>x</p>", "headings": [],
+                                   "chunks": ["x"]}}
+
+    monkeypatch.setattr(mars_core, "Crawler", _CrawlerFinto)
+    ctx = mars_core.build_context("https://x/", 1, "none", "global",
+                                  form_factor="desktop")
+    assert ctx["form_factor"] == "desktop"
+    ctx = mars_core.build_context("https://x/", 1, "none", "global")
+    assert ctx["form_factor"] == "mobile"
+    # L'elenco dei valori ammessi e' unico: argparse (choices) e
+    # Pydantic (pattern) lo leggono da qui, o le due interfacce
+    # divergono in silenzio (principio 4).
+    assert mars_core.FORM_FACTORS == ("mobile", "desktop")
+
+
 # ----------------------------------------------------------------------
 # R57: le credenziali dalla riga di comando, senza passare dall'ambiente
 # ----------------------------------------------------------------------

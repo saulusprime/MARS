@@ -177,8 +177,41 @@
       "complete": null
     },
     {
+      "module": "mars_perf",
+      "label": "3. Prestazioni",
+      "score": null,
+      "status": "unavailable",
+      "issues": [
+        "Metriche di prestazione non disponibili: l'area SEO non ha prodotto un referto Lighthouse, e le prestazioni si leggono dallo stesso run"
+      ],
+      "findings": [
+        {
+          "area": "mars_perf",
+          "severity": "info",
+          "title": "Metriche di prestazione non disponibili",
+          "key": "perf.status.no_data",
+          "detail": "L'area legge i Core Web Vitals dal referto Lighthouse dell'area SEO, senza un secondo run: se Lighthouse non ha girato, qui non c'e' nulla da misurare.",
+          "fix": "",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {}
+        }
+      ],
+      "tool": null,
+      "reference_score": null,
+      "reference_tool": null,
+      "lighthouse_scores": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": null,
+      "form_factor": null,
+      "complete": null
+    },
+    {
       "module": "mars_lexical",
-      "label": "3. Lessicale",
+      "label": "4. Lessicale",
       "score": 60,
       "status": "ranking",
       "issues": [
@@ -243,7 +276,7 @@
     },
     {
       "module": "mars_semantic",
-      "label": "4. Semantica",
+      "label": "5. Semantica",
       "score": null,
       "status": "error",
       "issues": [
@@ -276,7 +309,7 @@
     },
     {
       "module": "mars_schema",
-      "label": "5. Dati Strutturati",
+      "label": "6. Dati Strutturati",
       "score": 90,
       "status": null,
       "issues": [
@@ -316,7 +349,7 @@
     },
     {
       "module": "mars_wcag",
-      "label": "6. Accessibilità",
+      "label": "7. Accessibilità",
       "score": 40,
       "status": "surface",
       "issues": [
@@ -451,7 +484,7 @@
     },
     {
       "module": "mars_wapt",
-      "label": "7. Sicurezza",
+      "label": "8. Sicurezza",
       "score": 75,
       "status": "surface",
       "issues": [
@@ -512,7 +545,7 @@
     },
     {
       "module": "mars_citability",
-      "label": "8. Citabilità IA",
+      "label": "9. Citabilità IA",
       "score": 67.9,
       "status": null,
       "issues": [
@@ -663,7 +696,7 @@
     },
     {
       "module": "mars_llm_judge",
-      "label": "9. Giudizio LLM",
+      "label": "10. Giudizio LLM",
       "score": null,
       "status": "disabled",
       "issues": [
@@ -904,22 +937,23 @@
         "weight": 1.0
       },
       {
-        "name": "5. Dati Strutturati",
+        "name": "6. Dati Strutturati",
         "value": 90.0,
         "weight": 1.0
       },
       {
-        "name": "6. Accessibilità",
+        "name": "7. Accessibilità",
         "value": 40.0,
         "weight": 1.0
       },
       {
-        "name": "7. Sicurezza",
+        "name": "8. Sicurezza",
         "value": 75.0,
         "weight": 1.0
       }
     ],
     "excluded": [
+      "mars_perf",
       "mars_lexical",
       "mars_semantic",
       "mars_citability",
@@ -969,7 +1003,7 @@
     {
       "key": "wcag.form.label_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "critical",
       "title": "1 campi di modulo senza etichetta",
       "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
@@ -1008,7 +1042,7 @@
     {
       "key": "wcag.img.alt_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "critical",
       "title": "1/2 immagini prive di testo alternativo",
       "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
@@ -1048,7 +1082,7 @@
     {
       "key": "sd.jsonld.block_malformed",
       "area": "mars_schema",
-      "area_label": "5. Dati Strutturati",
+      "area_label": "6. Dati Strutturati",
       "severity": "warning",
       "title": "1 blocchi JSON-LD malformati",
       "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
@@ -1085,7 +1119,7 @@
     {
       "key": "sec.headers.csp_missing",
       "area": "mars_wapt",
-      "area_label": "7. Sicurezza",
+      "area_label": "8. Sicurezza",
       "severity": "warning",
       "title": "CSP mancante",
       "fix": "Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.",
@@ -1122,7 +1156,7 @@
     {
       "key": "wcag.heading.skip",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
       "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
@@ -1161,7 +1195,7 @@
     {
       "key": "wcag.table.th_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "1 tabelle dati senza intestazioni <th>",
       "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
@@ -1200,7 +1234,7 @@
     {
       "key": "sec.headers.xframe_missing",
       "area": "mars_wapt",
-      "area_label": "7. Sicurezza",
+      "area_label": "8. Sicurezza",
       "severity": "warning",
       "title": "X-Frame-Options mancante",
       "fix": "Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.",
@@ -1237,7 +1271,7 @@
     {
       "key": "lex.query.no_match",
       "area": "mars_lexical",
-      "area_label": "3. Lessicale",
+      "area_label": "4. Lessicale",
       "severity": "warning",
       "title": "1/3 query senza un riscontro lessicale",
       "fix": "Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.",
@@ -1268,7 +1302,7 @@
     {
       "key": "lex.words.thin",
       "area": "mars_lexical",
-      "area_label": "3. Lessicale",
+      "area_label": "4. Lessicale",
       "severity": "warning",
       "title": "3/3 pagine sotto le 300 parole",
       "fix": "Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.",

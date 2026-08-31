@@ -146,7 +146,7 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "questa pagina sta altrove.",
     },
 
-    # --- Area 3: lessicale (U13) ----------------------------------------
+    # --- Area 4: lessicale (U13) ----------------------------------------
     #
     # Le due aree di classifica non hanno un `fix` che si applichi a un
     # tag: i loro difetti sono di CONTENUTO, e la prescrizione dice
@@ -179,7 +179,7 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "posta, non i sinonimi interni all'azienda.",
     },
 
-    # --- Area 4: semantica (U13) ----------------------------------------
+    # --- Area 5: semantica (U13) ----------------------------------------
     "sem.chunks.none": {
         "fix": "Le pagine non offrono testo segmentabile in passaggi: "
                "scrivi paragrafi discorsivi sotto intestazioni, perche' "
@@ -205,7 +205,7 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "non una parola chiave da aggiungere.",
     },
 
-    # --- Area 5: dati strutturati --------------------------------------
+    # --- Area 6: dati strutturati --------------------------------------
     "sd.jsonld.missing": {
         # Il fix NON elenca i tipi Schema.org: mars_schema verifica che
         # i blocchi si analizzino, non quali tipi ci siano (I11 aperta).
@@ -241,7 +241,7 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "legge la pagina e per chi la analizza.",
     },
 
-    # --- Area 6: accessibilita' (i controlli statici) -------------------
+    # --- Area 7: accessibilita' (i controlli statici) -------------------
     "wcag.lang.missing": {
         "fix": "Dichiara la lingua sull'elemento <html>: senza, uno "
                "screen reader legge il testo con la pronuncia sbagliata "
@@ -290,7 +290,7 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                    '<a href="/prezzi/">Il listino dei trattamenti</a>',
     },
 
-    # --- Area 7: sicurezza (i tre header del ripiego) -------------------
+    # --- Area 8: sicurezza (i tre header del ripiego) -------------------
     "sec.headers.hsts_missing": {
         # L'avvertenza non e' prudenza formale: HSTS e' irrevocabile per
         # tutta la durata di max-age. Un anno con includeSubDomains su un
@@ -462,6 +462,66 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "valgono come nessuno.",
         "example": "<link rel=\"canonical\" "
                    "href=\"https://esempio.it/servizi/drenaggio\">",
+    },
+
+    # --- Area 3: prestazioni (I10) --------------------------------------
+    # I titoli e i dettagli sono NOSTRI (mars_perf), quindi anche la
+    # prescrizione: la famiglia non e' «dallo strumento» come axe o ZAP.
+    "perf.fcp.slow": {
+        "fix": "Elimina cio' che blocca il primo render: CSS critico "
+               "in linea nel <head>, il resto caricato dopo, e i font "
+               "con font-display: swap cosi' il testo compare subito "
+               "col carattere di sistema.",
+        "example": "@font-face {\n"
+                   "  font-family: \"Titillium Web\";\n"
+                   "  src: url(\"/font/titillium.woff2\") "
+                   "format(\"woff2\");\n"
+                   "  font-display: swap;\n"
+                   "}",
+    },
+    "perf.lcp.slow": {
+        "fix": "Alleggerisci l'elemento principale della pagina: servi "
+               "l'immagine hero compressa e nel formato moderno, "
+               "precaricala, e abbatti il tempo di risposta del server "
+               "con cache o CDN. E' il singolo intervento che sposta "
+               "di piu' i Core Web Vitals.",
+        "example": "<link rel=\"preload\" as=\"image\" "
+                   "href=\"/img/hero.avif\">\n"
+                   "<img src=\"/img/hero.avif\" width=\"1200\" "
+                   "height=\"600\"\n"
+                   "     alt=\"La sala trattamenti\" "
+                   "fetchpriority=\"high\">",
+    },
+    "perf.tbt.high": {
+        "fix": "Spezza i task JavaScript lunghi e rimanda gli script "
+               "non essenziali con defer o con un import dinamico: il "
+               "thread principale deve restare libero di rispondere "
+               "all'input mentre la pagina carica.",
+        "example": "<script src=\"/js/analytics.js\" defer></script>\n"
+                   "<script type=\"module\">\n"
+                   "  addEventListener(\"load\", () => "
+                   "import(\"/js/widget.js\"));\n"
+                   "</script>",
+    },
+    "perf.cls.unstable": {
+        "fix": "Dichiara larghezza e altezza (o aspect-ratio) su "
+               "immagini, video ed embed, e riserva in anticipo lo "
+               "spazio di banner e contenuti caricati dopo: il layout "
+               "non deve spostarsi sotto gli occhi di chi legge.",
+        "example": "<img src=\"/img/team.jpg\" width=\"800\" "
+                   "height=\"533\"\n"
+                   "     alt=\"Lo studio\">\n"
+                   "<div class=\"banner\" style=\"aspect-ratio: 970 / "
+                   "250\"></div>",
+    },
+    "perf.si.slow": {
+        "fix": "Fai arrivare prima la parte visibile: markup "
+               "essenziale in testa, immagini sotto la piega con "
+               "loading lazy, e niente script che ridisegnano la "
+               "pagina durante il caricamento.",
+        "example": "<img src=\"/img/galleria-1.jpg\" width=\"600\" "
+                   "height=\"400\"\n"
+                   "     loading=\"lazy\" alt=\"La palestra\">",
     },
 }
 

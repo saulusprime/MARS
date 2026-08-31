@@ -654,7 +654,7 @@ def scarti_di_onesta(giudice: Giudice, punteggio: Optional[int],
     aver calcolato il composito, e un profilo puo' non esserci. Zero
     direbbe «coincidono».
 
-    Si puo' calcolare qui perche' l'area 8 gira PRIMA della 9 nel
+    Si puo' calcolare qui perche' l'area 9 gira PRIMA della 10 nel
     registro: `context["results"]["mars_citability"]` c'e' gia'. Farlo
     nei renderer significherebbe la stessa aritmetica in tre posti.
     """
@@ -992,7 +992,7 @@ def run_judges(context: dict, chunks: List[dict], prompt: str,
 
 
 def audit(context: dict) -> dict:
-    """Area 9: giudizio LLM sulla citabilità dei passaggi migliori.
+    """Area 10: giudizio LLM sulla citabilità dei passaggi migliori.
 
     Modalita' (context["llm"]): "auto" attiva il giudizio solo se una
     credenziale e' presente, "on" tenta comunque, "off" non fa nulla.

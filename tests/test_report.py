@@ -506,7 +506,7 @@ def test_la_citabilita_riuscita_non_compare_due_volte(contesto, referto):
     # «Citabilità stimata», che e' il giudizio LLM ed e' un'altra cosa.
     # La prima stesura del test non le distingueva e falliva su quella.
     etichetta = _etichetta_area(_area_di(referto, "mars_citability"))
-    righe = [r for r in testo.splitlines() if r.startswith("8. ")]
+    righe = [r for r in testo.splitlines() if r.startswith("9. ")]
     assert righe == [], "l'area comparirebbe due volte: %s" % righe
     assert etichetta, "l'area deve esistere nel referto"
 
@@ -728,7 +728,7 @@ def test_html_dichiara_classifica_e_voto_per_lessicale_e_semantica(referto):
     assert "proxy char-TFIDF" in uscita
 
     schede = uscita.split("<div class='area'>")[1:]
-    for etichetta in ("3. Lessicale", "4. Semantica"):
+    for etichetta in ("4. Lessicale", "5. Semantica"):
         trovate = [s for s in schede if etichetta in s]
         assert len(trovate) == 1, "scheda %s: %d" % (etichetta, len(trovate))
         assert "/100" in trovate[0], "%s ha un punteggio" % etichetta
@@ -738,8 +738,8 @@ def test_html_dichiara_classifica_e_voto_per_lessicale_e_semantica(referto):
 
 
 @pytest.mark.parametrize("modulo, etichetta", [
-    ("mars_lexical", "3. Lessicale"),
-    ("mars_semantic", "4. Semantica"),
+    ("mars_lexical", "4. Lessicale"),
+    ("mars_semantic", "5. Semantica"),
 ])
 def test_un_errore_nelle_aree_di_classifica_non_sparisce(contesto, modulo,
                                                          etichetta):
@@ -1891,7 +1891,7 @@ def test_il_punteggio_di_un_area_di_classifica_non_si_dice_non_un_voto(
     """`_qualificatori` annota lo stato solo accanto a un punteggio, e
     da U13 quel punteggio c'e': la frase «classifica, non un voto»
     comparirebbe a due centimetri dal voto che nega."""
-    area = {"module": "mars_lexical", "label": "3. Lessicale", "score": 60,
+    area = {"module": "mars_lexical", "label": "4. Lessicale", "score": 60,
             "status": "ranking", "tool": "BM25 (k1=1.5, b=0.75)"}
     reso = " ".join(mars_report._qualificatori(area))
     assert "non un voto" not in reso

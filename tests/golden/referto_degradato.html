@@ -290,7 +290,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nome'>Complessivo</div>
 </div>
 <p class='verdetto warn'>da migliorare</p>
-<p class='meta'>media pesata di 4 misure · escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM</p>
+<p class='meta'>media pesata di 4 misure · escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM</p>
 <p class='meta'>scala dichiarata: critico sotto 50 · da migliorare 50-89 · buono da 90</p>
 </div>
 <div class='tessere'>
@@ -303,7 +303,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='meta'>avvertenze</span>
 </div>
 <div class='tessera'>
-<span class='grande muted'>5</span>
+<span class='grande muted'>6</span>
 <span class='meta'>informativi</span>
 </div>
 <div class='tessera'>
@@ -356,6 +356,14 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
 </svg>
 <div class='nome'>SEO</div>
+<div class='nota'>non misurato</div>
+</div>
+<div class='quadrante muted'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Prestazioni: non misurato'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='4 6'/>
+<text class='valore muted' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>—</text>
+</svg>
+<div class='nome'>Prestazioni</div>
 <div class='nota'>non misurato</div>
 </div>
 <div class='quadrante warn'>
@@ -485,7 +493,18 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>3. Lessicale</h3>
+<h3>3. Prestazioni</h3>
+<span class='punteggio'>
+<span class='muted'>non misurato</span>
+</span>
+</div>
+<ul class='rilievi'>
+<li>Metriche di prestazione non disponibili: l&#x27;area SEO non ha prodotto un referto Lighthouse, e le prestazioni si leggono dallo stesso run</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>4. Lessicale</h3>
 <span class='punteggio'>
 <span class='warn'>60<span class='muted'>/100</span>
 </span>
@@ -516,7 +535,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>4. Semantica</h3>
+<h3>5. Semantica</h3>
 <span class='punteggio'>
 <span class='muted'>errore del modulo</span>
 </span>
@@ -527,7 +546,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>5. Dati Strutturati</h3>
+<h3>6. Dati Strutturati</h3>
 <span class='punteggio'>
 <span class='ok'>90<span class='muted'>/100</span>
 </span>
@@ -553,7 +572,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>6. Accessibilità</h3>
+<h3>7. Accessibilità</h3>
 <span class='punteggio'>
 <span class='bad'>40<span class='muted'>/100</span>
 </span>
@@ -617,7 +636,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>7. Sicurezza</h3>
+<h3>8. Sicurezza</h3>
 <span class='punteggio'>
 <span class='warn'>75<span class='muted'>/100</span>
 </span>
@@ -654,7 +673,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>8. Citabilità IA</h3>
+<h3>9. Citabilità IA</h3>
 <span class='punteggio'>
 <span class='warn'>68<span class='muted'>/100</span>
 </span>
@@ -669,7 +688,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>9. Giudizio LLM</h3>
+<h3>10. Giudizio LLM</h3>
 <span class='punteggio'>
 <span class='muted'>disattivato</span>
 </span>
@@ -808,7 +827,7 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 </div>
 <h2>Piano di interventi</h2>
 <p class='meta'>10 interventi (3 critici, 7 avvertenze) · 1 quick win</p>
-<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 5 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
+<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 5 aree su 10; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
 <div class='intervento'>
 <div class='riga'>
 <h3>

@@ -85,10 +85,11 @@ def test_r_ricostruisce_il_punteggio_di_ogni_area_certificata():
                                                   cert["reason"])
             assert rem.punteggio_ricostruito(cert["base"]) == round(
                 area["score"]), area["module"]
-    assert visitate == 12, ("dodici aree con penalita' fra i due golden: "
-                            "erano nove fino a U13, che ha dato dei "
-                            "controlli — e quindi delle penalita' — alle "
-                            "due aree di classifica")
+    assert visitate == 13, ("tredici aree con penalita' fra i due golden: "
+                            "erano nove fino a U13 (i controlli delle due "
+                            "aree di classifica), dodici fino a I10 — le "
+                            "prestazioni pesano solo nel referto completo, "
+                            "nel degradato Lighthouse manca")
 
 
 # ----------------------------------------------------------------------
@@ -684,19 +685,20 @@ def test_il_piano_si_ricostruisce_a_mano():
 # ----------------------------------------------------------------------
 
 def test_le_aree_del_piano_si_contano_e_non_si_cablano():
-    """Al massimo sette su nove, non nove.
+    """Al massimo otto su dieci, non dieci.
 
     I rilievi di mars_citability sono per costruzione derivati e quelli
     di mars_llm_judge sono tutti di stato: nessuna delle due puo'
     entrare nel piano. Erano cinque fino a U13, che ha dato dei
-    controlli alle due aree di classifica — ed e' esattamente il genere
-    di numero che invecchia da solo, cioe' la ragione per cui si conta
-    invece di scriverlo.
+    controlli alle due aree di classifica, sette fino a I10, che ha
+    aggiunto le prestazioni — ed e' esattamente il genere di numero che
+    invecchia da solo, cioe' la ragione per cui si conta invece di
+    scriverlo.
     """
     referto = _golden("referto.json")
     riep = rem.riepilogo(rem.build_remediation(referto), referto)
-    assert riep["areas_total"] == 9
-    assert riep["areas_covered"] == 7
+    assert riep["areas_total"] == 10
+    assert riep["areas_covered"] == 8
     assert set(riep["areas_excluded"]) == {"mars_citability",
                                            "mars_llm_judge"}
 

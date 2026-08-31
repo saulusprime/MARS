@@ -122,9 +122,10 @@ def test_get_current_user_non_porta_mai_l_hash(token):
 #: Gli handler che fanno lavoro BLOCCANTE, e che quindi non devono
 #: essere corutine. Scritto per nome invece che dedotto: un endpoint
 #: nuovo va deciso, non ereditato da un'euristica.
-HANDLER_BLOCCANTI = ("audit_tech", "audit_seo", "audit_lexical",
-                     "audit_semantic", "audit_schema", "audit_wcag",
-                     "audit_wapt", "audit_full", "login_for_access_token")
+HANDLER_BLOCCANTI = ("audit_tech", "audit_seo", "audit_perf",
+                     "audit_lexical", "audit_semantic", "audit_schema",
+                     "audit_wcag", "audit_wapt", "audit_full",
+                     "login_for_access_token")
 
 
 @pytest.mark.parametrize("nome", HANDLER_BLOCCANTI)
@@ -237,6 +238,29 @@ def test_plugin_non_dict_non_da_500(client, auth, crawler_finto,
     r = client.post("/audit/tech", json=CORPO, headers=auth)
     assert r.status_code == 200
     assert "invece di un dict" in r.json()["details"]["error"]
+
+
+def test_audit_perf_esegue_prima_seo_sullo_stesso_contesto(
+        client, auth, crawler_finto, monkeypatch):
+    """/audit/perf legge le metriche dal referto Lighthouse dell'area
+    SEO — stesso run, nessun secondo Lighthouse (I10) — quindi
+    l'endpoint esegue prima mars_seo e gli passa il risultato per la
+    via di context["results"], la stessa di /audit/full. E' la
+    tubatura di R56: ogni anello rotto qui e' silenzioso, l'area
+    uscirebbe «non misurato» senza un errore."""
+    chiamate = []
+
+    def finto(nome, context):
+        chiamate.append(
+            (nome, bool((context.get("results") or {}).get("mars_seo"))))
+        return {"score": 1.0}
+
+    monkeypatch.setattr(mars_api, "run_single_audit", finto)
+    r = client.post("/audit/perf", json=CORPO, headers=auth)
+    assert r.status_code == 200
+    assert r.json()["module"] == "mars_perf"
+    assert [nome for nome, _ in chiamate] == ["mars_seo", "mars_perf"]
+    assert chiamate[1][1], "mars_perf non riceve il risultato di mars_seo"
 
 
 def test_audit_full_scansiona_una_volta_sola(client, auth, crawler_finto):

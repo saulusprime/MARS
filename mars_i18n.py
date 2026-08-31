@@ -58,8 +58,12 @@ def normalizza_lingua(lang: Optional[str]) -> str:
 # resta, e il referto lo dichiara invece di far finta.
 # ======================================================================
 
+# `perf.lh.*` sono le metriche pesate che mars_perf non riconosce (un
+# run timespan con l'INP, una metrica futura): titolo e valore vengono
+# da Lighthouse, come per `seo.lh.*`. Le cinque metriche note hanno
+# invece chiavi proprie (`perf.lcp.slow`...) con testi nostri.
 FAMIGLIE_DALLO_STRUMENTO: Tuple[str, ...] = ("wcag.axe.", "sec.zap.",
-                                             "seo.lh.")
+                                             "seo.lh.", "perf.lh.")
 
 
 def dallo_strumento(key: str) -> bool:
@@ -251,7 +255,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Lighthouse failed",
     },
 
-    # --- Area 3: lessicale (U13) ----------------------------------------
+    # --- Area 4: lessicale (U13) ----------------------------------------
     "lex.status.no_pages": {
         "title": "No pages to analyse",
     },
@@ -283,7 +287,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                "not the company's internal synonyms.",
     },
 
-    # --- Area 4: semantica (U13) ----------------------------------------
+    # --- Area 5: semantica (U13) ----------------------------------------
     "sem.status.no_pages": {
         "title": "No pages to analyse",
     },
@@ -319,7 +323,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                "keyword to add.",
     },
 
-    # --- Area 5: dati strutturati --------------------------------------
+    # --- Area 6: dati strutturati --------------------------------------
     "sd.status.no_pages": {
         "title": "No pages to analyse",
     },
@@ -358,7 +362,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                'whoever reads the page and for whoever analyses it.',
     },
 
-    # --- Area 6: accessibilita' (i controlli statici e lo stato) -------
+    # --- Area 7: accessibilita' (i controlli statici e lo stato) -------
     "wcag.status.no_pages": {
         "title": "No pages to analyse",
     },
@@ -433,7 +437,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                    '<a href="/prices/">The treatment price list</a>',
     },
 
-    # --- Area 7: sicurezza ---------------------------------------------
+    # --- Area 8: sicurezza ---------------------------------------------
     "sec.headers.hsts_missing": {
         "title": "HSTS missing",
         "fix": "Add Strict-Transport-Security. Start with a short "
@@ -496,7 +500,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                  "follows are the HTTP headers alone",
     },
 
-    # --- Area 8: citabilita' -------------------------------------------
+    # --- Area 9: citabilita' -------------------------------------------
     # I sette segnali per due esiti. Le voci sono scritte una per una,
     # e non generate da `mars_citability.SEGNALI`, perche' quel modulo
     # e' un PLUGIN: si carica dal filesystem a runtime, e importarlo qui
@@ -558,7 +562,7 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Composite index not computable",
     },
 
-    # --- Area 9: giudizio LLM ------------------------------------------
+    # --- Area 10: giudizio LLM ------------------------------------------
     "llm.status.disabled": {
         "title": "LLM judgement disabled (--llm off)",
     },
@@ -746,12 +750,107 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "example": "<link rel=\"canonical\" "
                    "href=\"https://example.com/services/drainage\">",
     },
+
+    # --- Area 3: prestazioni (I10) --------------------------------------
+    # Titoli e dettagli sono nostri (mars_perf), non di Lighthouse: la
+    # famiglia si traduce per intero, prescrizione compresa. I valori
+    # (`%(valore)s`) arrivano gia' formattati nella lingua del run.
+    "perf.status.no_data": {
+        "title": "Performance metrics not available",
+        "detail": "This area reads the Core Web Vitals from the "
+                  "Lighthouse report of the SEO area, without a second "
+                  "run: if Lighthouse did not run, there is nothing to "
+                  "measure here.",
+    },
+    "perf.status.not_scored": {
+        "title": "Lighthouse did not measure every performance metric",
+    },
+    "perf.fcp.slow": {
+        "title": "Slow first paint: FCP %(valore)s",
+        "detail": "First Contentful Paint measures when the first "
+                  "content appears: until then the page is blank. It "
+                  "almost always depends on render-blocking resources "
+                  "(CSS and fonts).",
+        "fix": "Remove what blocks the first render: critical CSS "
+               "inline in the <head>, the rest loaded later, and "
+               "fonts with font-display: swap so text shows at once "
+               "in the system typeface.",
+        "example": "@font-face {\n"
+                   "  font-family: \"Titillium Web\";\n"
+                   "  src: url(\"/font/titillium.woff2\") "
+                   "format(\"woff2\");\n"
+                   "  font-display: swap;\n"
+                   "}",
+    },
+    "perf.lcp.slow": {
+        "title": "Slow LCP: %(valore)s — the main content should "
+                 "appear within 2.5 s (poor beyond 4 s)",
+        "detail": "Largest Contentful Paint is a Core Web Vital: it "
+                  "measures when the main element of the page appears. "
+                  "Beyond 4 seconds Google rates it poor.",
+        "fix": "Lighten the main element of the page: serve the hero "
+               "image compressed and in a modern format, preload it, "
+               "and cut the server response time with a cache or a "
+               "CDN. It is the single change that moves the Core Web "
+               "Vitals the most.",
+        "example": "<link rel=\"preload\" as=\"image\" "
+                   "href=\"/img/hero.avif\">\n"
+                   "<img src=\"/img/hero.avif\" width=\"1200\" "
+                   "height=\"600\"\n"
+                   "     alt=\"The treatment room\" "
+                   "fetchpriority=\"high\">",
+    },
+    "perf.tbt.high": {
+        "title": "Main thread blocked: TBT %(valore)s (the lab proxy "
+                 "for INP)",
+        "detail": "Sum of the main-thread blocks over 50 ms during "
+                  "load: it measures how deaf the page is to input. "
+                  "INP, the corresponding Core Web Vital, exists only "
+                  "on real interactions: in the lab Lighthouse weighs "
+                  "this proxy.",
+        "fix": "Break up long JavaScript tasks and postpone "
+               "non-essential scripts with defer or a dynamic import: "
+               "the main thread must stay free to answer input while "
+               "the page loads.",
+        "example": "<script src=\"/js/analytics.js\" defer></script>\n"
+                   "<script type=\"module\">\n"
+                   "  addEventListener(\"load\", () => "
+                   "import(\"/js/widget.js\"));\n"
+                   "</script>",
+    },
+    "perf.cls.unstable": {
+        "title": "Unstable layout: CLS %(valore)s — stable up to 0.1 "
+                 "(poor beyond 0.25)",
+        "detail": "Cumulative Layout Shift is a Core Web Vital: it "
+                  "measures how much the layout moves while the page "
+                  "loads. Beyond 0.25 Google rates it poor.",
+        "fix": "Declare width and height (or aspect-ratio) on images, "
+               "videos and embeds, and reserve in advance the space "
+               "of banners and late-loading content: the layout must "
+               "not shift under the reader's eyes.",
+        "example": "<img src=\"/img/team.jpg\" width=\"800\" "
+                   "height=\"533\"\n"
+                   "     alt=\"The practice\">\n"
+                   "<div class=\"banner\" style=\"aspect-ratio: 970 / "
+                   "250\"></div>",
+    },
+    "perf.si.slow": {
+        "title": "Slow to fill in: Speed Index %(valore)s",
+        "detail": "The Speed Index measures how quickly the visible "
+                  "part of the page fills in.",
+        "fix": "Make the visible part arrive first: essential markup "
+               "at the top, below-the-fold images with lazy loading, "
+               "and no scripts that repaint the page while it loads.",
+        "example": "<img src=\"/img/gallery-1.jpg\" width=\"600\" "
+                   "height=\"400\"\n"
+                   "     loading=\"lazy\" alt=\"The gym\">",
+    },
 }
 
-# Il fallimento di un'area indossa nove chiavi — una per prefisso —
+# Il fallimento di un'area indossa dieci chiavi — una per prefisso —
 # perche' e' il referto a sintetizzarlo quando il modulo e' caduto e non
 # puo' parlare per se'. Il controllo pero' e' UNO, quindi la voce e' una
-# sola e le nove chiavi si derivano da `AREA_PREFIX`: un'area nuova
+# sola e le dieci chiavi si derivano da `AREA_PREFIX`: un'area nuova
 # porta con se' la propria traduzione, invece di ripiegare in silenzio.
 _ERRORE_EN = {"title": "Area not computed: the module failed"}
 for _prefisso in sorted(set(AREA_PREFIX.values())) + ["area"]:
@@ -849,13 +948,14 @@ _CORNICE_EN: Dict[str, str] = {
     "Area": "Area",
     "1. Tecnica": "1. Technical",
     "2. SEO": "2. SEO",
-    "3. Lessicale": "3. Lexical",
-    "4. Semantica": "4. Semantic",
-    "5. Dati Strutturati": "5. Structured Data",
-    "6. Accessibilità": "6. Accessibility",
-    "7. Sicurezza": "7. Security",
-    "8. Citabilità IA": "8. AI Citability",
-    "9. Giudizio LLM": "9. LLM Judgement",
+    "3. Prestazioni": "3. Performance",
+    "4. Lessicale": "4. Lexical",
+    "5. Semantica": "5. Semantic",
+    "6. Dati Strutturati": "6. Structured Data",
+    "7. Accessibilità": "7. Accessibility",
+    "8. Sicurezza": "8. Security",
+    "9. Citabilità IA": "9. AI Citability",
+    "10. Giudizio LLM": "10. LLM Judgement",
     "controllo di superficie": "surface check",
     "con una classifica dei passaggi": "with a ranking of passages",
     "disattivato": "disabled",
@@ -867,6 +967,10 @@ _CORNICE_EN: Dict[str, str] = {
     "%d controlli superati, %d falliti": "%d checks passed, %d failed",
     "%s %.0f/100 (1 pagina, scala diversa: la nostra è più severa)":
         "%s %.0f/100 (1 page, different scale: ours is stricter)",
+    "%s %.0f/100 (1 pagina, scala diversa: la nostra è più indulgente)":
+        "%s %.0f/100 (1 page, different scale: ours is more lenient)",
+    "%s %.0f/100 (1 pagina, scala diversa)":
+        "%s %.0f/100 (1 page, different scale)",
     "altro strumento": "other tool",
     "Nessun rilievo.": "No findings.",
     "Come si aggiusta": "How to fix it",

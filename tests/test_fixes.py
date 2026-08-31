@@ -17,11 +17,13 @@ import mars_tech
 from conftest import pagina
 from test_golden import DATASET
 
-# Le tre famiglie che prendono il testo DALLO STRUMENTO e non dal
+# Le famiglie che prendono il testo DALLO STRUMENTO e non dal
 # catalogo, come coppie (area, famiglia) e non come nomi soli: `seo` e'
 # anche il secondo segmento di `cit.seo.weak`, e confrontare un segmento
-# per volta li confonderebbe.
-DINAMICHE = {("wcag", "axe"), ("sec", "zap"), ("seo", "lh")}
+# per volta li confonderebbe. `perf.lh.*` sono le metriche pesate che
+# mars_perf non riconosce (I10): titolo e valore vengono da Lighthouse.
+DINAMICHE = {("wcag", "axe"), ("sec", "zap"), ("seo", "lh"),
+             ("perf", "lh")}
 
 
 def _tutti_i_findings(monkeypatch) -> list:
@@ -102,14 +104,16 @@ def test_il_catalogo_copre_le_sei_aree_che_lo_usano():
     testi di correzione — alle due aree di classifica. Sono diventate
     sette con I18: `seo` entra perche' Lighthouse porta la diagnosi e
     non la prescrizione, ed era l'unica area con rilievi di CONTENUTO
-    che arrivavano a chi legge senza dirgli che cosa fare.
+    che arrivavano a chi legge senza dirgli che cosa fare. Otto con
+    I10: i rilievi delle metriche sono nostri, e la prescrizione pure.
 
     Restano fuori `cit` e `llm`, e non prescrivono: la citabilita' e'
     una sintesi di misure altrui — la correzione sta nell'area che ha
     prodotto il numero — e i punti deboli del giudizio LLM sono
     `derived`, con la prosa del modello che gia' e' la prescrizione."""
     aree = {chiave.split(".")[0] for chiave in mars_fixes.CATALOGO}
-    assert aree == {"tech", "lex", "sem", "sd", "wcag", "sec", "seo"}
+    assert aree == {"tech", "lex", "sem", "sd", "wcag", "sec", "seo",
+                    "perf"}
     # Nessuna chiave di stato, nessun derivato: sono le due esenzioni.
     assert not [c for c in mars_fixes.CATALOGO if ".status." in c]
     assert not [c for c in mars_fixes.CATALOGO if c.startswith("cit.")]
@@ -323,7 +327,7 @@ def test_una_penalita_di_zero_si_veste_lo_stesso():
     """Zero non e' assente: nel ramo axe i controlli statici di
     `mars_wcag` hanno penalita' 0.0 — il punteggio lo fa axe — e sono
     difetti veri con una correzione vera. Confondere i due casi
-    toglierebbe il fix a meta' dell'area 6."""
+    toglierebbe il fix a meta' dell'area 7."""
     misurato = {"key": "wcag.img.alt_missing", "fix": "", "example": "",
                 "params": {"penalty": 0.0}}
     mars_fixes.vesti(misurato)

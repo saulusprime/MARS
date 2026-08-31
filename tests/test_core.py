@@ -1804,7 +1804,7 @@ def test_credenziali_un_file_senza_chiavi_note_e_un_ERRORE(tmp_path):
 
 
 def test_credenziali_una_chiave_scritta_male_si_dichiara(tmp_path):
-    """`antropic_api_key` senza la h disabiliterebbe l'area 9 senza un
+    """`antropic_api_key` senza la h disabiliterebbe l'area 10 senza un
     errore: il refuso e' il modo piu' probabile di sbagliare, e va
     detto per nome."""
     p = _scrivi(tmp_path, '{"antropic_api_key": "sk-ant-finta",'

@@ -58,7 +58,7 @@ def _rilievo(caso: str, testo: str, chiave: str, quante: int = 1,
 
 
 def audit(context: dict) -> dict:
-    """Area 5: presenza e validita' sintattica del JSON-LD.
+    """Area 6: presenza e validita' sintattica del JSON-LD.
 
     Controlla che i blocchi si analizzino, non che i tipi Schema.org
     siano quelli giusti: la verifica dei tipi e' I11 in TO-DO.md.

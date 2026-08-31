@@ -166,8 +166,9 @@ def esito_della_soglia(referto: dict, fail_under: float | None) -> int:
 DESCRIZIONE = """MARS Beacon — audit di citabilità per assistenti IA.
 
 Scansiona un sito (via sitemap o seguendo i link interni), lo segmenta in
-passaggi e valuta nove aree: indicizzabilità, SEO, recupero lessicale BM25,
-semantica, dati strutturati, accessibilità, sicurezza, profili di citabilità
+passaggi e valuta dieci aree: indicizzabilità, SEO, prestazioni (Core Web
+Vitals dallo stesso run Lighthouse), recupero lessicale BM25, semantica,
+dati strutturati, accessibilità, sicurezza, profili di citabilità
 e — se richiesto — un giudizio LLM. Simula infine la fusione RRF fra il
 recuperatore lessicale e quello vettoriale."""
 
@@ -191,7 +192,7 @@ esempi:
   # i rilievi come tabella, da aprire in Excel o Fogli
   mars_audit.py https://example.com --format csv --output rilievi.csv
 
-  # con la propria chiave Anthropic, per il giudizio LLM (area 9).
+  # con la propria chiave Anthropic, per il giudizio LLM (area 10).
   # Il file e' JSON e questo e' tutto il suo contenuto:
   #     {"credentials": {"anthropic_api_key": "sk-ant-..."}}
   # Si ottiene da examples/credentials.json, che le altre chiavi
@@ -317,7 +318,7 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "scansione ampia. Non e' un numero di PAGINE e non puo' "
              "esserlo — l'API dello spider non accetta nulla che limiti "
              "il totale — quindi il referto dichiara il perimetro come "
-             "non esatto. Senza la dichiarazione non serve: li' l'area 7 "
+             "non esatto. Senza la dichiarazione non serve: li' l'area 8 "
              "guarda le pagine gia' scansionate, e a quelle basta "
              "--max-pages.")
 

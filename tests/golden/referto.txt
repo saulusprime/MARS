@@ -5,7 +5,7 @@
 
 I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).
 COMPLESSIVO          :  60/100  (da migliorare)
-  media pesata di 7 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM
+  media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM
 -------------------------------------------------------
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
@@ -16,26 +16,34 @@ COMPLESSIVO          :  60/100  (da migliorare)
   Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti
   ⚠ [Lighthouse] L'indicizzazione della pagina è bloccata (X-Robots-Tag: noindex)
   ⚠ [Lighthouse] Il documento non ha un elemento `<title>` (html)
-3. Lessicale         :  60/100
+3. Prestazioni       :  58/100
+  Lighthouse 13.4.1 · mobile · Lighthouse 56/100 (1 pagina, scala diversa: la nostra è più indulgente) · 1 controlli superati, 4 falliti
+  ⚠ Primo contenuto lento: FCP 2,6 s
+  ⚠ LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+  → Primo contenuto lento: FCP 2,6 s
+    Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.
+  → Pagina lenta a riempirsi: Speed Index 4,2 s
+    Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.
+4. Lessicale         :  60/100
   BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi
   ⚠ [grave] 3/3 pagine sotto le 300 parole
   ⚠ [grave] 1/3 query senza un riscontro lessicale
-4. Semantica         :  92/100
+5. Semantica         :  92/100
   proxy char-TFIDF · con una classifica dei passaggi
   ⚠ [medio] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
-5. Dati Strutturati  :  90/100
+6. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
-6. Accessibilità     :  37/100
+7. Accessibilità     :  37/100
   axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
   → 1 link con testo generico ("clicca qui", "leggi tutto")
     Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
-7. Sicurezza         :  57/100
+8. Sicurezza         :  57/100
   ZAP (passiva) · 3 pagine esaminate
   ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
   ⚠ [ZAP:Medium] Content Security Policy (CSP) Header Not Set (2 URL)
-9. Giudizio LLM      :  61/100
+10. Giudizio LLM     :  61/100
   ⚠ [anthropic] Nessun prezzo verificabile
   ⚠ [anthropic] Nessuna data di aggiornamento
 -------------------------------------------------------
@@ -53,17 +61,17 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   citability           +1  (60 → 61)
   1 risolti:
     · Nessuna sitemap dichiarata
-  19 nuovi:
+  21 nuovi:
     · L'indicizzazione della pagina è bloccata
     · Il documento non ha un elemento `<title>`
     · Il documento non ha una meta descrizione
-    · ... e altri 16
+    · ... e altri 18
   (le chiavi sec.zap. hanno cambiato forma: li' «risolto» e «comparso» non sono fatti del sito)
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
-PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
+PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
   2 quick win · 4 senza recupero · 6 senza sforzo dichiarato
-  7 aree su 9; ordinato per gravita', poi per guadagno dell'indice
+  8 aree su 10; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +7.54
      Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -79,7 +87,7 @@ PIANO DI INTERVENTI  : 20 interventi (6 critici, 14 avvertenze)
   5. [CRITICO · Accessibilità · ore] 1 campi di modulo senza etichetta
      in questa esecuzione il controllo non entra nel punteggio dell'area
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-  · ... e altri 15 interventi (per intero nel JSON e nell'HTML)
+  · ... e altri 17 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Simulazione RRF      : Consenso Top-3 = 2/3 su 4 chunk
   aggregato su 3 query

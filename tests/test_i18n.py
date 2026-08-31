@@ -137,14 +137,14 @@ def _params_del_banco(monkeypatch) -> dict:
     }
     raccogli(mars_tech.audit(tech))
 
-    # Area 5: un blocco JSON-LD vuoto accanto a uno valido.
+    # Area 6: un blocco JSON-LD vuoto accanto a uno valido.
     schema = {"pages": {"https://esempio.test/": pagina(
         '<html><head><script type="application/ld+json"></script>'
         '<script type="application/ld+json">{"@type":"X"}</script>'
         '</head><body><p>x</p></body></html>')}}
     raccogli(mars_schema.audit(schema))
 
-    # Area 6, ramo statico: pagina senza lang e con tabindex positivo.
+    # Area 7, ramo statico: pagina senza lang e con tabindex positivo.
     wcag = {"pages": {"https://esempio.test/": pagina(
         '<html><body><h1>t</h1><div tabindex="3">x</div></body></html>')}}
     raccogli(mars_wcag.audit(wcag))
@@ -187,7 +187,7 @@ def _params_del_banco(monkeypatch) -> dict:
         "force_proxy": True, "credentials": {}}
     raccogli(mars_semantic.audit(vuote))
 
-    # Area 9 (U10.1, U10): gli otto temi del vocabolario piu' il secchio,
+    # Area 10 (U10.1, U10): gli otto temi del vocabolario piu' il secchio,
     # e il giudice sconosciuto. I golden ne accendono tre su nove: le
     # altre le accende un sito vero, e allora e' tardi per scoprirle
     # senza traduzione. `rilievi_dei_punti_deboli` E' il modulo che
@@ -205,7 +205,7 @@ def _params_del_banco(monkeypatch) -> dict:
         "chunks": [{"url": "https://esempio.test/", "heading": "Titolo",
                     "text": "Un passaggio qualunque."}]}))
 
-    # Area 8: i sette segnali tutti deboli, poi tutti non misurati.
+    # Area 9: i sette segnali tutti deboli, poi tutti non misurati.
     # I due derivati non vengono da uno `score`: `answer_shaped` dal
     # rapporto di mars_semantic, `recuperabilita` dal consenso fra i due
     # ranghi — qui disgiunti, quindi zero.
@@ -218,7 +218,7 @@ def _params_del_banco(monkeypatch) -> dict:
     raccogli(mars_citability.audit({"results": deboli, "market": "global"}))
     raccogli(mars_citability.audit({"results": {"mars_tech": {}}}))
 
-    # Area 7: il perimetro dello spider, che i golden non accendono
+    # Area 8: il perimetro dello spider, che i golden non accendono
     # perche' vi girano senza dichiarazione di proprieta'. Serve un
     # daemon finto: la chiave nasce solo dove lo spider parte davvero.
     import mars_wapt
@@ -247,6 +247,26 @@ def _params_del_banco(monkeypatch) -> dict:
                               "_zap_client": _ZapPerIl18n(),
                               "owner_declaration": True,
                               "max_children": 10}))
+
+    # Area 3: tutte e cinque le metriche sotto soglia, cosi' ogni
+    # template `perf.*` col suo `%(valore)s` ha un caso che lo accende
+    # — i golden ne accendono quattro su cinque, la CLS e' buona li'.
+    import mars_perf
+
+    def _metrica_lenta(id_, display):
+        return {"id": id_, "title": id_, "score": 0.3, "weight": 20,
+                "mode": "numeric", "numeric_value": 1.0,
+                "numeric_unit": "millisecond", "display_value": display}
+
+    raccogli(mars_perf.audit({"results": {"mars_seo": {
+        "performance_metrics": [
+            _metrica_lenta("first-contentful-paint", "4,1 s"),
+            _metrica_lenta("largest-contentful-paint", "6,0 s"),
+            _metrica_lenta("total-blocking-time", "1.200 ms"),
+            _metrica_lenta("cumulative-layout-shift", "0,4"),
+            _metrica_lenta("speed-index", "7,3 s"),
+        ],
+        "audited_url": "https://esempio.test/"}}}))
     return veri
 
 
@@ -1036,10 +1056,10 @@ def test_le_aree_senza_rilievi_restano_dichiarate():
     from mars_report import aree_non_tradotte, render_text
     referto = _referto_con_area_muta()
     assert aree_non_tradotte(referto, "it") == []
-    assert aree_non_tradotte(referto, "en") == ["3. Lexical"]
+    assert aree_non_tradotte(referto, "en") == ["4. Lexical"]
     riga = [r for r in render_text(referto, "en").split("\n")
             if r.startswith("These areas speak Italian only:")]
-    assert riga == ["These areas speak Italian only: 3. Lexical."]
+    assert riga == ["These areas speak Italian only: 4. Lexical."]
 
 
 # ======================================================================

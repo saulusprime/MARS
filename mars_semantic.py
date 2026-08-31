@@ -260,7 +260,7 @@ def _giudizio(pages: dict, chunks: List[dict], quota: float,
 
 
 def audit(context: dict) -> dict:
-    """Area 4: recupero vettoriale sui chunk, e i segnali che lo nutrono.
+    """Area 5: recupero vettoriale sui chunk, e i segnali che lo nutrono.
 
     Da U13 l'area produce **anche un punteggio**: la classifica dice
     quale passaggio verrebbe scelto, i tre controlli dicono se il sito

@@ -600,8 +600,188 @@
       "complete": null
     },
     {
+      "module": "mars_perf",
+      "label": "3. Prestazioni",
+      "score": 58.25,
+      "status": null,
+      "issues": [
+        "Primo contenuto lento: FCP 2,6 s",
+        "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+        "Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)",
+        "Pagina lenta a riempirsi: Speed Index 4,2 s"
+      ],
+      "findings": [
+        {
+          "area": "mars_perf",
+          "severity": "info",
+          "title": "Primo contenuto lento: FCP 2,6 s",
+          "key": "perf.fcp.slow",
+          "detail": "Il First Contentful Paint misura quando compare il primo contenuto: fino ad allora la pagina e' bianca. Dipende quasi sempre da risorse che bloccano il rendering (CSS e font).",
+          "fix": "Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.",
+          "example": "@font-face {\n  font-family: \"Titillium Web\";\n  src: url(\"/font/titillium.woff2\") format(\"woff2\");\n  font-display: swap;\n}",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "first-contentful-paint",
+            "valore": "2,6 s",
+            "numeric_value": 2600.0,
+            "numeric_unit": "millisecond",
+            "lh_score": 0.61,
+            "penalty": 3.9000000000000004,
+            "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ]
+          }
+        },
+        {
+          "area": "mars_perf",
+          "severity": "warning",
+          "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+          "key": "perf.lcp.slow",
+          "detail": "Il Largest Contentful Paint e' un Core Web Vital: misura quando compare l'elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.",
+          "fix": "Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.",
+          "example": "<link rel=\"preload\" as=\"image\" href=\"/img/hero.avif\">\n<img src=\"/img/hero.avif\" width=\"1200\" height=\"600\"\n     alt=\"La sala trattamenti\" fetchpriority=\"high\">",
+          "doc_url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "rule": "largest-contentful-paint",
+            "valore": "4,3 s",
+            "numeric_value": 4300.0,
+            "numeric_unit": "millisecond",
+            "lh_score": 0.45,
+            "penalty": 13.750000000000002,
+            "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ]
+          }
+        },
+        {
+          "area": "mars_perf",
+          "severity": "warning",
+          "title": "Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)",
+          "key": "perf.tbt.high",
+          "detail": "Somma dei blocchi del thread principale oltre i 50 ms durante il caricamento: misura quanto la pagina resta sorda all'input. L'INP, il Core Web Vital corrispondente, esiste solo su interazioni reali: in laboratorio Lighthouse pesa questo proxy.",
+          "fix": "Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all'input mentre la pagina carica.",
+          "example": "<script src=\"/js/analytics.js\" defer></script>\n<script type=\"module\">\n  addEventListener(\"load\", () => import(\"/js/widget.js\"));\n</script>",
+          "doc_url": "",
+          "weight": 2.0,
+          "source_severity": "",
+          "params": {
+            "rule": "total-blocking-time",
+            "valore": "890 ms",
+            "numeric_value": 890.0,
+            "numeric_unit": "millisecond",
+            "lh_score": 0.28,
+            "penalty": 21.599999999999998,
+            "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ]
+          }
+        },
+        {
+          "area": "mars_perf",
+          "severity": "info",
+          "title": "Pagina lenta a riempirsi: Speed Index 4,2 s",
+          "key": "perf.si.slow",
+          "detail": "Lo Speed Index misura quanto in fretta si riempie la parte visibile della pagina.",
+          "fix": "Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.",
+          "example": "<img src=\"/img/galleria-1.jpg\" width=\"600\" height=\"400\"\n     loading=\"lazy\" alt=\"La palestra\">",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "rule": "speed-index",
+            "valore": "4,2 s",
+            "numeric_value": 4200.0,
+            "numeric_unit": "millisecond",
+            "lh_score": 0.75,
+            "penalty": 2.5,
+            "text_lang": "it",
+            "urls": [
+              "https://esempio.test/"
+            ]
+          }
+        }
+      ],
+      "tool": "Lighthouse 13.4.1",
+      "reference_score": 56.0,
+      "reference_tool": "Lighthouse",
+      "lighthouse_scores": null,
+      "wcag_level": null,
+      "pages_tested": null,
+      "audits": [
+        {
+          "id": "first-contentful-paint",
+          "title": "First Contentful Paint",
+          "passed": false,
+          "manual": false,
+          "items": [],
+          "displayValue": "2,6 s",
+          "explanation": "",
+          "warnings": []
+        },
+        {
+          "id": "largest-contentful-paint",
+          "title": "Largest Contentful Paint",
+          "passed": false,
+          "manual": false,
+          "items": [],
+          "displayValue": "4,3 s",
+          "explanation": "",
+          "warnings": []
+        },
+        {
+          "id": "total-blocking-time",
+          "title": "Total Blocking Time",
+          "passed": false,
+          "manual": false,
+          "items": [],
+          "displayValue": "890 ms",
+          "explanation": "",
+          "warnings": []
+        },
+        {
+          "id": "cumulative-layout-shift",
+          "title": "Cumulative Layout Shift",
+          "passed": true,
+          "manual": false,
+          "items": [],
+          "displayValue": "0,05",
+          "explanation": "",
+          "warnings": []
+        },
+        {
+          "id": "speed-index",
+          "title": "Speed Index",
+          "passed": false,
+          "manual": false,
+          "items": [],
+          "displayValue": "4,2 s",
+          "explanation": "",
+          "warnings": []
+        },
+        {
+          "id": "interaction-to-next-paint",
+          "title": "Interaction to Next Paint (INP)",
+          "passed": false,
+          "manual": true,
+          "items": [],
+          "displayValue": "",
+          "explanation": "",
+          "warnings": []
+        }
+      ],
+      "form_factor": "mobile",
+      "complete": null
+    },
+    {
       "module": "mars_lexical",
-      "label": "3. Lessicale",
+      "label": "4. Lessicale",
       "score": 60,
       "status": "ranking",
       "issues": [
@@ -666,7 +846,7 @@
     },
     {
       "module": "mars_semantic",
-      "label": "4. Semantica",
+      "label": "5. Semantica",
       "score": 92,
       "status": "ranking",
       "issues": [
@@ -704,7 +884,7 @@
     },
     {
       "module": "mars_schema",
-      "label": "5. Dati Strutturati",
+      "label": "6. Dati Strutturati",
       "score": 90,
       "status": null,
       "issues": [
@@ -744,7 +924,7 @@
     },
     {
       "module": "mars_wcag",
-      "label": "6. Accessibilità",
+      "label": "7. Accessibilità",
       "score": 37,
       "status": null,
       "issues": [
@@ -964,7 +1144,7 @@
     },
     {
       "module": "mars_wapt",
-      "label": "7. Sicurezza",
+      "label": "8. Sicurezza",
       "score": 57,
       "status": null,
       "issues": [
@@ -1137,7 +1317,7 @@
     },
     {
       "module": "mars_citability",
-      "label": "8. Citabilità IA",
+      "label": "9. Citabilità IA",
       "score": 60.7,
       "status": null,
       "issues": [
@@ -1246,7 +1426,7 @@
     },
     {
       "module": "mars_llm_judge",
-      "label": "9. Giudizio LLM",
+      "label": "10. Giudizio LLM",
       "score": 61,
       "status": null,
       "issues": [
@@ -2058,17 +2238,17 @@
         "weight": 1.0
       },
       {
-        "name": "5. Dati Strutturati",
+        "name": "6. Dati Strutturati",
         "value": 90.0,
         "weight": 1.0
       },
       {
-        "name": "6. Accessibilità",
+        "name": "7. Accessibilità",
         "value": 37.0,
         "weight": 1.0
       },
       {
-        "name": "7. Sicurezza",
+        "name": "8. Sicurezza",
         "value": 57.0,
         "weight": 1.0
       },
@@ -2084,6 +2264,7 @@
       }
     ],
     "excluded": [
+      "mars_perf",
       "mars_lexical",
       "mars_semantic",
       "mars_citability",
@@ -2181,7 +2362,7 @@
     {
       "key": "wcag.axe.image_alt",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "critical",
       "title": "Le immagini devono avere un testo alternativo",
       "fix": "Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation",
@@ -2221,7 +2402,7 @@
     {
       "key": "sec.zap.40012",
       "area": "mars_wapt",
-      "area_label": "7. Sicurezza",
+      "area_label": "8. Sicurezza",
       "severity": "critical",
       "title": "Cross Site Scripting (Reflected)",
       "fix": "Convalida l'input e codifica l'output.",
@@ -2272,7 +2453,7 @@
     {
       "key": "wcag.form.label_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "critical",
       "title": "1 campi di modulo senza etichetta",
       "fix": "Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.",
@@ -2305,7 +2486,7 @@
     {
       "key": "wcag.img.alt_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "critical",
       "title": "1/2 immagini prive di testo alternativo",
       "fix": "Dai un testo alternativo a ogni immagine che porta informazione, e alt=\"\" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.",
@@ -2339,7 +2520,7 @@
     {
       "key": "wcag.axe.color_contrast",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore",
       "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
@@ -2379,7 +2560,7 @@
     {
       "key": "sd.jsonld.block_malformed",
       "area": "mars_schema",
-      "area_label": "5. Dati Strutturati",
+      "area_label": "6. Dati Strutturati",
       "severity": "warning",
       "title": "1 blocchi JSON-LD malformati",
       "fix": "Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.",
@@ -2612,7 +2793,7 @@
     {
       "key": "wcag.axe.label",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "Form elements must have labels",
       "fix": "Ensure every form element has a label",
@@ -2652,7 +2833,7 @@
     {
       "key": "sec.zap.10038_1",
       "area": "mars_wapt",
-      "area_label": "7. Sicurezza",
+      "area_label": "8. Sicurezza",
       "severity": "warning",
       "title": "Content Security Policy (CSP) Header Not Set",
       "fix": "Configura il server per impostare l'header CSP.",
@@ -2701,7 +2882,7 @@
     {
       "key": "sec.zap.10038_2",
       "area": "mars_wapt",
-      "area_label": "7. Sicurezza",
+      "area_label": "8. Sicurezza",
       "severity": "warning",
       "title": "CSP: Wildcard Directive",
       "fix": "Sostituisci il carattere jolly con le origini che servono davvero.",
@@ -2747,9 +2928,45 @@
       "priority": 15
     },
     {
+      "key": "perf.tbt.high",
+      "area": "mars_perf",
+      "area_label": "3. Prestazioni",
+      "severity": "warning",
+      "title": "Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)",
+      "fix": "Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all'input mentre la pagina carica.",
+      "example": "<script src=\"/js/analytics.js\" defer></script>\n<script type=\"module\">\n  addEventListener(\"load\", () => import(\"/js/widget.js\"));\n</script>",
+      "doc_url": "",
+      "params": {
+        "rule": "total-blocking-time",
+        "valore": "890 ms",
+        "numeric_value": 890.0,
+        "numeric_unit": "millisecond",
+        "lh_score": 0.28,
+        "penalty": 21.599999999999998,
+        "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ]
+      },
+      "penalty": 21.599999999999998,
+      "recovery": 22,
+      "score_before": 58,
+      "score_after": 80,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "giorni",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 16
+    },
+    {
       "key": "lex.query.no_match",
       "area": "mars_lexical",
-      "area_label": "3. Lessicale",
+      "area_label": "4. Lessicale",
       "severity": "warning",
       "title": "1/3 query senza un riscontro lessicale",
       "fix": "Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.",
@@ -2775,12 +2992,12 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 16
+      "priority": 17
     },
     {
       "key": "lex.words.thin",
       "area": "mars_lexical",
-      "area_label": "3. Lessicale",
+      "area_label": "4. Lessicale",
       "severity": "warning",
       "title": "3/3 pagine sotto le 300 parole",
       "fix": "Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.",
@@ -2812,12 +3029,48 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 17
+      "priority": 18
+    },
+    {
+      "key": "perf.lcp.slow",
+      "area": "mars_perf",
+      "area_label": "3. Prestazioni",
+      "severity": "warning",
+      "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+      "fix": "Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.",
+      "example": "<link rel=\"preload\" as=\"image\" href=\"/img/hero.avif\">\n<img src=\"/img/hero.avif\" width=\"1200\" height=\"600\"\n     alt=\"La sala trattamenti\" fetchpriority=\"high\">",
+      "doc_url": "",
+      "params": {
+        "rule": "largest-contentful-paint",
+        "valore": "4,3 s",
+        "numeric_value": 4300.0,
+        "numeric_unit": "millisecond",
+        "lh_score": 0.45,
+        "penalty": 13.750000000000002,
+        "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ]
+      },
+      "penalty": 13.750000000000002,
+      "recovery": 14,
+      "score_before": 58,
+      "score_after": 72,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "giorni",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 19
     },
     {
       "key": "sem.chunks.few",
       "area": "mars_semantic",
-      "area_label": "4. Semantica",
+      "area_label": "5. Semantica",
       "severity": "warning",
       "title": "4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi",
       "fix": "Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.",
@@ -2842,12 +3095,12 @@
       "lane_reason": "",
       "additive": false,
       "certified": true,
-      "priority": 18
+      "priority": 20
     },
     {
       "key": "wcag.heading.skip",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "1 salti nella gerarchia degli heading (es. h2 seguito da h4)",
       "fix": "Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.",
@@ -2875,12 +3128,12 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 19
+      "priority": 21
     },
     {
       "key": "wcag.table.th_missing",
       "area": "mars_wcag",
-      "area_label": "6. Accessibilità",
+      "area_label": "7. Accessibilità",
       "severity": "warning",
       "title": "1 tabelle dati senza intestazioni <th>",
       "fix": "Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.",
@@ -2908,7 +3161,7 @@
       "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
       "additive": false,
       "certified": true,
-      "priority": 20
+      "priority": 22
     }
   ],
   "delta": {
@@ -3099,6 +3352,42 @@
             "https://dequeuniversity.com/rules/axe/4.12/image-alt"
           ],
           "penalty": 9.05511811023622
+        }
+      },
+      {
+        "area": "mars_perf",
+        "key": "perf.lcp.slow",
+        "title": "LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)",
+        "severity": "warning",
+        "params": {
+          "rule": "largest-contentful-paint",
+          "valore": "4,3 s",
+          "numeric_value": 4300.0,
+          "numeric_unit": "millisecond",
+          "lh_score": 0.45,
+          "penalty": 13.750000000000002,
+          "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ]
+        }
+      },
+      {
+        "area": "mars_perf",
+        "key": "perf.tbt.high",
+        "title": "Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)",
+        "severity": "warning",
+        "params": {
+          "rule": "total-blocking-time",
+          "valore": "890 ms",
+          "numeric_value": 890.0,
+          "numeric_unit": "millisecond",
+          "lh_score": 0.28,
+          "penalty": 21.599999999999998,
+          "text_lang": "it",
+          "urls": [
+            "https://esempio.test/"
+          ]
         }
       },
       {

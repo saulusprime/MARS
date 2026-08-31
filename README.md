@@ -2,10 +2,10 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.17.0
+Versione 2.18.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
-interno), ne estrae la struttura, e valuta sette aree strategiche.
+interno), ne estrae la struttura, e valuta otto aree strategiche.
 La sitemap, quando c'e', e' autoritativa: e' la dichiarazione del sito
 su cosa vuole far indicizzare, e viene rispettata, salvo l'utente
 non si dichiari proprietario e si assume la responsabilita' di non
@@ -36,19 +36,26 @@ e crea il referto:
                                     stessi undici controlli della
                                     sezione SEO di Lighthouse, non
                                     il solo punteggio
-3. Lessicale        (mars_lexical)  BM25 sui passaggi, piu' i tre
+3. Prestazioni      (mars_perf)     i Core Web Vitals di laboratorio,
+                                    letti dallo STESSO referto
+                                    Lighthouse dell'area 2 (nessun
+                                    secondo run): FCP, LCP, TBT, CLS,
+                                    Speed Index con le loro soglie.
+                                    L'INP non si misura in laboratorio
+                                    e il referto lo dichiara
+4. Lessicale        (mars_lexical)  BM25 sui passaggi, piu' i tre
                                     controlli che lo alimentano
                                     (pagine sotto le 300 parole,
                                     title ripetuti fra pagine,
                                     query senza riscontro)
-4. Semantica        (mars_semantic) recupero vettoriale sui passaggi,
+5. Semantica        (mars_semantic) recupero vettoriale sui passaggi,
                                     piu' i tre controlli che lo
                                     nutrono (quanti passaggi, quota
                                     "answer-shaped", query senza
                                     riscontro)
-5. Dati strutturati (mars_schema)   JSON-LD / Schema.org
-6. Accessibilità    (mars_wcag)     compatibilità WCAG
-7. Sicurezza        (mars_wapt)     test WAPT di superficie
+6. Dati strutturati (mars_schema)   JSON-LD / Schema.org
+7. Accessibilità    (mars_wcag)     compatibilità WCAG
+8. Sicurezza        (mars_wapt)     test WAPT di superficie
 
 Vi è poi una analisi generale di "superficie" che guarda al sito
 analizzato concentrandosi su tutte le singole aree specifiche e cerca
@@ -165,6 +172,30 @@ titoli arrivano da Lighthouse stesso, nella lingua del referto
 Il referto dichiara sempre versione di Lighthouse e tipo di dispositivo
 (oggi mobile, il predefinito dello strumento): un referto mobile e uno
 desktop non sono confrontabili.
+
+Prestazioni (Core Web Vitals): l'area 3 legge le metriche di
+performance dallo STESSO referto Lighthouse dell'area 2 — nessun
+secondo run — quindi esiste solo dove Lighthouse ha girato, e senza si
+dichiara "non misurato". Il punteggio e' 100 meno le penalita' delle
+sole metriche sotto la soglia "buono" (90/100, la scala gia'
+dichiarata del referto): una metrica buona non costa nulla, e ogni
+penalita' e' il contributo lineare esatto della metrica alla media
+pesata di Lighthouse, come per l'area SEO — non una stima. Il
+punteggio di categoria di Lighthouse, che sconta anche l'imperfezione
+sopra soglia, resta accanto come riferimento, e la nota dichiara la
+DIREZIONE della differenza leggendo i due numeri (di solito il nostro
+e' piu' indulgente qui, piu' severo sull'accessibilita').
+
+    Tre limiti dichiarati. L'INP non si misura in laboratorio —
+    Lighthouse lo raccoglie solo su interazioni reali — quindi
+    l'elenco dei controlli lo mostra come non misurato e il proxy
+    pesato resta il TBT, come fa Lighthouse. La misura riguarda UNA
+    pagina, con throttling simulato: e' la piu' rumorosa del referto
+    fra due esecuzioni a sito invariato, ed e' la ragione per cui
+    l'area NON entra nel punteggio complessivo (il referto la elenca
+    fra le escluse). I suggerimenti diagnostici di Lighthouse non
+    entrano: qui stanno le metriche e le soglie, la prescrizione la
+    porta il catalogo dei fix di MARS.
 
 WCAG: se Playwright e axe-core sono disponibili, l'accessibilita' viene
 misurata con axe-core su Chromium, limitato alle regole WCAG 2.1 livelli
@@ -403,7 +434,7 @@ verificato che passlib sia stato aggiornato.
 API REST (mars_api.py)
 ----------------------
 
-Le stesse sette aree di audit sono esposte via HTTP. CLI e API
+Le stesse otto aree di audit sono esposte via HTTP. CLI e API
 condividono gli stessi moduli e la stessa costruzione del contesto:
 sono due interfacce sopra il medesimo motore, non due implementazioni.
 
@@ -449,12 +480,14 @@ Endpoint:
 
     POST /audit/tech      area 1  indicizzabilita', robots.txt, crawler IA
     POST /audit/seo       area 2  Lighthouse
-    POST /audit/lexical   area 3  BM25 sui chunk
-    POST /audit/semantic  area 4  chunk answer-shaped, recupero vettoriale
-    POST /audit/schema    area 5  JSON-LD / Schema.org
-    POST /audit/wcag      area 6  accessibilita'
-    POST /audit/wapt      area 7  sicurezza
-    POST /audit/full      tutte e sette piu' la fusione RRF
+    POST /audit/perf      area 3  Core Web Vitals (esegue prima l'area
+                                  2: stesso run Lighthouse)
+    POST /audit/lexical   area 4  BM25 sui chunk
+    POST /audit/semantic  area 5  chunk answer-shaped, recupero vettoriale
+    POST /audit/schema    area 6  JSON-LD / Schema.org
+    POST /audit/wcag      area 7  accessibilita'
+    POST /audit/wapt      area 8  sicurezza
+    POST /audit/full      tutte e otto piu' la fusione RRF
 
 Un corpo di esempio completo sta in examples/audit_request.json.
 
@@ -495,7 +528,7 @@ una resa HTML o testuale, il campo nascera' con lei.
 
 Credenziali nella richiesta. Il campo "credentials" accetta:
 
-    anthropic_api_key   abilita il giudizio LLM (area 9)
+    anthropic_api_key   abilita il giudizio LLM (area 10)
     hf_token            token Hugging Face, necessario SOLO per modelli
                         di embedding ad accesso limitato o privati; per
                         quelli pubblici, incluso il predefinito, non

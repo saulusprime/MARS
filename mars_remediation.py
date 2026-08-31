@@ -210,6 +210,14 @@ SFORZO: Dict[str, str] = {
     # come i testi alternativi: un template puo' generarla, ma una
     # descrizione generata non risponde alla domanda della pagina.
     "seo.lh.meta_description": GIORNI,
+    # Prestazioni (I10). CLS e FCP sono interventi di markup e CSS;
+    # LCP e TBT toccano immagini, server e architettura degli script,
+    # e lo Speed Index scende come conseguenza degli altri.
+    "perf.fcp.slow": ORE,
+    "perf.lcp.slow": GIORNI,
+    "perf.tbt.high": GIORNI,
+    "perf.cls.unstable": ORE,
+    "perf.si.slow": ORE,
 }
 
 
@@ -599,7 +607,7 @@ def riepilogo(piano: List[dict], referto: dict) -> dict:
     """I conteggi della testata, calcolati e mai cablati.
 
     `aree_nel_piano` si conta a runtime: le aree che possono
-    contribuire sono al massimo sette, non nove, perche' i rilievi di
+    contribuire sono al massimo otto, non dieci, perche' i rilievi di
     `mars_citability` e `mars_llm_judge` sono per costruzione tutti
     `info`. Erano cinque fino a U13, che ha dato dei controlli a
     `mars_lexical` e `mars_semantic`: e' esattamente il genere di

@@ -113,7 +113,7 @@ class Credentials(BaseModel):
 
     anthropic_api_key: SecretStr | None = Field(
         default=None,
-        description="Abilita il giudizio LLM (area 9) senza impostare "
+        description="Abilita il giudizio LLM (area 10) senza impostare "
                     "ANTHROPIC_API_KEY sul server.")
     hf_token: SecretStr | None = Field(
         default=None,
@@ -414,16 +414,33 @@ def audit_seo(req: AuditRequest, current_user: User = Depends(get_current_user))
                          issues=res.get("issues"), details=res)
 
 
+@app.post("/audit/perf", response_model=AuditResponse, tags=["Audit Modules"])
+def audit_perf(req: AuditRequest, current_user: User = Depends(get_current_user)):
+    """Esegue l'audit dell'Area 3: Prestazioni (Core Web Vitals).
+
+    Le metriche si leggono dal referto Lighthouse dell'area SEO —
+    stesso run, nessun secondo Lighthouse (I10) — quindi l'endpoint
+    esegue prima mars_seo e gli passa il risultato per la via di
+    context["results"], la stessa di /audit/full. Senza, l'area
+    risponderebbe sempre «non misurato».
+    """
+    context = build_context(req)
+    context["results"] = {"mars_seo": run_single_audit("mars_seo", context)}
+    res = run_single_audit("mars_perf", context)
+    return AuditResponse(module="mars_perf", score=res.get("score"),
+                         issues=res.get("issues"), details=res)
+
+
 @app.post("/audit/lexical", response_model=AuditResponse, tags=["Audit Modules"])
 def audit_lexical(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 3: Lessicale (BM25 su title, heading, termini)."""
+    """Esegue l'audit dell'Area 4: Lessicale (BM25 su title, heading, termini)."""
     res = run_single_audit("mars_lexical", build_context(req))
     return AuditResponse(module="mars_lexical", score=None, details=res)
 
 
 @app.post("/audit/semantic", response_model=AuditResponse, tags=["Audit Modules"])
 def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 4: Semantica (chunk answer-shaped, vector retrieval)."""
+    """Esegue l'audit dell'Area 5: Semantica (chunk answer-shaped, vector retrieval)."""
     res = run_single_audit("mars_semantic", build_context(req))
     # Si escludono scores/rank: sono array lunghi quanto il corpus e
     # non servono a chi consuma l'endpoint.
@@ -436,7 +453,7 @@ def audit_semantic(req: AuditRequest, current_user: User = Depends(get_current_u
 
 @app.post("/audit/schema", response_model=AuditResponse, tags=["Audit Modules"])
 def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 5: Dati strutturati (JSON-LD / Schema.org)."""
+    """Esegue l'audit dell'Area 6: Dati strutturati (JSON-LD / Schema.org)."""
     res = run_single_audit("mars_schema", build_context(req))
     return AuditResponse(module="mars_schema", score=res.get("score"),
                          issues=res.get("issues"), details=res)
@@ -444,7 +461,7 @@ def audit_schema(req: AuditRequest, current_user: User = Depends(get_current_use
 
 @app.post("/audit/wcag", response_model=AuditResponse, tags=["Audit Modules"])
 def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 6: Accessibilità (WCAG)."""
+    """Esegue l'audit dell'Area 7: Accessibilità (WCAG)."""
     res = run_single_audit("mars_wcag", build_context(req))
     return AuditResponse(module="mars_wcag", score=res.get("score"),
                          issues=res.get("issues"), details=res)
@@ -452,7 +469,7 @@ def audit_wcag(req: AuditRequest, current_user: User = Depends(get_current_user)
 
 @app.post("/audit/wapt", response_model=AuditResponse, tags=["Audit Modules"])
 def audit_wapt(req: AuditRequest, current_user: User = Depends(get_current_user)):
-    """Esegue l'audit dell'Area 7: Sicurezza (WAPT via ZAP, o HTTP Headers).
+    """Esegue l'audit dell'Area 8: Sicurezza (WAPT via ZAP, o HTTP Headers).
 
     ZAP si raggiunge parlando la sua API JSON: non passa da `zap-cli`
     ne' dal client ufficiale, ed e' la correzione di R32 al testo — il

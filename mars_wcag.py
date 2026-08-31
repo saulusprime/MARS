@@ -610,7 +610,7 @@ def _riferimento(context: dict) -> Dict[str, object]:
 # ======================================================================
 
 def audit(context: dict) -> dict:
-    """Area 6: accessibilità, con axe-core quando disponibile.
+    """Area 7: accessibilità, con axe-core quando disponibile.
 
     Due livelli: axe-core su browser reale se Playwright e la libreria
     ci sono, altrimenti l'euristica statica sul markup. Il referto

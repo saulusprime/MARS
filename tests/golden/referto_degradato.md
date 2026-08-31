@@ -6,7 +6,7 @@
 
 **66/100** — da migliorare
 
-Media pesata di 4 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
+Media pesata di 4 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
 ## Punteggi per area
 
@@ -14,13 +14,14 @@ Media pesata di 4 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA,
 |---|---|---|
 | 1. Tecnica | 57/100 |  |
 | 2. SEO | non misurato |  |
-| 3. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
-| 4. Semantica | errore del modulo |  |
-| 5. Dati Strutturati | 90/100 |  |
-| 6. Accessibilità | 40/100 | markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie |
-| 7. Sicurezza | 75/100 | HTTP-Headers · controllo di superficie |
-| 8. Citabilità IA | 68/100 |  |
-| 9. Giudizio LLM | disattivato |  |
+| 3. Prestazioni | non misurato |  |
+| 4. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
+| 5. Semantica | errore del modulo |  |
+| 6. Dati Strutturati | 90/100 |  |
+| 7. Accessibilità | 40/100 | markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie |
+| 8. Sicurezza | 75/100 | HTTP-Headers · controllo di superficie |
+| 9. Citabilità IA | 68/100 |  |
+| 10. Giudizio LLM | disattivato |  |
 
 ## Superficie
 
@@ -87,19 +88,24 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 - [INFO] Lighthouse non trovato nel PATH
 
-### 3. Lessicale
+### 3. Prestazioni
+
+- [INFO] Metriche di prestazione non disponibili
+  L'area legge i Core Web Vitals dal referto Lighthouse dell'area SEO, senza un secondo run: se Lighthouse non ha girato, qui non c'e' nulla da misurare.
+
+### 4. Lessicale
 
 - [AVVISO] 3/3 pagine sotto le 300 parole
   *Correzione:* Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
 - [AVVISO] 1/3 query senza un riscontro lessicale
   *Correzione:* Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 
-### 4. Semantica
+### 5. Semantica
 
 - [INFO] Area non calcolata: il modulo e' fallito
   MemoryError: corpus troppo grande
 
-### 5. Dati Strutturati
+### 6. Dati Strutturati
 
 - [AVVISO] 1 blocchi JSON-LD malformati
   *Correzione:* Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
@@ -112,7 +118,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
   {"@type": "Service"}
   ```
 
-### 6. Accessibilità
+### 7. Accessibilità
 
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
@@ -151,7 +157,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
   <a href="/prezzi/">Il listino dei trattamenti</a>
   ```
 
-### 7. Sicurezza
+### 8. Sicurezza
 
 - [AVVISO] CSP mancante
   *Correzione:* Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
@@ -172,7 +178,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
   add_header X-Frame-Options "SAMEORIGIN" always;
   ```
 
-### 8. Citabilità IA
+### 9. Citabilità IA
 
 - [INFO] Mercato 'italia' sconosciuto: uso 'global'
 - [INFO] Segnale non misurato: Qualità SEO
@@ -181,7 +187,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - [INFO] Segnale debole: Accessibilità (40/100)
 - [INFO] Segnale debole: Accesso e indicizzabilità (57/100)
 
-### 9. Giudizio LLM
+### 10. Giudizio LLM
 
 - [INFO] Giudizio LLM disattivato (--llm off)
 

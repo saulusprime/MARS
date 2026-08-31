@@ -2211,7 +2211,7 @@ def _lhr(punteggio=0.27):
     return {
         "lighthouseVersion": "13.4.1",
         "finalDisplayedUrl": "https://esempio.test/",
-        "configSettings": {"formFactor": "mobile"},
+        "configSettings": {"formFactor": "mobile", "locale": "it"},
         # Lighthouse gira SEMPRE per intero: `esegui_lighthouse` non
         # passa `--only-categories`, quindi tutte e cinque le categorie
         # sono nel LHR. I punteggi delle altre quattro vengono da un
@@ -2219,7 +2219,38 @@ def _lhr(punteggio=0.27):
         # `punteggi_categorie` verrebbe provata su un LHR che dichiara
         # una sola categoria, cioe' su una forma che non esiste.
         "categories": {
-            "performance": {"id": "performance", "score": 0.56},
+            # Gli auditRefs del gruppo `metrics` coi pesi veri di
+            # default-config.js 13.4.1 (FCP 10, LCP 25, TBT 30, CLS 25,
+            # SI 10, INP 0), piu' un `hidden` per esercitare il filtro
+            # di `metriche_prestazioni`. I punteggi sono sintetici ma
+            # COERENTI: la media pesata fa 0.5625, che l'arrotondamento
+            # a due decimali di Lighthouse porta allo 0.56 dichiarato.
+            "performance": {"id": "performance", "score": 0.56,
+                            "auditRefs": [
+                                {"id": "first-contentful-paint",
+                                 "weight": 10, "group": "metrics",
+                                 "acronym": "FCP"},
+                                {"id": "largest-contentful-paint",
+                                 "weight": 25, "group": "metrics",
+                                 "acronym": "LCP"},
+                                {"id": "total-blocking-time",
+                                 "weight": 30, "group": "metrics",
+                                 "acronym": "TBT"},
+                                {"id": "cumulative-layout-shift",
+                                 "weight": 25, "group": "metrics",
+                                 "acronym": "CLS"},
+                                {"id": "speed-index",
+                                 "weight": 10, "group": "metrics",
+                                 "acronym": "SI"},
+                                # NIENTE interaction-to-next-paint:
+                                # in navigation Lighthouse lo pota
+                                # dal referto (supportedModes:
+                                # ['timespan']) — misurato su un LHR
+                                # vero. La voce non misurata la
+                                # aggiunge mars_perf, non il LHR.
+                                {"id": "interactive", "weight": 0,
+                                 "group": "hidden", "acronym": "TTI"},
+                            ]},
             "accessibility": {"id": "accessibility", "score": 0.97},
             "best-practices": {"id": "best-practices", "score": 0.96},
             "agentic-browsing": {"id": "agentic-browsing", "score": 1},
@@ -2240,6 +2271,35 @@ def _lhr(punteggio=0.27):
             ]},
         },
         "audits": {
+            # Le cinque metriche del gruppo `metrics`. I titoli sono
+            # nomi propri e Lighthouse non li traduce nemmeno nel
+            # locale italiano; i `displayValue` sono formattati come li
+            # scrive il run con `--locale it`.
+            "first-contentful-paint": {
+                "title": "First Contentful Paint",
+                "score": 0.61, "scoreDisplayMode": "numeric",
+                "numericValue": 2600.0, "numericUnit": "millisecond",
+                "displayValue": "2,6 s"},
+            "largest-contentful-paint": {
+                "title": "Largest Contentful Paint",
+                "score": 0.45, "scoreDisplayMode": "numeric",
+                "numericValue": 4300.0, "numericUnit": "millisecond",
+                "displayValue": "4,3 s"},
+            "total-blocking-time": {
+                "title": "Total Blocking Time",
+                "score": 0.28, "scoreDisplayMode": "numeric",
+                "numericValue": 890.0, "numericUnit": "millisecond",
+                "displayValue": "890 ms"},
+            "cumulative-layout-shift": {
+                "title": "Cumulative Layout Shift",
+                "score": 0.92, "scoreDisplayMode": "numeric",
+                "numericValue": 0.05, "numericUnit": "unitless",
+                "displayValue": "0,05"},
+            "speed-index": {
+                "title": "Speed Index",
+                "score": 0.75, "scoreDisplayMode": "numeric",
+                "numericValue": 4200.0, "numericUnit": "millisecond",
+                "displayValue": "4,2 s"},
             "is-crawlable": {
                 "description": "I motori di ricerca non sono in grado di "
                                "includere le pagine nei risultati di ricerca "
@@ -4448,7 +4508,7 @@ def test_wapt_il_tetto_si_dichiara_e_si_dichiara_inesatto(zap_veloce):
     """R56, la casella. Con la dichiarazione il perimetro non e' il
     campione e MARS non lo conosce: `pages_tested` resta `None`. Ma
     tacere del tutto lascerebbe credere che valga `--max-pages` come
-    per le altre otto aree, e non e' vero.
+    per le altre nove aree, e non e' vero.
 
     Il rilievo dice i due limiti che agiscono davvero — il nostro per
     nodo e il `MaxDepth` che il daemon ha in configurazione — e dice
@@ -5848,7 +5908,7 @@ def _rami_llm(contesto, monkeypatch):
 
 
 def test_llm_ogni_ramo_senza_giudizio_porta_un_rilievo(contesto, monkeypatch):
-    """Senza l'area 9 il referto resta muto in ogni vista basata sui
+    """Senza l'area 10 il referto resta muto in ogni vista basata sui
     findings, e proprio nei casi in cui qualcosa non ha funzionato."""
     for chiave, esegui in _rami_llm(contesto, monkeypatch):
         esito = esegui()

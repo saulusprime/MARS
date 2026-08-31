@@ -45,7 +45,10 @@
 > **2.13.0** con U11, a **2.14.0** con I2, a **2.15.0** con I4+I9, che
 > aggiunge contenuto al referto, a **2.16.0** con I15, da cui i punteggi
 > lessicali si muovono a sito invariato, e a **2.17.0** con I18. I8 non l'ha mossa: nessun punteggio
-> cambia e nessuna interfaccia con lei.
+> cambia e nessuna interfaccia con lei. **I10** (2026-08-31) l'ha portata a
+> **2.18.0**: nasce l'area «3. Prestazioni» e le aree 3-9 diventano 4-10 —
+> le chiavi dei rilievi e lo storico non si muovono, il complessivo nemmeno,
+> perché l'area ne resta fuori per decisione dichiarata.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -75,9 +78,6 @@
 ## Idee
 
 - **I7** — `--compare a.com b.com c.com` con tabella affiancata.
-- **I10** — un `mars_perf.py` con i **controlli** dei Core Web Vitals, letti
-  dallo stesso LHR senza un secondo Lighthouse. I punteggi di categoria li
-  pubblica già R45: manca la parte azionabile, LCP, CLS, INP e le loro soglie.
 - **I11** — verificare gli `@type` del JSON-LD contro i tipi che gli
   assistenti usano davvero, non solo la sintassi (lo dice
   [mars_schema.py:67](mars_schema.py#L67)).

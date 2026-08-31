@@ -359,7 +359,7 @@ def test_cli_le_credenziali_del_file_arrivano_al_contesto(monkeypatch, tmp_path)
     """R57: la CLI non aveva ALCUN modo di passare una chiave — solo
     variabili d'ambiente — mentre l'API le accetta dal corpo. La
     tubatura e' la stessa di `--max-children`, e la sua rottura sarebbe
-    altrettanto silenziosa: l'audit gira, l'area 9 dice «nessuna
+    altrettanto silenziosa: l'audit gira, l'area 10 dice «nessuna
     credenziale», e nessuno sa perche'."""
     visti = {}
 

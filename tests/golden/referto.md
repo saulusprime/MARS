@@ -8,7 +8,7 @@
 
 **60/100** — da migliorare
 
-Media pesata di 7 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
+Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
 ## Punteggi per area
 
@@ -16,13 +16,14 @@ Media pesata di 7 misure; escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA,
 |---|---|---|
 | 1. Tecnica | 57/100 |  |
 | 2. SEO | 27/100 | Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti |
-| 3. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
-| 4. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
-| 5. Dati Strutturati | 90/100 |  |
-| 6. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
-| 7. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
-| 8. Citabilità IA | 61/100 |  |
-| 9. Giudizio LLM | 61/100 |  |
+| 3. Prestazioni | 58/100 | Lighthouse 13.4.1 · mobile · Lighthouse 56/100 (1 pagina, scala diversa: la nostra è più indulgente) · 1 controlli superati, 4 falliti |
+| 4. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
+| 5. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
+| 6. Dati Strutturati | 90/100 |  |
+| 7. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
+| 8. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
+| 9. Citabilità IA | 61/100 |  |
+| 10. Giudizio LLM | 61/100 |  |
 
 ## Superficie
 
@@ -51,13 +52,15 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 - Nessuna sitemap dichiarata
 
-**Nuovi (19)**
+**Nuovi (21)**
 
 - L'indicizzazione della pagina è bloccata
 - Il documento non ha un elemento `<title>`
 - Il documento non ha una meta descrizione
 - I link non hanno testo descrittivo
 - Gli elementi immagine non hanno attributi `[alt]`
+- LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+- Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)
 - 3/3 pagine sotto le 300 parole
 - 1/3 query senza un riscontro lessicale
 - 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
@@ -79,7 +82,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ## Piano di interventi
 
-20 interventi (6 critici, 14 avvertenze) · 2 quick win.
+22 interventi (6 critici, 16 avvertenze) · 2 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +7.54* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -111,10 +114,14 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Configura il server per impostare l'header CSP.
 - [ ] [AVVISO] CSP: Wildcard Directive — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Sostituisci il carattere jolly con le origini che servono davvero.
+- [ ] [AVVISO] Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP) — *Prestazioni · sforzo: giorni · +22 punti d'area*
+      Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all'input mentre la pagina carica.
 - [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: ore · +20 punti d'area*
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
       Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
+- [ ] [AVVISO] LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s) — *Prestazioni · sforzo: giorni · +14 punti d'area*
+      Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.
 - [ ] [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi — *Semantica · sforzo: giorni · +8 punti d'area*
       Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
 - [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: minuti*
@@ -208,19 +215,64 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] Da verificare a mano: Dati strutturati validi
   Esegui lo Strumento di test per i dati strutturati per convalidare i dati strutturati. Scopri di più sui dati strutturati.
 
-### 3. Lessicale
+### 3. Prestazioni
+
+- [INFO] Primo contenuto lento: FCP 2,6 s
+  Il First Contentful Paint misura quando compare il primo contenuto: fino ad allora la pagina e' bianca. Dipende quasi sempre da risorse che bloccano il rendering (CSS e font).
+  *Correzione:* Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  @font-face {
+    font-family: "Titillium Web";
+    src: url("/font/titillium.woff2") format("woff2");
+    font-display: swap;
+  }
+  ```
+- [AVVISO] LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)
+  Il Largest Contentful Paint e' un Core Web Vital: misura quando compare l'elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.
+  *Correzione:* Alleggerisci l'elemento principale della pagina: servi l'immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E' il singolo intervento che sposta di piu' i Core Web Vitals.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <link rel="preload" as="image" href="/img/hero.avif">
+  <img src="/img/hero.avif" width="1200" height="600"
+       alt="La sala trattamenti" fetchpriority="high">
+  ```
+- [AVVISO] Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP)
+  Somma dei blocchi del thread principale oltre i 50 ms durante il caricamento: misura quanto la pagina resta sorda all'input. L'INP, il Core Web Vital corrispondente, esiste solo su interazioni reali: in laboratorio Lighthouse pesa questo proxy.
+  *Correzione:* Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all'input mentre la pagina carica.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <script src="/js/analytics.js" defer></script>
+  <script type="module">
+    addEventListener("load", () => import("/js/widget.js"));
+  </script>
+  ```
+- [INFO] Pagina lenta a riempirsi: Speed Index 4,2 s
+  Lo Speed Index misura quanto in fretta si riempie la parte visibile della pagina.
+  *Correzione:* Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.
+
+  *Esempio — non è contenuto del tuo sito*
+  ```
+  <img src="/img/galleria-1.jpg" width="600" height="400"
+       loading="lazy" alt="La palestra">
+  ```
+
+### 4. Lessicale
 
 - [AVVISO] 3/3 pagine sotto le 300 parole
   *Correzione:* Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
 - [AVVISO] 1/3 query senza un riscontro lessicale
   *Correzione:* Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 
-### 4. Semantica
+### 5. Semantica
 
 - [AVVISO] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
   *Correzione:* Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
 
-### 5. Dati Strutturati
+### 6. Dati Strutturati
 
 - [AVVISO] 1 blocchi JSON-LD malformati
   *Correzione:* Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
@@ -233,7 +285,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
   {"@type": "Service"}
   ```
 
-### 6. Accessibilità
+### 7. Accessibilità
 
 - [INFO] axe non ha esaminato 1 delle 3 pagine del campione
 - **[CRITICO]** Le immagini devono avere un testo alternativo
@@ -279,7 +331,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
   <a href="/prezzi/">Il listino dei trattamenti</a>
   ```
 
-### 7. Sicurezza
+### 8. Sicurezza
 
 - **[CRITICO]** Cross Site Scripting (Reflected)
   Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo' farvi eseguire script arbitrario nel browser della vittima.
@@ -293,14 +345,14 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] Strict-Transport-Security non impostato
 - [INFO] Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain
 
-### 8. Citabilità IA
+### 9. Citabilità IA
 
 - [INFO] Segnale debole: Qualità SEO (27/100)
 - [INFO] Segnale debole: Accessibilità (37/100)
 - [INFO] Segnale debole: Accesso e indicizzabilità (57/100)
 - [INFO] Segnale debole: Sicurezza (57/100)
 
-### 9. Giudizio LLM
+### 10. Giudizio LLM
 
 - [INFO] Affermazioni che nulla rende verificabili — anthropic
   Nessun prezzo verificabile; Nessuna data di aggiornamento

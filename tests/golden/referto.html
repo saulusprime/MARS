@@ -291,7 +291,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nome'>Complessivo</div>
 </div>
 <p class='verdetto warn'>da migliorare</p>
-<p class='meta'>media pesata di 7 misure · escluse 3. Lessicale, 4. Semantica, 8. Citabilità IA, 9. Giudizio LLM</p>
+<p class='meta'>media pesata di 7 misure · escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM</p>
 <p class='meta'>scala dichiarata: critico sotto 50 · da migliorare 50-89 · buono da 90</p>
 </div>
 <div class='tessere'>
@@ -300,11 +300,11 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <span class='meta'>critici</span>
 </div>
 <div class='tessera'>
-<span class='grande warn'>14</span>
+<span class='grande warn'>16</span>
 <span class='meta'>avvertenze</span>
 </div>
 <div class='tessera'>
-<span class='grande muted'>8</span>
+<span class='grande muted'>10</span>
 <span class='meta'>informativi</span>
 </div>
 <div class='tessera'>
@@ -359,6 +359,15 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>27</text>
 </svg>
 <div class='nome'>SEO</div>
+<div class='nota'>Lighthouse 13.4.1</div>
+</div>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Prestazioni: 58 su 100'>
+<circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='204.96 146.90' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>58</text>
+</svg>
+<div class='nome'>Prestazioni</div>
 <div class='nota'>Lighthouse 13.4.1</div>
 </div>
 <div class='quadrante warn'>
@@ -578,7 +587,61 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>3. Lessicale</h3>
+<h3>3. Prestazioni</h3>
+<span class='punteggio'>
+<span class='warn'>58<span class='muted'>/100</span>
+</span>
+</span>
+</div>
+<p class='strumento'>Lighthouse 13.4.1 · mobile · Lighthouse 56/100 (1 pagina, scala diversa: la nostra è più indulgente) · 1 controlli superati, 4 falliti</p>
+<ul class='controlli'>
+<li id='r-perf-fcp-slow' class='fallito'>
+<span class='segno'>✗</span>
+<span>First Contentful Paint<a class='ancora' href='#r-perf-fcp-slow' aria-label='Link a questo rilievo'>#</a>
+<br>
+<span class='dettaglio'>2,6 s</span>
+<span class='spiegazione'>Il First Contentful Paint misura quando compare il primo contenuto: fino ad allora la pagina e&#x27; bianca. Dipende quasi sempre da risorse che bloccano il rendering (CSS e font).</span>
+</span>
+</li>
+<li id='r-perf-lcp-slow' class='fallito'>
+<span class='segno'>✗</span>
+<span>Largest Contentful Paint<a class='ancora' href='#r-perf-lcp-slow' aria-label='Link a questo rilievo'>#</a>
+<br>
+<span class='dettaglio'>4,3 s</span>
+<span class='spiegazione'>Il Largest Contentful Paint e&#x27; un Core Web Vital: misura quando compare l&#x27;elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.</span>
+</span>
+</li>
+<li id='r-perf-tbt-high' class='fallito'>
+<span class='segno'>✗</span>
+<span>Total Blocking Time<a class='ancora' href='#r-perf-tbt-high' aria-label='Link a questo rilievo'>#</a>
+<br>
+<span class='dettaglio'>890 ms</span>
+<span class='spiegazione'>Somma dei blocchi del thread principale oltre i 50 ms durante il caricamento: misura quanto la pagina resta sorda all&#x27;input. L&#x27;INP, il Core Web Vital corrispondente, esiste solo su interazioni reali: in laboratorio Lighthouse pesa questo proxy.</span>
+</span>
+</li>
+<li id='r-perf-si-slow' class='fallito'>
+<span class='segno'>✗</span>
+<span>Speed Index<a class='ancora' href='#r-perf-si-slow' aria-label='Link a questo rilievo'>#</a>
+<br>
+<span class='dettaglio'>4,2 s</span>
+<span class='spiegazione'>Lo Speed Index misura quanto in fretta si riempie la parte visibile della pagina.</span>
+</span>
+</li>
+<li class='manuale'>
+<span class='segno'>?</span>
+<span>Interaction to Next Paint (INP)</span>
+</li>
+<li class='superato'>
+<span class='segno'>✓</span>
+<span>Cumulative Layout Shift<br>
+<span class='dettaglio'>0,05</span>
+</span>
+</li>
+</ul>
+</div>
+<div class='area'>
+<div class='riga'>
+<h3>4. Lessicale</h3>
 <span class='punteggio'>
 <span class='warn'>60<span class='muted'>/100</span>
 </span>
@@ -609,7 +672,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>4. Semantica</h3>
+<h3>5. Semantica</h3>
 <span class='punteggio'>
 <span class='ok'>92<span class='muted'>/100</span>
 </span>
@@ -633,7 +696,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>5. Dati Strutturati</h3>
+<h3>6. Dati Strutturati</h3>
 <span class='punteggio'>
 <span class='ok'>90<span class='muted'>/100</span>
 </span>
@@ -659,7 +722,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>6. Accessibilità</h3>
+<h3>7. Accessibilità</h3>
 <span class='punteggio'>
 <span class='bad'>37<span class='muted'>/100</span>
 </span>
@@ -745,7 +808,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>7. Sicurezza</h3>
+<h3>8. Sicurezza</h3>
 <span class='punteggio'>
 <span class='warn'>57<span class='muted'>/100</span>
 </span>
@@ -786,7 +849,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>8. Citabilità IA</h3>
+<h3>9. Citabilità IA</h3>
 <span class='punteggio'>
 <span class='warn'>61<span class='muted'>/100</span>
 </span>
@@ -799,7 +862,7 @@ Disallow:</pre>
 </div>
 <div class='area'>
 <div class='riga'>
-<h3>9. Giudizio LLM</h3>
+<h3>10. Giudizio LLM</h3>
 <span class='punteggio'>
 <span class='warn'>61<span class='muted'>/100</span>
 </span>
@@ -834,7 +897,7 @@ Disallow:</pre>
 <p class='meta'>Ogni rettangolo è una pagina, l&#x27;area è proporzionale alle parole recuperabili. Il colore è la gravità peggiore dei rilievi che citano la pagina.</p>
 <svg class='treemap' viewBox='0 0 760 420' role='img' aria-label='Treemap della superficie: 3 pagine, la più estesa è / con 133 parole. I dati sono nella tabella qui sotto.'>
 <rect x='0.0' y='0.0' width='387.3' height='420.0' class='bad'>
-<title>/ — 133 parole, 2 passaggi, 19 rilievi, il peggiore: rilievo critico</title>
+<title>/ — 133 parole, 2 passaggi, 23 rilievi, il peggiore: rilievo critico</title>
 </rect>
 <text x='6.0' y='17.0'>/</text>
 <rect x='387.3' y='0.0' width='372.7' height='210.0' class='warn'>
@@ -861,7 +924,7 @@ Disallow:</pre>
 <td>https://esempio.test/</td>
 <td class='num'>133</td>
 <td class='num'>2</td>
-<td>19 rilievi, il peggiore: rilievo critico</td>
+<td>23 rilievi, il peggiore: rilievo critico</td>
 </tr>
 <tr>
 <td>https://esempio.test/faq/</td>
@@ -987,13 +1050,15 @@ Disallow:</pre>
 <ul class='rilievi'>
 <li>Nessuna sitemap dichiarata</li>
 </ul>
-<h3 class='bad'>Nuovi (19)</h3>
+<h3 class='bad'>Nuovi (21)</h3>
 <ul class='rilievi'>
 <li>L&#x27;indicizzazione della pagina è bloccata</li>
 <li>Il documento non ha un elemento `&lt;title&gt;`</li>
 <li>Il documento non ha una meta descrizione</li>
 <li>I link non hanno testo descrittivo</li>
 <li>Gli elementi immagine non hanno attributi `[alt]`</li>
+<li>LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)</li>
+<li>Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell&#x27;INP)</li>
 <li>3/3 pagine sotto le 300 parole</li>
 <li>1/3 query senza un riscontro lessicale</li>
 <li>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</li>
@@ -1012,8 +1077,8 @@ Disallow:</pre>
 <p class='meta'>È cambiato che cosa si misura — il menu di navigazione, la testata e il piede non entrano piu&#x27; nel corpus dei passaggi ne&#x27; nel conteggio delle parole (R63): i numeri si muovono anche a sito invariato.</p>
 <p class='meta'>Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu&#x27; per sola regola: sec.zap.10038 e&#x27; diventato sec.zap.10038_1, _2, _3 (R39): in quest&#x27;area «risolto» e «comparso» non sono fatti del sito.</p>
 <h2>Piano di interventi</h2>
-<p class='meta'>20 interventi (6 critici, 14 avvertenze) · 2 quick win · 4 senza recupero dichiarato · 6 senza sforzo dichiarato</p>
-<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 7 aree su 9; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
+<p class='meta'>22 interventi (6 critici, 16 avvertenze) · 2 quick win · 4 senza recupero dichiarato · 6 senza sforzo dichiarato</p>
+<p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 8 aree su 10; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
 <div class='intervento'>
 <div class='riga'>
 <h3>
@@ -1199,7 +1264,19 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>16</span> <a href='#r-lex-query-no-match'>1/3 query senza un riscontro lessicale</a>
+<span class='priorita'>16</span> <a href='#r-perf-tbt-high'>Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell&#x27;INP)</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Prestazioni · sforzo: giorni</p>
+<p class='guadagno'>+22 punti d'area (58 → 80)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all&#x27;input mentre la pagina carica.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>17</span> <a href='#r-lex-query-no-match'>1/3 query senza un riscontro lessicale</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1211,7 +1288,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>17</span> <a href='#r-lex-words-thin'>3/3 pagine sotto le 300 parole</a>
+<span class='priorita'>18</span> <a href='#r-lex-words-thin'>3/3 pagine sotto le 300 parole</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1223,7 +1300,19 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>18</span> <a href='#r-sem-chunks-few'>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</a>
+<span class='priorita'>19</span> <a href='#r-perf-lcp-slow'>LCP lento: 4,3 s — il contenuto principale dovrebbe comparire entro 2,5 s (scarso oltre 4 s)</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Prestazioni · sforzo: giorni</p>
+<p class='guadagno'>+14 punti d'area (58 → 72)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Alleggerisci l&#x27;elemento principale della pagina: servi l&#x27;immagine hero compressa e nel formato moderno, precaricala, e abbatti il tempo di risposta del server con cache o CDN. E&#x27; il singolo intervento che sposta di piu&#x27; i Core Web Vitals.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>20</span> <a href='#r-sem-chunks-few'>4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1235,7 +1324,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>19</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
+<span class='priorita'>21</span> <a href='#r-wcag-heading-skip'>1 salti nella gerarchia degli heading (es. h2 seguito da h4)</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1247,7 +1336,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>20</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
+<span class='priorita'>22</span> <a href='#r-wcag-table-th-missing'>1 tabelle dati senza intestazioni &lt;th&gt;</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>

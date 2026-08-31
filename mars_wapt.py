@@ -764,7 +764,7 @@ def _ripiego_dopo_zap(url: str) -> dict:
 
 
 def audit(context: dict) -> dict:
-    """Area 7: sicurezza, con ZAP quando un daemon e' raggiungibile."""
+    """Area 8: sicurezza, con ZAP quando un daemon e' raggiungibile."""
     url = context["url"]
     credenziali = context.get("credentials") or {}
     client = context.get("_zap_client") or connect_zap(credenziali)
@@ -828,7 +828,7 @@ def audit(context: dict) -> dict:
                 # Con la dichiarazione il perimetro NON e' il campione,
                 # e MARS non lo conosce: `pages_tested` resta None. Ma
                 # tacere lascerebbe credere che valga `--max-pages`
-                # come per le altre otto aree, e non e' vero.
+                # come per le altre nove aree, e non e' vero.
                 #
                 # I due limiti che agiscono davvero sono il nostro per
                 # NODO e il `MaxDepth` del daemon, e insieme non fanno

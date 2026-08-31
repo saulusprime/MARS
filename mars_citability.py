@@ -245,7 +245,7 @@ def profilo(assistente: str, segnali: Dict[str, Optional[float]],
 
 
 def audit(context: dict) -> dict:
-    """Area 8: profili di citabilità IA stimati dai punteggi d'area.
+    """Area 9: profili di citabilità IA stimati dai punteggi d'area.
 
     Modulo di SINTESI: legge context["results"], quindi deve girare per
     ultimo in MODULES_REGISTRY. Non tocca la rete e non usa chiavi API —

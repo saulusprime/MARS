@@ -503,6 +503,46 @@ def punteggi_categorie(lhr: dict) -> Dict[str, Optional[float]]:
     return esito
 
 
+def metriche_prestazioni(lhr: dict) -> List[Dict[str, object]]:
+    """Le metriche della categoria performance, per l'area Prestazioni.
+
+    Lo stesso run che paga la categoria SEO produce anche le metriche
+    dei Core Web Vitals, e fino a I10 venivano buttate col resto del
+    LHR. Si pubblicano nel risultato — non l'LHR intero, che pesa
+    centinaia di kilobyte e finirebbe in `modules` dell'API — cosi'
+    `mars_perf`, che gira dopo nel registro, le legge da
+    `context["results"]` come `mars_wcag` legge `lighthouse_scores`.
+
+    Solo il gruppo `metrics`: sono le voci che Lighthouse pesa e
+    mostra. Il gruppo `hidden` (`interactive`, `max-potential-fid`) e i
+    diagnostici restano fuori — portarli direbbe che sono stati
+    giudicati. Dati grezzi, non giudizi: decidere che cosa sia un
+    difetto tocca a `mars_perf`.
+    """
+    categoria = (lhr.get("categories") or {}).get("performance") or {}
+    audits = lhr.get("audits") or {}
+    esito: List[Dict[str, object]] = []
+    for ref in categoria.get("auditRefs") or []:
+        if ref.get("group") != "metrics":
+            continue
+        voce = audits.get(ref.get("id")) or {}
+        esito.append({
+            "id": ref.get("id"),
+            "title": voce.get("title") or ref.get("id"),
+            "score": voce.get("score"),
+            "mode": voce.get("scoreDisplayMode"),
+            "weight": _peso(ref.get("weight")),
+            "numeric_value": voce.get("numericValue"),
+            "numeric_unit": voce.get("numericUnit"),
+            # Gia' formattato nella lingua del run (`--locale`): non si
+            # riformatta a valle, e la lingua viaggia con la voce cosi'
+            # mars_perf puo' dichiararla in `params["text_lang"]`.
+            "display_value": voce.get("displayValue") or "",
+            "text_lang": lingua_lhr(lhr),
+        })
+    return esito
+
+
 def _issues_dei_controlli(controlli: List[Dict[str, object]]) -> List[str]:
     """La vista compatta dei controlli falliti e non misurati.
 
@@ -616,8 +656,21 @@ def riassumi(lhr: dict) -> dict:
                 "audits": controlli or None,
                 # Le ALTRE categorie possono esserci lo stesso: il run
                 # e' riuscito, e' la sola categoria SEO a non essere
-                # calcolabile.
-                "lighthouse_scores": punteggi_categorie(lhr)}
+                # calcolabile. Vale anche per le metriche di
+                # performance, che alimentano l'area Prestazioni — e
+                # con loro il corredo che mars_perf legge: strumento,
+                # dispositivo e pagina misurata. Senza, i rilievi
+                # delle prestazioni perderebbero `params["urls"]` — e
+                # con essi la treemap — SENZA un errore (R47), mentre
+                # il LHR queste tre cose le porta.
+                "lighthouse_scores": punteggi_categorie(lhr),
+                "performance_metrics": metriche_prestazioni(lhr),
+                "tool": "Lighthouse %s" % (lhr.get("lighthouseVersion")
+                                           or "?"),
+                "form_factor": (lhr.get("configSettings")
+                                or {}).get("formFactor"),
+                "audited_url": (lhr.get("finalDisplayedUrl")
+                                or lhr.get("finalUrl"))}
 
     falliti = [c for c in controlli if not c["passed"] and not c["manual"]]
     superati = [c for c in controlli if c["passed"]]
@@ -636,8 +689,10 @@ def riassumi(lhr: dict) -> dict:
                         or lhr.get("finalUrl")),
         "audits": controlli,
         # Le altre categorie dello stesso run: non le misura quest'area,
-        # ma le ha pagate lei.
+        # ma le ha pagate lei. Le metriche di performance alimentano
+        # l'area Prestazioni (I10), che gira dopo nel registro.
         "lighthouse_scores": punteggi_categorie(lhr),
+        "performance_metrics": metriche_prestazioni(lhr),
         "passed": len(superati),
         "failed": len(falliti),
         "manual": len(manuali),

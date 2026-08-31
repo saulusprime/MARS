@@ -33,7 +33,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.17.0"
+__version__ = "2.18.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -123,15 +123,18 @@ def host_matches(url: str, target_host: str) -> bool:
 MODULES_REGISTRY = [
     ("mars_tech", "1. Tecnica"),
     ("mars_seo", "2. SEO"),
-    ("mars_lexical", "3. Lessicale"),
-    ("mars_semantic", "4. Semantica"),
-    ("mars_schema", "5. Dati Strutturati"),
-    ("mars_wcag", "6. Accessibilità"),
-    ("mars_wapt", "7. Sicurezza"),
+    # Dopo mars_seo per contratto: legge le metriche dei Core Web
+    # Vitals dal SUO risultato (stesso run Lighthouse, I10).
+    ("mars_perf", "3. Prestazioni"),
+    ("mars_lexical", "4. Lessicale"),
+    ("mars_semantic", "5. Semantica"),
+    ("mars_schema", "6. Dati Strutturati"),
+    ("mars_wcag", "7. Accessibilità"),
+    ("mars_wapt", "8. Sicurezza"),
     # La sintesi va per ultima: legge context["results"].
-    ("mars_citability", "8. Citabilità IA"),
+    ("mars_citability", "9. Citabilità IA"),
     # Ultimo: e' l'unico modulo che spende denaro.
-    ("mars_llm_judge", "9. Giudizio LLM"),
+    ("mars_llm_judge", "10. Giudizio LLM"),
 ]
 
 
@@ -286,6 +289,7 @@ SEVERITA = (SEV_CRITICAL, SEV_WARNING, SEV_INFO, SEV_OK)
 AREA_PREFIX = {
     "mars_tech": "tech",
     "mars_seo": "seo",
+    "mars_perf": "perf",
     "mars_lexical": "lex",
     "mars_semantic": "sem",
     "mars_schema": "sd",
@@ -1711,7 +1715,7 @@ def load_credentials(path: str) -> Tuple[Dict[str, str], str]:
     avvisi = []
     if ignote:
         # Un refuso — `antropic_api_key` senza la h — disabiliterebbe
-        # l'area 9 senza un errore. Si nomina, e non si tace.
+        # l'area 10 senza un errore. Si nomina, e non si tace.
         avvisi.append("chiavi ignorate in %s: %s" % (path, ", ".join(ignote)))
     try:
         modo = os.stat(path).st_mode

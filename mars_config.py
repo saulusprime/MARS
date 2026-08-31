@@ -58,7 +58,7 @@ from typing import Dict, Tuple
 # Fino a I8 era scritta tre volte, identica, con un commento che
 # diceva «ripetuta e non importata perché i moduli sono plugin e non si
 # importano fra loro». La ragione vale fra plugin, non verso un modulo
-# condiviso: tutti e nove i moduli d'area importano già da `mars_core`.
+# condiviso: tutti e dieci i moduli d'area importano già da `mars_core`.
 PENALITA: Dict[str, int] = {"critico": 40, "grave": 20,
                             "medio": 8, "lieve": 3}
 

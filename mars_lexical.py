@@ -137,7 +137,7 @@ def _giudizio(pages: dict, per_query: List[dict]) -> dict:
 
 
 def audit(context: dict) -> dict:
-    """Area 3: BM25 sui chunk del sito, e i segnali che lo alimentano.
+    """Area 4: BM25 sui chunk del sito, e i segnali che lo alimentano.
 
     Indicizza i CHUNK, non le pagine: prima questo modulo lavorava su
     pagine e mars_semantic su chunk, e i due ranking venivano poi fusi

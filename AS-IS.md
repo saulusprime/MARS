@@ -84,6 +84,7 @@
 | I4+I9 | Il consenso dice anche QUALI passaggi divergono, e da che parte | 2026-08-28 |
 | I15 | L'elisione italiana, su un elenco dichiarato di nove | 2026-08-28 |
 | I18 | La correzione con esempio anche per l'area SEO | 2026-08-28 |
+| I10 | L'area Prestazioni: i Core Web Vitals dallo stesso LHR | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2386,6 +2387,142 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I10 — ✅ REALIZZATA (2026-08-31): l'area Prestazioni, i Core Web Vitals dallo stesso LHR
+
+*(idea, decisa dall'utente. `__version__` a **2.18.0**: nasce l'area
+«3. Prestazioni» e le aree 3-9 diventano 4-10. Le chiavi dei rilievi e lo
+storico non si muovono — il confronto è per `key` — e il complessivo nemmeno,
+perché l'area ne resta fuori per decisione dichiarata.)*
+
+**Che cosa c'era.** R45 pubblicava i punteggi di tutte le categorie
+Lighthouse (`lighthouse_scores`), ma gli **audit** della categoria
+performance si buttavano con il resto dell'LHR: nessuna parte azionabile,
+niente LCP, CLS, TBT con le loro soglie.
+
+**Le tre decisioni, prese dall'utente su opzioni a confronto.**
+
+- **Posizione 3, subito dopo la SEO**: le due aree Lighthouse stanno
+  accanto. Il churn della rinumerazione è di sola resa (etichette,
+  catalogo i18n, golden — che si rigeneravano comunque).
+- **Il punteggio è 100 meno le penalità delle sole metriche sotto
+  «buono»**: una metrica buona non costa nulla. Ogni penalità è il
+  contributo lineare esatto della metrica alla media pesata di
+  Lighthouse — la formula di `mars_seo._penalita` (U1.7), non una stima —
+  quindi la somma ricostruisce lo score e **l'area è certificata** dal
+  piano, con recuperi misurati per metrica. L'alternativa «score = categoria
+  Lighthouse tal quale» non era certificabile: le metriche sono continue, e
+  i residui delle metriche buone non stanno in nessun rilievo.
+- **Fuori dal complessivo** (`AREE_FUORI_DAL_COMPLESSIVO`): misura di
+  laboratorio su UNA pagina con throttling simulato, la più rumorosa del
+  referto fra due esecuzioni a sito invariato. Il complessivo deve muoversi
+  col sito, non col rumore dello strumento; sui golden è la prova — 60 e 66
+  **invariati**. Includerla è una decisione da riaprire con una misura della
+  varianza davanti. Conseguenza dichiarata: le voci `perf.*` del piano non
+  hanno `index_gain`, perché nessun segnale di citabilità nasce da
+  quest'area — l'ordinamento del piano è già `None`-safe.
+
+**Il canale è il precedente di R45.** `mars_seo` pubblica nel proprio
+risultato `performance_metrics` — le sole voci del gruppo `metrics`, non
+l'LHR intero, che pesa centinaia di KB e finirebbe in `modules` dell'API —
+e `mars_perf` gira dopo nel registro e legge `context["results"]`, come
+`mars_wcag` legge `lighthouse_scores`. Via API, `POST /audit/perf` esegue
+prima `mars_seo` sullo stesso contesto: un anello di tubatura alla R56,
+presidiato da un test che conta e ordina le chiamate.
+
+**Le bande sono quelle già dichiarate dal referto (90/50), e per le
+metriche mobile coincidono con le soglie CWV per costruzione**: le curve di
+scoring di Lighthouse mappano p10→0,9 e median→0,5, e per LCP (2500/4000 ms)
+e CLS (0,1/0,25) p10 e median SONO le soglie «buono»/«scarso» di Google.
+Sotto 50 è `warning`, sotto 90 `info`, **mai `critical`**: in MARS critico
+significa invisibile agli assistenti (U1.4), e una pagina lenta è
+penalizzata, non invisibile. I numeri nei titoli stanno solo su LCP e CLS,
+le uniche soglie indipendenti dal form factor.
+
+**La nota del riferimento ora dichiara la direzione leggendola, non
+affermandola.** «Scala diversa: la nostra è più severa» era cablata — nata
+con R45 per l'accessibilità, dov'è vera (37 vs 97) — e sull'area nuova
+sarebbe stata falsa: 58,2 contro 56 sul golden, perché le metriche sopra
+soglia non costano nulla. Tre rami: più severa, più indulgente, e nessuna
+direzione quando i numeri sono pari o il nostro manca (nel ramo non
+misurato il riferimento non si pubblica affatto).
+
+**L'INP, e l'infedeltà della fixture trovata dall'end-to-end vero.** L'INP
+non si misura in laboratorio (`supportedModes: ['timespan']`), e la prima
+fixture lo congelava nel LHR come `notApplicable`. Il run reale ha smentito:
+in navigation Lighthouse **pota** l'audit dal referto — la metrica non
+arriva nemmeno, e la fixture congelava una forma che in produzione non
+esiste (la stessa classe di R44/U8.4). La voce «non misurato» nell'elenco
+dei controlli la aggiunge quindi **MARS**, col nome proprio e senza prosa da
+tradurre; se un run (timespan) la portasse davvero, il dato vince. Il proxy
+pesato resta il TBT, come fa Lighthouse, e il rilievo del TBT lo dice.
+
+**Due aspettative di test erano sbagliate, ed erano mie**: il denominatore
+della penalità sono i pesi **presenti** (con due metriche su cinque fa 55,
+non 100 — è la normalizzazione che Lighthouse fa sulla propria categoria), e
+lo score arrotondato non sta in una tolleranza di 0,01. Si sono corretti i
+test dichiarandolo, non il codice.
+
+**La revisione avversariale pre-commit ha trovato tre difetti veri**, tutti
+riprodotti prima di correggerli:
+
+- **il doppio arrotondamento rompeva la certificazione nel ~4% dei casi**,
+  misurato su 200.000 combinazioni di punteggi: lo score usciva
+  `round(..., 1)` mentre il certificato confronta `round(100 - base)` con
+  `round(score)`, e quando `100 - somma` cade su un mezzo (54,55 → 45,5 →
+  46 contro 45) l'area «certificabile per costruzione» finiva in corsia
+  «ignoto». Lo score è ora **grezzo**, come il `punteggio * 100` di
+  mars_seo, e le viste arrotondano da sé;
+- **una metrica pesata fuori dai cinque id noti sollevava `KeyError`** e
+  faceva uscire l'area in `status: error` (e un 500 su `/audit/perf`) —
+  il contrario della promessa «il dato vince» scritta nella docstring. Ora
+  produce un rilievo **dinamico `perf.lh.*`** col titolo dello strumento e
+  la sua penalità, come axe e ZAP (famiglia dichiarata in
+  `FAMIGLIE_DALLO_STRUMENTO` e `DINAMICHE`);
+- **il ramo `not_scored` di mars_seo pubblicava le metriche senza il
+  corredo** — `audited_url`, `tool`, `form_factor` — e i rilievi delle
+  prestazioni perdevano `params["urls"]` **senza un errore** (il caso
+  testuale di R47), mentre il LHR quelle tre cose le porta.
+
+Più tre minori chiusi con l'occasione: `params["text_lang"]` sul valore
+formattato dal run («1.200 ms» di un run italiano letto in inglese sono
+1,2 ms), i bool e i punteggi fuori `[0, 1]` dichiarati illeggibili invece
+che contati (la difesa di `istanze_del_rilievo`), e **dodici residui di
+prosa della rinumerazione** — il più sostanzioso un presidio di R42 che
+filtrava le righe per `"8. "` e con la citabilità a 9 sarebbe passato
+vacuamente.
+
+**Prove.**
+
+- `pytest` **1324 passed** (da 1292), `flake8 .` a zero. Golden dei cinque
+  formati rigenerati e **diff riletto**: complessivo fermo su entrambi i
+  referti, area a 58,25 nel completo e «non misurato» nel degradato, piano
+  da 20 a 22 interventi.
+- **Ventisei mutazioni su ventisei colte** con `PYTHONDONTWRITEBYTECODE=1`
+  e **senza i golden** (un guardiano che vive solo lì si perde alla prima
+  rigenerazione — R53): i due confini 90/50, la formula e il denominatore
+  della penalità, lo score che ignora le penalità, il peso canonico, l'INP
+  taciuto e l'INP duplicato, la pagina inventata senza URL, il riferimento
+  nel ramo non misurato, la guardia senza dati, il filtro del gruppo
+  `hidden`, le metriche non pubblicate nel ramo `not_scored`, il registro
+  fuori ordine, il rientro nel complessivo, la tubatura dell'endpoint, la
+  nota sempre «più severa», il `KeyError` reintrodotto, i bool e il range,
+  il `text_lang` taciuto, la chiave generica cablata, il corredo perso.
+  **Una era nulla al primo giro** — il blocco duplicato inserito nel ramo
+  sbagliato, dopo un `return` — ed è stata rifatta nel punto giusto: anche
+  le mutazioni vanno verificate.
+- **End-to-end con Lighthouse 13.4.1 vero** su un sito locale da due
+  pagine: cinque metriche misurate più la voce INP dichiarata, score 100 con
+  riferimento 100, area esclusa dal complessivo. È questo run ad aver
+  smentito la fixture sull'INP.
+- **axe-core su Chromium sui due referti golden: zero violazioni** WCAG 2.1
+  A+AA, come dopo U11.
+
+**Che cosa resta NON verificato.** Un sito reale **lento**: le soglie e le
+gravità sono esercitate dai referti sintetici e dai test di confine, non da
+un run reale sotto 0,9. E la varianza run-to-run che motiva l'esclusione dal
+complessivo è dichiarata sulla natura dello strumento, non misurata: chi
+volesse includere l'area misuri prima quella.
 
 ### R63 — ✅ (2026-08-28): il menu di navigazione non è contenuto
 

@@ -165,7 +165,7 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
         "queries": list(context.get("queries") or []),
         "skipped": list(context.get("skipped") or []),
         # La superficie come dato: che cosa c'e' su ogni URL e quanto e'
-        # profondo. Serve alle integrazioni, e nessuna delle nove aree
+        # profondo. Serve alle integrazioni, e nessuna delle dieci aree
         # lo espone — ognuna guarda la propria misura.
         "pages": pagine_scansionate(context),
         "surface_math": surface_math(context),
@@ -236,8 +236,16 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
 # togliere i segnali e tenere le aree — costa di piu': il consenso RRF
 # e' la domanda del progetto e nessun controllo di U13 lo misura,
 # quindi sparirebbe dal complessivo per non tornare.
+#
+# `mars_perf` e' fuori per decisione di I10: e' una misura di
+# laboratorio su UNA pagina, con throttling simulato — la piu'
+# rumorosa del referto fra due esecuzioni a sito invariato. Il
+# complessivo deve muoversi col sito, non col rumore dello strumento;
+# includerla e' una decisione da riaprire con una misura della
+# varianza davanti, non un default.
 AREE_FUORI_DAL_COMPLESSIVO = ("mars_citability", "mars_llm_judge",
-                              "mars_lexical", "mars_semantic")
+                              "mars_lexical", "mars_semantic",
+                              "mars_perf")
 
 
 def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
@@ -291,7 +299,7 @@ def overall_score(referto: dict) -> Optional[Dict[str, object]]:
     applica ai suoi segnali.
 
     Restituisce anche `components` ed `excluded`, e non e' ornamento:
-    un numero che riassume nove aree in uno vale quanto la possibilita'
+    un numero che riassume dieci aree in uno vale quanto la possibilita'
     di rifarne il conto. Senza, «68» sarebbe l'unica cifra del referto
     che nessuno puo' verificare.
 
@@ -1268,11 +1276,28 @@ def _qualificatori(area: dict, lang: str = LINGUA_CANONICA) -> List[str]:
         # differisce. Senza quella ragione sarebbero due voti in
         # contraddizione; con essa sono due misure con scale diverse,
         # ed e' un'informazione in piu' invece che un dubbio.
-        pezzi.append(t("%s %.0f/100 (1 pagina, scala diversa: la nostra è "
-                       "più severa)", lang)
-                     % (area.get("reference_tool")
-                        or t("altro strumento", lang),
-                        area["reference_score"]))
+        #
+        # La direzione si LEGGE dal confronto, non si afferma: la nota
+        # nacque per l'accessibilita' (R45), dove MARS e' piu' severo,
+        # ma per le prestazioni vale l'opposto — le metriche sopra
+        # soglia non costano nulla — e una frase sola per i due casi
+        # direbbe il falso in uno dei due (I10).
+        punteggio_area = area.get("score")
+        if not isinstance(punteggio_area, (int, float)):
+            # Senza il nostro numero non c'e' una direzione da
+            # dichiarare: si dice solo che la scala e' un'altra.
+            nota = t("%s %.0f/100 (1 pagina, scala diversa)", lang)
+        elif punteggio_area < area["reference_score"]:
+            nota = t("%s %.0f/100 (1 pagina, scala diversa: la nostra "
+                     "è più severa)", lang)
+        elif punteggio_area > area["reference_score"]:
+            nota = t("%s %.0f/100 (1 pagina, scala diversa: la nostra "
+                     "è più indulgente)", lang)
+        else:
+            nota = t("%s %.0f/100 (1 pagina, scala diversa)", lang)
+        pezzi.append(nota % (area.get("reference_tool")
+                             or t("altro strumento", lang),
+                             area["reference_score"]))
     controlli = area.get("audits") or []
     if controlli:
         superati = sum(1 for c in controlli if c.get("passed"))
@@ -1370,7 +1395,7 @@ def _riga_complessivo(referto: dict,
                       lang: str = LINGUA_CANONICA) -> List[str]:
     """Il complessivo in testa, con che cosa lo compone.
 
-    Un numero solo per nove aree e' utile quanto e' verificabile: la
+    Un numero solo per dieci aree e' utile quanto e' verificabile: la
     riga sotto dice quante misure ci sono dentro e quali non ci sono
     per decisione, cosi' chi legge 68 sa che non e' la media di tutto.
     """
@@ -1639,7 +1664,7 @@ def _area_di(referto: dict, modulo: str) -> dict:
 
 
 def giudizi_del_referto(referto: dict) -> List[dict]:
-    """I giudici dell'area 9, dal piu' recente dei due campi.
+    """I giudici dell'area 10, dal piu' recente dei due campi.
 
     `llm_judgements` esiste da U10 e li porta tutti; `llm_judgement`
     e' il primo che ha risposto, ed e' quello che i consumatori

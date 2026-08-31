@@ -4,7 +4,7 @@
 =======================================================
 
 I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).
-COMPLESSIVO          :  63/100  (da migliorare)
+COMPLESSIVO          :  69/100  (da migliorare)
   media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM
 -------------------------------------------------------
 1. Tecnica           :  57/100
@@ -54,12 +54,12 @@ SUPERFICIE
   (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
 -------------------------------------------------------
 RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
-  Complessivo          +2  (61 → 63)
+  Complessivo          +8  (61 → 69)
   wcag                 +21  (37 → 58)
   tech                 +17  (40 → 57)
   schema               -10  (100 → 90)
+  citability           +8  (60 → 68)
   llm_judge            +6  (55 → 61)
-  citability           +3  (60 → 63)
   1 risolti:
     · Nessuna sitemap dichiarata
   21 nuovi:
@@ -68,6 +68,7 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
     · Il documento non ha una meta descrizione
     · ... e altri 18
   (le chiavi sec.zap. hanno cambiato forma: li' «risolto» e «comparso» non sono fatti del sito)
+  (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
 PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
@@ -104,11 +105,11 @@ Fuori dall'intersezione:
     https://esempio.test/faq/ § Serve la prescrizione medica?
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: eu)
-  Claude                65.1  █████████████
-  ChatGPT/Perplexity    62.0  ████████████
-  Qwen                  65.0  █████████████
-  Kimi                  65.0  █████████████
-  INDICE COMPOSITO      63.4
+  Claude                71.7  ██████████████
+  ChatGPT/Perplexity    65.9  █████████████
+  Qwen                  69.7  █████████████
+  Kimi                  69.7  █████████████
+  INDICE COMPOSITO      68.3
   (stime euristiche dichiarate, non comportamento documentato dai vendor)
   · Segnale debole: Qualità SEO (27/100)
   · Segnale debole: Accesso e indicizzabilità (57/100)
@@ -116,16 +117,16 @@ Profili di citabilità IA  (mercato: eu)
 Giudizio LLM (claude-opus-5)  su 4 passaggi
   Citabilità stimata   : 61/100
   I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
-  scarto vs indice composito: -2.4
-  scarto vs profilo Claude: -4.1
+  scarto vs indice composito: -7.3
+  scarto vs profilo Claude: -10.7
   Passaggio migliore   : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
   · da migliorare: Nessun prezzo verificabile
   · da migliorare: Nessuna data di aggiornamento
 Giudizio LLM (gpt-5.6)  su 4 passaggi
   Citabilità stimata   : 44/100
   Il contenuto risponde, ma nulla e' verificabile dall'esterno.
-  scarto vs indice composito: -19.4
-  scarto vs profilo ChatGPT/Perplexity: -18.0
+  scarto vs indice composito: -24.3
+  scarto vs profilo ChatGPT/Perplexity: -21.9
   Passaggio migliore   : https://esempio.test/servizi/ § Percorsi post-operatori
   · da migliorare: Nessun riferimento a fonti o normative
   · da migliorare: Alcuni passaggi rimandano a cio' che sta sopra

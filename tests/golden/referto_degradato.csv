@@ -16,7 +16,7 @@ https://esempio.test/;8. Sicurezza;warning;2.0;CSP mancante;;Aggiungi Content-Se
 https://esempio.test/;8. Sicurezza;warning;1.0;X-Frame-Options mancante;;Impedisci che il sito venga incorniciato da terzi: X-Frame-Options DENY se non deve mai esserlo, SAMEORIGIN se lo incornici tu.;https://esempio.test/;;minuti;
 https://esempio.test/;9. Citabilità IA;info;1.0;Mercato 'italia' sconosciuto: uso 'global';;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale non misurato: Qualità SEO;;;;;;
-https://esempio.test/;9. Citabilità IA;info;1.0;Segnale non misurato: Recuperabilità ibrida (consenso RRF);;;;;;
+https://esempio.test/;9. Citabilità IA;info;1.0;Segnale non misurato: Recuperabilità ibrida (consenso medio per query);;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale non misurato: Contenuto in forma di risposta;;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Accessibilità (40/100);;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Accesso e indicizzabilità (57/100);;;;;;

@@ -69,7 +69,7 @@ Profili di citabilità IA  (mercato: global)
   INDICE COMPOSITO      67.9
   (stime euristiche dichiarate, non comportamento documentato dai vendor)
   · Mercato 'italia' sconosciuto: uso 'global' (noti: cn, eu, global, us)
-  · Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso RRF), Contenuto in forma di risposta
+  · Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso medio per query), Contenuto in forma di risposta
   · Segnale debole: Accessibilità (40/100)
 -------------------------------------------------------
 ⚠ robots.txt IGNORATO per dichiarazione di proprieta'

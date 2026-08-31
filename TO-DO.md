@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R64**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R65**, idee fino a
 > **I18**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,7 +19,8 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Nessuna casella aperta.** Il programma UPGRADE è chiuso, salvo la fase
+> **Una casella aperta** (R65, trovata dalla revisione di I17 e non
+> introdotta da lei). Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -52,7 +53,11 @@
 > del committente col PSI (2026-08-31) ha aperto e chiuso **R64** — la
 > diffusione axe partiva dal massimo sul campione di una pagina, e da lì i
 > punteggi WCAG si muovono a sito invariato — e ha deciso **I16**, che con
-> `--form-factor` porta la versione a **2.19.0**.
+> `--form-factor` porta la versione a **2.19.0**. Lo stesso giorno si è
+> decisa **I17** — il segnale «Recuperabilità» del complessivo e dei profili
+> di citabilità è la media per query, che da k non dipende, e l'aggregato
+> resta come diagnostica — e la versione è **2.20.0**, perché complessivo e
+> profili si muovono a sito invariato.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -69,7 +74,19 @@
 
 ## Correzioni
 
-**Nessuna aperta.**
+- [ ] **R65** — **il consenso regalato dalle code a punteggio zero.** I `rank`
+  per query coprono l'intero corpus, e su una query con uno o due riscontri
+  per lato i primi tre si riempiono con i parimerito a zero in ordine di
+  scansione — identico sui due lati. *Misurato il 2026-08-31 durante la
+  revisione di I17, end-to-end con BM25 e proxy veri:* 6 chunk, il lessicale
+  trova solo il chunk 4 e il semantico solo il chunk 5 — accordo reale zero —
+  e il consenso per query dice 2/3 (66.7). **Non è una regressione di I17**:
+  sullo stesso input l'aggregato pre-I17 dava lo stesso 66.7, perché fondeva
+  le stesse liste contaminate; R23 presidia il solo confine tutto-zero
+  (`matched=any(s>0)`). Morde soprattutto nel ripiego char-TFIDF, dove gli
+  zeri esatti abbondano. Correzione da decidere sul contratto dei `rank`:
+  troncarli ai soli punteggi positivi, o farlo fare a `_consenso` e al
+  gemello in `mars_citability`.
 
 ---
 
@@ -88,13 +105,3 @@
 - **I14** — tetto alla dimensione della risposta HTTP: `_get` scarica il corpo
   intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
   byte.
-- **I17** — il consenso aggregato regge il segnale «Recuperabilità», che entra
-  nel complessivo, ed è **fragile rispetto a k**. *Misurato il 2026-08-27
-  chiudendo I3, sullo stesso sito e nello stesso minuto:* 3/3 e complessivo
-  77.9 con `--rrf-k 10`, 0/3 e complessivo 59.2 con il predefinito 60. Le
-  strade sono tre e vanno decise, non dedotte: lasciare tutto com'è ora che il
-  referto lo dichiara e lo sonda; togliere quel segnale dal complessivo, come
-  già si fa per le due aree di classifica; oppure sostituirlo con una misura
-  che da k non dipenda — per esempio la sovrapposizione media fra i primi N
-  delle due liste per query, che è il consenso per query e infatti non si
-  muove. Frontiera: **I17**.

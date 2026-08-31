@@ -87,6 +87,7 @@
 | I10 | L'area Prestazioni: i Core Web Vitals dallo stesso LHR | 2026-08-31 |
 | R64 | La diffusione axe partiva dal massimo sul campione di una pagina | 2026-08-31 |
 | I16 | `--form-factor`: il confronto like-for-like col PSI desktop | 2026-08-31 |
+| I17 | La Recuperabilità è la media per query: k non muove più un voto | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2389,6 +2390,56 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I17 — ✅ REALIZZATA (2026-08-31): la Recuperabilità è la media per query, e k non muove più un voto
+
+*(le tre strade erano dichiarate nel TO-DO «da decidere, non dedurre»: la
+decisione è la terza — sostituire, non togliere né lasciare.)*
+
+**Il problema, misurato da I3.** Il segnale «Recuperabilità» del
+complessivo veniva dal consenso **aggregato**: l'incrocio dei primi tre di
+due classifiche che ogni recuperatore fonde con k. Sullo stesso sito e
+nello stesso minuto: 3/3 e complessivo 77.9 con `--rrf-k 10`, 0/3 e 59.2
+col predefinito 60 — ±18.7 punti da un flag. E il perimetro era più largo
+del TO-DO: anche la «Recuperabilità ibrida» dei profili di citabilità
+(peso 2–3/3 per ogni assistente) leggeva gli stessi ranghi aggregati.
+
+**La decisione.** Entrambi i consumatori passano alla **media per query**
+dell'incrocio fra i primi tre delle liste grezze: k non entra per
+costruzione — lo diceva già la docstring di `_consenso` — ed è ciò che
+accade al momento del recupero, perché un assistente risponde a una
+domanda alla volta. Le query non misurabili restano fuori dalla media
+(R23); `consensus_out_of` non è sempre 3, e una query da un chunk vale
+1/1. Il consenso aggregato e il sondaggio di k **restano nel referto come
+diagnostica**: dicono quali passaggi salgono su tutte le domande insieme,
+e da che parte divergono (I4+I9).
+
+**La revisione avversariale ha trovato quattro difetti veri**, corretti
+prima del commit: mancava la voce `MISURE_CAMBIATE` per la 2.20.0 (il
+delta 2.19→2.20 avrebbe detto «migliorato» di +6 punti a sito invariato,
+senza caveat — il metro l'aveva fissato R63); l'etichetta «Recuperabilità
+ibrida (consenso RRF)» era diventata falsa (la misura dall'RRF non passa
+più) ed è ora «consenso medio per query», IT e EN; la card HTML e il
+README incoronavano ancora l'aggregato come «la misura più solida» — ora
+è dichiarato diagnostica che si muove con k; i due gemelli divergevano su
+**query duplicate** (`--queries` non deduplica: misurato 66.7 contro 50
+sugli stessi dati — ora entrambi collassano per query). Un quinto
+rilievo, **vero ma ereditato**, è diventato **R65** a TO-DO: su una query
+con un solo riscontro per lato i primi tre si riempiono di parimerito a
+zero in ordine di scansione e regalano consenso (misurato 66.7 dove
+l'accordo reale è zero, identico pre e post I17). Due mutazioni
+sopravvissute hanno inoltre tolto una clausola morta e scoperto il caso
+`out_of=1` non provato.
+
+**Le prove.** 13 mutazioni colte in quattro giri; golden rigenerati e
+diff riletto — complessivo sintetico 63 → 69, citabilità 63.4 → 68.3, i
+due caveat nel delta; end-to-end **due volte sul sito reale, k=60 e
+k=10: referti identici alla cifra decimale** (Recuperabilità 16.67,
+complessivo 65.1, profili immutati) — prima di I17 quel confronto era la
+misura della fragilità. `flake8` a zero, 1339 test verdi.
+**Non verificato**: un sito dove aggregato e media per query divergano
+molto (qui 0/3 contro 16.7; sul sintetico 66.7 contro 100) — la
+direzione dello scarto non è caratterizzata in generale.
 
 ### I16 — ✅ REALIZZATA (2026-08-31): `--form-factor`, il confronto like-for-like col PSI
 

@@ -6,7 +6,7 @@
 
 ## Complessivo
 
-**63/100** — da migliorare
+**69/100** — da migliorare
 
 Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
@@ -22,7 +22,7 @@ Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9.
 | 6. Dati Strutturati | 90/100 |  |
 | 7. Accessibilità | 58/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
 | 8. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
-| 9. Citabilità IA | 63/100 |  |
+| 9. Citabilità IA | 68/100 |  |
 | 10. Giudizio LLM | 61/100 |  |
 
 ## Superficie
@@ -42,12 +42,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 | Area | Prima | Dopo | Variazione |
 |---|---|---|---|
-| Complessivo | 61 | 63 | +2 |
+| Complessivo | 61 | 69 | +8 |
 | wcag | 37 | 58 | +21 |
 | tech | 40 | 57 | +17 |
 | schema | 100 | 90 | -10 |
+| citability | 60 | 68 | +8 |
 | llm_judge | 55 | 61 | +6 |
-| citability | 60 | 63 | +3 |
 
 **Risolti (1)**
 
@@ -78,6 +78,8 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - CSP: Wildcard Directive
 
 *È cambiato che cosa si misura — il menu di navigazione, la testata e il piede non entrano piu' nel corpus dei passaggi ne' nel conteggio delle parole (R63): i numeri si muovono anche a sito invariato.*
+
+*È cambiato che cosa si misura — la Recuperabilita' del complessivo e dei profili di citabilita' e' la media per query, non piu' il consenso aggregato che si muoveva con k (I17): i numeri si muovono anche a sito invariato.*
 
 *Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39): in quest'area «risolto» e «comparso» non sono fatti del sito.*
 
@@ -372,11 +374,11 @@ Mercato: eu
 
 | Assistente | Indice |
 |---|---|
-| Claude | 65.1 |
-| ChatGPT/Perplexity | 62.0 |
-| Qwen | 65.0 |
-| Kimi | 65.0 |
-| **Indice composito** | **63.4** |
+| Claude | 71.7 |
+| ChatGPT/Perplexity | 65.9 |
+| Qwen | 69.7 |
+| Kimi | 69.7 |
+| **Indice composito** | **68.3** |
 
 *stime euristiche dichiarate, non comportamento documentato dai vendor*
 
@@ -390,8 +392,8 @@ Citabilità stimata: **61/100**
 
 I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
 
-- scarto vs indice composito: **-2.4**
-- scarto vs profilo Claude: **-4.1**
+- scarto vs indice composito: **-7.3**
+- scarto vs profilo Claude: **-10.7**
 
 ### openai
 
@@ -401,8 +403,8 @@ Citabilità stimata: **44/100**
 
 Il contenuto risponde, ma nulla e' verificabile dall'esterno.
 
-- scarto vs indice composito: **-19.4**
-- scarto vs profilo ChatGPT/Perplexity: **-18.0**
+- scarto vs indice composito: **-24.3**
+- scarto vs profilo ChatGPT/Perplexity: **-21.9**
 
 *gli scarti confrontano un giudizio con una stima euristica*
 

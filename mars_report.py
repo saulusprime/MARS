@@ -233,9 +233,9 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
 # gia' dai SEGNALI DERIVATI, a peso 1.5 ciascuno; contarle anche come
 # aree porterebbe il totale da 8.0 a 10.0 con 5.0 che vengono da loro,
 # cioe' meta' del complessivo a due aree su nove. La strada opposta —
-# togliere i segnali e tenere le aree — costa di piu': il consenso RRF
-# e' la domanda del progetto e nessun controllo di U13 lo misura,
-# quindi sparirebbe dal complessivo per non tornare.
+# togliere i segnali e tenere le aree — costa di piu': il consenso fra
+# i due recuperatori e' la domanda del progetto e nessun controllo di
+# U13 lo misura, quindi sparirebbe dal complessivo per non tornare.
 #
 # `mars_perf` e' fuori per decisione di I10: e' una misura di
 # laboratorio su UNA pagina, con throttling simulato — la piu'
@@ -254,9 +254,9 @@ def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
 
     `mars_lexical` e `mars_semantic` un punteggio da U13 ce l'hanno, ma
     resta fuori dalla media (`AREE_FUORI_DAL_COMPLESSIVO`): al loro
-    posto valgono il consenso RRF aggregato e la quota di contenuto in
-    forma di risposta, che sono MISURE dei due recuperatori invece che
-    somme di penalita' editoriali.
+    posto valgono il consenso medio per query e la quota di contenuto
+    in forma di risposta, che sono MISURE dei due recuperatori invece
+    che somme di penalita' editoriali.
 
     Scritta una volta sola perche' la leggono in due — la fascia dei
     quadranti e il punteggio complessivo — e due implementazioni dello
@@ -266,19 +266,32 @@ def segnali_derivati(referto: dict, lang: str = LINGUA_CANONICA
     `lang` governa la sola `note`, che e' prosa e non esce nel JSON —
     `overall_score` prende `name`, `value` e `weight` e la ignora. La
     nota si compone QUI e non si traduce a valle, perche' «consenso
-    2/3» e' gia' una frase montata: cercarla in un catalogo vorrebbe
-    dire una voce per ogni coppia di numeri possibile.
+    medio su 4 query» e' gia' una frase montata: cercarla in un
+    catalogo vorrebbe dire una voce per ogni numero possibile.
     """
     esito: List[Dict[str, object]] = []
-    aggregato = referto.get("rrf_aggregate")
-    if aggregato and aggregato.get("consensus_out_of"):
+    # La MEDIA PER QUERY, non il consenso aggregato (I17): l'aggregato
+    # incrocia due classifiche gia' fuse con k, e con k si muove —
+    # misurato ±18.7 punti di complessivo a sito invariato, 3/3 con
+    # k=10 e 0/3 con k=60. La media per query incrocia i primi 3 delle
+    # liste grezze: k non entra per costruzione, ed e' cio' che accade
+    # al momento del recupero, perche' un assistente risponde a una
+    # domanda alla volta. L'aggregato resta nel referto come
+    # diagnostica (`rrf_aggregate`, sondato da `rrf_sensitivity`).
+    # Le query non misurabili restano fuori dalla media: non misurato
+    # non e' zero, e nemmeno il 3/3 di due ordini identici (R23).
+    # Il filtro su `consensus_out_of` basta: `_consenso` azzera i due
+    # campi INSIEME (non misurabile = entrambi None), e un secondo
+    # controllo su `consensus_top3` sarebbe codice morto — l'ha detto
+    # una mutazione sopravvissuta.
+    quote = [v["consensus_top3"] / v["consensus_out_of"]
+             for v in referto.get("rrf_simulation") or []
+             if v.get("consensus_out_of")]
+    if quote:
         esito.append({
             "name": "Recuperabilità",
-            "value": (100.0 * aggregato["consensus_top3"]
-                      / aggregato["consensus_out_of"]),
-            "note": t("consenso %d/%d", lang)
-                    % (aggregato["consensus_top3"],
-                       aggregato["consensus_out_of"]),
+            "value": 100.0 * sum(quote) / len(quote),
+            "note": t("consenso medio su %d query", lang) % len(quote),
         })
     sem = referto.get("semantic") or {}
     if sem.get("n_chunks"):
@@ -1154,10 +1167,11 @@ def rrf_sensitivity(results: dict, chunks: List[dict],
     fusione non entra nel conto. Sondarlo darebbe una riga piatta che
     sembra una misura di robustezza e non lo e'. Il consenso aggregato
     invece dai ranghi fusi viene, e con k cambia davvero — misurato su
-    un sito reale da 128 chunk: 3/3 a k=10 e 0/3 a k=60, cioe' il
-    segnale «Recuperabilita'» che entra nel complessivo passa da 100 a
-    0. E' la ragione per cui questo sondaggio sta nel referto e non in
-    una nota didattica: quel numero il lettore lo vede altrove.
+    un sito reale da 128 chunk: 3/3 a k=10 e 0/3 a k=60. E' la misura
+    che ha aperto I17: da li' il segnale «Recuperabilita'» del
+    complessivo e' la media per query, che da k non dipende, e questo
+    sondaggio documenta la sensibilita' della sola diagnostica
+    aggregata.
 
     Si rifondono le classifiche PER QUERY gia' calcolate: non si
     interroga di nuovo nulla, e il costo e' quello di qualche divisione.
@@ -1184,9 +1198,13 @@ def rrf_aggregate(results: dict, chunks: List[dict],
                   k: int) -> Optional[dict]:
     """Consenso sui ranghi aggregati, cioe' su tutte le query insieme.
 
-    E' la misura piu' solida delle due: un chunk che sale in alto per
-    entrambi i recuperatori su piu' domande e' recuperabile davvero,
-    mentre un consenso su una sola query puo' essere un caso.
+    Da I17 e' DIAGNOSTICA e non regge piu' il segnale del complessivo:
+    i ranghi aggregati nascono fondendo le query di ciascun
+    recuperatore con k, quindi questo consenso si muove con un flag —
+    misurato in I3, da 3/3 a 0/3 fra k=10 e k=60. Resta nel referto
+    perche' dice una cosa che la media per query non dice: QUALI
+    passaggi i due recuperatori mettono in alto su tutte le domande
+    insieme, e da che parte divergono (I4+I9).
     """
     lex = results.get("mars_lexical") or {}
     sem = results.get("mars_semantic") or {}
@@ -2558,8 +2576,8 @@ def _fascia_quadranti(referto: dict,
     Le aree lessicale e semantica non producono un voto ma una
     classifica, e mettere loro uno zero sarebbe una bugia: al loro
     posto la fascia mostra i due segnali DERIVATI che C1 gia' calcola —
-    consenso RRF e contenuto in forma di risposta — dichiarati come
-    tali nella riga sotto il quadrante.
+    consenso medio per query e contenuto in forma di risposta —
+    dichiarati come tali nella riga sotto il quadrante.
     """
     pezzi = []
     for area in referto["areas"]:
@@ -3448,9 +3466,10 @@ def _sezione_rrf(referto: dict, p: List[str],
         p.append("<div class='card'><p class='meta'>%s</p>"
                  "<p class='grande %s'>%s</p>"
                  % (t("Consenso fra il recuperatore lessicale e quello "
-                      "vettoriale, aggregato su %d query — la misura più "
-                      "solida, perché un accordo su una sola domanda può "
-                      "essere un caso.", lang) % len(simulazione),
+                      "vettoriale, aggregato su %d query — diagnostica: "
+                      "dice quali passaggi salgono su tutte le domande "
+                      "insieme, e si muove con k.", lang)
+                    % len(simulazione),
                     _classe(_quota_consenso(aggregato)),
                     _e(_consenso_leggibile(aggregato, lang))))
         if aggregato.get("top_chunk"):

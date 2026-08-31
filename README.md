@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.19.0
+Versione 2.20.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -674,12 +674,11 @@ genericita' della domanda.
 
 Il referto riporta il consenso di ogni query e un consenso aggregato,
 ottenuto fondendo con l'RRF le classifiche di tutte le query. Quello
-aggregato e' la misura piu' solida rispetto alla singola domanda: un
-passaggio che sale in alto per entrambi i recuperatori su piu' domande
-e' recuperabile davvero, mentre un consenso su una sola domanda puo'
-essere un caso. E' pero' anche l'unico dei due che dipende da k — il
-consenso di una query e' l'incrocio dei primi tre di due classifiche, e
-la fusione non entra nel conto.
+aggregato dice quali passaggi salgono su tutte le domande insieme, ma
+e' anche l'unico dei due che dipende da k — il consenso di una query
+e' l'incrocio dei primi tre di due classifiche, e la fusione non entra
+nel conto. Per questo da I17 l'aggregato e' diagnostica, e i punteggi
+usano la media per query.
 
 Il consenso dice QUANTI passaggi i due recuperatori hanno in comune; il
 referto dice anche QUALI stanno fuori, e da che parte (I4+I9). La
@@ -700,7 +699,8 @@ modi opposti.
 
 Nel JSON stanno in only_lexical e only_semantic, su rrf_aggregate e su
 ogni voce di rrf_simulation: ogni passaggio porta label e url. Le viste
-umane mostrano il solo aggregato, che e' la misura piu' solida.
+umane mostrano il solo aggregato, che dice quali passaggi salgono su
+tutte le domande insieme.
 
 Il k della fusione (--rrf-k, predefinito 60, il valore del paper
 Cormack 2009) decide quanto pesa la POSIZIONE rispetto alla PRESENZA in
@@ -711,12 +711,17 @@ stampa una riga di sondaggio
 
     al variare di k: k=0 3/3 · k=10 3/3 · k=60 (in uso) 0/3 · k=300 0/3
 
-e quei numeri vengono da un sito vero da 128 chunk. Il consenso
-aggregato e' il segnale «Recuperabilita'» che entra nel punteggio
-complessivo, quindi cambiare k cambia un voto: il referto dichiara in
-rrf.k quale ha usato, la riga di storico lo archivia, e il confronto
-con l'esecuzione precedente dice quando i due differiscono, perche' li'
-«peggiorato» non sarebbe un fatto del sito.
+e quei numeri vengono da un sito vero da 128 chunk. Proprio quella
+misura ha deciso I17: il segnale «Recuperabilita'» del punteggio
+complessivo NON e' piu' il consenso aggregato ma la media per query
+dell'incrocio fra i primi tre dei due recuperatori, che da k non
+dipende per costruzione — un assistente risponde a una domanda alla
+volta, e la media per query e' cio' che accade al momento del
+recupero. Lo stesso vale per la «Recuperabilita' ibrida» dei profili
+di citabilita'. Il consenso aggregato resta nel referto come
+diagnostica, col suo sondaggio; il referto dichiara in rrf.k quale k
+ha usato, la riga di storico lo archivia, e il confronto con
+l'esecuzione precedente dice quando i due differiscono.
 
 Formati del referto (--format, predefinito text):
 

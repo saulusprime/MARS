@@ -283,10 +283,10 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <section class='hero'>
 <div class='hero-voto'>
 <div class='quadrante warn'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 63 su 100'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 69 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='220.62 131.24' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>63</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='242.43 109.43' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>69</text>
 </svg>
 <div class='nome'>Complessivo</div>
 </div>
@@ -415,10 +415,10 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nota'>ZAP (passiva)</div>
 </div>
 <div class='quadrante warn'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 63 su 100'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 68 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='223.08 128.78' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>63</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='240.32 111.54' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>68</text>
 </svg>
 <div class='nome'>Citabilità IA</div>
 </div>
@@ -430,14 +430,14 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </svg>
 <div class='nome'>Giudizio LLM</div>
 </div>
-<div class='quadrante warn'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Recuperabilità: 67 su 100'>
+<div class='quadrante ok'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Recuperabilità: 100 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='234.57 117.29' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>67</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86 0.00' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>100</text>
 </svg>
 <div class='nome'>Recuperabilità</div>
-<div class='nota'>consenso 2/3</div>
+<div class='nota'>consenso medio su 2 query</div>
 </div>
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='In forma di risposta: 75 su 100'>
@@ -851,7 +851,7 @@ Disallow:</pre>
 <div class='riga'>
 <h3>9. Citabilità IA</h3>
 <span class='punteggio'>
-<span class='warn'>63<span class='muted'>/100</span>
+<span class='warn'>68<span class='muted'>/100</span>
 </span>
 </span>
 </div>
@@ -1018,8 +1018,8 @@ Disallow:</pre>
 <tr>
 <td>Complessivo</td>
 <td class='num'>61</td>
-<td class='num'>63</td>
-<td class='num ok'>+2</td>
+<td class='num'>69</td>
+<td class='num ok'>+8</td>
 </tr>
 <tr>
 <td>wcag</td>
@@ -1040,16 +1040,16 @@ Disallow:</pre>
 <td class='num bad'>-10</td>
 </tr>
 <tr>
+<td>citability</td>
+<td class='num'>60</td>
+<td class='num'>68</td>
+<td class='num ok'>+8</td>
+</tr>
+<tr>
 <td>llm_judge</td>
 <td class='num'>55</td>
 <td class='num'>61</td>
 <td class='num ok'>+6</td>
-</tr>
-<tr>
-<td>citability</td>
-<td class='num'>60</td>
-<td class='num'>63</td>
-<td class='num ok'>+3</td>
 </tr>
 </table>
 <h3 class='ok'>Risolti (1)</h3>
@@ -1081,6 +1081,7 @@ Disallow:</pre>
 <li>CSP: Wildcard Directive</li>
 </ul>
 <p class='meta'>È cambiato che cosa si misura — il menu di navigazione, la testata e il piede non entrano piu&#x27; nel corpus dei passaggi ne&#x27; nel conteggio delle parole (R63): i numeri si muovono anche a sito invariato.</p>
+<p class='meta'>È cambiato che cosa si misura — la Recuperabilita&#x27; del complessivo e dei profili di citabilita&#x27; e&#x27; la media per query, non piu&#x27; il consenso aggregato che si muoveva con k (I17): i numeri si muovono anche a sito invariato.</p>
 <p class='meta'>Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu&#x27; per sola regola: sec.zap.10038 e&#x27; diventato sec.zap.10038_1, _2, _3 (R39): in quest&#x27;area «risolto» e «comparso» non sono fatti del sito.</p>
 <h2>Piano di interventi</h2>
 <p class='meta'>22 interventi (6 critici, 16 avvertenze) · 2 quick win · 4 senza recupero dichiarato · 6 senza sforzo dichiarato</p>
@@ -1353,7 +1354,7 @@ Disallow:</pre>
 </div>
 <h2>Simulazione RRF</h2>
 <div class='card'>
-<p class='meta'>Consenso fra il recuperatore lessicale e quello vettoriale, aggregato su 3 query — la misura più solida, perché un accordo su una sola domanda può essere un caso.</p>
+<p class='meta'>Consenso fra il recuperatore lessicale e quello vettoriale, aggregato su 3 query — diagnostica: dice quali passaggi salgono su tutte le domande insieme, e si muove con k.</p>
 <p class='grande warn'>2/3</p>
 <p class='meta'>Passaggio più recuperabile:<br>
 <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
@@ -1415,33 +1416,33 @@ Disallow:</pre>
 </thead>
 <tr>
 <td>Claude</td>
-<td class='num warn'>65.1</td>
+<td class='num warn'>71.7</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:65%'>
+<span class='bar warn' aria-hidden='true' style='width:72%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>ChatGPT/Perplexity</td>
-<td class='num warn'>62.0</td>
+<td class='num warn'>65.9</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:62%'>
+<span class='bar warn' aria-hidden='true' style='width:66%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>Qwen</td>
-<td class='num warn'>65.0</td>
+<td class='num warn'>69.7</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:65%'>
+<span class='bar warn' aria-hidden='true' style='width:70%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>Kimi</td>
-<td class='num warn'>65.0</td>
+<td class='num warn'>69.7</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:65%'>
+<span class='bar warn' aria-hidden='true' style='width:70%'>
 </span>
 </td>
 </tr>
@@ -1450,7 +1451,7 @@ Disallow:</pre>
 <strong>Indice composito</strong>
 </td>
 <td class='num warn'>
-<strong>63.4</strong>
+<strong>68.3</strong>
 </td>
 <td>
 </td>
@@ -1473,9 +1474,9 @@ Disallow:</pre>
 <p class='grande warn'>61<span class='muted'>/100</span>
 </p>
 <p>I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e&#x27; verificabile.</p>
-<p class='meta'>scarto vs indice composito: <strong>-2.4</strong>
+<p class='meta'>scarto vs indice composito: <strong>-7.3</strong>
 </p>
-<p class='meta'>scarto vs profilo Claude: <strong>-4.1</strong>
+<p class='meta'>scarto vs profilo Claude: <strong>-10.7</strong>
 </p>
 <p class='meta'>Passaggio migliore: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
 </p>
@@ -1501,9 +1502,9 @@ Disallow:</pre>
 <p class='grande bad'>44<span class='muted'>/100</span>
 </p>
 <p>Il contenuto risponde, ma nulla e&#x27; verificabile dall&#x27;esterno.</p>
-<p class='meta'>scarto vs indice composito: <strong>-19.4</strong>
+<p class='meta'>scarto vs indice composito: <strong>-24.3</strong>
 </p>
-<p class='meta'>scarto vs profilo ChatGPT/Perplexity: <strong>-18.0</strong>
+<p class='meta'>scarto vs profilo ChatGPT/Perplexity: <strong>-21.9</strong>
 </p>
 <p class='meta'>Passaggio migliore: <code>https://esempio.test/servizi/ § Percorsi post-operatori</code>
 </p>

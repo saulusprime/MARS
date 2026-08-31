@@ -3705,8 +3705,46 @@ def test_citability_non_prende_cento_dal_nulla():
                       "mars_semantic": mars_semantic.audit(ctx),
                       "mars_tech": {"score": 80}}
     segnali = mars_citability.audit(ctx)["signals"]
-    assert segnali["Recuperabilità ibrida (consenso RRF)"] is None, \
-        "non misurato, non cento"
+    assert segnali["Recuperabilità ibrida (consenso medio per query)"] \
+        is None, "non misurato, non cento"
+
+
+def test_citability_recuperabilita_e_la_media_per_query():
+    """I17, la stessa decisione presa per il complessivo: il segnale
+    pesa 2-3/3 in ogni profilo e dai ranghi aggregati — fusi con k —
+    ereditava la fragilita' di k. La media per query incrocia le liste
+    grezze e k non entra.
+
+    Il caso e' costruito perche' aggregato e media divergano: i ranghi
+    aggregati sono disgiunti (consenso 0), le query dicono 3/3, 0/3 e
+    1/1 (media 2/3). La query con `matched=False` da un lato resta
+    fuori; la "d" ha un chunk solo per parte, e il suo consenso pieno
+    vale 1/1 — non un terzo, come farebbe un denominatore fisso a 3.
+
+    La "b" compare DUE volte: `--queries` non deduplica le righe del
+    file, e i due gemelli devono collassare i duplicati allo stesso
+    modo — contare ogni occorrenza qui e una sola in `rrf_simulation`
+    farebbe divergere in silenzio due segnali che il referto dichiara
+    essere la stessa decisione (misurato: 66.7 contro 50 sugli stessi
+    results)."""
+    results = {
+        "mars_lexical": {"rank": [9, 8, 7], "per_query": [
+            {"query": "a", "rank": [0, 1, 2], "matched": True},
+            {"query": "b", "rank": [3, 4, 5], "matched": True},
+            {"query": "b", "rank": [3, 4, 5], "matched": True},
+            {"query": "c", "rank": [0, 1, 2], "matched": False},
+            {"query": "d", "rank": [4], "matched": True},
+        ]},
+        "mars_semantic": {"rank": [0, 1, 2], "per_query": [
+            {"query": "a", "rank": [0, 1, 2], "matched": True},
+            {"query": "b", "rank": [6, 7, 8], "matched": True},
+            {"query": "b", "rank": [6, 7, 8], "matched": True},
+            {"query": "c", "rank": [0, 1, 2], "matched": True},
+            {"query": "d", "rank": [4], "matched": True},
+        ]},
+    }
+    segnali = mars_citability.raccogli_segnali(results)
+    assert segnali["recuperabilita"] == pytest.approx(200.0 / 3)
 
 
 def test_semantic_falsi_positivi_answer_shaped():
@@ -5503,11 +5541,18 @@ def test_seo_senza_lighthouse_non_da_zero(monkeypatch):
 # ----------------------------------------------------------------------
 
 def _risultati(**scores):
+    # `per_query` da I17: `recuperabilita` legge le classifiche per
+    # query. Coincidono, quindi il segnale resta 100 come quando lo
+    # dava l'incrocio dei ranghi aggregati.
     base = {"mars_tech": {"score": 80}, "mars_seo": {"score": 70},
             "mars_schema": {"score": 60}, "mars_wcag": {"score": 90},
             "mars_wapt": {"score": 50},
-            "mars_lexical": {"rank": [0, 1, 2]},
-            "mars_semantic": {"rank": [0, 1, 2], "answer_shaped_ratio": 0.5}}
+            "mars_lexical": {"rank": [0, 1, 2],
+                             "per_query": [{"query": "q", "rank": [0, 1, 2],
+                                            "matched": True}]},
+            "mars_semantic": {"rank": [0, 1, 2], "answer_shaped_ratio": 0.5,
+                              "per_query": [{"query": "q", "rank": [0, 1, 2],
+                                             "matched": True}]}}
     for chiave, valore in scores.items():
         base[chiave] = valore
     return base
@@ -5661,11 +5706,16 @@ def test_citability_origine_dice_davvero_chi_misura(segnale):
     legge: a tenerle insieme non c'e' un accorgimento ma questo test.
 
     Si costruiscono i results a partire dalla tabella, e il segnale
-    corrispondente — e nessun altro — deve risultare misurato."""
+    corrispondente — e nessun altro — deve risultare misurato.
+
+    `per_query` sta nella forma minima da I17: `recuperabilita` legge
+    le classifiche per query, non piu' il rango aggregato."""
     results = {}
     for modulo in mars_citability.ORIGINE[segnale]:
         results[modulo] = {"score": 50, "rank": [0, 1, 2],
-                           "answer_shaped_ratio": 0.5}
+                           "answer_shaped_ratio": 0.5,
+                           "per_query": [{"query": "q", "rank": [0, 1, 2],
+                                          "matched": True}]}
     segnali = mars_citability.raccogli_segnali(results)
     assert segnali[segnale] is not None, "ORIGINE indica l'area sbagliata"
 
@@ -5704,7 +5754,12 @@ def test_citability_a_parita_di_valore_decide_l_etichetta():
         mars_tech={"score": 50}, mars_seo={"score": 40},
         mars_schema={"score": 100}, mars_wcag={"score": 100},
         mars_wapt={"score": 100},
-        mars_semantic={"rank": [0, 1, 2], "answer_shaped_ratio": 0.5})})
+        # `per_query` come nella base di `_risultati`: l'override
+        # SOSTITUISCE la voce, e senza `recuperabilita` diventerebbe
+        # non misurata e aggiungerebbe una issue che sposta il pareggio.
+        mars_semantic={"rank": [0, 1, 2], "answer_shaped_ratio": 0.5,
+                       "per_query": [{"query": "q", "rank": [0, 1, 2],
+                                      "matched": True}]})})
     assert esito["issues"] == [
         "Segnale debole: Qualità SEO (40/100)",
         "Segnale debole: Accesso e indicizzabilità (50/100)"]

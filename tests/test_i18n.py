@@ -207,14 +207,19 @@ def _params_del_banco(monkeypatch) -> dict:
 
     # Area 9: i sette segnali tutti deboli, poi tutti non misurati.
     # I due derivati non vengono da uno `score`: `answer_shaped` dal
-    # rapporto di mars_semantic, `recuperabilita` dal consenso fra i due
-    # ranghi — qui disgiunti, quindi zero.
+    # rapporto di mars_semantic, `recuperabilita` — da I17 — dalla
+    # media per query, qui una sola con i primi tre disgiunti, quindi
+    # zero.
     deboli = {nome: {"score": 10.0}
               for nome in ("mars_tech", "mars_seo", "mars_schema",
                            "mars_wcag", "mars_wapt")}
     deboli["mars_semantic"] = {"answer_shaped_ratio": 0.1,
-                               "rank": [0, 1, 2]}
-    deboli["mars_lexical"] = {"rank": [3, 4, 5]}
+                               "per_query": [{"query": "q",
+                                              "rank": [0, 1, 2],
+                                              "matched": True}]}
+    deboli["mars_lexical"] = {"per_query": [{"query": "q",
+                                             "rank": [3, 4, 5],
+                                             "matched": True}]}
     raccogli(mars_citability.audit({"results": deboli, "market": "global"}))
     raccogli(mars_citability.audit({"results": {"mars_tech": {}}}))
 

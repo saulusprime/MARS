@@ -347,6 +347,18 @@ def test_il_delta_dichiara_un_k_cambiato():
         "una riga scritta prima di I3 non porta il k: non si inventa"
 
 
+def test_i17_e_dichiarata_fra_le_misure_cambiate():
+    """I17 muove complessivo e profili a sito invariato (golden: 63 →
+    69 e 63.4 → 68.3 sullo stesso input): senza la voce il delta
+    2.19 → 2.20 direbbe «migliorato» di una cosa non successa — la
+    stessa ragione della voce di R63."""
+    voci = st.misure_cambiate_fra("2.19.0", "2.20.0")
+    assert any("ecuperabilit" in v["reason"] for v in voci), \
+        "il cambio di misura di I17 non e' dichiarato"
+    assert st.misure_cambiate_fra("2.20.0", "2.20.0") == [], \
+        "due esecuzioni gia' 2.20 si confrontano senza caveat"
+
+
 def test_la_riga_di_storico_registra_il_form_factor():
     """I16 segue I3: con `--form-factor` due esecuzioni dello stesso
     sito possono aver misurato con dispositivi diversi, e le curve di

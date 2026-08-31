@@ -121,11 +121,12 @@ def riga_storico(referto: dict) -> dict:
         "scores": {area.get("module"): area.get("score")
                    for area in referto.get("areas") or []},
         "overall": complessivo.get("score"),
-        # Il k con cui la fusione ha girato: due esecuzioni con k
-        # diversi non confrontano la stessa misura — il consenso
-        # aggregato, e quindi il segnale «Recuperabilita'», da esso
-        # dipendono. Archiviato e non dedotto: dalla riga di ieri il k
-        # di ieri non si ricava in nessun altro modo (I3).
+        # Il k con cui la fusione ha girato: il consenso aggregato —
+        # da I17 diagnostica, non piu' il segnale del complessivo — e
+        # il passaggio in testa dipendono da lui, e due esecuzioni con
+        # k diversi non mostrano la stessa diagnostica. Archiviato e
+        # non dedotto: dalla riga di ieri il k di ieri non si ricava
+        # in nessun altro modo (I3).
         "rrf_k": (referto.get("rrf") or {}).get("k"),
         # Il dispositivo che Lighthouse ha emulato: stesso argomento del
         # k — dalla riga di ieri il dispositivo di ieri non si ricava in
@@ -193,6 +194,10 @@ MISURE_CAMBIATE = (
      "reason": "il menu di navigazione, la testata e il piede non "
                "entrano piu' nel corpus dei passaggi ne' nel "
                "conteggio delle parole (R63)"},
+    {"since": "2.20.0",
+     "reason": "la Recuperabilita' del complessivo e dei profili di "
+               "citabilita' e' la media per query, non piu' il "
+               "consenso aggregato che si muoveva con k (I17)"},
 )
 
 

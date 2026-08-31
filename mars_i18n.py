@@ -520,12 +520,12 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "Signal not measured: SEO quality",
     },
     "cit.recuperabilita.weak": {
-        "title": "Weak signal: Hybrid retrievability (RRF consensus) "
-                 "(%(value).0f/100)",
+        "title": "Weak signal: Hybrid retrievability (mean per-query "
+                 "consensus) (%(value).0f/100)",
     },
     "cit.recuperabilita.unmeasured": {
-        "title": "Signal not measured: Hybrid retrievability (RRF "
-                 "consensus)",
+        "title": "Signal not measured: Hybrid retrievability (mean "
+                 "per-query consensus)",
     },
     "cit.answer_shaped.weak": {
         "title": "Weak signal: Answer-shaped content (%(value).0f/100)",
@@ -996,6 +996,12 @@ _CORNICE_EN: Dict[str, str] = {
     "conteggio delle parole (R63)":
         "navigation, header and footer no longer enter the "
         "passage corpus nor the word count (R63)",
+    "la Recuperabilita' del complessivo e dei profili di "
+    "citabilita' e' la media per query, non piu' il "
+    "consenso aggregato che si muoveva con k (I17)":
+        "the Retrievability signal of the overall score and of "
+        "the citability profiles is the per-query mean, no longer "
+        "the aggregate consensus that moved with k (I17)",
     "  (il k della fusione è cambiato, da %d a %d: il "
     "consenso aggregato non è la stessa misura)":
         "  (the fusion k changed, from %d to %d: the aggregate "
@@ -1280,18 +1286,19 @@ _CORNICE_EN: Dict[str, str] = {
         "RRF simulation       : Top-3 consensus = %s over %d chunks",
     "  aggregato su %d query": "  aggregated over %d queries",
     "Consenso fra il recuperatore lessicale e quello vettoriale, "
-    "aggregato su %d query — la misura più solida, perché un accordo "
-    "su una sola domanda può essere un caso.":
+    "aggregato su %d query — diagnostica: dice quali passaggi "
+    "salgono su tutte le domande insieme, e si muove con k.":
         "Consensus between the lexical and the vector retriever, "
-        "aggregated over %d queries — the most solid measure, because "
-        "agreement on a single question can be chance.",
+        "aggregated over %d queries — a diagnostic: it says which "
+        "passages rise across all questions together, and it moves "
+        "with k.",
     "Top Chunk Ibrido     :": "Top hybrid chunk     :",
     "Passaggio più recuperabile:": "Most retrievable passage:",
     "Query": "Query",
     "Consenso": "Consensus",
     "Passaggio migliore": "Best passage",
     "nessun riscontro": "no match",
-    "consenso %d/%d": "consensus %d/%d",
+    "consenso medio su %d query": "mean consensus across %d queries",
     "su %d chunk": "over %d chunks",
     "Recuperabilità": "Retrievability",
     "In forma di risposta": "Answer-shaped",

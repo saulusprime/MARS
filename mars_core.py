@@ -33,7 +33,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.19.0"
+__version__ = "2.20.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —

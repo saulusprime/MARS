@@ -1870,13 +1870,20 @@ def test_le_aree_di_classifica_restano_fuori_dal_complessivo(contesto):
     esattamente META' del complessivo (1+1+1.5+1.5 su 10). E' la stessa
     ragione per cui D3 tiene fuori `mars_citability`, che sintetizza
     misure gia' contate."""
+    # `per_query` da I17: la Recuperabilita' viene dalla media per
+    # query, e senza queste voci il segnale sparirebbe dalla media
+    # invece di valere zero. I primi tre sono disgiunti apposta.
     complessivo = _referto_complessivo(
         contesto,
         mars_lexical={"score": 0, "status": "ranking", "issues": [],
-                      "rank": [0]},
+                      "rank": [0],
+                      "per_query": [{"query": "q", "rank": [0, 1, 2],
+                                     "matched": True}]},
         mars_semantic={"score": 0, "status": "ranking", "issues": [],
                        "rank": [1], "answer_shaped_ratio": 0.0,
-                       "n_chunks": 4})["overall"]
+                       "n_chunks": 4,
+                       "per_query": [{"query": "q", "rank": [3, 4, 5],
+                                      "matched": True}]})["overall"]
     assert "mars_lexical" in complessivo["excluded"]
     assert "mars_semantic" in complessivo["excluded"]
     # I due zeri non entrano nella media; il segnale derivato che ne
@@ -1931,6 +1938,45 @@ def test_i_segnali_derivati_sono_gli_stessi_per_fascia_e_complessivo(contesto):
     assert "su 4 chunk" in render_html(referto)
     assert [c["value"] for c in referto["overall"]["components"]
             if c["name"] == "In forma di risposta"] == [50.0]
+
+
+def test_la_recuperabilita_e_la_media_per_query_e_ignora_l_aggregato():
+    """I17: il consenso aggregato incrocia due classifiche GIA' fuse
+    con k — misurato ±18.7 punti di complessivo a sito invariato,
+    3/3 con k=10 e 0/3 con k=60 — mentre la media per query incrocia i
+    primi 3 delle liste grezze: k non entra per costruzione, ed e' cio'
+    che accade davvero al momento del recupero, perche' un assistente
+    risponde a una domanda alla volta. L'aggregato resta nel referto
+    come diagnostica ma non regge piu' il segnale: qui dice 3/3 e non
+    deve entrare."""
+    referto = {"rrf_simulation": [
+        {"consensus_top3": 0, "consensus_out_of": 3},
+        {"consensus_top3": 0, "consensus_out_of": 3},
+        {"consensus_top3": 1, "consensus_out_of": 3},
+        {"consensus_top3": 1, "consensus_out_of": 3},
+        # `consensus_out_of` non e' sempre 3: e' min(3, len(rank)), e
+        # su un sito con un chunk solo vale 1. Qui 1/1 vale quota
+        # piena, non un terzo — una mutazione che fissava il
+        # denominatore a 3 passava con i soli casi da tre attesi.
+        {"consensus_top3": 1, "consensus_out_of": 1},
+        # Non misurabile: esclusa dalla media, non contata zero (R23).
+        {"consensus_top3": None, "consensus_out_of": None},
+    ], "rrf_aggregate": {"consensus_top3": 3, "consensus_out_of": 3}}
+    segnali = segnali_derivati(referto)
+    assert [s["name"] for s in segnali] == ["Recuperabilità"]
+    assert segnali[0]["value"] == pytest.approx(100.0 / 3)
+    assert "5" in segnali[0]["note"], "la nota dice su quante query"
+
+
+def test_senza_una_query_misurabile_la_recuperabilita_non_esiste():
+    """La stessa regola di ogni area: non misurato, non zero — e
+    nemmeno il 3/3 che due ordini di scansione identici darebbero
+    (R23)."""
+    solo_vuote = {"rrf_simulation": [
+        {"consensus_top3": None, "consensus_out_of": None}],
+        "rrf_aggregate": {"consensus_top3": 3, "consensus_out_of": 3}}
+    assert segnali_derivati(solo_vuote) == []
+    assert segnali_derivati({}) == []
 
 
 def test_il_complessivo_e_in_testa_alla_vista_testo(contesto):

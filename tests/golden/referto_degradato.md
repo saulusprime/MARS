@@ -182,7 +182,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 - [INFO] Mercato 'italia' sconosciuto: uso 'global'
 - [INFO] Segnale non misurato: Qualità SEO
-- [INFO] Segnale non misurato: Recuperabilità ibrida (consenso RRF)
+- [INFO] Segnale non misurato: Recuperabilità ibrida (consenso medio per query)
 - [INFO] Segnale non misurato: Contenuto in forma di risposta
 - [INFO] Segnale debole: Accessibilità (40/100)
 - [INFO] Segnale debole: Accesso e indicizzabilità (57/100)

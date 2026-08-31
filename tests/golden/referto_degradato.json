@@ -550,7 +550,7 @@
       "status": null,
       "issues": [
         "Mercato 'italia' sconosciuto: uso 'global' (noti: cn, eu, global, us)",
-        "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso RRF), Contenuto in forma di risposta",
+        "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso medio per query), Contenuto in forma di risposta",
         "Segnale debole: Accessibilità (40/100)",
         "Segnale debole: Accesso e indicizzabilità (57/100)"
       ],
@@ -601,7 +601,7 @@
         {
           "area": "mars_citability",
           "severity": "info",
-          "title": "Segnale non misurato: Recuperabilità ibrida (consenso RRF)",
+          "title": "Segnale non misurato: Recuperabilità ibrida (consenso medio per query)",
           "key": "cit.recuperabilita.unmeasured",
           "detail": "",
           "fix": "",
@@ -611,7 +611,7 @@
           "source_severity": "",
           "params": {
             "signal": "recuperabilita",
-            "label": "Recuperabilità ibrida (consenso RRF)",
+            "label": "Recuperabilità ibrida (consenso medio per query)",
             "sources": [
               "mars_lexical",
               "mars_semantic"
@@ -739,7 +739,7 @@
     "status": null,
     "issues": [
       "Mercato 'italia' sconosciuto: uso 'global' (noti: cn, eu, global, us)",
-      "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso RRF), Contenuto in forma di risposta",
+      "Segnali non misurati, esclusi dal calcolo: Qualità SEO, Recuperabilità ibrida (consenso medio per query), Contenuto in forma di risposta",
       "Segnale debole: Accessibilità (40/100)",
       "Segnale debole: Accesso e indicizzabilità (57/100)"
     ],
@@ -790,7 +790,7 @@
       {
         "area": "mars_citability",
         "severity": "info",
-        "title": "Segnale non misurato: Recuperabilità ibrida (consenso RRF)",
+        "title": "Segnale non misurato: Recuperabilità ibrida (consenso medio per query)",
         "key": "cit.recuperabilita.unmeasured",
         "detail": "",
         "fix": "",
@@ -800,7 +800,7 @@
         "source_severity": "",
         "params": {
           "signal": "recuperabilita",
-          "label": "Recuperabilità ibrida (consenso RRF)",
+          "label": "Recuperabilità ibrida (consenso medio per query)",
           "sources": [
             "mars_lexical",
             "mars_semantic"
@@ -886,7 +886,7 @@
       "Dati strutturati": 90.0,
       "Accessibilità": 40.0,
       "Sicurezza": 75.0,
-      "Recuperabilità ibrida (consenso RRF)": null,
+      "Recuperabilità ibrida (consenso medio per query)": null,
       "Contenuto in forma di risposta": null
     },
     "disclaimer": "stime euristiche dichiarate, non comportamento documentato dai vendor"

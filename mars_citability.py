@@ -33,7 +33,7 @@ DISCLAIMER = ("stime euristiche dichiarate, non comportamento "
 SEGNALI = {
     "tecnica": "Accesso e indicizzabilità",
     "seo": "Qualità SEO",
-    "recuperabilita": "Recuperabilità ibrida (consenso RRF)",
+    "recuperabilita": "Recuperabilità ibrida (consenso medio per query)",
     "answer_shaped": "Contenuto in forma di risposta",
     "dati_strutturati": "Dati strutturati",
     "accessibilita": "Accessibilità",
@@ -211,18 +211,39 @@ def raccogli_segnali(results: dict) -> Dict[str, Optional[float]]:
     if "answer_shaped_ratio" in semantico:
         segnali["answer_shaped"] = 100.0 * semantico["answer_shaped_ratio"]
 
-    # Recuperabilita' ibrida: quanti dei primi tre chunk coincidono fra
-    # il recuperatore lessicale e quello vettoriale. E' il consenso RRF,
-    # cioe' la misura piu' vicina a "questo passaggio verrebbe davvero
-    # selezionato da una ricerca ibrida".
+    # Recuperabilita' ibrida: quanto i primi tre del recuperatore
+    # lessicale e di quello vettoriale coincidono, in MEDIA sulle query
+    # (I17, la stessa decisione presa per il complessivo). Prima si
+    # incrociavano i ranghi AGGREGATI, che ogni recuperatore fonde con
+    # k: il segnale — che pesa 2-3/3 in ogni profilo — ereditava la
+    # fragilita' di k misurata in I3. La media per query incrocia le
+    # liste grezze e k non entra; una query senza riscontro da un lato
+    # resta fuori dalla media invece di regalare il 3/3 di due ordini
+    # di scansione identici (R23).
     lessicale = results.get("mars_lexical") or {}
-    if "rank" in lessicale and "rank" in semantico:
-        primi_lex = set(lessicale["rank"][:3])
-        primi_sem = set(semantico["rank"][:3])
-        attesi = min(3, len(lessicale["rank"]), len(semantico["rank"]))
+    per_sem = {v.get("query"): v
+               for v in semantico.get("per_query") or []}
+    # Dict anche il lato lessicale: `--queries` non deduplica le righe
+    # del file, e `rrf_simulation` — il gemello di questo calcolo —
+    # collassa i duplicati per query. Contare qui ogni occorrenza
+    # farebbe divergere i due segnali sugli stessi dati (misurato:
+    # 66.7 contro 50 con una query doppia).
+    per_lex = {v.get("query"): v
+               for v in lessicale.get("per_query") or []}
+    quote = []
+    for chiave_query, voce in per_lex.items():
+        gemella = per_sem.get(chiave_query)
+        if (gemella is None or not voce.get("matched", True)
+                or not gemella.get("matched", True)):
+            continue
+        rank_lex = voce.get("rank") or []
+        rank_sem = gemella.get("rank") or []
+        attesi = min(3, len(rank_lex), len(rank_sem))
         if attesi:
-            consenso = len(primi_lex & primi_sem)
-            segnali["recuperabilita"] = 100.0 * consenso / attesi
+            quote.append(len(set(rank_lex[:3]) & set(rank_sem[:3]))
+                         / attesi)
+    if quote:
+        segnali["recuperabilita"] = 100.0 * sum(quote) / len(quote)
     return segnali
 
 

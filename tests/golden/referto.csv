@@ -32,9 +32,9 @@ https://esempio.test/;8. Sicurezza;warning;1.0;CSP: Wildcard Directive;La dirett
 https://esempio.test/;8. Sicurezza;info;1.0;Strict-Transport-Security non impostato;;;https://esempio.test/;;;
 https://esempio.test/;8. Sicurezza;info;1.0;Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain;;;https://esempio.test/ https://esempio.test/servizi/ https://esempio.test/faq/;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Qualità SEO (27/100);;;;;;
-https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Accessibilità (37/100);;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Accesso e indicizzabilità (57/100);;;;;;
 https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Sicurezza (57/100);;;;;;
+https://esempio.test/;9. Citabilità IA;info;1.0;Segnale debole: Accessibilità (58/100);;;;;;
 https://esempio.test/;10. Giudizio LLM;info;1.0;Affermazioni che nulla rende verificabili — anthropic;"Nessun prezzo verificabile; Nessuna data di aggiornamento";;;;;
 https://esempio.test/;10. Giudizio LLM;info;1.0;Passaggi promozionali invece che informativi — anthropic;Il listino si legge come una promessa, non come un dato;;;;;
 https://esempio.test/;10. Giudizio LLM;info;1.0;Altre osservazioni del modello sul contenuto — anthropic;Nessuna firma sugli articoli;;;;;

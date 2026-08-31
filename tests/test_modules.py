@@ -1490,9 +1490,38 @@ def test_wcag_la_penalita_axe_ricostruisce_il_punteggio():
     assert esito["score"] == max(0, round(100 - somma))
 
     per_chiave = {f["key"]: f for f in esito["findings"]}
-    # image-alt tocca 2 pagine su 2 -> 2x; label 1 su 2 -> 1.5x
+    # image-alt tocca 2 pagine su 2 -> 2x; label 1 su 2 -> 1x. Il pin
+    # era 1.5x con la formula pre-R64, che partiva da 1 + 1/testate
+    # invece che da 1x: cambiato insieme alla formula, non per farlo
+    # passare.
     assert per_chiave["wcag.axe.image_alt"]["params"]["penalty"] == 25 * 2.0
-    assert per_chiave["wcag.axe.label"]["params"]["penalty"] == 12 * 1.5
+    assert per_chiave["wcag.axe.label"]["params"]["penalty"] == 12 * 1.0
+
+
+def test_wcag_la_diffusione_parte_da_1x_e_il_campione_di_una_pagina_non_raddoppia():
+    """Regressione R64: la vecchia formula 1 + min(pages, testate)/testate
+    non dava MAI l'1x promesso dalla docstring (minimo 1 + 1/testate), e
+    su un campione di una pagina dava sempre il massimo (2x): il peso
+    editoriale raddoppiava proprio dove di diffusione non c'e' alcuna
+    informazione. Misurato su un sito vero: un solo color-contrast
+    serious su 3 elementi faceva 76 dove Lighthouse dava 97.
+
+    L'intervallo promesso e' [1x, 2x]: una pagina sola = peso pieno e
+    basta, tutte le testate = doppio, in mezzo si interpola."""
+    una_su_una = mars_wcag.score_from_violations([_viol()], 1)
+    assert una_su_una["findings"][0]["params"]["penalty"] == 12.0
+    assert una_su_una["score"] == 88
+
+    una_su_cinque = mars_wcag.score_from_violations([_viol()], 5)
+    assert una_su_cinque["findings"][0]["params"]["penalty"] == 12.0
+
+    tre_su_cinque = mars_wcag.score_from_violations([_viol()] * 3, 5)
+    assert tre_su_cinque["findings"][0]["params"]["penalty"] == 12 * 1.5
+
+    # `score_from_violations` e' pubblica: testate=0 con violazioni e'
+    # input ostile, e il numeratore non deve andare sotto zero.
+    zero_testate = mars_wcag.score_from_violations([_viol()], 0)
+    assert zero_testate["findings"][0]["params"]["penalty"] == 12.0
 
 
 def test_wcag_la_scansione_parziale_e_un_rilievo(contesto, monkeypatch):

@@ -6,7 +6,7 @@
 
 ## Complessivo
 
-**60/100** — da migliorare
+**63/100** — da migliorare
 
 Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM. Scala dichiarata: critico sotto 50, da migliorare 50-89, buono da 90.
 
@@ -20,9 +20,9 @@ Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9.
 | 4. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
 | 5. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
 | 6. Dati Strutturati | 90/100 |  |
-| 7. Accessibilità | 37/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
+| 7. Accessibilità | 58/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
 | 8. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
-| 9. Citabilità IA | 61/100 |  |
+| 9. Citabilità IA | 63/100 |  |
 | 10. Giudizio LLM | 61/100 |  |
 
 ## Superficie
@@ -42,11 +42,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 | Area | Prima | Dopo | Variazione |
 |---|---|---|---|
-| Complessivo | 61 | 60 | -1 |
+| Complessivo | 61 | 63 | +2 |
+| wcag | 37 | 58 | +21 |
 | tech | 40 | 57 | +17 |
 | schema | 100 | 90 | -10 |
 | llm_judge | 55 | 61 | +6 |
-| citability | 60 | 61 | +1 |
+| citability | 60 | 63 | +3 |
 
 **Risolti (1)**
 
@@ -88,7 +89,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
 - [ ] **[CRITICO]** L'indicizzazione della pagina è bloccata — *SEO · sforzo: minuti · +37 punti d'area · indice +4.74* · **QUICK WIN**
       Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
-- [ ] **[CRITICO]** Le immagini devono avere un testo alternativo — *Accessibilità · sforzo: non dichiarato · +37 punti d'area · indice +4.65*
+- [ ] **[CRITICO]** Le immagini devono avere un testo alternativo — *Accessibilità · sforzo: non dichiarato · +25 punti d'area · indice +3.14*
       Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
 - [ ] **[CRITICO]** Cross Site Scripting (Reflected) — *Sicurezza · sforzo: non dichiarato · +28 punti d'area · indice +1.76*
       Convalida l'input e codifica l'output.
@@ -96,10 +97,10 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
 - [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: ore*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
-- [ ] [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore — *Accessibilità · sforzo: non dichiarato · +18 punti d'area · indice +2.26*
-      Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
 - [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +1.58*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
+- [ ] [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore — *Accessibilità · sforzo: non dichiarato · +12 punti d'area · indice +1.51*
+      Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
 - [ ] [AVVISO] Il documento non ha un elemento `<title>` — *SEO · sforzo: minuti · +9 punti d'area · indice +1.15*
       Dai a ogni pagina un <title> che la distingua dalle altre: e' la riga che l'assistente cita e che l'utente legge nei risultati. Un titolo uguale su tutto il sito vale quanto nessun titolo.
 - [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
@@ -108,7 +109,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Sostituisci «clicca qui» e «leggi tutto» con il nome di cio' che sta dall'altra parte. Il testo del link e' l'unica descrizione della pagina di destinazione che si legge dalla pagina di partenza.
 - [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
       Scrivi una meta description per pagina che risponda alla domanda della pagina invece di elencare parole chiave. E' il testo che compare sotto il titolo nei risultati, e una sola descrizione ripetuta ovunque non distingue nulla.
-- [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +7 punti d'area · indice +0.88*
+- [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +5 punti d'area · indice +0.63*
       Ensure every form element has a label
 - [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Configura il server per impostare l'header CSP.
@@ -348,9 +349,9 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 ### 9. Citabilità IA
 
 - [INFO] Segnale debole: Qualità SEO (27/100)
-- [INFO] Segnale debole: Accessibilità (37/100)
 - [INFO] Segnale debole: Accesso e indicizzabilità (57/100)
 - [INFO] Segnale debole: Sicurezza (57/100)
+- [INFO] Segnale debole: Accessibilità (58/100)
 
 ### 10. Giudizio LLM
 
@@ -371,11 +372,11 @@ Mercato: eu
 
 | Assistente | Indice |
 |---|---|
-| Claude | 62.3 |
-| ChatGPT/Perplexity | 59.5 |
-| Qwen | 62.0 |
-| Kimi | 62.0 |
-| **Indice composito** | **60.7** |
+| Claude | 65.1 |
+| ChatGPT/Perplexity | 62.0 |
+| Qwen | 65.0 |
+| Kimi | 65.0 |
+| **Indice composito** | **63.4** |
 
 *stime euristiche dichiarate, non comportamento documentato dai vendor*
 
@@ -389,8 +390,8 @@ Citabilità stimata: **61/100**
 
 I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
 
-- scarto vs indice composito: **+0.3**
-- scarto vs profilo Claude: **-1.3**
+- scarto vs indice composito: **-2.4**
+- scarto vs profilo Claude: **-4.1**
 
 ### openai
 
@@ -400,8 +401,8 @@ Citabilità stimata: **44/100**
 
 Il contenuto risponde, ma nulla e' verificabile dall'esterno.
 
-- scarto vs indice composito: **-16.7**
-- scarto vs profilo ChatGPT/Perplexity: **-15.5**
+- scarto vs indice composito: **-19.4**
+- scarto vs profilo ChatGPT/Perplexity: **-18.0**
 
 *gli scarti confrontano un giudizio con una stima euristica*
 

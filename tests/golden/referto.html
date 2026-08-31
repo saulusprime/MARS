@@ -283,10 +283,10 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <section class='hero'>
 <div class='hero-voto'>
 <div class='quadrante warn'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 60 su 100'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 63 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='211.47 140.39' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>60</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='220.62 131.24' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>63</text>
 </svg>
 <div class='nome'>Complessivo</div>
 </div>
@@ -396,11 +396,11 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 </svg>
 <div class='nome'>Dati Strutturati</div>
 </div>
-<div class='quadrante bad'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Accessibilità: 37 su 100'>
+<div class='quadrante warn'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Accessibilità: 58 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='130.19 221.67' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>37</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='204.08 147.78' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>58</text>
 </svg>
 <div class='nome'>Accessibilità</div>
 <div class='nota parziale'>axe-core · parziale</div>
@@ -415,10 +415,10 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='nota'>ZAP (passiva)</div>
 </div>
 <div class='quadrante warn'>
-<svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 61 su 100'>
+<svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 63 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='213.58 138.28' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>61</text>
+<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='223.08 128.78' transform='rotate(-90 60 60)'/>
+<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>63</text>
 </svg>
 <div class='nome'>Citabilità IA</div>
 </div>
@@ -724,7 +724,7 @@ Disallow:</pre>
 <div class='riga'>
 <h3>7. Accessibilità</h3>
 <span class='punteggio'>
-<span class='bad'>37<span class='muted'>/100</span>
+<span class='warn'>58<span class='muted'>/100</span>
 </span>
 </span>
 </div>
@@ -851,13 +851,13 @@ Disallow:</pre>
 <div class='riga'>
 <h3>9. Citabilità IA</h3>
 <span class='punteggio'>
-<span class='warn'>61<span class='muted'>/100</span>
+<span class='warn'>63<span class='muted'>/100</span>
 </span>
 </span>
 </div>
 <ul class='rilievi'>
 <li>Segnale debole: Qualità SEO (27/100)</li>
-<li>Segnale debole: Accessibilità (37/100)</li>
+<li>Segnale debole: Accesso e indicizzabilità (57/100)</li>
 </ul>
 </div>
 <div class='area'>
@@ -1018,8 +1018,14 @@ Disallow:</pre>
 <tr>
 <td>Complessivo</td>
 <td class='num'>61</td>
-<td class='num'>60</td>
-<td class='num bad'>-1</td>
+<td class='num'>63</td>
+<td class='num ok'>+2</td>
+</tr>
+<tr>
+<td>wcag</td>
+<td class='num'>37</td>
+<td class='num'>58</td>
+<td class='num ok'>+21</td>
 </tr>
 <tr>
 <td>tech</td>
@@ -1042,8 +1048,8 @@ Disallow:</pre>
 <tr>
 <td>citability</td>
 <td class='num'>60</td>
-<td class='num'>61</td>
-<td class='num ok'>+1</td>
+<td class='num'>63</td>
+<td class='num ok'>+3</td>
 </tr>
 </table>
 <h3 class='ok'>Risolti (1)</h3>
@@ -1113,7 +1119,7 @@ Disallow:</pre>
 <span class='badge bad'>CRITICO</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
-<p class='guadagno'>+37 punti d'area (37 → 74) · indice di citabilità +4.65 (mercato eu, stima)</p>
+<p class='guadagno'>+25 punti d'area (58 → 83) · indice di citabilità +3.14 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
 </div>
@@ -1156,19 +1162,7 @@ Disallow:</pre>
 <div class='intervento'>
 <div class='riga'>
 <h3>
-<span class='priorita'>7</span> <a href='#r-wcag-axe-color-contrast'>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</a>
-</h3>
-<span class='badge warn'>AVVERTENZA</span>
-</div>
-<p class='meta'>Accessibilità · sforzo: non dichiarato</p>
-<p class='guadagno'>+18 punti d'area (37 → 55) · indice di citabilità +2.26 (mercato eu, stima)</p>
-<span class='fix'>
-<span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
-</div>
-<div class='intervento'>
-<div class='riga'>
-<h3>
-<span class='priorita'>8</span> <a href='#r-sd-jsonld-block-malformed'>1 blocchi JSON-LD malformati</a>
+<span class='priorita'>7</span> <a href='#r-sd-jsonld-block-malformed'>1 blocchi JSON-LD malformati</a>
 </h3>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
@@ -1176,6 +1170,18 @@ Disallow:</pre>
 <p class='guadagno'>+10 punti d'area (90 → 100) · indice di citabilità +1.58 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>8</span> <a href='#r-wcag-axe-color-contrast'>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</a>
+</h3>
+<span class='badge warn'>AVVERTENZA</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: non dichiarato</p>
+<p class='guadagno'>+12 punti d'area (58 → 70) · indice di citabilità +1.51 (mercato eu, stima)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1233,7 +1239,7 @@ Disallow:</pre>
 <span class='badge warn'>AVVERTENZA</span>
 </div>
 <p class='meta'>Accessibilità · sforzo: non dichiarato</p>
-<p class='guadagno'>+7 punti d'area (37 → 44) · indice di citabilità +0.88 (mercato eu, stima)</p>
+<p class='guadagno'>+5 punti d'area (58 → 63) · indice di citabilità +0.63 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Ensure every form element has a label</span>
 </div>
@@ -1409,33 +1415,33 @@ Disallow:</pre>
 </thead>
 <tr>
 <td>Claude</td>
-<td class='num warn'>62.3</td>
+<td class='num warn'>65.1</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:62%'>
+<span class='bar warn' aria-hidden='true' style='width:65%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>ChatGPT/Perplexity</td>
-<td class='num warn'>59.5</td>
+<td class='num warn'>62.0</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:60%'>
+<span class='bar warn' aria-hidden='true' style='width:62%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>Qwen</td>
-<td class='num warn'>62.0</td>
+<td class='num warn'>65.0</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:62%'>
+<span class='bar warn' aria-hidden='true' style='width:65%'>
 </span>
 </td>
 </tr>
 <tr>
 <td>Kimi</td>
-<td class='num warn'>62.0</td>
+<td class='num warn'>65.0</td>
 <td style='width:55%'>
-<span class='bar warn' aria-hidden='true' style='width:62%'>
+<span class='bar warn' aria-hidden='true' style='width:65%'>
 </span>
 </td>
 </tr>
@@ -1444,7 +1450,7 @@ Disallow:</pre>
 <strong>Indice composito</strong>
 </td>
 <td class='num warn'>
-<strong>60.7</strong>
+<strong>63.4</strong>
 </td>
 <td>
 </td>
@@ -1453,13 +1459,13 @@ Disallow:</pre>
 <p class='disclaimer'>stime euristiche dichiarate, non comportamento documentato dai vendor</p>
 <ul class='rilievi'>
 <li>Segnale debole: Qualità SEO (27/100)</li>
-<li>Segnale debole: Accessibilità (37/100)</li>
+<li>Segnale debole: Accesso e indicizzabilità (57/100)</li>
 </ul>
 <p class='meta'>Azioni con maggior guadagno di profilo:</p>
 <ul class='rilievi'>
 <li>robots.txt BLOCCA 1 crawler IA: GPTBot <strong>+7.54</strong> sull'indice — soprattutto Qwen (+8.57)</li>
 <li>L&#x27;indicizzazione della pagina è bloccata <strong>+4.74</strong> sull'indice — soprattutto ChatGPT/Perplexity (+6.53)</li>
-<li>Le immagini devono avere un testo alternativo <strong>+4.65</strong> sull'indice — soprattutto Qwen (+5.29)</li>
+<li>Le immagini devono avere un testo alternativo <strong>+3.14</strong> sull'indice — soprattutto Qwen (+3.57)</li>
 </ul>
 <h2>Giudizio LLM</h2>
 <div class='card'>
@@ -1467,9 +1473,9 @@ Disallow:</pre>
 <p class='grande warn'>61<span class='muted'>/100</span>
 </p>
 <p>I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e&#x27; verificabile.</p>
-<p class='meta'>scarto vs indice composito: <strong>+0.3</strong>
+<p class='meta'>scarto vs indice composito: <strong>-2.4</strong>
 </p>
-<p class='meta'>scarto vs profilo Claude: <strong>-1.3</strong>
+<p class='meta'>scarto vs profilo Claude: <strong>-4.1</strong>
 </p>
 <p class='meta'>Passaggio migliore: <code>https://esempio.test/ § Che cos&#x27;e&#x27; il drenaggio linfatico?</code>
 </p>
@@ -1495,9 +1501,9 @@ Disallow:</pre>
 <p class='grande bad'>44<span class='muted'>/100</span>
 </p>
 <p>Il contenuto risponde, ma nulla e&#x27; verificabile dall&#x27;esterno.</p>
-<p class='meta'>scarto vs indice composito: <strong>-16.7</strong>
+<p class='meta'>scarto vs indice composito: <strong>-19.4</strong>
 </p>
-<p class='meta'>scarto vs profilo ChatGPT/Perplexity: <strong>-15.5</strong>
+<p class='meta'>scarto vs profilo ChatGPT/Perplexity: <strong>-18.0</strong>
 </p>
 <p class='meta'>Passaggio migliore: <code>https://esempio.test/servizi/ § Percorsi post-operatori</code>
 </p>

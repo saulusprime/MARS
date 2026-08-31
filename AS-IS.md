@@ -85,6 +85,7 @@
 | I15 | L'elisione italiana, su un elenco dichiarato di nove | 2026-08-28 |
 | I18 | La correzione con esempio anche per l'area SEO | 2026-08-28 |
 | I10 | L'area Prestazioni: i Core Web Vitals dallo stesso LHR | 2026-08-31 |
+| R64 | La diffusione axe partiva dal massimo sul campione di una pagina | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2387,6 +2388,52 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R64 — ✅ (2026-08-31): la diffusione axe partiva dal massimo proprio dove non c'è informazione
+
+*(l'ha trovato **il confronto col PSI** che il committente aveva sotto gli
+occhi: «Accessibilità 76 dove PageSpeed dice 97». La metà Prestazioni della
+stessa segnalazione si è invece dissolta alla misura — vedi in fondo.)*
+
+**Il difetto.** `score_from_violations` scala il peso editoriale di ogni
+regola per la diffusione `1 + min(pages, testate)/max(testate, 1)`. La
+docstring promette «da 1x se tocca una pagina sola a 2x se le tocca tutte»,
+ma quella forma l'1x non lo dà mai — il minimo è `1 + 1/testate` — e sul
+campione di **una** pagina dà sempre il massimo: `min(1,1)/1 = 1` → 2x. Il
+peso raddoppiava proprio dove di diffusione non esiste alcuna informazione.
+Misurato sul sito reale: un solo `color-contrast` serious (3 elementi, 1
+pagina) costava 24 punti invece di 12 — Accessibilità 76, Lighthouse 97.
+
+**La correzione.** `1 + max(viste−1, 0) / max(testate−1, 1)`, con
+`viste = min(pages, testate)`: una pagina sola = peso pieno e basta, tutte
+le testate = doppio, in mezzo si interpola. Il `max` al numeratore copre
+l'input ostile `testate=0` con violazioni (la funzione è pubblica e pura).
+I pesi editoriali `PESI_AXE` sono intatti: sull'audit a 1 pagina del
+committente la correzione fa 76 → **88**, e la distanza residua da
+Lighthouse è la scala — il suo punteggio non è una misura di conformità,
+e il referto continua a dichiarare la direzione («la nostra è più severa»).
+
+**Le prove.** Test di regressione
+`test_wcag_la_diffusione_parte_da_1x_e_il_campione_di_una_pagina_non_raddoppia`
+(1/1 → 1x, 1/5 → 1x, 3/5 → 1.5x, testate=0 senza crash); il pin `label 1 su
+2 → 1.5x` aggiornato a 1x **dichiarandolo**, insieme alla formula; 7/7
+mutazioni colte (`min`↔`max`, i due `−1`, il segno, `*`↔`/`) con
+`PYTHONDONTWRITEBYTECODE=1` e senza i golden; golden rigenerati e diff
+riletto — l'area sintetica 37 → 58 quadra a mano (63 = 1.5×42 → 42), e
+complessivo, storico, piano e composito si muovono di conseguenza;
+end-to-end sul sito reale dopo la correzione: sul crawl a 5 pagine
+`color-contrast` sta su **tutte e cinque** (11 elementi) e il 2x ora è
+**guadagnato**, non regalato dal campione — penalità 24 identica, mentre
+`scrollable-region-focusable` su 2 di 5 scende a 1.25x. `flake8` a zero,
+1325 test verdi.
+
+**La metà che non era un difetto.** Prestazioni 58.6 contro il PSI desktop:
+sullo **stesso LHR** il voto MARS (58.6) sta *sopra* quello di Lighthouse
+(58) — per costruzione, perché penalizziamo solo le metriche sotto 0.9 e
+Lighthouse tutte quelle sotto 1.0 con gli stessi pesi. La discrepanza è il
+form factor: `esegui_lighthouse` non ne passa uno → default mobile con
+throttling, mentre il link PSI era desktop (misurato in locale, stesso
+sito e stessa ora: desktop 83, mobile 58). La leva giusta è I16, non i pesi.
 
 ### I10 — ✅ REALIZZATA (2026-08-31): l'area Prestazioni, i Core Web Vitals dallo stesso LHR
 

@@ -4,7 +4,7 @@
 =======================================================
 
 I testi di questi strumenti restano nella loro lingua: ZAP (passiva) (en), axe-core (en).
-COMPLESSIVO          :  60/100  (da migliorare)
+COMPLESSIVO          :  63/100  (da migliorare)
   media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM
 -------------------------------------------------------
 1. Tecnica           :  57/100
@@ -33,7 +33,7 @@ COMPLESSIVO          :  60/100  (da migliorare)
   ⚠ [medio] 4 passaggi indicizzabili su 3 pagine, sotto i 20 attesi
 6. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
-7. Accessibilità     :  37/100
+7. Accessibilità     :  58/100
   axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
@@ -54,11 +54,12 @@ SUPERFICIE
   (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
 -------------------------------------------------------
 RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
-  Complessivo          -1  (61 → 60)
+  Complessivo          +2  (61 → 63)
+  wcag                 +21  (37 → 58)
   tech                 +17  (40 → 57)
   schema               -10  (100 → 90)
   llm_judge            +6  (55 → 61)
-  citability           +1  (60 → 61)
+  citability           +3  (60 → 63)
   1 risolti:
     · Nessuna sitemap dichiarata
   21 nuovi:
@@ -79,7 +80,7 @@ PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
      ** QUICK WIN · +37 punti d'area (27 → 64) · indice +4.74
      Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
   3. [CRITICO · Accessibilità · sforzo non dichiarato] Le immagini devono avere un testo alternativo
-     +37 punti d'area (37 → 74) · indice +4.65
+     +25 punti d'area (58 → 83) · indice +3.14
      Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
   4. [CRITICO · Sicurezza · sforzo non dichiarato] Cross Site Scripting (Reflected)
      +28 punti d'area (57 → 85) · indice +1.76
@@ -103,28 +104,28 @@ Fuori dall'intersezione:
     https://esempio.test/faq/ § Serve la prescrizione medica?
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: eu)
-  Claude                62.3  ████████████
-  ChatGPT/Perplexity    59.5  ███████████
-  Qwen                  62.0  ████████████
-  Kimi                  62.0  ████████████
-  INDICE COMPOSITO      60.7
+  Claude                65.1  █████████████
+  ChatGPT/Perplexity    62.0  ████████████
+  Qwen                  65.0  █████████████
+  Kimi                  65.0  █████████████
+  INDICE COMPOSITO      63.4
   (stime euristiche dichiarate, non comportamento documentato dai vendor)
   · Segnale debole: Qualità SEO (27/100)
-  · Segnale debole: Accessibilità (37/100)
+  · Segnale debole: Accesso e indicizzabilità (57/100)
 -------------------------------------------------------
 Giudizio LLM (claude-opus-5)  su 4 passaggi
   Citabilità stimata   : 61/100
   I passaggi rispondono a domande esplicite e si reggono fuori dal contesto, ma il listino non e' verificabile.
-  scarto vs indice composito: +0.3
-  scarto vs profilo Claude: -1.3
+  scarto vs indice composito: -2.4
+  scarto vs profilo Claude: -4.1
   Passaggio migliore   : https://esempio.test/ § Che cos'e' il drenaggio linfatico?
   · da migliorare: Nessun prezzo verificabile
   · da migliorare: Nessuna data di aggiornamento
 Giudizio LLM (gpt-5.6)  su 4 passaggi
   Citabilità stimata   : 44/100
   Il contenuto risponde, ma nulla e' verificabile dall'esterno.
-  scarto vs indice composito: -16.7
-  scarto vs profilo ChatGPT/Perplexity: -15.5
+  scarto vs indice composito: -19.4
+  scarto vs profilo ChatGPT/Perplexity: -18.0
   Passaggio migliore   : https://esempio.test/servizi/ § Percorsi post-operatori
   · da migliorare: Nessun riferimento a fonti o normative
   · da migliorare: Alcuni passaggi rimandano a cio' che sta sopra

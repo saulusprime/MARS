@@ -925,7 +925,7 @@
     {
       "module": "mars_wcag",
       "label": "7. Accessibilità",
-      "score": 37,
+      "score": 58,
       "status": null,
       "issues": [
         "axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali",
@@ -975,7 +975,7 @@
             "urls": [
               "https://esempio.test/"
             ],
-            "penalty": 37.5,
+            "penalty": 25.0,
             "text_lang": "it"
           }
         },
@@ -998,7 +998,7 @@
             "urls": [
               "https://esempio.test/"
             ],
-            "penalty": 18.0,
+            "penalty": 12.0,
             "text_lang": "it"
           }
         },
@@ -1021,7 +1021,7 @@
             "urls": [
               "https://esempio.test/servizi/"
             ],
-            "penalty": 7.5,
+            "penalty": 5.0,
             "text_lang": "en"
           }
         },
@@ -1318,11 +1318,11 @@
     {
       "module": "mars_citability",
       "label": "9. Citabilità IA",
-      "score": 60.7,
+      "score": 63.4,
       "status": null,
       "issues": [
         "Segnale debole: Qualità SEO (27/100)",
-        "Segnale debole: Accessibilità (37/100)"
+        "Segnale debole: Accesso e indicizzabilità (57/100)"
       ],
       "findings": [
         {
@@ -1343,28 +1343,6 @@
               "mars_seo"
             ],
             "value": 27.0,
-            "threshold": 60,
-            "derived": true
-          }
-        },
-        {
-          "area": "mars_citability",
-          "severity": "info",
-          "title": "Segnale debole: Accessibilità (37/100)",
-          "key": "cit.accessibilita.weak",
-          "detail": "",
-          "fix": "",
-          "example": "",
-          "doc_url": "",
-          "weight": 1.0,
-          "source_severity": "",
-          "params": {
-            "signal": "accessibilita",
-            "label": "Accessibilità",
-            "sources": [
-              "mars_wcag"
-            ],
-            "value": 37.0,
             "threshold": 60,
             "derived": true
           }
@@ -1409,6 +1387,28 @@
               "mars_wapt"
             ],
             "value": 57.0,
+            "threshold": 60,
+            "derived": true
+          }
+        },
+        {
+          "area": "mars_citability",
+          "severity": "info",
+          "title": "Segnale debole: Accessibilità (58/100)",
+          "key": "cit.accessibilita.weak",
+          "detail": "",
+          "fix": "",
+          "example": "",
+          "doc_url": "",
+          "weight": 1.0,
+          "source_severity": "",
+          "params": {
+            "signal": "accessibilita",
+            "label": "Accessibilità",
+            "sources": [
+              "mars_wcag"
+            ],
+            "value": 58.0,
             "threshold": 60,
             "derived": true
           }
@@ -1623,11 +1623,11 @@
     }
   ],
   "citability": {
-    "score": 60.7,
+    "score": 63.4,
     "status": null,
     "issues": [
       "Segnale debole: Qualità SEO (27/100)",
-      "Segnale debole: Accessibilità (37/100)"
+      "Segnale debole: Accesso e indicizzabilità (57/100)"
     ],
     "findings": [
       {
@@ -1648,28 +1648,6 @@
             "mars_seo"
           ],
           "value": 27.0,
-          "threshold": 60,
-          "derived": true
-        }
-      },
-      {
-        "area": "mars_citability",
-        "severity": "info",
-        "title": "Segnale debole: Accessibilità (37/100)",
-        "key": "cit.accessibilita.weak",
-        "detail": "",
-        "fix": "",
-        "example": "",
-        "doc_url": "",
-        "weight": 1.0,
-        "source_severity": "",
-        "params": {
-          "signal": "accessibilita",
-          "label": "Accessibilità",
-          "sources": [
-            "mars_wcag"
-          ],
-          "value": 37.0,
           "threshold": 60,
           "derived": true
         }
@@ -1717,20 +1695,42 @@
           "threshold": 60,
           "derived": true
         }
+      },
+      {
+        "area": "mars_citability",
+        "severity": "info",
+        "title": "Segnale debole: Accessibilità (58/100)",
+        "key": "cit.accessibilita.weak",
+        "detail": "",
+        "fix": "",
+        "example": "",
+        "doc_url": "",
+        "weight": 1.0,
+        "source_severity": "",
+        "params": {
+          "signal": "accessibilita",
+          "label": "Accessibilità",
+          "sources": [
+            "mars_wcag"
+          ],
+          "value": 58.0,
+          "threshold": 60,
+          "derived": true
+        }
       }
     ],
     "market": "eu",
     "profiles": {
-      "Claude": 62.3,
-      "ChatGPT/Perplexity": 59.5,
-      "Qwen": 62.0,
-      "Kimi": 62.0
+      "Claude": 65.1,
+      "ChatGPT/Perplexity": 62.0,
+      "Qwen": 65.0,
+      "Kimi": 65.0
     },
     "signals": {
       "Accesso e indicizzabilità": 57.0,
       "Qualità SEO": 27.0,
       "Dati strutturati": 90.0,
-      "Accessibilità": 37.0,
+      "Accessibilità": 58.0,
       "Sicurezza": 57.0,
       "Recuperabilità ibrida (consenso RRF)": 66.66666666666667,
       "Contenuto in forma di risposta": 75.0
@@ -1929,10 +1929,10 @@
         },
         "scarti": {
           "profile": "Claude",
-          "composite_score": 60.7,
-          "profile_score": 62.3,
-          "delta_composite": 0.3,
-          "delta_profile": -1.3
+          "composite_score": 63.4,
+          "profile_score": 65.1,
+          "delta_composite": -2.4,
+          "delta_profile": -4.1
         }
       },
       {
@@ -2002,10 +2002,10 @@
         },
         "scarti": {
           "profile": "ChatGPT/Perplexity",
-          "composite_score": 60.7,
-          "profile_score": 59.5,
-          "delta_composite": -16.7,
-          "delta_profile": -15.5
+          "composite_score": 63.4,
+          "profile_score": 62.0,
+          "delta_composite": -19.4,
+          "delta_profile": -18.0
         }
       }
     ],
@@ -2030,10 +2030,10 @@
     },
     "scarti": {
       "profile": "Claude",
-      "composite_score": 60.7,
-      "profile_score": 62.3,
-      "delta_composite": 0.3,
-      "delta_profile": -1.3
+      "composite_score": 63.4,
+      "profile_score": 65.1,
+      "delta_composite": -2.4,
+      "delta_profile": -4.1
     }
   },
   "llm_judgements": [
@@ -2126,10 +2126,10 @@
       },
       "scarti": {
         "profile": "Claude",
-        "composite_score": 60.7,
-        "profile_score": 62.3,
-        "delta_composite": 0.3,
-        "delta_profile": -1.3
+        "composite_score": 63.4,
+        "profile_score": 65.1,
+        "delta_composite": -2.4,
+        "delta_profile": -4.1
       }
     },
     {
@@ -2199,10 +2199,10 @@
       },
       "scarti": {
         "profile": "ChatGPT/Perplexity",
-        "composite_score": 60.7,
-        "profile_score": 59.5,
-        "delta_composite": -16.7,
-        "delta_profile": -15.5
+        "composite_score": 63.4,
+        "profile_score": 62.0,
+        "delta_composite": -19.4,
+        "delta_profile": -18.0
       }
     }
   ],
@@ -2225,7 +2225,7 @@
     }
   },
   "overall": {
-    "score": 60.1,
+    "score": 62.7,
     "components": [
       {
         "name": "1. Tecnica",
@@ -2244,7 +2244,7 @@
       },
       {
         "name": "7. Accessibilità",
-        "value": 37.0,
+        "value": 58.0,
         "weight": 1.0
       },
       {
@@ -2376,19 +2376,19 @@
         "urls": [
           "https://esempio.test/"
         ],
-        "penalty": 37.5,
+        "penalty": 25.0,
         "text_lang": "it"
       },
-      "penalty": 37.5,
-      "recovery": 37,
-      "score_before": 37,
-      "score_after": 74,
-      "index_gain": 4.65,
+      "penalty": 25.0,
+      "recovery": 25,
+      "score_before": 58,
+      "score_after": 83,
+      "index_gain": 3.14,
       "profile_gains": {
-        "Claude": 4.93,
-        "ChatGPT/Perplexity": 4.35,
-        "Qwen": 5.29,
-        "Kimi": 5.29
+        "Claude": 3.33,
+        "ChatGPT/Perplexity": 2.94,
+        "Qwen": 3.57,
+        "Kimi": 3.57
       },
       "market": "eu",
       "effort": null,
@@ -2470,8 +2470,8 @@
       },
       "penalty": 0.0,
       "recovery": 0,
-      "score_before": 37,
-      "score_after": 37,
+      "score_before": 58,
+      "score_after": 58,
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
@@ -2504,8 +2504,8 @@
       },
       "penalty": 0.0,
       "recovery": 0,
-      "score_before": 37,
-      "score_after": 37,
+      "score_before": 58,
+      "score_after": 58,
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
@@ -2516,46 +2516,6 @@
       "additive": false,
       "certified": true,
       "priority": 6
-    },
-    {
-      "key": "wcag.axe.color_contrast",
-      "area": "mars_wcag",
-      "area_label": "7. Accessibilità",
-      "severity": "warning",
-      "title": "Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore",
-      "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
-      "example": "",
-      "doc_url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
-      "params": {
-        "rule": "color-contrast",
-        "nodes": 1,
-        "instances": 1,
-        "pages": 1,
-        "urls": [
-          "https://esempio.test/"
-        ],
-        "penalty": 18.0,
-        "text_lang": "it"
-      },
-      "penalty": 18.0,
-      "recovery": 18,
-      "score_before": 37,
-      "score_after": 55,
-      "index_gain": 2.26,
-      "profile_gains": {
-        "Claude": 2.4,
-        "ChatGPT/Perplexity": 2.12,
-        "Qwen": 2.57,
-        "Kimi": 2.57
-      },
-      "market": "eu",
-      "effort": null,
-      "quick_win": false,
-      "lane": "misurato",
-      "lane_reason": "",
-      "additive": false,
-      "certified": true,
-      "priority": 7
     },
     {
       "key": "sd.jsonld.block_malformed",
@@ -2587,6 +2547,46 @@
       },
       "market": "eu",
       "effort": "minuti",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 7
+    },
+    {
+      "key": "wcag.axe.color_contrast",
+      "area": "mars_wcag",
+      "area_label": "7. Accessibilità",
+      "severity": "warning",
+      "title": "Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore",
+      "fix": "Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA",
+      "example": "",
+      "doc_url": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
+      "params": {
+        "rule": "color-contrast",
+        "nodes": 1,
+        "instances": 1,
+        "pages": 1,
+        "urls": [
+          "https://esempio.test/"
+        ],
+        "penalty": 12.0,
+        "text_lang": "it"
+      },
+      "penalty": 12.0,
+      "recovery": 12,
+      "score_before": 58,
+      "score_after": 70,
+      "index_gain": 1.51,
+      "profile_gains": {
+        "Claude": 1.6,
+        "ChatGPT/Perplexity": 1.41,
+        "Qwen": 1.71,
+        "Kimi": 1.71
+      },
+      "market": "eu",
+      "effort": null,
       "quick_win": false,
       "lane": "misurato",
       "lane_reason": "",
@@ -2807,19 +2807,19 @@
         "urls": [
           "https://esempio.test/servizi/"
         ],
-        "penalty": 7.5,
+        "penalty": 5.0,
         "text_lang": "en"
       },
-      "penalty": 7.5,
-      "recovery": 7,
-      "score_before": 37,
-      "score_after": 44,
-      "index_gain": 0.88,
+      "penalty": 5.0,
+      "recovery": 5,
+      "score_before": 58,
+      "score_after": 63,
+      "index_gain": 0.63,
       "profile_gains": {
-        "Claude": 0.93,
-        "ChatGPT/Perplexity": 0.82,
-        "Qwen": 1.0,
-        "Kimi": 1.0
+        "Claude": 0.67,
+        "ChatGPT/Perplexity": 0.59,
+        "Qwen": 0.71,
+        "Kimi": 0.71
       },
       "market": "eu",
       "effort": null,
@@ -3117,8 +3117,8 @@
       },
       "penalty": 0.0,
       "recovery": 0,
-      "score_before": 37,
-      "score_after": 37,
+      "score_before": 58,
+      "score_after": 58,
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
@@ -3150,8 +3150,8 @@
       },
       "penalty": 0.0,
       "recovery": 0,
-      "score_before": 37,
-      "score_after": 37,
+      "score_before": 58,
+      "score_after": 58,
       "index_gain": null,
       "profile_gains": null,
       "market": "eu",
@@ -3168,6 +3168,12 @@
     "previous_run": "2025-12-01T09:00:00+0000",
     "previous_version": "0.0.0",
     "scores": [
+      {
+        "area": "mars_wcag",
+        "before": 37,
+        "after": 58,
+        "change": 21
+      },
       {
         "area": "mars_tech",
         "before": 40,
@@ -3189,8 +3195,8 @@
       {
         "area": "mars_citability",
         "before": 60.0,
-        "after": 60.7,
-        "change": 0.7
+        "after": 63.4,
+        "change": 3.4
       },
       {
         "area": "mars_seo",
@@ -3203,18 +3209,12 @@
         "before": 57,
         "after": 57,
         "change": 0
-      },
-      {
-        "area": "mars_wcag",
-        "before": 37,
-        "after": 37,
-        "change": 0
       }
     ],
     "overall": {
       "before": 61.0,
-      "after": 60.1,
-      "change": -0.9
+      "after": 62.7,
+      "change": 1.7
     },
     "resolved": [
       {
@@ -3461,7 +3461,7 @@
           "urls": [
             "https://esempio.test/"
           ],
-          "penalty": 37.5,
+          "penalty": 25.0,
           "text_lang": "it"
         }
       },
@@ -3478,7 +3478,7 @@
           "urls": [
             "https://esempio.test/"
           ],
-          "penalty": 18.0,
+          "penalty": 12.0,
           "text_lang": "it"
         }
       },
@@ -3495,7 +3495,7 @@
           "urls": [
             "https://esempio.test/servizi/"
           ],
-          "penalty": 7.5,
+          "penalty": 5.0,
           "text_lang": "en"
         }
       },

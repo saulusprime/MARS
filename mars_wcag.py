@@ -362,7 +362,9 @@ def score_from_violations(violations: List[dict],
     penalizza la regola violata, non quante volte la si incontra.
 
     La diffusione conta comunque: il peso va da 1x, se la regola tocca
-    una pagina sola, a 2x se le tocca tutte.
+    una pagina sola, a 2x se le tocca tutte. Su un campione di una
+    pagina resta quindi 1x: non c'e' informazione di diffusione, e
+    addebitare il massimo era il difetto R64.
 
     **Quali** pagine, e non solo quante, finiscono in `params["urls"]`:
     le violazioni arrivano gia' etichettate da `run_axe` sotto
@@ -409,8 +411,13 @@ def score_from_violations(violations: List[dict],
     conteggio: Dict[str, int] = {}
     rilievi_dato: List[Finding] = []
     for voce in per_regola.values():
-        diffusione = 1.0 + min(voce["pages"], pagine_testate) / max(
-            pagine_testate, 1)
+        # (viste-1)/(testate-1), non viste/testate: la vecchia forma non
+        # dava mai l'1x promesso e su un campione di UNA pagina partiva
+        # dal massimo — il peso raddoppiava proprio dove di diffusione
+        # non c'e' informazione (R64). Il max al numeratore copre
+        # l'input ostile testate=0 con violazioni.
+        viste = min(voce["pages"], pagine_testate)
+        diffusione = 1.0 + max(viste - 1, 0) / max(pagine_testate - 1, 1)
         costo = PESI_AXE.get(voce["impact"], 2) * diffusione
         penalita += costo
         conteggio[voce["impact"]] = conteggio.get(voce["impact"], 0) + 1

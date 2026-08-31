@@ -217,9 +217,11 @@ def raccogli_segnali(results: dict) -> Dict[str, Optional[float]]:
     # incrociavano i ranghi AGGREGATI, che ogni recuperatore fonde con
     # k: il segnale — che pesa 2-3/3 in ogni profilo — ereditava la
     # fragilita' di k misurata in I3. La media per query incrocia le
-    # liste grezze e k non entra; una query senza riscontro da un lato
-    # resta fuori dalla media invece di regalare il 3/3 di due ordini
-    # di scansione identici (R23).
+    # liste grezze e k non entra. Il filtro su `matched` tiene la
+    # query senza riscontro FUORI dalla media (non misurato non e'
+    # zero, R23); il 3/3 regalato dai due ordini di scansione identici
+    # non puo' piu' accadere da R65, perche' i rank si fermano dove
+    # finiscono i riscontri e una query a vuoto arriva vuota.
     lessicale = results.get("mars_lexical") or {}
     per_sem = {v.get("query"): v
                for v in semantico.get("per_query") or []}

@@ -70,6 +70,7 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   (le chiavi sec.zap. hanno cambiato forma: li' «risolto» e «comparso» non sono fatti del sito)
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
+  (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
 PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
   2 quick win · 4 senza recupero · 6 senza sforzo dichiarato

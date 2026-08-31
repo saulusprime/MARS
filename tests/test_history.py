@@ -359,6 +359,19 @@ def test_i17_e_dichiarata_fra_le_misure_cambiate():
         "due esecuzioni gia' 2.20 si confrontano senza caveat"
 
 
+def test_r65_e_dichiarata_fra_le_misure_cambiate():
+    """R65 toglie dai rank le code a punteggio zero: su un sito con
+    query a riscontro parziale il consenso — e con lui Recuperabilita',
+    complessivo e profili — si muove a sito invariato. Sul sintetico
+    dei golden non si muove nulla (ogni query matched ha almeno tre
+    riscontri veri), ed e' proprio per questo che serve la voce: il
+    caveat deve arrivare dove i golden non guardano."""
+    voci = st.misure_cambiate_fra("2.20.0", "2.21.0")
+    assert any("R65" in v["reason"] for v in voci), \
+        "il cambio di misura di R65 non e' dichiarato"
+    assert st.misure_cambiate_fra("2.21.0", "2.21.0") == []
+
+
 def test_la_riga_di_storico_registra_il_form_factor():
     """I16 segue I3: con `--form-factor` due esecuzioni dello stesso
     sito possono aver misurato con dispositivi diversi, e le curve di

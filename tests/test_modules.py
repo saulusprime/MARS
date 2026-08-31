@@ -2143,7 +2143,12 @@ def test_crawler_estrae_titoli_difficili():
 def test_lexical_una_voce_per_query(contesto):
     esito = mars_lexical.audit(contesto)
     assert [v["query"] for v in esito["per_query"]] == contesto["queries"]
-    assert len(esito["rank"]) == len(contesto["chunks"])
+    # Da R65 il rango copre i soli chunk TROVATI, non l'intero corpus:
+    # il pin `== len(chunks)` codificava la coda a zero. Cambiato
+    # insieme al contratto, non per farlo passare.
+    assert esito["rank"], "le query con riscontro producono un rango"
+    assert len(esito["rank"]) <= len(contesto["chunks"])
+    assert all(0 <= i < len(contesto["chunks"]) for i in esito["rank"])
 
 
 def test_lexical_trova_il_chunk_nonostante_la_punteggiatura(contesto):
@@ -3691,6 +3696,73 @@ def test_query_a_vuoto_esclusa_dal_rango_aggregato(modulo):
         "senza una sola query utile non c'e' rango aggregato"
     misto = modulo.audit(_ctx_r23(["zzzzz qqqqq", "organizzazione ricerca"]))
     assert misto["rank"], "la query utile deve comunque produrre un rango"
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_r65_la_classifica_si_ferma_dove_finiscono_i_riscontri(modulo):
+    """Regressione R65: R23 generalizzata dal tutto-zero al parziale.
+
+    Con un riscontro solo, la vecchia classifica proseguiva con i
+    parimerito a zero in ORDINE DI SCANSIONE — identico sui due lati,
+    quindi il consenso per query contava come accordo cio' che nessuno
+    dei due aveva trovato. Misurato durante la revisione di I17,
+    end-to-end coi recuperatori veri: 6 chunk, un riscontro per lato su
+    chunk diversi, e il consenso diceva 2/3 dove l'accordo reale era
+    zero. Premessa verificata su QUESTO corpus: per "telefonate" i
+    punteggi sono positivi sul solo chunk 1 (proxy: [0.0, 0.369...]).
+    """
+    esito = modulo.audit(_ctx_r23(["telefonate"]))
+    voce = esito["per_query"][0]
+    assert voce["matched"] is True
+    assert voce["rank"] == [1], "la coda a zero non e' una classifica"
+
+
+def test_r65_un_riscontro_debole_resta_in_classifica():
+    """Il filtro e' «positivo», non una soglia: un termine presente in
+    quasi tutti i chunk ha idf minuscolo e BM25 gli da' ~0.10 — un
+    riscontro vero, e la classifica deve tenerlo. Una mutazione che
+    alzava il filtro a 0.5 passava con i soli casi da punteggio alto.
+    """
+    ctx = dict(_ctx_r23(["servizio"]))
+    ctx["chunks"] = [
+        {"url": "https://x/", "heading": "A",
+         "text": "Il servizio principale della sede."},
+        {"url": "https://x/", "heading": "B",
+         "text": "Un servizio aggiuntivo per i clienti."},
+        {"url": "https://x/", "heading": "C",
+         "text": "Ogni servizio ha un suo listino."},
+        {"url": "https://x/", "heading": "D",
+         "text": "Il servizio si prenota online."},
+    ]
+    voce = mars_lexical.audit(ctx)["per_query"][0]
+    assert voce["matched"] is True
+    # Punteggi misurati ~0.10 su tutti e quattro: tutti in classifica.
+    assert sorted(voce["rank"]) == [0, 1, 2, 3]
+
+
+def test_r65_un_riscontro_debole_resta_anche_nel_proxy():
+    """Il gemello semantico del presidio qui sopra, che presidiava il
+    solo BM25: la mutazione `p > 0.1` sul filtro del proxy
+    sopravviveva all'INTERA suite. Il riscontro debole esiste gia' in
+    questo corpus: punteggi proxy misurati [0.5098, 0.0163] per
+    "organizzazione ricerca" — lo 0.0163 e' vero e deve restare."""
+    esito = mars_semantic.audit(_ctx_r23(["organizzazione ricerca"]))
+    voce = esito["per_query"][0]
+    assert voce["matched"] is True
+    assert voce["rank"] == [0, 1]
+
+
+@pytest.mark.parametrize("modulo", [mars_lexical, mars_semantic],
+                         ids=lambda m: m.__name__)
+def test_r65_il_rango_aggregato_contiene_solo_chunk_trovati(modulo):
+    """Il rango aggregato fonde le classifiche per query: se queste
+    portano la coda a zero, un chunk mai trovato da nessuna query entra
+    nell'aggregato per posizione di scansione — e da li' nel campione
+    che `seleziona_chunk` sottopone al giudizio LLM."""
+    esito = modulo.audit(_ctx_r23(["telefonate"]))
+    assert esito["rank"] == [1], \
+        "il chunk 0 non e' mai stato trovato e non ha rango"
 
 
 def test_citability_non_prende_cento_dal_nulla():

@@ -88,6 +88,7 @@
 | R64 | La diffusione axe partiva dal massimo sul campione di una pagina | 2026-08-31 |
 | I16 | `--form-factor`: il confronto like-for-like col PSI desktop | 2026-08-31 |
 | I17 | La Recuperabilità è la media per query: k non muove più un voto | 2026-08-31 |
+| R65 | Le classifiche si fermano dove finiscono i riscontri | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2390,6 +2391,67 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R65 — ✅ (2026-08-31): le classifiche si fermano dove finiscono i riscontri
+
+*(aperta dalla revisione avversariale di I17, che l'ha anche misurata come
+**preesistente**: sullo stesso input l'aggregato pre-I17 regalava lo stesso
+consenso, perché fondeva le stesse liste contaminate.)*
+
+**Il difetto.** I `rank` per query coprivano l'intero corpus: dopo i
+riscontri veri, la coda dei parimerito a zero proseguiva in **ordine di
+scansione** — identico sui due recuperatori. Su una query a riscontro
+parziale l'incrocio dei primi tre contava come accordo chunk che nessuno
+aveva trovato. Riprodotto coi recuperatori veri: 6 chunk, un riscontro per
+lato su chunk diversi — accordo reale zero — e il consenso diceva 2/3
+(66.7). R23 presidiava il solo confine tutto-zero (`matched=any(s>0)`).
+
+**La correzione.** La classifica si ferma dove finiscono i riscontri:
+`rank` contiene i soli chunk a punteggio **positivo** (è un filtro, non
+una soglia: un idf minuscolo dà ~0.10 e resta dentro — presidiato, dopo
+che una mutazione a 0.5 era sfuggita ai soli casi con punteggi alti). Il
+troncamento sta **alla fonte**, nei due moduli, e guarisce tutto in un
+punto: i due gemelli del consenso, il rango aggregato, le divergenze
+I4+I9 e il campione che `seleziona_chunk` sottopone al giudizio LLM — che
+ora contiene solo passaggi che una ricerca ibrida selezionerebbe davvero,
+come la sua docstring già prometteva. `_consenso` e il gemello in
+`mars_citability` scalano da soli: `attesi = min(3, len, len)`.
+
+**La revisione avversariale ha confermato quattro rilievi**, tutti
+corretti prima del commit: tre commenti resi stantii dal diff stesso —
+la docstring di `_consenso`, il gemello in `mars_citability` e il
+commento R23 di `mars_semantic` motivavano `matched`/`misurabile` con il
+3/3 regalato dagli ordini di scansione, che da R65 **non può più
+accadere** (una query a vuoto arriva con liste vuote); riscritti al
+passato con la ragione superstite, la distinzione «non misurato ≠
+zero». Il quarto era un buco di presidio vero: la mutazione `p > 0.1`
+sul filtro del proxy sopravviveva all'intera suite, con un riscontro
+debole reale (0.0163) già nel corpus di test — ora presidiato, come il
+gemello BM25. Cinque rilievi respinti con la misura, fra cui due
+comportamenti **ereditati** (il ripiego di `seleziona_chunk` quando un
+solo aggregato è vuoto; la riga del contratto su `rrf_k`, debito di I17
+chiuso in un commit suo) e l'1/1 su base asimmetrica, che è la semantica
+deliberata di I17+R65 e ora ha un test che la dichiara.
+
+**Le prove.** Sei test di regressione (riscontro singolo → `rank ==
+[1]` sui due moduli; rango aggregato solo sui trovati; riscontro debole
+~0.10 BM25 e 0.0163 proxy che restano; l'1/1 asimmetrico dichiarato;
+il pin `len(rank) == len(chunks)` aggiornato dichiarandolo); 7/7
+mutazioni colte (`>0`→`>=0` e le soglie 0.5/0.1 su entrambi i moduli,
+la voce di storico); golden **byte-identici sui punteggi** — il
+sintetico ha ≥3 riscontri veri per query matched, cambia solo il terzo
+caveat `MISURE_CAMBIATE` nel delta; `flake8` a zero, 1347 test verdi.
+
+**End-to-end sul sito reale: nulla si muove, ed è la risposta giusta.**
+Le due query a 1/3 erano accordi veri — con 94 chunk e query generiche
+entrambe le liste hanno ≥3 riscontri positivi (`out_of` resta 3) — e
+Recuperabilità (16.67), complessivo (65.1) e profili sono identici alla
+cifra decimale. Il regalo morde i corpora **sparsi**: siti piccoli, query
+strette, e il ripiego char-TFIDF dove gli zeri esatti abbondano. La voce
+`MISURE_CAMBIATE` (since 2.21.0) resta necessaria proprio per quei siti,
+dove il caveat arriverà a dichiarare numeri che si muovono. Nota di
+precisione: i referti «prima» in questa indagine portano l'etichetta
+2.19.0 perché generati col codice di I17 prima del bump di versione.
 
 ### I17 — ✅ REALIZZATA (2026-08-31): la Recuperabilità è la media per query, e k non muove più un voto
 

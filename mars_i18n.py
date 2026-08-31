@@ -1002,6 +1002,12 @@ _CORNICE_EN: Dict[str, str] = {
         "the Retrievability signal of the overall score and of "
         "the citability profiles is the per-query mean, no longer "
         "the aggregate consensus that moved with k (I17)",
+    "le classifiche si fermano dove finiscono i riscontri: "
+    "la coda a punteggio zero non regala piu' consenso "
+    "sulle query a riscontro parziale (R65)":
+        "rankings stop where the matches end: the zero-score tail "
+        "no longer gifts consensus on partially matched queries "
+        "(R65)",
     "  (il k della fusione è cambiato, da %d a %d: il "
     "consenso aggregato non è la stessa misura)":
         "  (the fusion k changed, from %d to %d: the aggregate "

@@ -179,8 +179,15 @@ def audit(context: dict) -> dict:
         # consenso 3/3, il risultato migliore possibile, proprio dove
         # non c'era un solo riscontro.
         trovato = any(s > 0 for s in scores)
-        rank = sorted(range(len(scores)),
-                      key=lambda i: scores[i], reverse=True)
+        # La classifica si FERMA dove finiscono i riscontri (R65): con
+        # un riscontro solo la coda dei parimerito a zero proseguiva in
+        # ordine di scansione — identico sui due recuperatori — e il
+        # consenso per query contava come accordo chunk che nessuno
+        # aveva trovato. E' R23 generalizzata dal tutto-zero al
+        # parziale.
+        rank = [i for i in sorted(range(len(scores)),
+                                  key=lambda i: scores[i], reverse=True)
+                if scores[i] > 0]
         per_query.append({
             "query": query,
             "rank": rank,

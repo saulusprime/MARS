@@ -301,13 +301,19 @@ def audit(context: dict) -> dict:
     per_query = []
     for query in queries:
         punteggi = vec.get_scores(query)
-        # Come in mars_lexical: senza alcun riscontro i punteggi sono
-        # tutti zero e l'ordinamento restituisce l'ordine di scansione,
-        # non una classifica. Va distinto, altrimenti due ordini
-        # naturali identici vengono letti come consenso perfetto.
+        # Come in mars_lexical: senza alcun riscontro i punteggi ERANO
+        # tutti zero e l'ordinamento restituiva l'ordine di scansione
+        # — due ordini naturali identici letti come consenso perfetto
+        # (R23). Da R65 quella classifica e' vuota; `trovato` resta per
+        # il rilievo sem.query.no_match e per il `matched: False` che
+        # nel referto distingue "non misurato" da un disaccordo vero.
         trovato = any(p > 0 for p in punteggi)
-        classifica = [i for i, _ in sorted(enumerate(punteggi),
-                                           key=lambda x: x[1], reverse=True)]
+        # E come in mars_lexical, la classifica si ferma dove finiscono
+        # i riscontri (R65): la coda a zero era ordine di scansione
+        # spacciato per rango anche a meta', non solo sul tutto-zero.
+        classifica = [i for i, p in sorted(enumerate(punteggi),
+                                           key=lambda x: x[1], reverse=True)
+                      if p > 0]
         per_query.append({
             "query": query,
             "rank": classifica,

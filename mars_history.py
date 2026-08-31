@@ -198,6 +198,10 @@ MISURE_CAMBIATE = (
      "reason": "la Recuperabilita' del complessivo e dei profili di "
                "citabilita' e' la media per query, non piu' il "
                "consenso aggregato che si muoveva con k (I17)"},
+    {"since": "2.21.0",
+     "reason": "le classifiche si fermano dove finiscono i riscontri: "
+               "la coda a punteggio zero non regala piu' consenso "
+               "sulle query a riscontro parziale (R65)"},
 )
 
 

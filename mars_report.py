@@ -1065,11 +1065,14 @@ def _consenso(rank_a: List[int], rank_b: List[int], chunks: List[dict],
     """Consenso fra due classifiche sui primi tre chunk.
 
     `misurabile` distingue "i due recuperatori non concordano" da "non
-    c'e' nulla su cui concordare": quando una query non trova alcun
-    riscontro entrambi restituiscono l'ordine di scansione, che coincide
-    con se stesso e produrrebbe un consenso 3/3 — il risultato migliore
-    possibile proprio dove l'informazione e' zero. Si riporta None,
-    come per un'area non misurata.
+    c'e' nulla su cui concordare": si riporta None, come per un'area
+    non misurata. Fino a R65 era anche l'unica guardia contro un 3/3
+    regalato — una query a vuoto restituiva l'ordine di scansione,
+    identico sui due lati — ma da R65 i rank si fermano dove finiscono
+    i riscontri, e una query a vuoto arriva con liste vuote (0/0, che
+    ogni media gia' scarta). Il flag resta per la DISTINZIONE: un
+    `matched: False` nel referto e un «nessun riscontro» nella resa
+    non sono uno 0/0 misurato.
     """
     if not misurabile:
         return {"query": query, "consensus_top3": None,

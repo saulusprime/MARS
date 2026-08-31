@@ -1968,6 +1968,23 @@ def test_la_recuperabilita_e_la_media_per_query_e_ignora_l_aggregato():
     assert "5" in segnali[0]["note"], "la nota dice su quante query"
 
 
+def test_r65_una_query_da_un_riscontro_solo_vale_sulla_sua_base():
+    """Decisione dichiarata (I17 + R65), non una svista: con un
+    riscontro solo da un lato il consenso si valuta su cio' che quel
+    lato ha trovato — 1/1 se l'altro lo conferma nei suoi primi tre,
+    0/1 se no. Non e' il regalo della coda: l'accordo contato e' su un
+    chunk che ENTRAMBI hanno davvero trovato, e la resa mostra la base
+    («1/1»), non un percento."""
+    chunks = [{"url": "https://x/%d" % i, "heading": "h%d" % i,
+               "text": "t"} for i in range(6)]
+    confermato = _consenso([3], [4, 5, 3, 2], chunks, "q", 60)
+    assert (confermato["consensus_top3"],
+            confermato["consensus_out_of"]) == (1, 1)
+    smentito = _consenso([3], [4, 5, 2, 3], chunks, "q", 60)
+    assert (smentito["consensus_top3"],
+            smentito["consensus_out_of"]) == (0, 1)
+
+
 def test_senza_una_query_misurabile_la_recuperabilita_non_esiste():
     """La stessa regola di ogni area: non misurato, non zero — e
     nemmeno il 3/3 che due ordini di scansione identici darebbero

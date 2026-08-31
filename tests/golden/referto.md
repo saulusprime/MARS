@@ -81,6 +81,8 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 *È cambiato che cosa si misura — la Recuperabilita' del complessivo e dei profili di citabilita' e' la media per query, non piu' il consenso aggregato che si muoveva con k (I17): i numeri si muovono anche a sito invariato.*
 
+*È cambiato che cosa si misura — le classifiche si fermano dove finiscono i riscontri: la coda a punteggio zero non regala piu' consenso sulle query a riscontro parziale (R65): i numeri si muovono anche a sito invariato.*
+
 *Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu' per sola regola: sec.zap.10038 e' diventato sec.zap.10038_1, _2, _3 (R39): in quest'area «risolto» e «comparso» non sono fatti del sito.*
 
 ## Piano di interventi

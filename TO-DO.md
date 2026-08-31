@@ -19,8 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Una casella aperta** (R65, trovata dalla revisione di I17 e non
-> introdotta da lei). Il programma UPGRADE è chiuso, salvo la fase
+> **Nessuna casella aperta.** Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -57,7 +56,10 @@
 > decisa **I17** — il segnale «Recuperabilità» del complessivo e dei profili
 > di citabilità è la media per query, che da k non dipende, e l'aggregato
 > resta come diagnostica — e la versione è **2.20.0**, perché complessivo e
-> profili si muovono a sito invariato.
+> profili si muovono a sito invariato. La revisione di I17 ha aperto **R65**
+> — le code a punteggio zero regalavano consenso sulle query a riscontro
+> parziale — chiusa lo stesso giorno: da lì le classifiche si fermano dove
+> finiscono i riscontri, e la versione è **2.21.0**.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -74,19 +76,7 @@
 
 ## Correzioni
 
-- [ ] **R65** — **il consenso regalato dalle code a punteggio zero.** I `rank`
-  per query coprono l'intero corpus, e su una query con uno o due riscontri
-  per lato i primi tre si riempiono con i parimerito a zero in ordine di
-  scansione — identico sui due lati. *Misurato il 2026-08-31 durante la
-  revisione di I17, end-to-end con BM25 e proxy veri:* 6 chunk, il lessicale
-  trova solo il chunk 4 e il semantico solo il chunk 5 — accordo reale zero —
-  e il consenso per query dice 2/3 (66.7). **Non è una regressione di I17**:
-  sullo stesso input l'aggregato pre-I17 dava lo stesso 66.7, perché fondeva
-  le stesse liste contaminate; R23 presidia il solo confine tutto-zero
-  (`matched=any(s>0)`). Morde soprattutto nel ripiego char-TFIDF, dove gli
-  zeri esatti abbondano. Correzione da decidere sul contratto dei `rank`:
-  troncarli ai soli punteggi positivi, o farlo fare a `_consenso` e al
-  gemello in `mars_citability`.
+**Nessuna aperta.**
 
 ---
 

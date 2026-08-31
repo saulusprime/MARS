@@ -358,8 +358,10 @@ def test_la_ripartizione_ignora_gli_url_che_non_sono_stati_scansionati():
     assert sum(quote.values()) == 1
 
 
-def test_il_donut_delle_pagine_compare_nell_hero():
-    """I tre settori arrivano fino al disegno, coi nomi decisi."""
+def test_la_ripartizione_delle_pagine_compare_nell_hero():
+    """I tre settori arrivano fino al disegno, coi nomi decisi. Da I19
+    il disegno e' una barra e non piu' un donut: cambia la forma, non i
+    nomi — sono loro a portare il caveat di R49."""
     referto = build_report(
         {"mars_tech": {"score": 50, "issues": ["x"], "findings": [
             {"area": "mars_tech", "key": "tech.x", "title": "x",
@@ -2068,12 +2070,12 @@ def test_un_derivato_grave_resta_comunque_fuori(contesto):
     assert conteggi_per_gravita(referto) == {}
 
 
-def test_le_tre_caselle_coprono_tutte_le_gravita_prodotte(referto):
-    """Presidio: se un giorno un modulo emettesse `ok`, la casella non
+def test_le_tre_quote_coprono_tutte_le_gravita_prodotte(referto):
+    """Presidio: se un giorno un modulo emettesse `ok`, la quota non
     ci sarebbe e il rilievo sparirebbe dall'hero senza che nulla si
     rompa. Questo test lo rende rosso invece che invisibile."""
     conteggi = conteggi_per_gravita(referto)
-    note = {gravita for gravita, _, _ in mars_report.TESSERE_GRAVITA}
+    note = {gravita for gravita, _, _ in mars_report.QUOTE_GRAVITA}
     assert set(conteggi) <= note, "gravità non rappresentata nell'hero: %s" % (
         set(conteggi) - note)
 
@@ -2089,14 +2091,17 @@ def test_l_hero_mostra_voto_verdetto_e_scala(contesto):
 
 
 def test_l_hero_conta_i_rilievi_e_le_pagine(contesto):
-    """Dal 2026-08-26 (R49) gli URL scartati non sono piu' una riga di
-    testo ma un settore del donut, e il numero si legge accanto al suo
-    nome."""
+    """R49 aveva messo gli URL scartati in un settore del donut, col
+    numero accanto al nome. Da I19 il donut non c'e' piu' — su un
+    campione a un solo stato era un cerchio pieno di un colore solo —
+    ma la forma «<b>N</b> nome» resta, ed e' quella che questo test
+    presidia. I conteggi delle gravita' l'hanno adottata a loro volta:
+    prima erano tessere di uguale peso visivo."""
     contesto["skipped"] = ["non HTML: https://x/a.pdf", "altro host"]
     contesto["results"] = {"mars_tech": {"score": 60, "issues": [],
                                          "findings": [_rilievo()]}}
     html = render_html(build_report(contesto["results"], contesto))
-    assert "<span class='grande bad'>1</span>" in html
+    assert "<b>1</b> critici" in html
     assert "<b>2</b> URL scartati" in html
 
 
@@ -2118,10 +2123,150 @@ def test_l_hero_riusa_il_quadrante_della_fascia(contesto):
     # Quattro dal 2026-08-26: il donut delle pagine (R49) condivide il
     # viewBox perche' condivide la circonferenza — e' la stessa
     # geometria, non una seconda implementazione.
-    assert html.count("viewBox='0 0 120 120'") == 4, \
-        "hero + donut delle pagine + due aree"
-    assert html.count("class='donut'") == 1
+    assert html.count("viewBox='0 0 120 120'") == 3, \
+        "hero + due aree"
     assert ".hero .quadrante svg { width:8.5rem" in html
+
+
+# ----------------------------------------------------------------------
+# I19: l'hero ricomposto — la variazione in testa, le quote come barre
+# ----------------------------------------------------------------------
+
+def _precedente_senza_riserve(contesto, **cambi):
+    """Un'esecuzione precedente della STESSA versione.
+
+    Serve a isolare la variazione dai caveat: fra due versioni diverse
+    scattano migrazioni di chiave e misure cambiate, e il confronto
+    nasce con riserva per ragioni che non c'entrano con questo test.
+    """
+    riga = {"generated_at": "2025-12-01T09:00:00+0000",
+            "version": mars_core.__version__, "url": contesto["url"],
+            "scores": {"mars_tech": 40}, "overall": 40.0, "findings": []}
+    riga.update(cambi)
+    return riga
+
+
+def test_l_hero_porta_la_variazione_del_complessivo(contesto):
+    """Il numero piu' dinamico che il referto possiede stava duecento
+    righe piu' in basso. Il colore segue il SEGNO e non la scala, come
+    gia' fa la tabella del delta: qui non si giudica quanto vale il
+    sito, si dice se e' salito."""
+    html = render_html(_referto_con_delta(
+        contesto, _precedente_senza_riserve(contesto)))
+
+    # 40 -> 57: +17, in salita.
+    assert "<p class='hero-delta ok'>" in html
+    assert "+17" in html
+
+
+def test_una_variazione_nulla_non_e_ne_buona_ne_cattiva(contesto):
+    """Con `ok` per il positivo e `bad` per tutto il resto, «invariato»
+    sarebbe rosso. Non e' un peggioramento: e' l'assenza di uno."""
+    html = render_html(_referto_con_delta(
+        contesto, _precedente_senza_riserve(contesto, overall=57.0)))
+
+    assert "<p class='hero-delta muted'>" in html
+    assert "invariato" in html
+
+
+def test_la_variazione_nell_hero_dichiara_le_riserve(contesto):
+    """Un «+17» in testa, grande, senza dire che fra le due esecuzioni
+    e' cambiato il metro, e' la promessa di onesta' rotta nel punto piu'
+    letto del referto. Il motivo per esteso resta nella sezione del
+    delta; qui basta il segnale che ce n'e' uno."""
+    referto = _referto_con_delta(contesto,
+                                 _precedente_senza_riserve(contesto))
+    referto["delta"]["form_factor_changed"] = {"before": "mobile",
+                                               "after": "desktop"}
+    html = render_html(referto)
+
+    assert "<p class='hero-delta ok con-riserva'>" in html
+    assert "con riserva" in html
+
+
+def test_senza_esecuzione_precedente_l_hero_non_inventa_una_variazione(
+        contesto):
+    """`delta` e' None alla prima esecuzione: uno «0» in testa direbbe
+    «non e' cambiato nulla» invece di «non c'e' un prima»."""
+    html = render_html(_referto_complessivo(contesto))
+
+    assert "<p class='hero-delta" not in html
+    assert "<section class='hero'>" in html
+
+
+def test_le_gravita_sono_una_barra_proporzionale(contesto):
+    """Tre scatole di uguale peso visivo dicevano che «0 critici» e «5
+    avvertenze» pesano uguale. La larghezza e' la quota; una gravita' a
+    zero non ha fetta, ma il suo numero resta scritto — zero e' una
+    misura, e toglierlo dalla legenda lo farebbe sparire."""
+    contesto["results"] = {"mars_tech": {"score": 60, "issues": [], "findings": [
+        _rilievo(key="tech.a", severity=SEV_WARNING),
+        _rilievo(key="tech.b", severity=SEV_WARNING),
+        _rilievo(key="tech.c", severity=SEV_WARNING),
+        _rilievo(key="tech.d", severity=SEV_INFO)]}}
+    html = render_html(build_report(contesto["results"], contesto))
+
+    assert "<span class='fetta warn' style='width:75.0%'></span>" in html
+    assert "<span class='fetta muted' style='width:25.0%'></span>" in html
+    # Nessun critico: nessuna fetta, ma il numero si legge lo stesso.
+    assert "class='fetta bad'" not in html
+    assert "<b>0</b> critici" in html
+
+
+def _hero_reso(html: str) -> str:
+    """Il solo hero: il CSS nomina le stesse classi, e cercarle in
+    tutta la pagina darebbe verde a un disegno che non c'e'."""
+    return html.split("<section class='hero'>")[1].split("</section>")[0]
+
+
+def test_senza_rilievi_la_barra_delle_gravita_non_si_disegna(contesto):
+    """Una barra vuota si legge come una ripartizione, e non c'e' niente
+    da ripartire: e' la stessa regola che il donut applicava a zero URL."""
+    hero = _hero_reso(render_html(_referto_complessivo(contesto)))
+
+    assert "<b>0</b> critici" in hero
+    assert "class='barra'" not in hero
+
+
+def test_un_solo_stato_pieno_non_e_una_ripartizione(contesto):
+    """Il difetto per cui il donut e' stato tolto: su un campione in cui
+    ogni pagina ha un rilievo disegnava un anello intero d'un colore
+    solo, promettendo una ripartizione che non mostrava. Una barra piena
+    al 100%% ricadrebbe nello stesso punto — i numeri accanto bastano."""
+    contesto["skipped"] = []
+    contesto["results"] = {"mars_tech": {"score": 60, "issues": [], "findings": [
+        _rilievo(key="tech.a", severity=SEV_WARNING,
+                 params={"urls": [contesto["url"]]}),
+        _rilievo(key="tech.b", severity=SEV_WARNING,
+                 params={"urls": [contesto["url"]]})]}}
+    hero = _hero_reso(render_html(build_report(contesto["results"], contesto)))
+
+    # Due avvertenze e nient'altro: una fetta sola, quindi nessuna barra.
+    assert "<b>2</b> avvertenze" in hero
+    assert "class='barra'" not in hero
+
+
+def test_l_arco_del_quadrante_si_disegna_da_zero(contesto):
+    """L'arco si anima solo se il suo punto di partenza e' esprimibile
+    in CSS: con `dasharray` variabile il fotogramma iniziale andrebbe
+    calcolato per ogni quadrante. Con `dashoffset` la partenza e' la
+    circonferenza, una costante, e lo stato BASE resta quello finale —
+    cioe' con le animazioni spente il disegno e' gia' giusto."""
+    html = render_html(_referto_complessivo(contesto))
+
+    assert "stroke-dasharray='351.86' stroke-dashoffset='70.37'" in html
+    assert "@keyframes traccia { from { stroke-dashoffset:351.86; } }" in html
+
+
+def test_il_movimento_e_tutto_dietro_prefers_reduced_motion(contesto):
+    """MARS misura l'accessibilita' altrui: il suo referto non fa
+    muovere nulla a chi ha chiesto che non si muova. Il presidio conta
+    le `animation`, cosi' una aggiunta fuori dal blocco non passa."""
+    html = render_html(_referto_complessivo(contesto))
+    dentro = html.split("@media (prefers-reduced-motion: no-preference)")
+
+    assert html.count("animation:") == "".join(dentro[1:]).count("animation:")
+    assert html.count("animation:") >= 3, "arco, barre, variazione"
 
 
 # ----------------------------------------------------------------------

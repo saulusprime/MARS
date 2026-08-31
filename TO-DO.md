@@ -59,7 +59,12 @@
 > profili si muovono a sito invariato. La revisione di I17 ha aperto **R65**
 > — le code a punteggio zero regalavano consenso sulle query a riscontro
 > parziale — chiusa lo stesso giorno: da lì le classifiche si fermano dove
-> finiscono i riscontri, e la versione è **2.21.0**.
+> finiscono i riscontri, e la versione è **2.21.0**. Lo stesso giorno il
+> committente ha chiesto di riprogettare l'hero, «poco dinamico»: **I19**
+> lo ricompone — la variazione rispetto al giro precedente sale in testa,
+> le tre tessere di uguale peso e il donut diventano due barre
+> proporzionali, e il movimento sta dietro `prefers-reduced-motion` —
+> e la versione è **2.22.0**.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

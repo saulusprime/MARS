@@ -778,9 +778,9 @@ def _testi_dal_dato() -> set:
     testi |= set(rp._MARCATORE.values())
     testi |= set(rp._GRAVITA_TESTO.values())
     testi |= {e for _, e in rp._BADGE_GRAVITA.values()}
-    testi |= {e for _, e, _ in rp.TESSERE_GRAVITA}
+    testi |= {e for _, e, _ in rp.QUOTE_GRAVITA}
     testi |= {e for _, e in rp.TREEMAP_GRAVITA.values()}
-    # I tre settori del donut delle pagine: le etichette stanno in una
+    # I tre stati degli URL in testa: le etichette stanno in una
     # costante e arrivano a `t()` come variabile, quindi lo scanner dei
     # letterali non le vede (R49).
     testi |= {e for _, e, _ in rp.SETTORI_PAGINE}

@@ -89,22 +89,49 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
-/* --- hero: il complessivo in testa (Fase 5) --- */
-.hero { display:flex; flex-wrap:wrap; gap:1.5rem; align-items:center;
-        justify-content:center; padding:1.5rem 0 .5rem;
-        border-bottom:1px solid var(--line); }
-.hero-voto { text-align:center; }
+/* --- hero: il complessivo in testa (Fase 5, ricomposto con I19) ---
+   Il voto e la sua prosa su una riga, le due quote sotto: prima erano
+   una fila unica di cinque oggetti larghi uguali, e a schermo stretto
+   andava a capo in modo che il voto finiva accanto a una tessera. */
+.hero { padding:1.5rem 0 1rem; border-bottom:1px solid var(--line); }
+.hero-testa { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem;
+              align-items:center; justify-content:center; }
+.hero-detta { flex:1 1 22rem; max-width:34rem; }
 .hero .quadrante { width:12rem; }
 .hero .quadrante svg { width:8.5rem; height:8.5rem; }
 .hero .valore { font-size:38px; }
 .verdetto { font-size:1.05rem; font-weight:600; margin:.2rem 0 .35rem;
             text-transform:uppercase; letter-spacing:.03em; }
-.tessere { display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; }
-.tessera { background:var(--card); border:1px solid var(--line);
-           border-radius:.6rem; padding:.6rem .9rem; min-width:7rem;
-           text-align:center; box-shadow:var(--ombra); }
-.tessera .grande { display:block; font-size:1.5rem; }
-.tessera .meta { display:block; margin:0; }
+/* La variazione del complessivo fra un giro e il successivo: e' il dato
+   piu' vivo del referto, e sta dov'e' guardato. `con-riserva` non
+   cambia il colore — il segno resta il segno — ma smorza il numero e lo
+   affianca alla parola: un «+17» pieno accanto a «il metro e' cambiato»
+   sarebbe una contraddizione a colori.
+   (Qui non si scrive nessuna delle frasi che il lettore vede: stanno
+   nel catalogo, e un presidio le cerca in TUTTA la pagina — CSS
+   compreso — per dimostrare che al primo giro la sezione tace.) */
+.hero-delta { font-size:1.35rem; font-weight:600; margin:.5rem 0 0;
+              font-variant-numeric:tabular-nums; }
+.hero-delta.ok { color:var(--ok); }
+.hero-delta.bad { color:var(--bad); }
+.hero-delta.muted { color:var(--muted); }
+.hero-delta.con-riserva { opacity:.75; }
+.hero-delta .meta { font-size:.87rem; font-weight:400; }
+/* Le due quote: rilievi per gravita', URL per stato. Stessa forma per
+   due domande diverse, perche' la forma dice «ripartizione di un
+   totale» e vale per entrambe. */
+.hero-quote { display:flex; flex-wrap:wrap; gap:.6rem 2rem;
+              justify-content:center; margin-top:1.1rem; }
+.quota { flex:1 1 16rem; max-width:26rem; }
+.barra { display:flex; height:.55rem; border-radius:.28rem;
+         overflow:hidden; background:var(--track); }
+.fetta { display:block; height:100%; }
+.fetta.bad { background:var(--bad); }
+.fetta.warn { background:var(--warn); }
+.fetta.muted { background:var(--muted); }
+.fetta.con-rilievi { background:var(--bad); }
+.quota .meta { margin:.35rem 0 0; }
+.quota b { color:var(--fg); font-variant-numeric:tabular-nums; }
 
 /* --- ancore stabili (Fase 5) --- */
 .ancora { color:var(--muted); text-decoration:none; margin-left:.35rem;
@@ -177,14 +204,11 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
-svg.donut { width:100%; max-width:8.5rem; height:auto; }
-svg.donut circle.settore { stroke:var(--muted); }
-svg.donut circle.settore.con-rilievi { stroke:var(--bad); }
 /* Grigio del binario e non verde: «nessun rilievo le cita» non vuol
    dire «a posto» — nessuna area registra quali pagine ha guardato.
    Stessa scelta per cui la treemap lascia neutro cio' che non sa. */
-svg.donut circle.settore.non-citate { stroke:var(--track); }
-svg.donut circle.settore.scartati { stroke:var(--muted); }
+.fetta.non-citate { background:var(--track); }
+.fetta.scartati { background:var(--muted); }
 svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
 svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
@@ -267,6 +291,31 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
      alcun `href` esterno — invariante presidiato — e i soli `<a>` sono
      le ancore interne, che qui sono nascoste. Una regola che non
      seleziona nulla non si scrive. */
+  /* Su carta non c'e' un caricamento da accompagnare, e un foglio
+     catturato a meta' animazione stamperebbe un arco incompleto. */
+  * { animation:none !important; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes traccia { from { stroke-dashoffset:351.86; } }
+  @keyframes cresce { from { transform:scaleX(0); } }
+  @keyframes entra { from { opacity:0; transform:translateY(.4rem); } }
+  .quadrante .arco { animation:traccia .9s ease-out backwards; }
+  /* La fascia si riempie a ondata dopo il voto in testa. Il ciclo e'
+     di sei perche' sei quadranti stanno su una riga alla larghezza
+     piena: l'ondata attraversa la riga invece di saltellare. */
+  .quadranti .quadrante:nth-child(6n+1) .arco { animation-delay:.10s; }
+  .quadranti .quadrante:nth-child(6n+2) .arco { animation-delay:.16s; }
+  .quadranti .quadrante:nth-child(6n+3) .arco { animation-delay:.22s; }
+  .quadranti .quadrante:nth-child(6n+4) .arco { animation-delay:.28s; }
+  .quadranti .quadrante:nth-child(6n+5) .arco { animation-delay:.34s; }
+  .quadranti .quadrante:nth-child(6n+6) .arco { animation-delay:.40s; }
+  /* Si anima la barra intera e non le singole fette: ogni fetta
+     scalata dal proprio bordo sinistro si staccherebbe dalla
+     precedente, e la barra si ricomporrebbe a pezzi. */
+  .barra { transform-origin:left center;
+           animation:cresce .7s ease-out .2s backwards; }
+  .hero-delta { animation:entra .5s ease-out .45s backwards; }
 }
 </style>
 </head>
@@ -280,44 +329,37 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <p class='meta'>2026-01-01T00:00:00+0000 · 3 pagine trovate via sitemap · 4 chunk · mercato italia · v0.0.0</p>
 </header>
 <section class='hero'>
-<div class='hero-voto'>
+<div class='hero-testa'>
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Complessivo: 66 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='230.47 121.39' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='121.39' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>66</text>
 </svg>
 <div class='nome'>Complessivo</div>
 </div>
+<div class='hero-detta'>
 <p class='verdetto warn'>da migliorare</p>
 <p class='meta'>media pesata di 4 misure · escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM</p>
 <p class='meta'>scala dichiarata: critico sotto 50 · da migliorare 50-89 · buono da 90</p>
 </div>
-<div class='tessere'>
-<div class='tessera'>
-<span class='grande bad'>3</span>
-<span class='meta'>critici</span>
 </div>
-<div class='tessera'>
-<span class='grande warn'>7</span>
-<span class='meta'>avvertenze</span>
+<div class='hero-quote'>
+<div class='quota'>
+<div class='barra' aria-hidden='true'>
+<span class='fetta bad' style='width:18.8%'>
+</span>
+<span class='fetta warn' style='width:43.8%'>
+</span>
+<span class='fetta muted' style='width:37.5%'>
+</span>
 </div>
-<div class='tessera'>
-<span class='grande muted'>6</span>
-<span class='meta'>informativi</span>
+<p class='meta'>
+<b>3</b> critici · <b>7</b> avvertenze · <b>6</b> informativi</p>
 </div>
-<div class='tessera'>
-<svg class='donut' viewBox='0 0 120 120' role='img' aria-label='URL incontrati: 3'>
-<circle class='settore con-rilievi' cx='60' cy='60' r='56' fill='none' stroke-width='9' stroke-dasharray='351.86 0.00' stroke-dashoffset='-0.00' transform='rotate(-90 60 60)'/>
-<text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>3</text>
-</svg>
-<span class='meta'>URL incontrati</span>
-<span class='meta'>
-<b>3</b> con rilievi</span>
-<span class='meta'>
-<b>0</b> nessun rilievo le cita</span>
-<span class='meta'>
-<b>0</b> URL scartati</span>
+<div class='quota'>
+<p class='meta'>
+<b>3</b> URL incontrati: <b>3</b> con rilievi · <b>0</b> nessun rilievo le cita · <b>0</b> URL scartati</p>
 </div>
 </div>
 </section>
@@ -345,7 +387,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Tecnica: 57 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='200.56 151.30' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='151.30' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>57</text>
 </svg>
 <div class='nome'>Tecnica</div>
@@ -369,7 +411,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Lessicale: 60 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='211.12 140.74' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='140.74' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>60</text>
 </svg>
 <div class='nome'>Lessicale</div>
@@ -386,7 +428,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante ok'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Dati Strutturati: 90 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='316.67 35.19' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='35.19' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>90</text>
 </svg>
 <div class='nome'>Dati Strutturati</div>
@@ -394,7 +436,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante bad'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Accessibilità: 40 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='140.74 211.12' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='211.12' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>40</text>
 </svg>
 <div class='nome'>Accessibilità</div>
@@ -403,7 +445,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Sicurezza: 75 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='263.89 87.96' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='87.96' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>75</text>
 </svg>
 <div class='nome'>Sicurezza</div>
@@ -412,7 +454,7 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
 <div class='quadrante warn'>
 <svg viewBox='0 0 120 120' role='img' aria-label='Citabilità IA: 68 su 100'>
 <circle class='anello-fondo' cx='60' cy='60' r='56' fill='none' stroke-width='9'/>
-<circle cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='238.91 112.95' transform='rotate(-90 60 60)'/>
+<circle class='arco' cx='60' cy='60' r='56' fill='none' stroke='currentColor' stroke-width='9' stroke-linecap='round' stroke-dasharray='351.86' stroke-dashoffset='112.95' transform='rotate(-90 60 60)'/>
 <text class='valore' x='60' y='60' text-anchor='middle' dominant-baseline='central' fill='currentColor'>68</text>
 </svg>
 <div class='nome'>Citabilità IA</div>

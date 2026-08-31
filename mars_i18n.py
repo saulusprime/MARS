@@ -1056,13 +1056,18 @@ _CORNICE_EN: Dict[str, str] = {
     "[INFO]": "[INFO]",
     "[OK]": "[OK]",
     "URL incontrati": "URLs encountered",
-    "URL incontrati: %d": "URLs encountered: %d",
-    # I tre settori del donut delle pagine. «nessun rilievo le cita» e
-    # non «senza rilievi»: il referto non sa quali pagine ogni area
-    # abbia guardato, e il nome porta il caveat dentro il disegno (R49).
+    # I tre stati degli URL in testa. «nessun rilievo le cita» e non
+    # «senza rilievi»: il referto non sa quali pagine ogni area abbia
+    # guardato, e il nome porta il caveat dentro il disegno (R49).
     "con rilievi": "with findings",
     "nessun rilievo le cita": "no finding cites them",
     "URL scartati": "URLs skipped",
+    # La variazione del complessivo, in testa (I19). «con riserva»
+    # segnala che il confronto porta un caveat — k cambiato, dispositivo
+    # cambiato, misure cambiate — senza ripeterne qui il motivo: quello
+    # sta per esteso nella sezione del delta.
+    "rispetto a prima": "against the previous run",
+    "rispetto a prima, con riserva": "against the previous run, with caveats",
     "Da dove cominciare": "Where to start",
 
     # --- Superficie -----------------------------------------------------

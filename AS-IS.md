@@ -89,6 +89,7 @@
 | I16 | `--form-factor`: il confronto like-for-like col PSI desktop | 2026-08-31 |
 | I17 | La Recuperabilità è la media per query: k non muove più un voto | 2026-08-31 |
 | R65 | Le classifiche si fermano dove finiscono i riscontri | 2026-08-31 |
+| I19 | L'hero ricomposto: la variazione in testa, le quote come barre | 2026-08-31 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2391,6 +2392,86 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I19 — ✅ REALIZZATA (2026-08-31): l'hero ricomposto, e il movimento dietro `prefers-reduced-motion`
+
+*(chiesta dal committente sul referto reale: «la sezione con l'hero-voto e
+tessere va riprogettata, la UI è poco dinamica».)*
+
+**Che c'era che non andava, misurato sul referto vero.** Tre difetti di
+informazione, non di gusto. (1) Le tre tessere di gravità erano scatole di
+**uguale peso visivo** anche a zero: «0 critici» pesava quanto «5
+avvertenze». (2) Il donut degli URL, su un campione in cui ogni pagina ha
+un rilievo, era un **cerchio pieno di un colore solo** — un disegno che
+promette una ripartizione e non ne mostra alcuna. (3) Il dato più vivo che
+il referto possiede, la variazione rispetto al giro precedente, stava
+**duecento righe più in basso**.
+
+**Che cosa fa adesso.** Il voto e la sua prosa su una riga, la variazione
+del complessivo sotto — freccia più segno, `▲ +8` — e sotto due barre
+proporzionali: rilievi per gravità, URL per stato. Le tre tessere e il
+donut non ci sono più; `SETTORI_PAGINE` e i suoi nomi restano, perché sono
+loro a portare il caveat di R49, e la forma del disegno non li riguarda.
+`TESSERE_GRAVITA` si chiama `QUOTE_GRAVITA`: il nome seguiva le scatole.
+
+**La barra si disegna solo con almeno DUE segmenti pieni.** È il difetto
+del donut riprodotto da me durante la lavorazione — sul referto degradato
+la prima resa dava una barra piena al 100% di un colore solo, cioè
+esattamente la promessa non mantenuta per cui il donut è stato tolto.
+Sotto quella soglia restano i soli numeri, che dicono già tutto. Uno zero
+non ha fetta ma **conserva il suo numero**: zero è una misura.
+
+**La variazione dichiara le riserve.** Un «+8» grande in testa senza dire
+che fra le due esecuzioni è cambiato il metro sarebbe la promessa di
+onestà rotta nel punto più letto del referto. `_riserve_del_delta()`
+guarda i cinque caveat che `compute_delta` già pubblica — `rrf_k_changed`,
+`form_factor_changed`, `by_title_fallback`, `key_migrations`,
+`measure_changes` — e la classe `con-riserva` smorza il numero e cambia la
+frase in «rispetto a prima, con riserva». Il motivo per esteso resta dov'era,
+nella sezione del delta: qui serve il solo fatto che ce ne sia uno. Il
+colore segue il **segno** e non la scala dei punteggi, come già fa la
+tabella del delta; una variazione nulla è grigia, perché non è un
+peggioramento ma l'assenza di uno.
+
+**Il movimento: l'arco si esprime con `dashoffset`, non con un `dasharray`
+a due valori.** È la scelta che rende l'animazione possibile *e* sicura: il
+fotogramma iniziale diventa una **costante** — la circonferenza, 351.86 —
+invece di un numero diverso per ogni quadrante, che il CSS non potrebbe
+conoscere. Ogni `@keyframes` ha il solo `from`, quindi **lo stato scritto
+nell'HTML è quello finale**: con le animazioni spente il disegno è già
+giusto e nessuno deve ripristinarlo. Conversione verificata sui golden,
+`dasharray='242.43 109.43'` → `dasharray='351.86' dashoffset='109.43'`,
+somma invariata.
+
+Tutto il movimento sta in `CSS_MOVIMENTO`, un blocco solo, tutto dentro
+`@media (prefers-reduced-motion: no-preference)`, più un `animation:none`
+in stampa perché un foglio catturato a metà stamperebbe un arco
+incompleto. MARS misura l'accessibilità altrui: un test conta le
+`animation` e fallisce se una finisce fuori dal blocco.
+
+**Prove.** `flake8` a zero; `pytest` **1356 passed** (10 test nuovi);
+**8/8 mutazioni colte**, fra cui «la barra si disegna con un solo stato
+pieno», «una variazione nulla è colorata come una salita», «l'arco parte
+dal valore invece che dalla circonferenza» e «un'animazione fuori da
+`prefers-reduced-motion`». Golden rigenerati e diff riletto. Reso
+verificato **in un browser vero** (Chromium via Playwright, 1100 px e
+420 px) e non dedotto: a movimento acceso l'offset dell'arco è 322.68 px
+a 120 ms e 109.43 px a fine corsa; con `prefers-reduced-motion: reduce`
+è **109.43 px subito**, e gli elementi con un'animazione attiva sono
+**zero**.
+
+**Due test sono stati cambiati, e non per farli passare**: pinnavano il
+disegno che il committente ha chiesto di sostituire. `test_l_hero_conta_i_rilievi_e_le_pagine`
+conserva la forma `<b>N</b> nome`, che sopravvive alla ricomposizione;
+`test_l_hero_riusa_il_quadrante_della_fascia` scende da quattro `viewBox`
+a tre, perché il quarto era il donut. Un terzo test — «alla prima
+esecuzione le viste tacciono» — è diventato rosso per un mio commento CSS
+che conteneva la frase cercata: ha ragione il test, che la cerca in tutta
+la pagina, e il commento è stato riscritto.
+
+**Non verificato**: la resa su Firefox e Safari, e la sequenza a schermi
+oltre i 1100 px, dove la fascia dei quadranti va a capo con un numero di
+elementi per riga diverso da sei e l'ondata del ritardo si sfasa.
 
 ### R65 — ✅ (2026-08-31): le classifiche si fermano dove finiscono i riscontri
 

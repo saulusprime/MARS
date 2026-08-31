@@ -703,13 +703,13 @@ def vicinato(archi: List[Dict[str, object]], quanti: int
 
 
 def ripartizione_pagine(referto: dict) -> Dict[str, int]:
-    """I tre numeri del donut dell'hero: quanti URL, e in che stato.
+    """I tre numeri della barra degli URL, in testa: quanti, e in che stato.
 
     Il totale e' cio' che il crawler ha **incontrato**, non le sole
     pagine: gli URL scartati fanno parte del giro e sparirebbero da
     una ripartizione delle sole pagine.
 
-    I nomi dei settori portano il caveat dentro il disegno, e non in una
+    I nomi degli stati portano il caveat dentro il disegno, e non in una
     nota accanto:
 
     - **`non_citate` non significa «pulite».** Nessuna area registra
@@ -2144,22 +2144,49 @@ ul.controlli .dettaglio { color:var(--muted); font-size:.82rem;
 ul.rilievi li { font-size:.88rem; margin:.15rem 0; }
 .nessun-rilievo { font-size:.85rem; color:var(--muted); margin:.4rem 0 0; }
 
-/* --- hero: il complessivo in testa (Fase 5) --- */
-.hero { display:flex; flex-wrap:wrap; gap:1.5rem; align-items:center;
-        justify-content:center; padding:1.5rem 0 .5rem;
-        border-bottom:1px solid var(--line); }
-.hero-voto { text-align:center; }
+/* --- hero: il complessivo in testa (Fase 5, ricomposto con I19) ---
+   Il voto e la sua prosa su una riga, le due quote sotto: prima erano
+   una fila unica di cinque oggetti larghi uguali, e a schermo stretto
+   andava a capo in modo che il voto finiva accanto a una tessera. */
+.hero { padding:1.5rem 0 1rem; border-bottom:1px solid var(--line); }
+.hero-testa { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem;
+              align-items:center; justify-content:center; }
+.hero-detta { flex:1 1 22rem; max-width:34rem; }
 .hero .quadrante { width:12rem; }
 .hero .quadrante svg { width:8.5rem; height:8.5rem; }
 .hero .valore { font-size:38px; }
 .verdetto { font-size:1.05rem; font-weight:600; margin:.2rem 0 .35rem;
             text-transform:uppercase; letter-spacing:.03em; }
-.tessere { display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; }
-.tessera { background:var(--card); border:1px solid var(--line);
-           border-radius:.6rem; padding:.6rem .9rem; min-width:7rem;
-           text-align:center; box-shadow:var(--ombra); }
-.tessera .grande { display:block; font-size:1.5rem; }
-.tessera .meta { display:block; margin:0; }
+/* La variazione del complessivo fra un giro e il successivo: e' il dato
+   piu' vivo del referto, e sta dov'e' guardato. `con-riserva` non
+   cambia il colore — il segno resta il segno — ma smorza il numero e lo
+   affianca alla parola: un «+17» pieno accanto a «il metro e' cambiato»
+   sarebbe una contraddizione a colori.
+   (Qui non si scrive nessuna delle frasi che il lettore vede: stanno
+   nel catalogo, e un presidio le cerca in TUTTA la pagina — CSS
+   compreso — per dimostrare che al primo giro la sezione tace.) */
+.hero-delta { font-size:1.35rem; font-weight:600; margin:.5rem 0 0;
+              font-variant-numeric:tabular-nums; }
+.hero-delta.ok { color:var(--ok); }
+.hero-delta.bad { color:var(--bad); }
+.hero-delta.muted { color:var(--muted); }
+.hero-delta.con-riserva { opacity:.75; }
+.hero-delta .meta { font-size:.87rem; font-weight:400; }
+/* Le due quote: rilievi per gravita', URL per stato. Stessa forma per
+   due domande diverse, perche' la forma dice «ripartizione di un
+   totale» e vale per entrambe. */
+.hero-quote { display:flex; flex-wrap:wrap; gap:.6rem 2rem;
+              justify-content:center; margin-top:1.1rem; }
+.quota { flex:1 1 16rem; max-width:26rem; }
+.barra { display:flex; height:.55rem; border-radius:.28rem;
+         overflow:hidden; background:var(--track); }
+.fetta { display:block; height:100%; }
+.fetta.bad { background:var(--bad); }
+.fetta.warn { background:var(--warn); }
+.fetta.muted { background:var(--muted); }
+.fetta.con-rilievi { background:var(--bad); }
+.quota .meta { margin:.35rem 0 0; }
+.quota b { color:var(--fg); font-variant-numeric:tabular-nums; }
 
 /* --- ancore stabili (Fase 5) --- */
 .ancora { color:var(--muted); text-decoration:none; margin-left:.35rem;
@@ -2232,14 +2259,11 @@ td.num { text-align:right; font-variant-numeric:tabular-nums;
    rettangolo, chiaro o scuro che sia il tema. */
 svg.treemap { width:100%; max-width:760px; height:auto; margin:.6rem 0;
               display:block; }
-svg.donut { width:100%; max-width:8.5rem; height:auto; }
-svg.donut circle.settore { stroke:var(--muted); }
-svg.donut circle.settore.con-rilievi { stroke:var(--bad); }
 /* Grigio del binario e non verde: «nessun rilievo le cita» non vuol
    dire «a posto» — nessuna area registra quali pagine ha guardato.
    Stessa scelta per cui la treemap lascia neutro cio' che non sa. */
-svg.donut circle.settore.non-citate { stroke:var(--track); }
-svg.donut circle.settore.scartati { stroke:var(--muted); }
+.fetta.non-citate { background:var(--track); }
+.fetta.scartati { background:var(--muted); }
 svg.treemap rect { fill:var(--muted); fill-opacity:.2;
                    stroke:var(--bg); stroke-width:2; }
 svg.treemap rect.bad { fill:var(--bad); fill-opacity:.55; }
@@ -2322,12 +2346,54 @@ code { background:var(--track); padding:.1rem .3rem; border-radius:.25rem;
      alcun `href` esterno — invariante presidiato — e i soli `<a>` sono
      le ancore interne, che qui sono nascoste. Una regola che non
      seleziona nulla non si scrive. */
+  /* Su carta non c'e' un caricamento da accompagnare, e un foglio
+     catturato a meta' animazione stamperebbe un arco incompleto. */
+  * { animation:none !important; }
 }
 """
 
 # Geometria del quadrante: raggio 56 in un viewBox 120x120.
 _RAGGIO = 56
 _CIRCONFERENZA = 2 * math.pi * _RAGGIO
+
+# Il movimento, in un blocco solo e tutto dietro `prefers-reduced-motion`
+# (I19). MARS misura l'accessibilita' altrui: il suo referto non fa
+# muovere nulla a chi ha chiesto che non si muova, e un test conta le
+# `animation` per impedire che una finisca fuori di qui.
+#
+# Ogni animazione ha il solo fotogramma `from`. Il `to` e' lo stato
+# scritto nell'HTML, quindi con le animazioni spente — media query,
+# stampa, browser senza CSS animations — il disegno e' gia' quello
+# finale e nessuno deve ripristinarlo. E' anche la ragione per cui
+# l'arco si esprime con `dashoffset` (vedi `_quadrante`): il fotogramma
+# iniziale e' la circonferenza, una costante, e non un numero diverso
+# per ogni quadrante.
+#
+# `backwards` tiene il fotogramma iniziale durante il ritardo: senza,
+# l'elemento comparirebbe, sparirebbe e rientrerebbe.
+CSS_MOVIMENTO = """
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes traccia { from { stroke-dashoffset:%.2f; } }
+  @keyframes cresce { from { transform:scaleX(0); } }
+  @keyframes entra { from { opacity:0; transform:translateY(.4rem); } }
+  .quadrante .arco { animation:traccia .9s ease-out backwards; }
+  /* La fascia si riempie a ondata dopo il voto in testa. Il ciclo e'
+     di sei perche' sei quadranti stanno su una riga alla larghezza
+     piena: l'ondata attraversa la riga invece di saltellare. */
+  .quadranti .quadrante:nth-child(6n+1) .arco { animation-delay:.10s; }
+  .quadranti .quadrante:nth-child(6n+2) .arco { animation-delay:.16s; }
+  .quadranti .quadrante:nth-child(6n+3) .arco { animation-delay:.22s; }
+  .quadranti .quadrante:nth-child(6n+4) .arco { animation-delay:.28s; }
+  .quadranti .quadrante:nth-child(6n+5) .arco { animation-delay:.34s; }
+  .quadranti .quadrante:nth-child(6n+6) .arco { animation-delay:.40s; }
+  /* Si anima la barra intera e non le singole fette: ogni fetta
+     scalata dal proprio bordo sinistro si staccherebbe dalla
+     precedente, e la barra si ricomporrebbe a pezzi. */
+  .barra { transform-origin:left center;
+           animation:cresce .7s ease-out .2s backwards; }
+  .hero-delta { animation:entra .5s ease-out .45s backwards; }
+}
+""" % _CIRCONFERENZA
 
 
 def _classe(valore: Optional[float]) -> str:
@@ -2350,6 +2416,14 @@ def _quadrante(valore: Optional[float], nome: str, nota: str = "",
     Un valore assente NON diventa uno zero: si disegna un anello
     tratteggiato con un trattino al centro, perche' "non misurato" e
     "misurato zero" sono cose diverse e il referto le distingue.
+
+    L'arco si esprime con `dashoffset` su un `dasharray` pieno, e non
+    con un `dasharray` a due valori (I19): il fotogramma iniziale
+    dell'animazione diventa cosi' una COSTANTE — la circonferenza —
+    invece di un numero diverso per ogni quadrante, che il CSS non
+    potrebbe conoscere. Lo stato scritto qui resta quello FINALE: con
+    le animazioni spente, in stampa o per `prefers-reduced-motion`, il
+    disegno e' gia' giusto senza che nulla lo ripristini.
     """
     classe = _classe(valore)
     if valore is None:
@@ -2369,11 +2443,12 @@ def _quadrante(valore: Optional[float], nome: str, nota: str = "",
             # comunque un puntino colorato, che si legge come "poco"
             # invece che come "niente".
             arco += (
-                "<circle cx='60' cy='60' r='%d' fill='none' "
+                "<circle class='arco' cx='60' cy='60' r='%d' fill='none' "
                 "stroke='currentColor' stroke-width='9' "
-                "stroke-linecap='round' stroke-dasharray='%.2f %.2f' "
+                "stroke-linecap='round' stroke-dasharray='%.2f' "
+                "stroke-dashoffset='%.2f' "
                 "transform='rotate(-90 60 60)'/>"
-                % (_RAGGIO, pieno, _CIRCONFERENZA - pieno))
+                % (_RAGGIO, _CIRCONFERENZA, _CIRCONFERENZA - pieno))
         testo = ("<text class='valore' x='60' y='60' text-anchor='middle' "
                  "dominant-baseline='central' fill='currentColor'>%.0f</text>"
                  % valore)
@@ -2432,16 +2507,105 @@ def conteggi_per_gravita(referto: dict) -> Dict[str, int]:
     return conteggi
 
 
-# Le tre caselle, nell'ordine in cui si leggono. `SEV_OK` non c'e'
-# perche' nessun modulo lo emette: il giorno che qualcuno lo facesse,
-# un test lo direbbe invece di lasciarlo sparire da qui.
-TESSERE_GRAVITA = ((SEV_CRITICAL, "critici", "bad"),
-                   (SEV_WARNING, "avvertenze", "warn"),
-                   (SEV_INFO, "informativi", "muted"))
+# Le tre quote di gravita', nell'ordine in cui si leggono. `SEV_OK` non
+# c'e' perche' nessun modulo lo emette: il giorno che qualcuno lo
+# facesse, un test lo direbbe invece di lasciarlo sparire da qui.
+# Si chiamavano TESSERE finche' erano tre scatole di uguale larghezza:
+# I19 le ha rese quote di una barra, e il nome le segue.
+QUOTE_GRAVITA = ((SEV_CRITICAL, "critici", "bad"),
+                 (SEV_WARNING, "avvertenze", "warn"),
+                 (SEV_INFO, "informativi", "muted"))
+
+
+def _quota(segmenti: List[Tuple[str, str, int]],
+           prefisso: str = "") -> str:
+    """Una barra proporzionale piu' la sua legenda numerica.
+
+    Sostituisce le tre tessere di uguale peso visivo e il donut degli
+    URL (I19). Le tessere dicevano che «0 critici» e «5 avvertenze»
+    pesano uguale; il donut, su un campione in cui ogni pagina ha un
+    rilievo, era un cerchio pieno di un colore solo — un disegno che
+    prometteva una ripartizione e non ne mostrava alcuna.
+
+    Un segmento a zero non ha fetta ma **conserva il suo numero**: zero
+    e' una misura, e toglierlo dalla legenda lo farebbe sparire invece
+    che dichiararlo.
+
+    La barra si disegna solo con almeno DUE segmenti pieni. Sotto quella
+    soglia non c'e' ripartizione da mostrare — tutto in un colore solo —
+    e disegnarla sarebbe la stessa promessa non mantenuta per cui il
+    donut e' stato tolto: un anello intero d'un colore su un campione in
+    cui ogni pagina ha un rilievo. I numeri accanto dicono gia' tutto.
+
+    La barra e' `aria-hidden`: i numeri le stanno accanto in testo, e
+    un `aria-label` che li ripetesse li farebbe leggere due volte.
+    """
+    totale = sum(q for _, _, q in segmenti)
+    pieni = [q for _, _, q in segmenti if q]
+    fette = "".join("<span class='fetta %s' style='width:%.1f%%'></span>"
+                    % (classe, 100.0 * quanti / totale)
+                    for classe, _, quanti in segmenti if quanti)
+    legenda = " · ".join("<b>%d</b> %s" % (quanti, etichetta)
+                         for _, etichetta, quanti in segmenti)
+    return ("<div class='quota'>%s<p class='meta'>%s%s</p></div>"
+            % ("<div class='barra' aria-hidden='true'>%s</div>" % fette
+               if len(pieni) > 1 else "", prefisso, legenda))
+
+
+def _classe_variazione(cambio: float) -> str:
+    """Il colore di una variazione segue il SEGNO, non la scala.
+
+    E' la stessa scelta gia' fatta dalla tabella del delta: qui non si
+    giudica quanto vale il sito, si dice se e' salito. Una variazione
+    nulla non e' ne' buona ne' cattiva, e resta grigia.
+    """
+    return "muted" if not cambio else "ok" if cambio > 0 else "bad"
+
+
+def _riserve_del_delta(delta: dict) -> bool:
+    """Vero se il confronto fra le due esecuzioni porta almeno un caveat.
+
+    Il motivo per esteso resta nella sezione del delta, che ne rende
+    uno per riga. Qui serve il solo fatto che ce ne sia uno: un «+17»
+    grande in testa, senza dire che fra le due esecuzioni e' cambiato
+    il metro, e' la promessa di onesta' rotta nel punto piu' letto del
+    referto.
+    """
+    return bool(delta.get("rrf_k_changed") or delta.get("form_factor_changed")
+                or delta.get("by_title_fallback")
+                or delta.get("key_migrations")
+                or delta.get("measure_changes"))
+
+
+def _variazione_hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Il complessivo di adesso confrontato con quello di prima.
+
+    Sta in testa perche' e' il dato piu' vivo che il referto possieda —
+    e stava duecento righe piu' in basso. Assente alla prima
+    esecuzione: uno «0» direbbe «non e' cambiato nulla» invece di «non
+    c'e' un prima», che e' la stessa distinzione difesa altrove fra
+    zero e non misurato.
+
+    La freccia non e' l'unico portatore del verso: il segno del numero
+    lo dice per chi non vede il glifo.
+    """
+    delta = referto.get("delta") or {}
+    variazione = delta.get("overall")
+    if not variazione:
+        return ""
+    cambio = variazione["change"]
+    riserve = _riserve_del_delta(delta)
+    return ("<p class='hero-delta %s%s'>%s %s <span class='meta'>%s</span></p>"
+            % (_classe_variazione(cambio),
+               " con-riserva" if riserve else "",
+               "\u25b2" if cambio > 0 else "\u25bc" if cambio < 0 else "",
+               _segno(cambio, lang),
+               t("rispetto a prima, con riserva", lang) if riserve
+               else t("rispetto a prima", lang)))
 
 
 def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
-    """Il riquadro in testa: un numero, un verdetto, quattro caselle.
+    """Il riquadro in testa: un voto, un verdetto, una variazione, due quote.
 
     Il quadrante e' lo STESSO `_quadrante` della fascia sotto, solo
     piu' grande per CSS: disegnarne un secondo, anche identico,
@@ -2458,22 +2622,15 @@ def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
         return ""
     conteggi = conteggi_per_gravita(referto)
     voto = complessivo["score"]
-
-    caselle = []
-    for gravita, etichetta, classe in TESSERE_GRAVITA:
-        caselle.append("<div class='tessera'><span class='grande %s'>%d"
-                       "</span><span class='meta'>%s</span></div>"
-                       % (classe, conteggi.get(gravita, 0),
-                          t(etichetta, lang)))
-    caselle.append(_donut_pagine(referto, lang))
+    quote = ripartizione_pagine(referto)
 
     return (
         "<section class='hero'>"
-        "<div class='hero-voto'>%s"
+        "<div class='hero-testa'>%s<div class='hero-detta'>"
         "<p class='verdetto %s'>%s</p>"
         "<p class='meta'>%s</p>"
-        "<p class='meta'>%s</p></div>"
-        "<div class='tessere'>%s</div></section>"
+        "<p class='meta'>%s</p>%s</div></div>"
+        "<div class='hero-quote'>%s%s</div></section>"
         % (_quadrante(voto, t("Complessivo", lang), lang=lang),
            _classe(voto), _verdetto(voto, lang),
            t("media pesata di %d misure · escluse %s", lang)
@@ -2482,60 +2639,27 @@ def _hero(referto: dict, lang: str = LINGUA_CANONICA) -> str:
            t("scala dichiarata: critico sotto %d · da migliorare "
              "%d-%d · buono da %d", lang)
            % (SOGLIA_MEDIO, SOGLIA_MEDIO, SOGLIA_BUONO - 1, SOGLIA_BUONO),
-           "".join(caselle)))
+           _variazione_hero(referto, lang),
+           _quota([(classe, t(etichetta, lang), conteggi.get(gravita, 0))
+                   for gravita, etichetta, classe in QUOTE_GRAVITA]),
+           _quota([(classe, t(etichetta, lang), quote[chiave])
+                   for chiave, etichetta, classe in SETTORI_PAGINE],
+                  prefisso="<b>%d</b> %s: "
+                  % (sum(quote.values()), t("URL incontrati", lang)))))
 
 
-# I tre settori del donut delle pagine, nell'ordine in cui si leggono.
+# I tre stati degli URL incontrati, nell'ordine in cui si leggono.
 # I nomi NON sono «senza rilievi / con rilievi / scartate» come il piano
 # prevedeva: portano il caveat dentro il disegno — vedi
 # `ripartizione_pagine()` per il perche'. «nessun rilievo le cita» e' la
 # stessa frase che usa la treemap: una sola voce per un solo concetto.
+# Il disegno era un donut fino a I19, ed e' una barra da li' in poi: i
+# nomi non dipendono dalla forma, e sono loro a portare il caveat.
 SETTORI_PAGINE = (
     ("con_rilievi", "con rilievi", "con-rilievi"),
     ("non_citate", "nessun rilievo le cita", "non-citate"),
     ("scartati", "URL scartati", "scartati"),
 )
-
-
-def _donut_pagine(referto: dict, lang: str = LINGUA_CANONICA) -> str:
-    """L'anello degli URL incontrati, in tre settori.
-
-    Stessa tecnica dei quadranti — `stroke-dasharray` su una
-    circonferenza, nessuno script — quindi il referto resta un file
-    solo. Gli archi si concatenano tenendo l'offset di quello prima.
-
-    Con zero URL non si disegna nulla: un anello vuoto si leggerebbe
-    come una ripartizione, e non c'e' niente da ripartire.
-    """
-    quote = ripartizione_pagine(referto)
-    totale = sum(quote.values())
-    if not totale:
-        return ""
-
-    archi, voci, scorso = [], [], 0.0
-    for chiave, etichetta, classe in SETTORI_PAGINE:
-        quanti = quote[chiave]
-        voci.append("<span class='meta'><b>%d</b> %s</span>"
-                    % (quanti, t(etichetta, lang)))
-        if not quanti:
-            continue
-        pieno = _CIRCONFERENZA * quanti / totale
-        archi.append(
-            "<circle class='settore %s' cx='60' cy='60' r='%d' fill='none' "
-            "stroke-width='9' stroke-dasharray='%.2f %.2f' "
-            "stroke-dashoffset='%.2f' transform='rotate(-90 60 60)'/>"
-            % (classe, _RAGGIO, pieno, _CIRCONFERENZA - pieno, -scorso))
-        scorso += pieno
-
-    return ("<div class='tessera'>"
-            "<svg class='donut' viewBox='0 0 120 120' role='img' "
-            "aria-label='%s'>%s"
-            "<text class='valore' x='60' y='60' text-anchor='middle' "
-            "dominant-baseline='central' fill='currentColor'>%d</text>"
-            "</svg><span class='meta'>%s</span>%s</div>"
-            % (_e(t("URL incontrati: %d", lang) % totale),
-               "".join(archi), totale, t("URL incontrati", lang),
-               "".join(voci)))
 
 
 # Quanti rilievi mostra il riquadro in testa. Cinque, come ogni altra
@@ -3907,7 +4031,8 @@ def render_html(referto: dict, lang: str = LINGUA_CANONICA) -> str:
     p.append("<title>MARS Beacon — %s</title>" % _e(referto["url"]))
     if icona:
         p.append("<link rel='icon' href='%s'>" % icona)
-    p.append("<style>%s</style></head><body><main>" % CSS)
+    p.append("<style>%s%s</style></head><body><main>"
+             % (CSS, CSS_MOVIMENTO))
 
     p.append("<header class='testata'><h1>MARS Beacon</h1>")
     p.append("<p class='meta'><code>%s</code></p>" % _e(referto["url"]))

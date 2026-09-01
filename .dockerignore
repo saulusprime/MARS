@@ -1,0 +1,44 @@
+# Contesto di build di docker/Dockerfile.
+#
+# Sta nella RADICE e non in docker/ perche' Docker legge .dockerignore
+# accanto al contesto, che e' la radice: i sorgenti da copiare sono qui.
+# Senza questo file il contesto sarebbe di 5,6 GB — il solo .venv ne pesa
+# 5,4 — e ogni build ripartirebbe da capo.
+
+# --- Ambiente Python della macchina: l'immagine se lo ricostruisce ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Dipendenze Node: le reinstalla `npm install` dentro l'immagine,
+#     perche' quelle locali possono venire da un'altra piattaforma ---
+node_modules/
+
+# --- Storia e metadati di git: non servono a eseguire ---
+.git/
+.gitignore
+.github/
+
+# --- Referti, storico e artefatti generati ---
+report.html
+report.json
+referto.json
+*.report.html
+storico.jsonl
+.mars-history.jsonl
+
+# --- Credenziali vere: non devono MAI entrare in un layer, che resta
+#     leggibile anche se un layer successivo cancella il file ---
+.env
+.env.*
+!.env.example
+*.local.json
+lympha_env.json
+
+# --- Documentazione: l'immagine non la serve ---
+AS-IS.md
+TO-DO.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md

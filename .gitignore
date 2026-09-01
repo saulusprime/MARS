@@ -38,6 +38,11 @@ storico.jsonl
 lymphatech.json
 .mars-history.jsonl
 
+# Il volume montato dal container (docker/docker-compose.yml): referti,
+# storico e file di chiavi copiati li' dentro. Il nome dell'--output lo
+# sceglie chi lancia l'audit, quindi non basta la regola sui referti.
+docker/work/
+
 # --- Cache di strumenti ---
 .pytest_cache/
 .mars-cache/

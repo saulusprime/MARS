@@ -1,0 +1,66 @@
+# MARS Beacon — API in piedi con un comando, ZAP a richiesta.
+#
+#     cd docker && mkdir -p work && cp mars.env.example .env
+#     docker compose up -d
+#
+# Il file .env sta accanto a questo ed e' gia' ignorato da git: la
+# regola `.env` in .gitignore non ha una barra, quindi vale a ogni
+# livello. Le chiavi vere non entrano mai nell'immagine.
+
+services:
+  mars:
+    build:
+      # Il contesto e' la radice: i sorgenti stanno li', non qui.
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # `on` aggiunge sentence-transformers e torch: alcuni GB.
+        MARS_EMBEDDINGS: "off"
+    image: mars-beacon:latest
+    container_name: mars-api
+    command: ["api"]
+    ports:
+      - "${MARS_PORT_HOST:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      # Il nome del servizio, non 127.0.0.1: dentro la rete di compose
+      # il daemon ZAP e' un altro host. Senza il profilo `zap` questo
+      # indirizzo non risponde e l'area 8 ripiega sul controllo di
+      # superficie, dichiarandolo (principio 2).
+      ZAP_PROXY: "http://zap:8080"
+    volumes:
+      # Referti, storico e file di query. Creare la cartella PRIMA di
+      # `up`: se la crea Docker appartiene a root e l'utente mars
+      # (uid 1000) non ci scrive.
+      - ./work:/work
+    restart: unless-stopped
+
+  # Profilo separato: `docker compose up` da solo non lo tira giu'.
+  # L'immagine di ZAP e' grande e serve alla sola area 8, che senza
+  # daemon non fallisce — ripiega e lo dichiara.
+  #
+  #     docker compose --profile zap up -d
+  #
+  # L'area 8 fa lo spider e l'active scan SOLO con
+  # --i-own-this-domain / i_own_this_domain: lo spider di ZAP non
+  # rispetta robots.txt (R55), quindi sta dietro la dichiarazione di
+  # proprieta' come l'active scan. Senza dichiarazione ZAP vede le sole
+  # pagine che il crawler di MARS ha gia' scaricato.
+  zap:
+    profiles: ["zap"]
+    image: zaproxy/zap-stable
+    container_name: mars-zap
+    user: zap
+    # Il comando e' quello documentato in mars_wapt.py:28, piu' le due
+    # `api.addrs`: ZAP accetta chiamate all'API dal solo localhost, e
+    # qui arrivano da un altro container.
+    command: >
+      zap.sh -daemon
+      -host 0.0.0.0 -port 8080
+      -config api.disablekey=true
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    expose:
+      - "8080"
+    restart: unless-stopped

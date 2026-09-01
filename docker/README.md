@@ -186,43 +186,61 @@ docker compose run --rm mars python -c \
      b=p.chromium.launch(); print('chromium OK'); b.close(); p.stop()"
 ```
 
+E che **Lighthouse** parta — è l'area che il sandbox rompeva, e passa da
+un binario diverso da quello di Playwright:
+
+```bash
+docker compose run --rm mars sh -c \
+    'lighthouse https://example.com --output=json --quiet \
+     --chrome-flags=--headless | head -c 80'
+```
+
 ## Chromium e il sandbox
 
-`mars_seo.py` passa a Lighthouse `--chrome-flags=--headless` e nient'altro,
-e `mars_wcag.py` chiama `launch(headless=True)`: **nessuno dei due può
-aggiungere `--no-sandbox`**, e non è il container a dover cambiare il
-codice. L'immagine risolve la cosa in sé, e le tre cose che decidono come
-sono state misurate su un'installazione Playwright vera:
+Dentro il container **Chromium non ha alcun sandbox utilizzabile**, e non
+è una configurazione da aggiustare: il profilo seccomp predefinito di
+Docker vieta a un processo senza `CAP_SYS_ADMIN` i flag di `clone` che
+creano namespace, e gli host recenti (Ubuntu 23.10+) vietano gli user
+namespace non privilegiati via AppArmor. Chromium lo dice per esteso —
+`No usable sandbox!` — e aborta.
 
-1. l'helper del sandbox si chiama **`chrome_sandbox`, con il trattino
-   basso** — non `chrome-sandbox`, che è il nome che Chromium cerca
-   quando lo trova accanto a sé. È così che la prima build è fallita;
-2. l'helper sta nel **solo** pacchetto `chromium`. Il pacchetto
-   `chromium_headless_shell` non ne ha alcuno;
-3. `launch(headless=True)` esegue proprio **`chrome-headless-shell`**,
-   non il browser pieno — letto sulla riga di comando del processo.
+**Ma solo una delle due aree ne soffriva**, e la differenza è misurata:
 
-Da (2) e (3) segue che l'helper non può stare accanto al binario: i
-binari sono due e uno solo ce l'ha. Quindi viene copiato in
-`/usr/local/sbin/chrome-devel-sandbox`, reso `4755 root`, e dichiarato
-con `CHROME_DEVEL_SANDBOX` — la variabile che il binario `chrome` porta
-fra i propri letterali e che i processi figli ereditano, sia quelli di
-Playwright sia quelli che Lighthouse lancia. Copiato e non collegato:
-il bit setuid su un symlink il kernel lo ignora, e qui il bit è tutto.
+- **Playwright lancia Chromium con `--no-sandbox` di suo**:
+  `chromium_sandbox` è `False` per impostazione predefinita, letto sulla
+  riga di comando del processo. L'area 7 (Accessibilità), che passa da
+  Playwright, nel container funziona senza che nessuno faccia nulla.
+- **Lighthouse no.** `mars_seo.py` gli manda `--chrome-flags=--headless`
+  e nient'altro, e `chrome-launcher` non aggiunge il flag. Le aree 2 e 3
+  morivano lì.
 
-Lighthouse trova il browser per un'altra strada ancora, `CHROME_PATH`,
-che è la prima variabile che `chrome-launcher` guarda.
+Quindi `CHROME_PATH` non punta al binario ma a un **involucro** che
+aggiunge `--no-sandbox` e fa `exec` sul vero Chromium — `exec` e non una
+chiamata, così il PID resta quello e chi ha lanciato il browser lo sa
+ancora terminare. Lighthouse si allinea a ciò che Playwright fa già per
+l'altro consumatore.
 
-**Se Chromium non partisse comunque**, il ripiego è un flag di runtime e
-non una modifica all'immagine:
+**La conseguenza si dichiara**: il renderer di Chromium non è isolato dal
+resto del container, e il confine di sicurezza diventa il container
+stesso. MARS visita siti di terzi, quindi la cosa va saputa.
+
+**L'alternativa, se non la si accetta**: restituire al container i flag di
+`clone`, così Chromium usa il proprio sandbox a namespace.
 
 ```yaml
     security_opt: ["seccomp=unconfined"]     # sotto il servizio mars
 ```
 
-Restituisce al container gli user namespace, così Chromium usa il
-proprio sandbox a namespace e non ha bisogno dell'helper. Riduce
-l'isolamento del container: usarlo solo se serve, e saperlo.
+Non è il default perché allarga i permessi di **tutto** il carico del
+container — MARS compreso — per proteggere il solo browser, ed è uno
+scambio che deve fare chi gestisce l'host, non l'immagine. Con quel flag
+si può togliere l'involucro; senza, no.
+
+**Una strada tentata e scartata, perché non funziona**: l'helper SUID di
+Chromium (`chrome_sandbox`, copiato e reso `4755 root`, dichiarato con
+`CHROME_DEVEL_SANDBOX`). Non basta, e la ragione è la stessa: anche
+l'helper, per costruire il sandbox, ha bisogno dei flag di `clone` che il
+seccomp predefinito nega. Misurato su un host reale, non previsto.
 
 ## Altre scelte, in breve
 

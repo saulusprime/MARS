@@ -88,63 +88,45 @@ RUN apt-get update \
  && playwright install --with-deps chromium \
  && rm -rf /var/lib/apt/lists/*
 
-# Il percorso di Chromium contiene il numero di build, che cambia a ogni
-# versione di Playwright: lo si chiede a Playwright invece di scriverlo,
-# e il collegamento assorbe la differenza. CHROME_PATH e' la variabile
-# che chrome-launcher legge per prima (chrome-finder.js:75), ed e'
-# l'unica leva che Lighthouse offra: mars_seo.py passa
-# `--chrome-flags=--headless` e nient'altro.
-RUN ln -s "$(python -c 'from playwright.sync_api import sync_playwright; p = sync_playwright().start(); print(p.chromium.executable_path); p.stop()')" \
-        /usr/local/bin/chromium \
- && test -x /usr/local/bin/chromium
-ENV CHROME_PATH=/usr/local/bin/chromium
-
-# Il sandbox SUID di Chromium. Il profilo seccomp predefinito di Docker
-# vieta a un processo non privilegiato di creare user namespace, quindi
-# il sandbox a namespace non parte; quello SUID e' il ripiego che
-# Chromium prevede, e non chiede alcun flag al `docker run`.
+# Chromium per Lighthouse, con il sandbox disattivato — e la ragione
+# per cui questa e' la scelta giusta e non una resa.
 #
-# Tre cose misurate su un'installazione Playwright vera, e nessuna
-# indovinata:
+# Misurato, non dedotto:
 #
-#   1. l'helper si chiama `chrome_sandbox`, con il TRATTINO BASSO.
-#      Cercare `chrome-sandbox` — il nome che Chromium usa quando lo
-#      trova accanto a se' — non ne incontra nessuno, ed e' cosi' che
-#      questa build e' fallita la prima volta. Si cercano entrambi i
-#      nomi, perche' quale dei due Playwright spedisca e' una sua
-#      scelta e puo' cambiare.
-#   2. l'helper sta nel solo pacchetto `chromium`. Il pacchetto
-#      `chromium_headless_shell` non ne ha alcuno.
-#   3. `launch(headless=True)` esegue proprio `chrome-headless-shell`,
-#      non il browser pieno — verificato leggendo la riga di comando
-#      del processo. E' mars_wcag a lanciarlo.
+#   1. dentro il container Chromium non ha ALCUN sandbox utilizzabile.
+#      Il profilo seccomp predefinito di Docker vieta a un processo
+#      senza CAP_SYS_ADMIN i flag di clone che creano namespace, e gli
+#      host recenti (Ubuntu 23.10+) vietano gli user namespace non
+#      privilegiati via AppArmor. Non e' colpa dell'helper SUID: senza
+#      quei flag non parte nemmeno lui, e infatti Chromium abortisce con
+#      «No usable sandbox!».
+#   2. Playwright lancia Chromium con `--no-sandbox` GIA' di suo:
+#      `chromium_sandbox` e' False per impostazione predefinita, e la
+#      riga di comando del processo lo conferma. L'area 7, che passa da
+#      Playwright, nel container funziona.
 #
-# Da (2) e (3): l'helper NON puo' stare accanto al binario, perche' i
-# binari sono due e uno solo ce l'ha. Si copia in un percorso stabile e
-# lo si dichiara con CHROME_DEVEL_SANDBOX, che il binario chrome porta
-# fra i propri letterali e che i processi figli ereditano — sia quelli
-# di Playwright sia quelli che Lighthouse lancia.
+# Da (1) e (2): l'unica area che si rompeva era la 2/3, perche'
+# `mars_seo.py` manda a Lighthouse `--chrome-flags=--headless` e
+# nient'altro. L'unica leva e' CHROME_PATH, che quindi non punta al
+# binario ma a un INVOLUCRO che aggiunge il flag — e allinea Lighthouse
+# a cio' che Playwright fa gia' per l'altro consumatore.
 #
-# Copiato e non collegato: il bit setuid su un collegamento simbolico e'
-# ignorato dal kernel, e qui il bit e' tutto.
+# `exec` e non una chiamata: il PID resta quello dell'involucro, cosi'
+# chi ha lanciato Chromium lo sa ancora terminare.
+#
+# La conseguenza si dichiara: il renderer di Chromium non e' isolato dal
+# resto del container, e il confine diventa il container stesso. Chi non
+# lo accetta ha la strada alternativa nel README — restituire al
+# container i flag di clone — che pero' allarga i permessi di TUTTO il
+# carico, non del solo browser.
 RUN set -eu; \
-    trovati="$(find /opt/ms-playwright \
-        \( -name chrome_sandbox -o -name chrome-sandbox \) -type f)"; \
-    if [ -z "$trovati" ]; then \
-        echo "nessun helper di sandbox sotto /opt/ms-playwright" >&2; \
-        exit 1; \
-    fi; \
-    origine="$(echo "$trovati" | head -n 1)"; \
-    echo "helper di sandbox: $origine"; \
-    cp "$origine" /usr/local/sbin/chrome-devel-sandbox; \
-    chown root:root /usr/local/sbin/chrome-devel-sandbox; \
-    chmod 4755 /usr/local/sbin/chrome-devel-sandbox; \
-    modo="$(stat -c '%a %U' /usr/local/sbin/chrome-devel-sandbox)"; \
-    if [ "$modo" != "4755 root" ]; then \
-        echo "sandbox mal configurato: $modo (atteso 4755 root)" >&2; \
-        exit 1; \
-    fi
-ENV CHROME_DEVEL_SANDBOX=/usr/local/sbin/chrome-devel-sandbox
+    reale="$(python -c 'from playwright.sync_api import sync_playwright; p = sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"; \
+    test -x "$reale"; \
+    printf '#!/bin/sh\n# Chromium per Lighthouse. Vedi docker/README.md.\nexec %s --no-sandbox "$@"\n' \
+        "$reale" > /usr/local/bin/chromium; \
+    chmod 755 /usr/local/bin/chromium; \
+    /usr/local/bin/chromium --version
+ENV CHROME_PATH=/usr/local/bin/chromium
 
 # --- Dipendenze Node --------------------------------------------------
 # Installate in /app/node_modules, che e' il percorso da cui il volume

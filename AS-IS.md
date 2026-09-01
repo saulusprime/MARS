@@ -92,6 +92,7 @@
 | I19 | L'hero ricomposto: la variazione in testa, le quote come barre | 2026-08-31 |
 | R66 | «Lighthouse non riuscito: CalledProcessError», e la diagnosi buttata via | 2026-09-01 |
 | I20 | «Nel tuo sito»: quali elementi, accanto a come devono diventare | 2026-09-01 |
+| I20 | Il piano copre anche gli `info`, e i controlli non falliti restano fuori | 2026-09-01 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2394,6 +2395,74 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I20 («completa», lettura 1) — ✅ REALIZZATA (2026-09-01): il piano copre anche gli `info`
+
+*(decisione del committente fra le tre letture registrate a TO-DO.
+`__version__` a **2.27.0**: il piano guadagna voci, nessun punteggio si
+muove.)*
+
+**La decisione ribalta una scelta dichiarata, e la misura l'ha resa
+ragionevole.** `_e_candidato` teneva fuori i rilievi `info` con la
+ragione «info descrive, non prescrive». Misurati i diciannove esclusi
+del referto sintetico, sono **tre cose diverse**: otto `info` puri, due
+`info` che sono anche rilievi di **stato**, nove che sono anche
+**derivati**. La richiesta riguardava la gravità; le altre due
+esclusioni hanno ragioni proprie — R41 per i derivati, il destinatario
+sbagliato per gli stati — e non sono state toccate.
+
+**Alzare quel filtro ha scoperto un difetto vero.** Delle otto voci
+nuove, **tre non erano difetti**: controlli Lighthouse `notApplicable` o
+`manual`, entrati nel piano come «Non applicabile a questa pagina:
+robots.txt è valido». Lighthouse produce un rilievo per **ogni** audit,
+superati compresi, e sono tutti `info`: finché la gravità li escludeva
+il difetto non poteva manifestarsi. Il discriminante giusto esisteva già
+ed è `mars_fixes.prescrivibile` — la **penalità dichiarata**, che U3.1
+usa per non scrivere «Correggi la sintassi di robots.txt» sotto
+«robots.txt è valido». `mars_remediation` ora la importa invece di
+riscriverla: sono la stessa domanda, e due copie divergerebbero.
+
+**La corsia «ignoto» non è rimasta senza ragione, ma la sua via è
+cambiata**, e l'ha detto una misura: sui due referti sintetici i **soli**
+rilievi senza penalità sono esattamente i tre controlli Lighthouse non
+misurati — nessun difetto vero ne è privo. La corsia si raggiunge quindi
+da un'area **non certificata** o da una penalità dichiarata ma non
+numerica, che è il caso per cui `build_remediation` ha sempre avuto la
+guardia `isinstance`. Tre test che usavano `params={}` per arrivarci
+sono stati ri-puntati su quella via: l'invariante regge, cambia il modo
+di raggiungerla.
+
+**Il conteggio della testata sarebbe diventato falso.** «22 interventi
+(6 critici, 16 avvertenze)» con dentro cinque `info` non somma, e chi
+legge penserebbe a un errore di somma: `riepilogo` ora conta anche gli
+`info`, e i tre formati stampano tre numeri. Ne è uscita corretta anche
+la docstring di `riepilogo`, che spiegava le «otto aree al massimo» con
+«i rilievi di citabilità e giudizio LLM sono tutti `info`» — vero ma
+incidentale: da oggi a tenerli fuori resta il solo R41.
+
+**Che cosa entra davvero.** Cinque voci nel referto pieno — canonical
+assente, HSTS non impostato, FCP e Speed Index lenti, link con testo
+generico — e due nel degradato. La gravità continua a dominare l'ordine:
+un `info` non scavalca un'avvertenza perché recupera più punti.
+
+**Quattro test hanno cambiato premessa, e nessuno è stato piegato.**
+`test_gli_info_restano_fuori` pinnava la decisione ribaltata: sostituito,
+dichiarando che è una decisione del committente. Gli altri tre —
+la de-duplicazione area/piano di U4.3, il vincolo U3.3 sul «Nessun
+rilievo.», il CSV che lascia vuoto lo sforzo di ciò che il piano non
+prende — guardano invarianti ancora valide, e sono stati ri-puntati su
+un rilievo di **stato**, che è chi resta fuori adesso.
+
+**Le prove.** Quattro test nuovi; **7/7 mutazioni colte**, fra cui «gli
+info tornano fuori», «i controlli non falliti rientrano», «i derivati
+rientrerebbero» e «la testata perde il terzo numero». `flake8` a zero,
+**1405 test verdi**. Golden rigenerati e diff riletto: il piano passa da
+22 a 27 voci nel referto pieno e da 10 a 12 nel degradato, **nessun
+punteggio si muove**.
+
+**Non verificato**: come si legge un piano da 27 voci su un sito vero
+con molte più aree in difetto — la vista testo si ferma a cinque e
+dichiara il troncamento, quella HTML no.
 
 ### I20 (pilota + gruppi B e C) — ✅ REALIZZATA (2026-09-01): «Nel tuo sito», accanto all'esempio
 

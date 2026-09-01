@@ -76,7 +76,9 @@
 > a **2.25.0** in tre giri — i controlli SEO, poi axe e ZAP, poi i
 > controlli statici — e per la stessa ragione: il referto guadagna
 > contenuto e nessun punteggio si muove — poi a **2.26.0** col giro che
-> ha reso parlanti i tetti e ha portato il «quale elemento» nel piano.
+> ha reso parlanti i tetti e ha portato il «quale elemento» nel piano,
+> e a **2.27.0** con la prima delle tre letture di «completa»: il piano
+> copre anche gli `info`.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -113,27 +115,25 @@
   intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
   byte.
 
-- **I20** — **restano due decisioni, e sono tue.** Tutto il tecnico è
-  fatto il 2026-09-01 e sta in [AS-IS.md](AS-IS.md): accanto
-  all'esempio il referto elenca gli elementi del sito su cui il rilievo
-  è scattato — per i controlli SEO, per axe, per ZAP e per i controlli
-  statici — il tetto dei cinque elementi dichiara quanti ne restano
-  fuori, e il piano di interventi dice quale elemento su una riga.
+- **I20** — **resta una decisione, ed è tua.** Il committente ha scelto
+  il 2026-09-01 la prima delle tre letture di «completa»: il piano copre
+  ogni rilievo che descriva un difetto del sito, `info` compresi. Sta in
+  [AS-IS.md](AS-IS.md), insieme al difetto che quella scelta ha scoperto
+  — tre controlli Lighthouse **non falliti** erano entrati nel piano, e
+  ora ne restano fuori per la penalità dichiarata.
 
-  - **Privacy.** Il referto ora incorpora contenuto del sito: uno
-    `src`, il testo di un titolo, il valore di un header.
+  - **Privacy.** Il referto incorpora contenuto del sito: uno `src`, il
+    testo di un titolo, il valore di un header.
     [CLAUDE.md](CLAUDE.md) impone di oscurare i dati personali, e oggi
     il contenuto entra intero. Il presidio contro l'**esecuzione** c'è
     ed è provato con un payload vero; l'**oscuramento** no, perché è
     una scelta e non una misura.
-  - **«Completa» ha tre letture**, e nessuna è stata scelta: (1) piano
-    su tutti i rilievi, cioè includere i 19 `info` — codice minimo ma
-    **ribalta una decisione dichiarata** in `_e_candidato`; (2) colmare
-    i 12 esempi mancanti a catalogo; (3) ordine di lavoro per istanza,
-    che ora è quasi solo resa, perché gli elementi ci sono.
 
-  *Una previsione di questo file era sbagliata, e vale registrarla*: «il
-  piano rende `fix` e non `example`» era annotato come difetto. Non lo
-  era — `test_il_piano_html_non_ripete_gli_esempi` lo fissa come
-  decisione, con la ragione. Quello che mancava era il «quale elemento»,
-  ed è stato aggiunto senza toccare la decisione.
+  *Le altre due letture di «completa» restano possibili e non sono
+  state scelte*: colmare i 12 esempi mancanti a catalogo, e l'ordine di
+  lavoro per istanza — che ora è quasi solo resa, perché gli elementi
+  ci sono.
+
+  *Una cosa che il piano non dice ancora*: la vista testo si ferma a
+  cinque voci e dichiara il troncamento, quella HTML le stampa tutte.
+  Con 27 voci la differenza si vede.

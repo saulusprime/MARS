@@ -87,7 +87,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 
 ## Piano di interventi
 
-22 interventi (6 critici, 16 avvertenze) · 2 quick win.
+27 interventi (6 critici, 16 avvertenze, 5 info) · 2 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +7.54* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -143,6 +143,16 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       *Nel tuo sito* h1 I nostri servizi → h3 Percorsi post-operatori
 - [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: minuti*
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
+- [ ] [INFO] 2/3 pagine senza <link rel="canonical"> — *Tecnica · sforzo: ore · +3 punti d'area · indice +0.57*
+      Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
+- [ ] [INFO] Strict-Transport-Security non impostato — *Sicurezza · sforzo: non dichiarato · +3 punti d'area · indice +0.19*
+- [ ] [INFO] Primo contenuto lento: FCP 2,6 s — *Prestazioni · sforzo: ore · +4 punti d'area*
+      Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.
+- [ ] [INFO] Pagina lenta a riempirsi: Speed Index 4,2 s — *Prestazioni · sforzo: ore · +3 punti d'area*
+      Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.
+- [ ] [INFO] 1 link con testo generico ("clicca qui", "leggi tutto") — *Accessibilità · sforzo: ore*
+      Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
+      *Nel tuo sito* clicca qui → /servizi/
 
 ## Rilievi per area
 

@@ -8,8 +8,6 @@ COMPLESSIVO          :  66/100  (da migliorare)
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
-  → 2/3 pagine senza <link rel="canonical">
-    Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               : non misurato
   ⚠ Lighthouse non trovato nel PATH
 3. Prestazioni       : non misurato
@@ -26,8 +24,6 @@ COMPLESSIVO          :  66/100  (da migliorare)
   markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie
   ⚠ [1.1.1] 1/2 immagini prive di testo alternativo
   ⚠ [1.3.1] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
-  → 1 link con testo generico ("clicca qui", "leggi tutto")
-    Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 8. Sicurezza         :  75/100
   HTTP-Headers · controllo di superficie
   ⚠ CSP mancante
@@ -41,7 +37,7 @@ SUPERFICIE
   Con 900 parole per pagina i passaggi sarebbero 12, cioe' x3.0
   (proiezione, non misura: si assume una pagina di contenuto sostanziale intorno alle 900 parole, da cui il chunker ricava circa 4 passaggi)
 -------------------------------------------------------
-PIANO DI INTERVENTI  : 10 interventi (3 critici, 7 avvertenze)
+PIANO DI INTERVENTI  : 12 interventi (3 critici, 7 avvertenze, 2 info)
   1 quick win
   5 aree su 10; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
@@ -59,7 +55,7 @@ PIANO DI INTERVENTI  : 10 interventi (3 critici, 7 avvertenze)
   5. [AVVERTENZA · Sicurezza · giorni] CSP mancante
      +15 punti d'area (75 → 90) · indice +2.02
      Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
-  · ... e altri 5 interventi (per intero nel JSON e nell'HTML)
+  · ... e altri 7 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Profili di citabilità IA  (mercato: global)
   Claude                66.6  █████████████

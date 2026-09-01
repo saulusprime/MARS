@@ -36,7 +36,7 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 ## Piano di interventi
 
-10 interventi (3 critici, 7 avvertenze) · 1 quick win.
+12 interventi (3 critici, 7 avvertenze, 2 info) · 1 quick win.
 
 - [ ] **[CRITICO]** robots.txt BLOCCA 1 crawler IA: GPTBot — *Tecnica · sforzo: minuti · +40 punti d'area · indice +16.18* · **QUICK WIN**
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
@@ -61,6 +61,11 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
       Nessun termine della domanda compare nel sito: scrivi un passaggio che usi le parole con cui la domanda viene posta, non i sinonimi interni all'azienda.
 - [ ] [AVVISO] 3/3 pagine sotto le 300 parole — *Lessicale · sforzo: giorni · +20 punti d'area*
       Porta le pagine chiave oltre la soglia con contenuto informativo, non promozionale: BM25 normalizza la frequenza dei termini sulla lunghezza del documento, e due paragrafi non arrivano alla frequenza che la formula premia.
+- [ ] [INFO] 1 link con testo generico ("clicca qui", "leggi tutto") — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
+      Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
+      *Nel tuo sito* clicca qui → /servizi/
+- [ ] [INFO] 2/3 pagine senza <link rel="canonical"> — *Tecnica · sforzo: ore · +3 punti d'area · indice +1.21*
+      Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 
 ## Rilievi per area
 

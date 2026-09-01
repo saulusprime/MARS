@@ -331,8 +331,13 @@ def test_il_piano_arriva_dall_api(client, auth, crawler_finto):
                         headers=auth).json()["remediation"]
     assert isinstance(piano, list)
     for voce in piano:
-        assert voce["severity"] in ("critical", "warning")
+        # `info` compreso, dal 2026-09-01: il piano copre tutti i
+        # rilievi che descrivano un difetto del sito.
+        assert voce["severity"] in ("critical", "warning", "info")
+        # Le due esclusioni che restano, e che qui si vedono passare
+        # dall'API come dal referto.
         assert ".status." not in voce["key"]
+        assert not (voce.get("params") or {}).get("derived")
         assert voce["priority"] >= 1
 
 

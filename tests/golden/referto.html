@@ -1204,7 +1204,7 @@ Disallow:</pre>
 <p class='meta'>È cambiato che cosa si misura — le classifiche si fermano dove finiscono i riscontri: la coda a punteggio zero non regala piu&#x27; consenso sulle query a riscontro parziale (R65): i numeri si muovono anche a sito invariato.</p>
 <p class='meta'>Le chiavi sec.zap. hanno cambiato forma — gli alert ZAP si raggruppano per sotto-variante e non piu&#x27; per sola regola: sec.zap.10038 e&#x27; diventato sec.zap.10038_1, _2, _3 (R39): in quest&#x27;area «risolto» e «comparso» non sono fatti del sito.</p>
 <h2>Piano di interventi</h2>
-<p class='meta'>22 interventi (6 critici, 16 avvertenze) · 2 quick win · 4 senza recupero dichiarato · 6 senza sforzo dichiarato</p>
+<p class='meta'>27 interventi (6 critici, 16 avvertenze, 5 info) · 2 quick win · 5 senza recupero dichiarato · 7 senza sforzo dichiarato</p>
 <p class='meta'>Ordinato per gravità, poi per guadagno dell'indice di citabilità. Lo alimentano 8 aree su 10; i punti d'area sono la stessa aritmetica che ha prodotto i punteggi, il guadagno d'indice è una stima derivata dai pesi per assistente.</p>
 <div class='intervento'>
 <div class='riga'>
@@ -1491,6 +1491,65 @@ Disallow:</pre>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Usa &lt;th&gt; per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>23</span> <a href='#r-tech-canonical-missing'>2/3 pagine senza &lt;link rel=&quot;canonical&quot;&gt;</a>
+</h3>
+<span class='badge muted'>?</span>
+</div>
+<p class='meta'>Tecnica · sforzo: ore</p>
+<p class='guadagno'>+3 punti d'area (57 → 60) · indice di citabilità +0.57 (mercato eu, stima)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Dichiara &lt;link rel=&quot;canonical&quot;&gt; su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>24</span> Strict-Transport-Security non impostato</h3>
+<span class='badge muted'>?</span>
+</div>
+<p class='meta'>Sicurezza · sforzo: non dichiarato</p>
+<p class='guadagno'>+3 punti d'area (57 → 60) · indice di citabilità +0.19 (mercato eu, stima)</p>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>25</span> <a href='#r-perf-fcp-slow'>Primo contenuto lento: FCP 2,6 s</a>
+</h3>
+<span class='badge muted'>?</span>
+</div>
+<p class='meta'>Prestazioni · sforzo: ore</p>
+<p class='guadagno'>+4 punti d'area (58 → 62)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Elimina cio&#x27; che blocca il primo render: CSS critico in linea nel &lt;head&gt;, il resto caricato dopo, e i font con font-display: swap cosi&#x27; il testo compare subito col carattere di sistema.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>26</span> <a href='#r-perf-si-slow'>Pagina lenta a riempirsi: Speed Index 4,2 s</a>
+</h3>
+<span class='badge muted'>?</span>
+</div>
+<p class='meta'>Prestazioni · sforzo: ore</p>
+<p class='guadagno'>+3 punti d'area (58 → 61)</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.</span>
+</div>
+<div class='intervento'>
+<div class='riga'>
+<h3>
+<span class='priorita'>27</span> <a href='#r-wcag-link-generic'>1 link con testo generico (&quot;clicca qui&quot;, &quot;leggi tutto&quot;)</a>
+</h3>
+<span class='badge muted'>?</span>
+</div>
+<p class='meta'>Accessibilità · sforzo: ore</p>
+<p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
+<span class='fix'>
+<span class='fix-eti'>Correzione:</span> Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> clicca qui → /servizi/</p>
 </div>
 <h2>Simulazione RRF</h2>
 <div class='card'>

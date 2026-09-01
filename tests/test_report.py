@@ -1337,11 +1337,13 @@ def test_html_nessun_rilievo_solo_senza_findings_e_senza_issues(contesto):
     """
     contesto["results"] = {
         "mars_tech": {"score": 90, "issues": ["Solo issue"], "findings": []},
-        # `info`, cosi' il piano non lo prende e il test misura una
-        # cosa sola: il ramo «Nessun rilievo.», non la resa del piano.
+        # Un rilievo di STATO, cosi' il piano non lo prende e il test
+        # misura una cosa sola: il ramo «Nessun rilievo.», non la resa
+        # del piano. Era un `info`, e bastava finche' la gravita'
+        # escludeva; dal 2026-09-01 gli `info` nel piano ci entrano.
         "mars_schema": {"score": 90, "issues": [],
                         "findings": [_rilievo(area="mars_schema",
-                                              key="sd.a.b",
+                                              key="sd.status.b",
                                               severity=SEV_INFO,
                                               title="Solo finding")]},
         "mars_wcag": {"score": 100, "issues": [], "findings": []},
@@ -1590,18 +1592,27 @@ def test_testo_l_area_mostra_solo_cio_che_il_piano_non_prende(contesto):
     """La duplicazione che U4.3 ha tolto, e che si vedeva a occhio.
 
     Il rilievo critico entra nel piano, quindi sotto l'area non si
-    ripete; quello informativo il piano non lo prende — filtra
-    `critical` e `warning` — e resta l'unico posto della vista testo
+    ripete; quello di STATO il piano non lo prende — parla della
+    scansione e non del sito — e resta l'unico posto della vista testo
     dove la sua correzione compare.
+
+    Era un `info` fino al 2026-09-01: la decisione del committente li ha
+    portati nel piano, quindi ora si comportano come i critici. Cambia
+    chi resta fuori, non l'invariante — la duplicazione che U4.3 ha
+    tolto non deve tornare.
     """
     contesto["results"] = {
         "mars_tech": {"score": 60, "issues": ["[critico] robots muto"],
                       "findings": [
+                          # La penalita' dichiarata: senza, dal
+                          # 2026-09-01 il rilievo non entra nel piano
+                          # perche' non risulta un controllo FALLITO.
                           _rilievo(title="robots muto",
                                    key="tech.robots.missing",
-                                   fix="Pubblica un robots.txt."),
+                                   fix="Pubblica un robots.txt.",
+                                   params={"penalty": 40.0}),
                           _rilievo(title="canonical assente",
-                                   key="tech.canonical.missing",
+                                   key="tech.status.error",
                                    severity=SEV_INFO,
                                    fix="Dichiara il canonical.")]}}
     testo = render_text(build_report(contesto["results"], contesto))
@@ -1709,8 +1720,10 @@ def _referto_con_piano(contesto, quanti=1):
 
 def test_il_piano_a_testo_dichiara_i_conteggi(contesto):
     testo = render_text(_referto_con_piano(contesto))
-    assert "PIANO DI INTERVENTI  : 1 interventi (1 critici, 0 avvertenze)" \
-        in testo
+    # Tre numeri: da quando gli `info` entrano nel piano, due non
+    # sommerebbero piu' al totale.
+    assert ("PIANO DI INTERVENTI  : 1 interventi "
+            "(1 critici, 0 avvertenze, 0 info)") in testo
     assert "1. [CRITICO · Tecnica · minuti] robots blocca" in testo
     assert "+43 punti d'area (57 → 100)" in testo
     assert "Togli il Disallow." in testo
@@ -2650,12 +2663,18 @@ def test_il_csv_tiene_i_derivati(contesto):
 
 
 def test_il_csv_lascia_vuoto_lo_sforzo_dove_non_e_azionabile(contesto):
-    """Vuoto e non «no»: un quick_win a «no» su un rilievo informativo
-    sembrerebbe una valutazione che nessuno ha fatto."""
+    """Vuoto e non «no»: un quick_win a «no» su un rilievo FUORI dal
+    piano sembrerebbe una valutazione che nessuno ha fatto.
+
+    Il rilievo escluso era un `info` fino al 2026-09-01, quando la
+    decisione del committente ha portato gli `info` nel piano: da li'
+    una valutazione ce l'hanno, e il vuoto sarebbe la bugia. L'invariante
+    non cambia, cambia chi resta fuori — qui un rilievo di STATO, che
+    parla della scansione e non del sito."""
     contesto["results"] = {"mars_tech": {"score": 57, "issues": [], "findings": [
         _rilievo(key="tech.robots.ai_blocked", title="azionabile",
                  params={"penalty": 43.0}),
-        _rilievo(key="tech.canonical.missing", title="informativo",
+        _rilievo(key="tech.status.error", title="informativo",
                  severity=SEV_INFO, params={"penalty": 0.0})]}}
     righe = list(csv.reader(
         io.StringIO(render_csv(build_report(contesto["results"], contesto))[1:]),

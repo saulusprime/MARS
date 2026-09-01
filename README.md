@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.26.0
+Versione 2.27.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -828,6 +828,22 @@ la sintassi di robots.txt». Un rilievo `info` puo' essere un difetto
 vero, quindi la gravita' non basterebbe; una penalita' assente
 significa invece che il controllo non e' stato misurato o non e'
 fallito. Zero non e' assente, ed e' un difetto a tutti gli effetti.
+
+Dal 2026-09-01 quella stessa porta vale per il PIANO DI INTERVENTI, che
+ora copre ogni rilievo che descriva un difetto del sito, `info`
+compresi. Fino a li' li teneva fuori la gravita', ma un `info` puo'
+essere un difetto vero — sul referto sintetico ne erano cinque su
+diciannove: canonical assente, HSTS non impostato, FCP e Speed Index
+lenti, link con testo generico. Restano fuori tre categorie, e ognuna
+per una ragione sua: i controlli NON FALLITI, che senza questa porta
+sarebbero entrati come «Non applicabile a questa pagina: robots.txt e'
+valido»; i rilievi di STATO, che parlano della scansione e non del
+sito, e il cui destinatario e' chi fa girare MARS; e i DERIVATI della
+citabilita' e del giudizio LLM, che ridicono un difetto gia'
+quantificato dall'area d'origine e che il piano prescriverebbe due
+volte. La gravita' continua a dominare l'ORDINE: un `info` non
+scavalca un'avvertenza perche' recupera piu' punti. E la testata dice
+tre numeri e non due, altrimenti non sommerebbero al totale.
 
 Restano senza prescrizione le regole di axe e gli alert di ZAP: quelle
 la correzione la portano gia' loro, e il loro insieme di chiavi non e'

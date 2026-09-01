@@ -1237,18 +1237,20 @@ _CORNICE_EN: Dict[str, str] = {
     "Piano di interventi": "Remediation plan",
     "PIANO DI INTERVENTI  : nessun rilievo critico o di avvertenza":
         "REMEDIATION PLAN     : no critical or warning findings",
-    "PIANO DI INTERVENTI  : %d interventi (%d critici, %d avvertenze)":
-        "REMEDIATION PLAN     : %d actions (%d critical, %d warnings)",
+    "PIANO DI INTERVENTI  : %d interventi (%d critici, %d avvertenze, "
+    "%d info)":
+        "REMEDIATION PLAN     : %d actions (%d critical, %d warnings, "
+        "%d info)",
     "Nessun rilievo critico o di avvertenza.":
         "No critical or warning findings.",
     "Nessun rilievo critico o di avvertenza: non c'è nulla da mettere "
     "in ordine di priorità.":
         "No critical or warning findings: there is nothing to put in "
         "priority order.",
-    "%d interventi (%d critici, %d avvertenze)":
-        "%d actions (%d critical, %d warnings)",
-    "%d interventi (%d critici, %d avvertenze) · %d quick win.":
-        "%d actions (%d critical, %d warnings) · %d quick wins.",
+    "%d interventi (%d critici, %d avvertenze, %d info)":
+        "%d actions (%d critical, %d warnings, %d info)",
+    "%d interventi (%d critici, %d avvertenze, %d info) · %d quick win.":
+        "%d actions (%d critical, %d warnings, %d info) · %d quick wins.",
     "%d quick win": "%d quick wins",
     "%d senza recupero": "%d with no recovery",
     "%d senza recupero dichiarato": "%d with no declared recovery",

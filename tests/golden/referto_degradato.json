@@ -1356,6 +1356,87 @@
       "additive": false,
       "certified": true,
       "priority": 10
+    },
+    {
+      "key": "wcag.link.generic",
+      "area": "mars_wcag",
+      "area_label": "7. Accessibilità",
+      "severity": "info",
+      "title": "1 link con testo generico (\"clicca qui\", \"leggi tutto\")",
+      "fix": "Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.",
+      "example": "<!-- invece di: <a href=\"/prezzi/\">clicca qui</a> -->\n<a href=\"/prezzi/\">Il listino dei trattamenti</a>",
+      "doc_url": "",
+      "params": {
+        "urls": [
+          "https://esempio.test/"
+        ],
+        "link": 1,
+        "instances": 1,
+        "cited": [
+          "clicca qui → /servizi/"
+        ],
+        "criterio": "2.4.4",
+        "penalty": 12.0,
+        "surface": true
+      },
+      "penalty": 12.0,
+      "recovery": 12,
+      "score_before": 40,
+      "score_after": 52,
+      "index_gain": 1.62,
+      "profile_gains": {
+        "Claude": 1.71,
+        "ChatGPT/Perplexity": 1.5,
+        "Qwen": 1.71,
+        "Kimi": 1.71
+      },
+      "market": "global",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 11
+    },
+    {
+      "key": "tech.canonical.missing",
+      "area": "mars_tech",
+      "area_label": "1. Tecnica",
+      "severity": "info",
+      "title": "2/3 pagine senza <link rel=\"canonical\">",
+      "fix": "Dichiara <link rel=\"canonical\"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.",
+      "example": "<link rel=\"canonical\" href=\"https://esempio.it/servizi/\">",
+      "doc_url": "",
+      "params": {
+        "totale": 3,
+        "urls": [
+          "https://esempio.test/faq/",
+          "https://esempio.test/servizi/"
+        ],
+        "pagine": 2,
+        "instances": 2,
+        "penalty": 3.0
+      },
+      "penalty": 3.0,
+      "recovery": 3,
+      "score_before": 57,
+      "score_after": 60,
+      "index_gain": 1.21,
+      "profile_gains": {
+        "Claude": 1.29,
+        "ChatGPT/Perplexity": 1.12,
+        "Qwen": 1.29,
+        "Kimi": 1.29
+      },
+      "market": "global",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 12
     }
   ],
   "delta": null

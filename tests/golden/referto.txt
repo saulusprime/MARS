@@ -10,8 +10,6 @@ COMPLESSIVO          :  69/100  (da migliorare)
 1. Tecnica           :  57/100
   ⚠ [critico] robots.txt BLOCCA 1 crawler IA: GPTBot
   ⚠ [lieve] 2/3 pagine senza <link rel="canonical">
-  → 2/3 pagine senza <link rel="canonical">
-    Dichiara <link rel="canonical"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.
 2. SEO               :  27/100
   Lighthouse 13.4.1 · mobile · 3 controlli superati, 5 falliti
   ⚠ [Lighthouse] L'indicizzazione della pagina è bloccata (X-Robots-Tag: noindex)
@@ -20,10 +18,6 @@ COMPLESSIVO          :  69/100  (da migliorare)
   Lighthouse 13.4.1 · mobile · Lighthouse 56/100 (1 pagina, scala diversa: la nostra è più indulgente) · 1 controlli superati, 4 falliti
   ⚠ Primo contenuto lento: FCP 2,6 s
   ⚠ Contenuto principale lento: LCP 4,3 s
-  → Primo contenuto lento: FCP 2,6 s
-    Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.
-  → Pagina lenta a riempirsi: Speed Index 4,2 s
-    Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.
 4. Lessicale         :  60/100
   BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi
   ⚠ [grave] 3/3 pagine sotto le 300 parole
@@ -37,8 +31,6 @@ COMPLESSIVO          :  69/100  (da migliorare)
   axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
-  → 1 link con testo generico ("clicca qui", "leggi tutto")
-    Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 8. Sicurezza         :  57/100
   ZAP (passiva) · 3 pagine esaminate
   ⚠ [ZAP:High] Cross Site Scripting (Reflected) (1 URL)
@@ -72,8 +64,8 @@ RISPETTO A PRIMA     : 2025-12-01T09:00:00+0000
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
   (e' cambiato che cosa si misura: i numeri si muovono anche a sito invariato)
 -------------------------------------------------------
-PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
-  2 quick win · 4 senza recupero · 6 senza sforzo dichiarato
+PIANO DI INTERVENTI  : 27 interventi (6 critici, 16 avvertenze, 5 info)
+  2 quick win · 5 senza recupero · 7 senza sforzo dichiarato
   8 aree su 10; ordinato per gravita', poi per guadagno dell'indice
   1. [CRITICO · Tecnica · minuti] robots.txt BLOCCA 1 crawler IA: GPTBot
      ** QUICK WIN · +40 punti d'area (57 → 97) · indice +7.54
@@ -90,7 +82,7 @@ PIANO DI INTERVENTI  : 22 interventi (6 critici, 16 avvertenze)
   5. [CRITICO · Accessibilità · ore] 1 campi di modulo senza etichetta
      in questa esecuzione il controllo non entra nel punteggio dell'area
      Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
-  · ... e altri 17 interventi (per intero nel JSON e nell'HTML)
+  · ... e altri 22 interventi (per intero nel JSON e nell'HTML)
 -------------------------------------------------------
 Simulazione RRF      : Consenso Top-3 = 2/3 su 4 chunk
   aggregato su 3 query

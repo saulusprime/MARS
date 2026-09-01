@@ -313,10 +313,77 @@ def test_senza_citabilita_il_piano_resta_ordinabile():
 # Che cosa entra nel piano
 # ----------------------------------------------------------------------
 
-def test_gli_info_restano_fuori():
+def test_gli_info_entrano_nel_piano():
+    """**Decisione del committente, 2026-09-01**: il piano copre tutti i
+    rilievi, `info` compresi. Fino a qui li teneva fuori la gravita', con
+    la ragione «info descrive, non prescrive».
+
+    La misura che ha reso ragionevole il cambio: dei diciannove esclusi
+    del referto sintetico, **otto sono difetti veri del sito** —
+    `tech.canonical.missing`, `perf.fcp.slow`, `wcag.link.generic`,
+    `sec.zap.10035` — e `prescrivibile` gia' lo diceva nella propria
+    docstring, «un rilievo `info` puo' essere un difetto vero». Gli altri
+    undici restano fuori, ma per le altre due ragioni, che sono
+    diverse e non sono state toccate."""
     piano = rem.build_remediation(_referto([
         _area(rilievi=[_rilievo(severity=SEV_INFO)])]))
-    assert piano == []
+    assert [v["key"] for v in piano] == ["tech.robots.ai_blocked"]
+    assert piano[0]["severity"] == SEV_INFO
+
+
+def test_gli_info_stanno_in_fondo_al_piano():
+    """La gravita' domina l'ordine, e resta cosi': un `info` non
+    scavalca un'avvertenza perche' recupera piu' punti."""
+    piano = rem.build_remediation(_referto([
+        _area(rilievi=[
+            _rilievo(key="tech.a.b", severity=SEV_INFO,
+                     params={"penalty": 40.0}),
+            _rilievo(key="tech.c.d", severity=SEV_WARNING,
+                     params={"penalty": 1.0}),
+            _rilievo(key="tech.e.f", severity=SEV_CRITICAL,
+                     params={"penalty": 1.0})])]))
+    assert [v["severity"] for v in piano] == [SEV_CRITICAL, SEV_WARNING,
+                                              SEV_INFO]
+
+
+def test_il_riepilogo_conta_anche_gli_info():
+    """La testata dice «N interventi (X critici, Y avvertenze)»: senza
+    il terzo numero i conti non tornerebbero piu', e chi legge
+    penserebbe a un errore di somma."""
+    piano = rem.build_remediation(_referto([
+        _area(rilievi=[_rilievo(severity=SEV_INFO)])]))
+    conti = rem.riepilogo(piano, _referto([_area()]))
+    assert conti["info"] == 1
+    assert conti["total"] == conti["critical"] + conti["warning"] + conti["info"]
+
+
+def test_un_controllo_non_fallito_non_entra_nel_piano():
+    """Il difetto che la decisione sugli `info` ha portato a galla.
+
+    Lighthouse produce un rilievo per OGNI audit — superati e non
+    applicabili compresi — e sono tutti `info`. Alzato il filtro sulla
+    gravita', nel piano sono entrate tre voci come «Non applicabile a
+    questa pagina: robots.txt è valido»: in un piano d'azione non c'e'
+    niente da fare, ed e' il referto che si smentisce.
+
+    Il discriminante giusto esisteva gia' ed e' la PENALITA' dichiarata:
+    `mars_fixes.prescrivibile`, che U3.1 usa per non scrivere «Correggi
+    la sintassi di robots.txt» sotto «robots.txt e' valido». Chiave
+    assente significa «non misurato, o non fallito»; `0.0` significa
+    «misurato, ma qui non muove il punteggio» ed e' un difetto vero.
+    """
+    superato = _rilievo(key="seo.lh.robots_txt", severity=SEV_INFO,
+                        params={"rule": "robots-txt",
+                                "mode": "notApplicable"})
+    assert rem.build_remediation(_referto([_area(rilievi=[superato])])) == []
+
+    # `penalty: 0.0` invece entra: e' un difetto misurato che in questa
+    # esecuzione non muove il punteggio — i controlli statici di
+    # mars_wcag nel ramo axe.
+    nullo = _rilievo(key="wcag.link.generic", severity=SEV_INFO,
+                     params={"penalty": 0.0})
+    piano = rem.build_remediation(_referto([_area(rilievi=[nullo])]))
+    assert [v["key"] for v in piano] == ["wcag.link.generic"]
 
 
 def test_i_derivati_restano_fuori_anche_se_gravi():
@@ -368,12 +435,17 @@ def test_le_quattro_corsie():
         _area("mars_schema", score=100, rilievi=[
             _rilievo(area="mars_schema", key="sd.jsonld.missing",
                      params={"penalty": 0.0})]),
-        # certificata, ma questo rilievo la penalita' non ce l'ha
+        # certificata, ma questo rilievo la penalita' la dichiara e non
+        # e' un numero. NON `params={}`: dal 2026-09-01 un rilievo che
+        # la penalita' non la dichiara affatto non entra proprio nel
+        # piano — misurato, i soli rilievi in quello stato sono i
+        # controlli Lighthouse non falliti. La corsia «ignoto» resta
+        # per QUESTO caso e per l'area non certificata.
         _area("mars_wapt", score=100, rilievi=[
             _rilievo(area="mars_wapt", key="sec.headers.csp_missing",
                      params={"penalty": 0.0}),
             _rilievo(area="mars_wapt", key="sec.headers.hsts_missing",
-                     params={})]),
+                     params={"penalty": "alto"})]),
     ]))
     corsie = {v["key"]: v["lane"] for v in piano}
     assert corsie["tech.robots.ai_blocked"] == "misurato"
@@ -395,8 +467,9 @@ def test_l_ordinamento_regge_due_voci_senza_numeri():
     girato — cioe' nel punto piu' caro possibile."""
     piano = rem.build_remediation(_referto([
         _area(score=None, rilievi=[
-            _rilievo(key="tech.robots.missing", params={}),
-            _rilievo(key="tech.sitemap.missing", params={})])]))
+            _rilievo(key="tech.robots.missing", params={"penalty": "alto"}),
+            _rilievo(key="tech.sitemap.missing",
+                     params={"penalty": "alto"})])]))
     assert [v["lane"] for v in piano] == ["ignoto", "ignoto"]
     assert [v["key"] for v in piano] == ["tech.robots.missing",
                                          "tech.sitemap.missing"]
@@ -461,8 +534,11 @@ def test_la_corsia_viene_prima_dei_numeri():
         _area(score=100, rilievi=[
             _rilievo(key="tech.canonical.missing", severity=SEV_WARNING,
                      params={"penalty": 0.0}),
+            # Penalita' dichiarata ma non numerica: e' la via per cui
+            # la corsia «ignoto» si raggiunge da un'area certificata,
+            # dopo che i rilievi senza penalita' sono usciti dal piano.
             _rilievo(key="tech.robots.missing", severity=SEV_WARNING,
-                     params={})])]))
+                     params={"penalty": "alto"})])]))
     assert [(v["key"], v["lane"]) for v in piano] == [
         ("tech.robots.missing", "ignoto"),
         ("tech.canonical.missing", "nullo")]

@@ -3256,6 +3256,201 @@
       "additive": false,
       "certified": true,
       "priority": 22
+    },
+    {
+      "key": "tech.canonical.missing",
+      "area": "mars_tech",
+      "area_label": "1. Tecnica",
+      "severity": "info",
+      "title": "2/3 pagine senza <link rel=\"canonical\">",
+      "fix": "Dichiara <link rel=\"canonical\"> su ogni pagina: senza, due URL che servono lo stesso contenuto competono fra loro.",
+      "example": "<link rel=\"canonical\" href=\"https://esempio.it/servizi/\">",
+      "doc_url": "",
+      "params": {
+        "totale": 3,
+        "urls": [
+          "https://esempio.test/faq/",
+          "https://esempio.test/servizi/"
+        ],
+        "pagine": 2,
+        "instances": 2,
+        "penalty": 3.0
+      },
+      "penalty": 3.0,
+      "recovery": 3,
+      "score_before": 57,
+      "score_after": 60,
+      "index_gain": 0.57,
+      "profile_gains": {
+        "Claude": 0.6,
+        "ChatGPT/Perplexity": 0.53,
+        "Qwen": 0.64,
+        "Kimi": 0.64
+      },
+      "market": "eu",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 23
+    },
+    {
+      "key": "sec.zap.10035",
+      "area": "mars_wapt",
+      "area_label": "8. Sicurezza",
+      "severity": "info",
+      "title": "Strict-Transport-Security non impostato",
+      "fix": "",
+      "example": "",
+      "doc_url": "",
+      "params": {
+        "rule": "10035",
+        "alert_ref": "",
+        "key_source": "pluginId",
+        "risk": "Low",
+        "rule_risk": "Low",
+        "urls": [
+          "https://esempio.test/"
+        ],
+        "n": 1,
+        "instances": 1,
+        "rule_n": 1,
+        "variants": 1,
+        "rule_penalty": 3.3000000000000003,
+        "references": [],
+        "soluzioni": 0,
+        "penalty": 3.3000000000000003,
+        "text_lang": "en"
+      },
+      "penalty": 3.3000000000000003,
+      "recovery": 3,
+      "score_before": 57,
+      "score_after": 60,
+      "index_gain": 0.19,
+      "profile_gains": {
+        "Claude": 0.2,
+        "ChatGPT/Perplexity": 0.18,
+        "Qwen": 0.21,
+        "Kimi": 0.21
+      },
+      "market": "eu",
+      "effort": null,
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 24
+    },
+    {
+      "key": "perf.fcp.slow",
+      "area": "mars_perf",
+      "area_label": "3. Prestazioni",
+      "severity": "info",
+      "title": "Primo contenuto lento: FCP 2,6 s",
+      "fix": "Elimina cio' che blocca il primo render: CSS critico in linea nel <head>, il resto caricato dopo, e i font con font-display: swap cosi' il testo compare subito col carattere di sistema.",
+      "example": "@font-face {\n  font-family: \"Titillium Web\";\n  src: url(\"/font/titillium.woff2\") format(\"woff2\");\n  font-display: swap;\n}",
+      "doc_url": "",
+      "params": {
+        "rule": "first-contentful-paint",
+        "valore": "2,6 s",
+        "numeric_value": 2600.0,
+        "numeric_unit": "millisecond",
+        "lh_score": 0.61,
+        "penalty": 3.9000000000000004,
+        "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ]
+      },
+      "penalty": 3.9000000000000004,
+      "recovery": 4,
+      "score_before": 58,
+      "score_after": 62,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 25
+    },
+    {
+      "key": "perf.si.slow",
+      "area": "mars_perf",
+      "area_label": "3. Prestazioni",
+      "severity": "info",
+      "title": "Pagina lenta a riempirsi: Speed Index 4,2 s",
+      "fix": "Fai arrivare prima la parte visibile: markup essenziale in testa, immagini sotto la piega con loading lazy, e niente script che ridisegnano la pagina durante il caricamento.",
+      "example": "<img src=\"/img/galleria-1.jpg\" width=\"600\" height=\"400\"\n     loading=\"lazy\" alt=\"La palestra\">",
+      "doc_url": "",
+      "params": {
+        "rule": "speed-index",
+        "valore": "4,2 s",
+        "numeric_value": 4200.0,
+        "numeric_unit": "millisecond",
+        "lh_score": 0.75,
+        "penalty": 2.5,
+        "text_lang": "it",
+        "urls": [
+          "https://esempio.test/"
+        ]
+      },
+      "penalty": 2.5,
+      "recovery": 3,
+      "score_before": 58,
+      "score_after": 61,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "misurato",
+      "lane_reason": "",
+      "additive": false,
+      "certified": true,
+      "priority": 26
+    },
+    {
+      "key": "wcag.link.generic",
+      "area": "mars_wcag",
+      "area_label": "7. Accessibilità",
+      "severity": "info",
+      "title": "1 link con testo generico (\"clicca qui\", \"leggi tutto\")",
+      "fix": "Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.",
+      "example": "<!-- invece di: <a href=\"/prezzi/\">clicca qui</a> -->\n<a href=\"/prezzi/\">Il listino dei trattamenti</a>",
+      "doc_url": "",
+      "params": {
+        "urls": [
+          "https://esempio.test/"
+        ],
+        "link": 1,
+        "instances": 1,
+        "cited": [
+          "clicca qui → /servizi/"
+        ],
+        "criterio": "2.4.4",
+        "penalty": 0.0
+      },
+      "penalty": 0.0,
+      "recovery": 0,
+      "score_before": 58,
+      "score_after": 58,
+      "index_gain": null,
+      "profile_gains": null,
+      "market": "eu",
+      "effort": "ore",
+      "quick_win": false,
+      "lane": "nullo",
+      "lane_reason": "in questa esecuzione il controllo non entra nel punteggio dell'area",
+      "additive": false,
+      "certified": true,
+      "priority": 27
     }
   ],
   "delta": {

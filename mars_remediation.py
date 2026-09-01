@@ -12,8 +12,14 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 import mars_citability
-from mars_core import (SEV_CRITICAL, SEV_WARNING,
+from mars_core import (SEV_CRITICAL, SEV_INFO, SEV_WARNING,
                        istanze_del_rilievo)
+# Una sola implementazione di «su questo si puo' prescrivere»: U3.1 la
+# usa per non scrivere una correzione sotto un controllo superato, il
+# piano per non metterlo fra gli interventi. Sono la stessa domanda, e
+# due copie divergerebbero. `mars_fixes` e' una foglia — importa il
+# solo `typing` — quindi non c'e' ciclo.
+from mars_fixes import prescrivibile
 
 # ======================================================================
 # Il piano di interventi (U4 / Fase 4 di UPGRADE.md)
@@ -105,8 +111,17 @@ from mars_core import (SEV_CRITICAL, SEV_WARNING,
 
 # Solo cio' su cui si interviene. `info` resta fuori: sono rilievi che
 # descrivono, non difetti da chiudere.
-GRAVITA_PIANO = (SEV_CRITICAL, SEV_WARNING)
-_ORDINE_GRAVITA = {SEV_CRITICAL: 0, SEV_WARNING: 1}
+# Tutte e tre: il piano copre ogni rilievo che descriva un difetto del
+# sito. Fino al 2026-09-01 `info` restava fuori — «info descrive, non
+# prescrive» — e la decisione del committente l'ha ribaltata sulla
+# misura: dei diciannove esclusi del referto sintetico, OTTO erano
+# difetti veri, e `prescrivibile` gia' diceva nella propria docstring
+# che «un rilievo `info` puo' essere un difetto vero». Le altre due
+# esclusioni restano, perche' hanno ragioni diverse.
+GRAVITA_PIANO = (SEV_CRITICAL, SEV_WARNING, SEV_INFO)
+# La gravita' domina comunque l'ordine: un `info` non scavalca
+# un'avvertenza perche' recupera piu' punti.
+_ORDINE_GRAVITA = {SEV_CRITICAL: 0, SEV_WARNING: 1, SEV_INFO: 2}
 
 # Le quattro corsie in cui puo' finire una voce. Servono perche' "non
 # lo so" e "so che vale zero" sono opposti per chi decide lunedi'
@@ -226,24 +241,42 @@ def _e_candidato(rilievo: dict) -> bool:
 
     Tre esclusioni, e nessuna e' un'ottimizzazione:
 
-    - la **gravita'**: `info` descrive, non prescrive;
-    - i **derivati** di `mars_citability`, che ridicono un difetto gia'
-      quantificato dall'area d'origine. E' il vincolo che R41 chiede a
-      ogni consumatore che AGGREGA: oggi li terrebbe fuori anche la
-      sola gravita', ma quella e' una protezione incidentale — se un
-      giorno un derivato nascesse `warning`, il piano lo prescriverebbe
-      due volte;
+    - i controlli **non falliti**: Lighthouse produce un rilievo per
+      OGNI audit, superati e non applicabili compresi, e sono tutti
+      `info`. Finche' la gravita' li escludeva questo filtro non
+      serviva; alzata quella, «Non applicabile a questa pagina:
+      robots.txt e' valido» e' finito fra gli interventi, dove non c'e'
+      niente da fare. Il discriminante e' la PENALITA' dichiarata, ed e'
+      lo stesso di `mars_fixes.prescrivibile`: chiave assente significa
+      "non misurato, o non fallito", `0.0` significa "misurato, ma qui
+      non muove il punteggio" ed e' un difetto vero;
+
+    - i **derivati** di `mars_citability` e `mars_llm_judge`, che
+      ridicono un difetto gia' quantificato dall'area d'origine. E' il
+      vincolo che R41 chiede a ogni consumatore che AGGREGA, e dal
+      2026-09-01 e' l'unica cosa che li tiene fuori: prima li avrebbe
+      tenuti fuori anche la gravita', ma quella era una protezione
+      incidentale;
     - i rilievi di **stato**, `*.status.*`, che parlano della
       scansione e non del sito. Il loro destinatario e' chi fa girare
       MARS, ed e' la stessa esclusione per cui U3.1 non da' loro un
       `fix`: un piano consegnato a un cliente che dica "installa
       Lighthouse" ha sbagliato lettore.
 
+    **La gravita' non esclude piu' nulla** (decisione del committente,
+    2026-09-01): un `info` puo' essere un difetto vero — lo dice gia'
+    `prescrivibile` — e degli esclusi del referto sintetico otto lo
+    erano. Restano ordinati per ultimi.
+
     Nessun filtro sulla presenza di un `fix`: un rilievo senza
     prescrizione resta un difetto da chiudere, e nasconderlo perche'
-    non sappiamo dire come lo si chiude sarebbe la cosa peggiore.
+    non sappiamo dire come lo si chiude sarebbe la cosa peggiore. Il
+    filtro sopra e' un'altra cosa: li' il controllo non e' fallito
+    affatto.
     """
     if rilievo.get("severity") not in GRAVITA_PIANO:
+        return False
+    if not prescrivibile(rilievo):
         return False
     if (rilievo.get("params") or {}).get("derived"):
         return False
@@ -609,10 +642,12 @@ def riepilogo(piano: List[dict], referto: dict) -> dict:
     `aree_nel_piano` si conta a runtime: le aree che possono
     contribuire sono al massimo otto, non dieci, perche' i rilievi di
     `mars_citability` e `mars_llm_judge` sono per costruzione tutti
-    `info`. Erano cinque fino a U13, che ha dato dei controlli a
-    `mars_lexical` e `mars_semantic`: e' esattamente il genere di
-    numero che invecchia da solo, ed e' la ragione per cui si conta
-    invece di scriverlo.
+    `derived`. Fino al 2026-09-01 la ragione scritta qui era un'altra —
+    «sono tutti `info`» — ed era vera ma incidentale: da quando `info`
+    entra nel piano, a tenerli fuori resta il solo R41. Erano cinque
+    fino a U13, che ha dato dei controlli a `mars_lexical` e
+    `mars_semantic`: e' esattamente il genere di numero che invecchia da
+    solo, ed e' la ragione per cui si conta invece di scriverlo.
     """
     aree = referto.get("areas") or []
     rappresentate = sorted({v["area"] for v in piano})
@@ -622,6 +657,10 @@ def riepilogo(piano: List[dict], referto: dict) -> dict:
         "total": len(piano),
         "critical": sum(1 for v in piano if v["severity"] == SEV_CRITICAL),
         "warning": sum(1 for v in piano if v["severity"] == SEV_WARNING),
+        # Il terzo numero, da quando `info` entra nel piano: senza, la
+        # testata direbbe «22 interventi (9 critici, 5 avvertenze)» e
+        # chi legge penserebbe a un errore di somma.
+        "info": sum(1 for v in piano if v["severity"] == SEV_INFO),
         "quick_wins": sum(1 for v in piano if v["quick_win"]),
         "by_lane": {corsia: sum(1 for v in piano if v["lane"] == corsia)
                     for corsia in CORSIE},

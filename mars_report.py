@@ -1647,10 +1647,13 @@ def _piano_testo(referto: dict,
                        "di avvertenza", lang))
         return righe
 
+    # Tre numeri e non due: da quando gli `info` entrano nel piano, due
+    # non sommerebbero piu' al totale e chi legge penserebbe a un errore
+    # di somma.
     righe.append(t("PIANO DI INTERVENTI  : %d interventi (%d critici, "
-                   "%d avvertenze)", lang)
+                   "%d avvertenze, %d info)", lang)
                  % (riepilogo["total"], riepilogo["critical"],
-                    riepilogo["warning"]))
+                    riepilogo["warning"], riepilogo["info"]))
     conteggi = [t("%d quick win", lang) % riepilogo["quick_wins"]]
     senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
     if senza:
@@ -3650,9 +3653,10 @@ def _sezione_piano(referto: dict, p: List[str],
                      "nulla da mettere in ordine di priorità.", lang))
         return
 
-    conteggi = [t("%d interventi (%d critici, %d avvertenze)", lang)
+    conteggi = [t("%d interventi (%d critici, %d avvertenze, %d info)",
+                  lang)
                 % (riepilogo["total"], riepilogo["critical"],
-                   riepilogo["warning"]),
+                   riepilogo["warning"], riepilogo["info"]),
                 t("%d quick win", lang) % riepilogo["quick_wins"]]
     senza = riepilogo["total"] - riepilogo["by_lane"]["misurato"]
     if senza:
@@ -4404,10 +4408,11 @@ def render_markdown(referto: dict,
     if not piano:
         r.append(t("Nessun rilievo critico o di avvertenza.", lang))
     else:
-        r.append(t("%d interventi (%d critici, %d avvertenze) · "
+        r.append(t("%d interventi (%d critici, %d avvertenze, %d info) · "
                    "%d quick win.", lang)
                  % (riepilogo["total"], riepilogo["critical"],
-                    riepilogo["warning"], riepilogo["quick_wins"]))
+                    riepilogo["warning"], riepilogo["info"],
+                    riepilogo["quick_wins"]))
         r.append("")
         for voce in piano:
             # Task list GFM: incollata in una issue diventa una

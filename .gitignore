@@ -23,6 +23,7 @@ referto.json
 .env
 .env.*
 !.env.example
+lympha_env.json
 
 # examples/audit_request.json contiene SEGNAPOSTO ed e' versionato.
 # Per una richiesta con chiavi vere usare un file .local.json, che git
@@ -34,6 +35,7 @@ referto.json
 # mars_citations.py --history accoda al primo, l'audit differenziale di
 # mars_history.py (STORICO_PREDEFINITO) al secondo.
 storico.jsonl
+lymphatech.json
 .mars-history.jsonl
 
 # --- Cache di strumenti ---

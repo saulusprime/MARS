@@ -103,19 +103,48 @@ ENV CHROME_PATH=/usr/local/bin/chromium
 # vieta a un processo non privilegiato di creare user namespace, quindi
 # il sandbox a namespace non parte; quello SUID e' il ripiego che
 # Chromium prevede, e non chiede alcun flag al `docker run`.
-# I file si CERCANO invece di scriverne il percorso: i pacchetti sono
-# due, `chromium` e `chromium_headless_shell`, e i loro nomi portano il
-# numero di build. Zero file trovati fa fallire la build, altrimenti
-# l'immagine nascerebbe senza sandbox e senza un errore.
+#
+# Tre cose misurate su un'installazione Playwright vera, e nessuna
+# indovinata:
+#
+#   1. l'helper si chiama `chrome_sandbox`, con il TRATTINO BASSO.
+#      Cercare `chrome-sandbox` — il nome che Chromium usa quando lo
+#      trova accanto a se' — non ne incontra nessuno, ed e' cosi' che
+#      questa build e' fallita la prima volta. Si cercano entrambi i
+#      nomi, perche' quale dei due Playwright spedisca e' una sua
+#      scelta e puo' cambiare.
+#   2. l'helper sta nel solo pacchetto `chromium`. Il pacchetto
+#      `chromium_headless_shell` non ne ha alcuno.
+#   3. `launch(headless=True)` esegue proprio `chrome-headless-shell`,
+#      non il browser pieno — verificato leggendo la riga di comando
+#      del processo. E' mars_wcag a lanciarlo.
+#
+# Da (2) e (3): l'helper NON puo' stare accanto al binario, perche' i
+# binari sono due e uno solo ce l'ha. Si copia in un percorso stabile e
+# lo si dichiara con CHROME_DEVEL_SANDBOX, che il binario chrome porta
+# fra i propri letterali e che i processi figli ereditano — sia quelli
+# di Playwright sia quelli che Lighthouse lancia.
+#
+# Copiato e non collegato: il bit setuid su un collegamento simbolico e'
+# ignorato dal kernel, e qui il bit e' tutto.
 RUN set -eu; \
-    trovati="$(find /opt/ms-playwright -name chrome-sandbox)"; \
+    trovati="$(find /opt/ms-playwright \
+        \( -name chrome_sandbox -o -name chrome-sandbox \) -type f)"; \
     if [ -z "$trovati" ]; then \
-        echo "chrome-sandbox non trovato sotto /opt/ms-playwright" >&2; \
+        echo "nessun helper di sandbox sotto /opt/ms-playwright" >&2; \
         exit 1; \
     fi; \
-    echo "$trovati" | while IFS= read -r f; do \
-        echo "sandbox SUID: $f"; chown root:root "$f"; chmod 4755 "$f"; \
-    done
+    origine="$(echo "$trovati" | head -n 1)"; \
+    echo "helper di sandbox: $origine"; \
+    cp "$origine" /usr/local/sbin/chrome-devel-sandbox; \
+    chown root:root /usr/local/sbin/chrome-devel-sandbox; \
+    chmod 4755 /usr/local/sbin/chrome-devel-sandbox; \
+    modo="$(stat -c '%a %U' /usr/local/sbin/chrome-devel-sandbox)"; \
+    if [ "$modo" != "4755 root" ]; then \
+        echo "sandbox mal configurato: $modo (atteso 4755 root)" >&2; \
+        exit 1; \
+    fi
+ENV CHROME_DEVEL_SANDBOX=/usr/local/sbin/chrome-devel-sandbox
 
 # --- Dipendenze Node --------------------------------------------------
 # Installate in /app/node_modules, che e' il percorso da cui il volume

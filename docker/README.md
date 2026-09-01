@@ -176,24 +176,53 @@ docker compose run --rm mars sh -c \
     'node --version && lighthouse --version && "$CHROME_PATH" --version'
 ```
 
+E che Chromium parta **davvero**, sandbox compreso — è il controllo che
+nessuna build può fare al posto tuo, perché in build il container gira
+con un profilo diverso:
+
+```bash
+docker compose run --rm mars python -c \
+    "from playwright.sync_api import sync_playwright as s; p=s().start(); \
+     b=p.chromium.launch(); print('chromium OK'); b.close(); p.stop()"
+```
+
 ## Chromium e il sandbox
 
 `mars_seo.py` passa a Lighthouse `--chrome-flags=--headless` e nient'altro,
 e `mars_wcag.py` chiama `launch(headless=True)`: **nessuno dei due può
 aggiungere `--no-sandbox`**, e non è il container a dover cambiare il
-codice. L'immagine risolve la cosa in sé:
+codice. L'immagine risolve la cosa in sé, e le tre cose che decidono come
+sono state misurate su un'installazione Playwright vera:
 
-- un browser solo per due consumatori — Playwright installa Chromium,
-  Lighthouse lo raggiunge via `CHROME_PATH`, la prima variabile che
-  `chrome-launcher` guarda;
-- il **sandbox SUID** abilitato in build (`chmod 4755` su
-  `chrome-sandbox`), perché il profilo seccomp predefinito di Docker
-  vieta gli user namespace a un processo non privilegiato.
+1. l'helper del sandbox si chiama **`chrome_sandbox`, con il trattino
+   basso** — non `chrome-sandbox`, che è il nome che Chromium cerca
+   quando lo trova accanto a sé. È così che la prima build è fallita;
+2. l'helper sta nel **solo** pacchetto `chromium`. Il pacchetto
+   `chromium_headless_shell` non ne ha alcuno;
+3. `launch(headless=True)` esegue proprio **`chrome-headless-shell`**,
+   non il browser pieno — letto sulla riga di comando del processo.
 
-Se su un host Chromium si rifiutasse comunque di partire, il ripiego è
-un flag di runtime e non una modifica all'immagine — in compose,
-`security_opt: ["seccomp=unconfined"]` sotto il servizio `mars`. Riduce
-l'isolamento del container: usarlo solo se serve.
+Da (2) e (3) segue che l'helper non può stare accanto al binario: i
+binari sono due e uno solo ce l'ha. Quindi viene copiato in
+`/usr/local/sbin/chrome-devel-sandbox`, reso `4755 root`, e dichiarato
+con `CHROME_DEVEL_SANDBOX` — la variabile che il binario `chrome` porta
+fra i propri letterali e che i processi figli ereditano, sia quelli di
+Playwright sia quelli che Lighthouse lancia. Copiato e non collegato:
+il bit setuid su un symlink il kernel lo ignora, e qui il bit è tutto.
+
+Lighthouse trova il browser per un'altra strada ancora, `CHROME_PATH`,
+che è la prima variabile che `chrome-launcher` guarda.
+
+**Se Chromium non partisse comunque**, il ripiego è un flag di runtime e
+non una modifica all'immagine:
+
+```yaml
+    security_opt: ["seccomp=unconfined"]     # sotto il servizio mars
+```
+
+Restituisce al container gli user namespace, così Chromium usa il
+proprio sandbox a namespace e non ha bisogno dell'helper. Riduce
+l'isolamento del container: usarlo solo se serve, e saperlo.
 
 ## Altre scelte, in breve
 

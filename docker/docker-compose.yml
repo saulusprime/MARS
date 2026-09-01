@@ -1,23 +1,28 @@
-# MARS Beacon — API in piedi con un comando, ZAP a richiesta.
+# MARS Beacon — lo stack in piedi con un comando.
 #
-#     cd docker && mkdir -p work && cp mars.env.example .env
-#     docker compose up -d
+#     cd docker && cp mars.env.example .env && chmod 600 .env
+#     docker compose up -d --build
+#
+# L'immagine e' lo STACK; MARS arriva dal montaggio di `..` su /app.
+# Modificare un modulo ha effetto subito: non c'e' nulla da ricostruire
+# finche' non cambiano requirements*.txt, package.json o le versioni di
+# Python e Node.
 #
 # Il file .env sta accanto a questo ed e' gia' ignorato da git: la
 # regola `.env` in .gitignore non ha una barra, quindi vale a ogni
-# livello. Le chiavi vere non entrano mai nell'immagine.
+# livello. Le chiavi non entrano mai in un layer dell'immagine.
 
 services:
   mars:
     build:
-      # Il contesto e' la radice: i sorgenti stanno li', non qui.
+      # Il contesto e' la radice: nell'immagine entrano solo i manifest
+      # (requirements*.txt, package.json) e docker/entrypoint.sh.
       context: ..
       dockerfile: docker/Dockerfile
       args:
         # `on` aggiunge sentence-transformers e torch: alcuni GB.
         MARS_EMBEDDINGS: "off"
-    image: mars-beacon:latest
-    container_name: mars-api
+    image: mars-stack:latest
     command: ["api"]
     ports:
       - "${MARS_PORT_HOST:-8000}:8000"
@@ -29,11 +34,23 @@ services:
       # indirizzo non risponde e l'area 8 ripiega sul controllo di
       # superficie, dichiarandolo (principio 2).
       ZAP_PROXY: "http://zap:8080"
+    working_dir: /app
     volumes:
-      # Referti, storico e file di query. Creare la cartella PRIMA di
-      # `up`: se la crea Docker appartiene a root e l'utente mars
-      # (uid 1000) non ci scrive.
-      - ./work:/work
+      # Il repository dell'host: e' QUESTO che gira, non una copia.
+      - ..:/app
+      # …tranne node_modules, che viene dall'immagine. Docker semina un
+      # volume nominato vuoto con il contenuto che l'immagine ha in quel
+      # percorso, e cosi' lo stack Node resta dello stack anche se
+      # sull'host node_modules manca o e' di un'altra piattaforma.
+      #
+      # Serve per axe-core, che mars_wcag.py:27 cerca accanto ai moduli
+      # e che NON ha un ripiego sul PATH. Lighthouse dal PATH ce l'ha, e
+      # l'immagine glielo fornisce comunque.
+      #
+      # Dopo aver cambiato package.json il volume va rifatto, altrimenti
+      # resta quello vecchio:
+      #     docker compose down -v && docker compose up -d --build
+      - mars_node_modules:/app/node_modules
     restart: unless-stopped
 
   # Profilo separato: `docker compose up` da solo non lo tira giu'.
@@ -50,7 +67,6 @@ services:
   zap:
     profiles: ["zap"]
     image: zaproxy/zap-stable
-    container_name: mars-zap
     user: zap
     # Il comando e' quello documentato in mars_wapt.py:28, piu' le due
     # `api.addrs`: ZAP accetta chiamate all'API dal solo localhost, e
@@ -64,3 +80,6 @@ services:
     expose:
       - "8080"
     restart: unless-stopped
+
+volumes:
+  mars_node_modules:

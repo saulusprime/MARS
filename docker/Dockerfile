@@ -1,22 +1,24 @@
 # syntax=docker/dockerfile:1
 #
-# MARS Beacon — un'immagine sola per la CLI e per l'API.
+# MARS Beacon — l'immagine e' lo STACK, non MARS.
 #
-# CLI e API sono due interfacce sopra lo stesso motore (principio 4):
-# due immagini vorrebbero dire mantenere due volte le stesse dipendenze
-# e gli stessi strumenti esterni. Quale delle due parte lo decide il
-# comando — vedi entrypoint.sh.
+# Dentro ci sono l'interprete, il runtime e gli strumenti esterni:
+# Python, Node, Chromium, Lighthouse, axe-core, e le dipendenze pip.
+# Il codice di MARS NON viene copiato: sta sull'host e si monta su
+# /app. Cosi' una modifica a un modulo si esegue subito, senza
+# ricostruire nulla, e l'immagine si rifa' solo quando cambia lo stack.
 #
-# Il contesto di build e' la RADICE del repository, non questa cartella:
+# Cosa fa ricostruire l'immagine: requirements*.txt, package.json,
+# la versione di Python o di Node. Nient'altro.
 #
-#     docker build -f docker/Dockerfile -t mars-beacon:latest .
+#     docker build -f docker/Dockerfile -t mars-stack:latest .
 #
 # ---------------------------------------------------------------------
 # Node non e' un accessorio: Lighthouse porta le aree 2 (SEO) e 3
 # (Prestazioni), axe-core porta l'area 7 (Accessibilita'). Lighthouse
-# 13.4.1 dichiara `engines.node >= 22.19` e bookworm porta la 18, quindi
-# il binario si prende dall'immagine ufficiale invece che da uno script
-# scaricato ed eseguito dalla shell.
+# 13.4.1 dichiara `engines.node >= 22.19` e bookworm porta la 18,
+# quindi il binario si prende dall'immagine ufficiale invece che da uno
+# script scaricato ed eseguito dalla shell.
 # ---------------------------------------------------------------------
 FROM node:22-bookworm-slim AS node
 
@@ -31,19 +33,27 @@ ARG MARS_EMBEDDINGS=off
 
 # Python 3.12 e non la 3.14 del .venv di sviluppo: il codice non usa
 # sintassi oltre la 3.10 (CLAUDE.md) e la 3.12 e' la versione con la
-# copertura di wheel piu' larga per lxml, bcrypt e torch. Se il progetto
-# dichiarasse un minimo, questa riga lo seguirebbe.
-
-# PLAYWRIGHT_BROWSERS_PATH sta fuori da $HOME: i browser vengono
-# installati da root e devono restare leggibili all'utente non
-# privilegiato che esegue il container.
-# PYTHONPATH serve perche' i moduli stanno in /app mentre la directory
-# di lavoro e' /work: senza, `uvicorn mars_api:app` non troverebbe nulla.
+# copertura di wheel piu' larga per lxml, bcrypt e torch.
+#
+# PIP_ROOT_USER_ACTION=ignore silenzia l'avviso «Running pip as the
+# 'root' user»: fuori da un container mette in guardia dal rompere il
+# Python di sistema, ma qui il Python di sistema E' lo stack, non c'e'
+# altro che possa rompersi e non esiste un gestore di pacchetti in
+# conflitto. Non ha mai fermato una build: si toglie perche' in un log
+# lungo somiglia a un errore.
+#
+# PLAYWRIGHT_BROWSERS_PATH sta fuori da $HOME: i browser li installa
+# root e devono restare leggibili all'utente che esegue il container.
+#
+# PATH: `node_modules/.bin` dell'immagine. `trova_lighthouse()` guarda
+# PRIMA il PATH (mars_seo.py:754), quindi Lighthouse si trova anche se
+# nulla e' montato su /app.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
-    PYTHONPATH=/app
+    PATH=/app/node_modules/.bin:$PATH
 
 # --- Node dall'immagine ufficiale ------------------------------------
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
@@ -55,8 +65,8 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 WORKDIR /app
 
 # --- Dipendenze Python ------------------------------------------------
-# Copiate da sole e prima dei sorgenti: cambiare un modulo non invalida
-# questo layer, che e' il piu' caro da ricostruire.
+# Dei file del repository entrano nell'immagine SOLO i manifest: sono
+# la definizione dello stack, non il codice che gira.
 COPY requirements.txt requirements-optional.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
  && pip install --no-cache-dir "anthropic>=0.120" "playwright>=1.40" \
@@ -67,8 +77,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # La riga di mezzo e' il sottoinsieme di requirements-optional.txt che
 # NON trascina torch: senza anthropic l'area 10 non parte, senza
 # playwright l'area 7 ripiega sull'euristica di superficie.
-# pytest e flake8 (requirements-dev.txt) restano perche' sono pochi MB e
-# rendono l'immagine verificabile dall'interno: `docker run mars pytest`.
+# pytest e flake8 (requirements-dev.txt) ci sono perche' il codice e'
+# montato: `docker compose run --rm mars pytest` esegue la suite VERA
+# dell'host dentro lo stack, ed e' la prova che lo stack e' completo.
 
 # --- Chromium ---------------------------------------------------------
 # Un browser solo per due consumatori: Playwright lo usa per axe-core
@@ -80,9 +91,9 @@ RUN apt-get update \
 # Il percorso di Chromium contiene il numero di build, che cambia a ogni
 # versione di Playwright: lo si chiede a Playwright invece di scriverlo,
 # e il collegamento assorbe la differenza. CHROME_PATH e' la variabile
-# che chrome-launcher legge per prima (node_modules/chrome-launcher/
-# dist/chrome-finder.js:75), ed e' l'unica leva che Lighthouse offre:
-# mars_seo.py passa `--chrome-flags=--headless` e nient'altro.
+# che chrome-launcher legge per prima (chrome-finder.js:75), ed e'
+# l'unica leva che Lighthouse offra: mars_seo.py passa
+# `--chrome-flags=--headless` e nient'altro.
 RUN ln -s "$(python -c 'from playwright.sync_api import sync_playwright; p = sync_playwright().start(); print(p.chromium.executable_path); p.stop()')" \
         /usr/local/bin/chromium \
  && test -x /usr/local/bin/chromium
@@ -107,6 +118,17 @@ RUN set -eu; \
     done
 
 # --- Dipendenze Node --------------------------------------------------
+# Installate in /app/node_modules, che e' il percorso da cui il volume
+# nominato di docker-compose.yml si semina. NON e' un dettaglio: i due
+# strumenti Node si raggiungono in due modi diversi, e uno solo passa
+# dal PATH.
+#
+#   Lighthouse  -> PATH, e `trova_lighthouse()` guarda li' per primo.
+#   axe-core    -> mars_wcag.py:27 compone il percorso da __file__ e
+#                  NON ha un ripiego sul PATH: `axe.min.js` deve
+#                  trovarsi accanto ai moduli montati, cioe' dentro
+#                  /app/node_modules.
+#
 # `npm install` e non `npm ci`: package-lock.json e' ignorato da git
 # (.gitignore), quindi su un clone pulito non c'e'. La build non e'
 # riproducibile alla patch — package.json usa intervalli `^` — ed e' la
@@ -114,34 +136,29 @@ RUN set -eu; \
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-# I percorsi che i moduli risolvono da __file__ (mars_seo.py:31,
-# mars_wcag.py:28 e :40). Verificati QUI: se l'appiattimento di npm
-# cambiasse e axe-core finisse annidato, senza questo controllo l'area 7
-# ripiegherebbe in silenzio su un'euristica e l'immagine risulterebbe
-# costruita «bene».
+# Verificato QUI: se l'appiattimento di npm cambiasse e axe-core
+# finisse annidato, senza questo controllo l'area 7 ripiegherebbe in
+# silenzio su un'euristica, con l'immagine costruita «bene».
 RUN test -x node_modules/.bin/lighthouse \
  && test -f node_modules/axe-core/axe.min.js \
- && test -f node_modules/axe-core/locales/it.json
+ && test -f node_modules/axe-core/locales/it.json \
+ && lighthouse --version
 
-# --- Sorgenti ---------------------------------------------------------
-COPY mars_*.py setup.cfg README.md LICENSE ./
-COPY examples ./examples
-COPY tests ./tests
-COPY tools ./tools
+# --- Entrypoint -------------------------------------------------------
+# L'unico file non-manifest che entra nell'immagine: e' parte dello
+# stack, non di MARS.
 COPY docker/entrypoint.sh /usr/local/bin/mars-entrypoint
 RUN chmod 755 /usr/local/bin/mars-entrypoint
 
-# --- Utente e directory di lavoro -------------------------------------
-# uid 1000: coincide con il primo utente della maggior parte degli host,
-# cosi' i referti scritti nel volume montato appartengono a chi li ha
-# chiesti e non a root.
-RUN useradd --create-home --uid 1000 --shell /bin/bash mars \
- && mkdir -p /work && chown mars:mars /work
-
-# /work e non /app: qui atterrano `--output`, `--history` e il
-# `.mars-history.jsonl` predefinito, ed e' la directory da montare.
-# I moduli restano in /app, dove sta node_modules.
-WORKDIR /work
+# --- Utente -----------------------------------------------------------
+# uid 1000: e' il primo utente della maggior parte degli host, e con il
+# repository montato ogni file scritto — referti, storico, __pycache__ —
+# deve appartenere a chi lo ha chiesto e non a root. Se sull'host l'uid
+# e' un altro, si passa `--user "$(id -u):$(id -g)"`.
+# Niente `chown -R /app`: duplicherebbe il layer di node_modules,
+# duecento megabyte, per un permesso che non serve — MARS quei file li
+# LEGGE soltanto, e npm li lascia gia' leggibili a tutti.
+RUN useradd --create-home --uid 1000 --shell /bin/bash mars
 USER mars
 
 EXPOSE 8000

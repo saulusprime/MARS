@@ -1,9 +1,12 @@
 # Contesto di build di docker/Dockerfile.
 #
 # Sta nella RADICE e non in docker/ perche' Docker legge .dockerignore
-# accanto al contesto, che e' la radice: i sorgenti da copiare sono qui.
+# accanto al contesto, e il contesto e' la radice: li' stanno i manifest
+# che definiscono lo stack (requirements*.txt, package.json).
 # Senza questo file il contesto sarebbe di 5,6 GB — il solo .venv ne pesa
 # 5,4 — e ogni build ripartirebbe da capo.
+#
+# L'immagine NON contiene i sorgenti di MARS: arrivano montati su /app.
 
 # --- Ambiente Python della macchina: l'immagine se lo ricostruisce ---
 .venv/

@@ -1,32 +1,37 @@
-# MARS Beacon in un container
+# Lo stack di MARS in un container
 
-Un'immagine sola per le due interfacce: CLI (`mars_audit.py`) e API REST
-(`mars_api.py`). Sono due facce dello stesso motore (principio 4), e
-separarle vorrebbe dire mantenere due volte gli stessi strumenti
-esterni — Node, Lighthouse, axe-core, Chromium.
+**L'immagine è lo stack, non MARS.** Dentro ci sono Python, Node,
+Chromium, Lighthouse, axe-core e le dipendenze pip; il codice resta sul
+tuo disco e viene montato su `/app`. Modifichi un modulo e la modifica
+è già viva: non c'è nulla da ricostruire.
+
+L'immagine si rifà solo quando cambia lo **stack** — `requirements*.txt`,
+`package.json`, la versione di Python o di Node.
 
 | File | Cosa fa |
 |---|---|
-| `Dockerfile` | L'immagine. Contesto di build: la **radice** del repository |
-| `entrypoint.sh` | Smista fra API, CLI, `pytest` e shell |
-| `docker-compose.yml` | API in piedi con un comando; ZAP dietro un profilo |
+| `Dockerfile` | Lo stack. Contesto di build: la **radice** del repository |
+| `entrypoint.sh` | Verifica il montaggio e smista fra API, CLI, `pytest`, shell |
+| `docker-compose.yml` | Monta il repository, semina lo stack Node, ZAP dietro un profilo |
 | `mars.env.example` | Modello di `.env` — chiavi e porta |
 | `../.dockerignore` | Sta nella radice **perché è lì che Docker lo legge**: senza, il contesto sarebbe di 5,6 GB |
 
+Del repository nell'immagine entrano **solo i manifest**
+(`requirements*.txt`, `package.json`) e `docker/entrypoint.sh`. Nessun
+`mars_*.py`.
+
 ---
 
-## Avvio rapido
+## Avvio
 
 ```bash
 cd docker
-mkdir -p work                 # PRIMA di `up`: se la crea Docker è di root
-cp mars.env.example .env      # `.env` è già ignorato da git
-chmod 600 .env
+cp mars.env.example .env && chmod 600 .env
 docker compose up -d --build
 ```
 
-L'API risponde su `http://127.0.0.1:8000`, la documentazione interattiva
-su `http://127.0.0.1:8000/docs`.
+L'API risponde su `http://127.0.0.1:8000`, la documentazione
+interattiva su `http://127.0.0.1:8000/docs`.
 
 ```bash
 # Token (credenziali predefinite: mars_api.py:370)
@@ -40,25 +45,16 @@ in memoria e non un database.
 
 ## La CLI
 
-Lo stesso container, un comando diverso. La directory di lavoro dentro
-l'immagine è `/work`: è lì che atterrano `--output`, `--history` e il
-`.mars-history.jsonl` predefinito, ed è la sola da montare.
+Stesso container, comando diverso. La directory di lavoro è `/app`,
+cioè il repository montato: `--output referto.html` scrive nel tuo
+albero, esattamente come sull'host.
 
 ```bash
-# Con compose già in piedi
 docker compose run --rm mars audit https://www.example.com \
     --max-pages 20 --format html --output referto.html
-
-# Oppure senza compose
-docker build -f docker/Dockerfile -t mars-beacon:latest .
-docker run --rm -v "$PWD/docker/work:/work" mars-beacon \
-    audit https://www.example.com --format html --output referto.html
 ```
 
-`audit` si può omettere se il primo argomento è un URL:
-`docker run --rm mars-beacon https://www.example.com`.
-
-Le altre forme che l'entrypoint riconosce:
+`audit` si può omettere se il primo argomento è un URL.
 
 | Comando | Effetto |
 |---|---|
@@ -68,22 +64,65 @@ Le altre forme che l'entrypoint riconosce:
 | `pytest` / `flake8` | Da `/app`, dove sta `setup.cfg` |
 | `sh`, `bash`, altro | Eseguito così com'è |
 
-## Le chiavi
+Senza compose serve montare a mano — ed è dove si sbaglia:
 
-Due strade, come fuori dal container.
+```bash
+docker build -f docker/Dockerfile -t mars-stack:latest .
+docker run --rm \
+    -v "$PWD:/app" \
+    -v mars_node_modules:/app/node_modules \
+    mars-stack audit https://www.example.com
+```
+
+Senza il montaggio di `/app` l'entrypoint si ferma subito con il codice
+**78** (`EX_CONFIG`) e dice cosa manca, invece di lasciare un traceback.
+Non usa 1, 2 o 3: quelli sono di `mars_audit.py` — soglia `--fail-under`,
+argomento non valido, scrittura fallita — e riusarli qui farebbe leggere
+a una pipeline «il sito è sotto soglia» dove manca un montaggio.
+
+## I due strumenti Node non si raggiungono allo stesso modo
+
+È il vincolo che dà forma a tutto il resto.
+
+- **Lighthouse passa dal PATH.** `trova_lighthouse()`
+  ([mars_seo.py:754](../mars_seo.py#L754)) prova `shutil.which("lighthouse")`
+  per primo, quindi basta che l'immagine ce l'abbia. Funziona sempre.
+- **axe-core no.** [mars_wcag.py:27](../mars_wcag.py#L27) compone il percorso
+  da `__file__` — `<cartella dei moduli>/node_modules/axe-core/axe.min.js` —
+  e non ha alcun ripiego. Con i moduli montati su `/app`, axe-core deve
+  trovarsi in `/app/node_modules`.
+
+Per questo `docker-compose.yml` monta un **volume nominato** su
+`/app/node_modules`: Docker semina un volume vuoto con il contenuto che
+l'immagine ha in quel percorso, così lo stack Node resta dello stack
+anche se sull'host `node_modules` manca. Il montaggio del repository non
+lo copre, perché il volume è più specifico.
+
+Dopo aver cambiato `package.json` il volume va rifatto — altrimenti
+resta quello vecchio:
+
+```bash
+docker compose down -v && docker compose up -d --build
+```
+
+Se axe-core non è raggiungibile l'entrypoint lo dice su `stderr` e
+l'area 7 ripiega sull'euristica dichiarandolo nel referto (principio 2).
+
+## Le chiavi
 
 **Variabili d'ambiente** — `.env`, letto da compose. MARS ne legge
 quattro: `MARS_SECRET_KEY`, `ANTHROPIC_API_KEY`, `ZAP_API_KEY`,
 `ZAP_PROXY` (più `HF_TOKEN`, che legge `huggingface_hub`).
 
 **File di credenziali** — l'unica strada per i giudici non-Anthropic
-(`openai`, `qwen`, `kimi`), che dall'ambiente non si leggono:
+(`openai`, `qwen`, `kimi`), che dall'ambiente non si leggono. Il file sta
+nel repository montato, quindi il percorso è quello di sempre:
 
 ```bash
-cp examples/credentials.json docker/work/chiavi.local.json
-chmod 600 docker/work/chiavi.local.json
+cp examples/credentials.json chiavi.local.json   # *.local.json è ignorato
+chmod 600 chiavi.local.json
 docker compose run --rm mars audit https://www.example.com \
-    --credentials /work/chiavi.local.json --llm on
+    --credentials chiavi.local.json --llm on
 ```
 
 Il modello è `examples/credentials.json` e **non** `audit_request.json`,
@@ -92,8 +131,8 @@ quattro segnaposto come se fossero chiavi (R62).
 
 ## ZAP (area 8)
 
-Sta dietro un profilo perché l'immagine è grande e l'area senza daemon
-non fallisce: ripiega sul controllo di superficie e lo dichiara.
+Dietro un profilo, perché l'immagine è grande e l'area senza daemon non
+fallisce: ripiega sul controllo di superficie e lo dichiara.
 
 ```bash
 docker compose --profile zap up -d
@@ -101,15 +140,14 @@ docker compose --profile zap up -d
 
 Spider e active scan girano **solo** con `--i-own-this-domain`: lo
 spider di ZAP non rispetta robots.txt (R55), quindi sta dietro la
-dichiarazione di proprietà come l'active scan. Senza dichiarazione ZAP
-vede le sole pagine che il crawler di MARS ha già scaricato.
+dichiarazione di proprietà come l'active scan.
 
-## Che cosa c'è dentro, e che cosa manca
+## Che cosa porta lo stack
 
-| Area | Strumento | Nell'immagine |
+| Area | Strumento | Nello stack |
 |---|---|---|
-| 2 SEO, 3 Prestazioni | Lighthouse 13.x su Chromium | ✅ |
-| 7 Accessibilità | axe-core 4.x via Playwright | ✅ |
+| 2 SEO, 3 Prestazioni | Lighthouse 13.x su Chromium | ✅ via PATH |
+| 7 Accessibilità | axe-core 4.x via Playwright | ✅ via volume nominato |
 | 10 Giudizio LLM | `anthropic` | ✅ (serve la chiave) |
 | 5 Semantica | `sentence-transformers` | ❌ per scelta — vedi sotto |
 | 8 Sicurezza | daemon ZAP | Profilo `zap` di compose |
@@ -117,72 +155,57 @@ vede le sole pagine che il crawler di MARS ha già scaricato.
 **Gli embedding reali sono fuori dal default.** `sentence-transformers`
 trascina torch: alcuni GB per un'area che senza di lui non fallisce —
 ripiega sul proxy char-TFIDF scritto a mano e lo dichiara nel referto
-(principio 2). Chi li vuole:
+(principio 2). Chi li vuole: `MARS_EMBEDDINGS: "on"` sotto `build.args`
+in `docker-compose.yml`, oppure
 
 ```bash
 docker build -f docker/Dockerfile --build-arg MARS_EMBEDDINGS=on \
-    -t mars-beacon:embeddings .
+    -t mars-stack:embeddings .
 ```
 
-o `MARS_EMBEDDINGS: "on"` sotto `build.args` in `docker-compose.yml`.
+## Verificare che lo stack sia completo
 
-## Verificare l'immagine dall'interno
-
-`pytest` e `flake8` sono installati apposta: la suite non tocca la rete
-(fixture `niente_rete`) e non dipende da un database, quindi risponde
-alla domanda «questa immagine ha tutto ciò che serve».
+Il codice è montato, quindi `pytest` esegue **la suite vera dell'host**
+dentro lo stack: se passa, lo stack ha ciò che MARS si aspetta. La suite
+non tocca la rete (fixture `niente_rete`) e non vuole un database.
 
 ```bash
-docker run --rm mars-beacon pytest
-docker run --rm mars-beacon flake8 .
-```
-
-Che gli strumenti esterni siano davvero raggiungibili lo dicono loro:
-
-```bash
-docker run --rm mars-beacon sh -c \
-    'node --version && lighthouse --version && echo "CHROME_PATH=$CHROME_PATH" && "$CHROME_PATH" --version'
+docker compose run --rm mars pytest
+docker compose run --rm mars flake8 .
+docker compose run --rm mars sh -c \
+    'node --version && lighthouse --version && "$CHROME_PATH" --version'
 ```
 
 ## Chromium e il sandbox
 
 `mars_seo.py` passa a Lighthouse `--chrome-flags=--headless` e nient'altro,
 e `mars_wcag.py` chiama `launch(headless=True)`: **nessuno dei due può
-aggiungere `--no-sandbox`**, e non è il container a doverli cambiare.
-L'immagine risolve la cosa dove va risolta, cioè in sé:
+aggiungere `--no-sandbox`**, e non è il container a dover cambiare il
+codice. L'immagine risolve la cosa in sé:
 
 - un browser solo per due consumatori — Playwright installa Chromium,
-  Lighthouse lo raggiunge via `CHROME_PATH`, che è la prima variabile
-  che `chrome-launcher` guarda;
+  Lighthouse lo raggiunge via `CHROME_PATH`, la prima variabile che
+  `chrome-launcher` guarda;
 - il **sandbox SUID** abilitato in build (`chmod 4755` su
   `chrome-sandbox`), perché il profilo seccomp predefinito di Docker
-  vieta a un processo non privilegiato di creare user namespace e il
-  sandbox a namespace non partirebbe.
+  vieta gli user namespace a un processo non privilegiato.
 
-Se su un host particolare Chromium si rifiutasse comunque di partire, il
-ripiego è un flag di runtime e non una modifica all'immagine:
+Se su un host Chromium si rifiutasse comunque di partire, il ripiego è
+un flag di runtime e non una modifica all'immagine — in compose,
+`security_opt: ["seccomp=unconfined"]` sotto il servizio `mars`. Riduce
+l'isolamento del container: usarlo solo se serve.
 
-```bash
-docker run --rm --security-opt seccomp=unconfined ... mars-beacon ...
-```
-
-In compose: `security_opt: ["seccomp=unconfined"]` sotto il servizio
-`mars`. Riduce l'isolamento del container: usarlo solo se serve.
-
-## Perché queste scelte
+## Altre scelte, in breve
 
 - **Node dall'immagine ufficiale**, non da uno script scaricato ed
-  eseguito: Lighthouse 13.4.1 dichiara `engines.node >= 22.19`, e
+  eseguito: `lighthouse@13.4.1` dichiara `engines.node >= 22.19`, e
   bookworm porta la 18.
-- **`npm install` in immagine, non `node_modules` copiato**: i moduli
-  della macchina di sviluppo possono venire da un'altra piattaforma.
-  La build non è riproducibile alla patch perché `package-lock.json` è
-  ignorato da git — è la posizione che il progetto ha già scelto.
-- **`npm` deve installare dentro `/app`**: `mars_seo.py` e `mars_wcag.py`
-  risolvono `node_modules` da `__file__`, non dal `PATH`. Tre `test` in
-  build lo verificano, altrimenti un'area ripiegherebbe in silenzio.
-- **Utente non privilegiato, uid 1000**: i referti nel volume montato
-  appartengono a chi li ha chiesti, non a root.
+- **uid 1000**: con il repository montato, ogni file scritto — referti,
+  storico, `__pycache__` — deve appartenere a te e non a root. Se sul
+  tuo host l'uid è diverso: `--user "$(id -u):$(id -g)"`.
 - **Un solo worker uvicorn**: gli endpoint di audit sono `def` e non
   `async def` apposta (R29), quindi FastAPI li esegue nel threadpool e
   un audit lungo non blocca gli altri.
+- **`npm install` e non `npm ci`**: `package-lock.json` è ignorato da
+  git, quindi su un clone pulito non c'è. La build non è riproducibile
+  alla patch — è la posizione che il progetto ha già scelto.

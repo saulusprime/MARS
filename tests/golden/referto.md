@@ -93,32 +93,41 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
 - [ ] **[CRITICO]** L'indicizzazione della pagina è bloccata — *SEO · sforzo: minuti · +37 punti d'area · indice +4.74* · **QUICK WIN**
       Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
+      *Nel tuo sito* X-Robots-Tag: noindex
 - [ ] **[CRITICO]** Le immagini devono avere un testo alternativo — *Accessibilità · sforzo: non dichiarato · +25 punti d'area · indice +3.14*
       Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
+      *Nel tuo sito* <img src="/img/sala.jpg">, <img src="/img/onda.svg">
 - [ ] **[CRITICO]** Cross Site Scripting (Reflected) — *Sicurezza · sforzo: non dichiarato · +28 punti d'area · indice +1.76*
       Convalida l'input e codifica l'output.
+      *Nel tuo sito* <script>alert(1)</script>
 - [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: ore*
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
+      *Nel tuo sito* nome
 - [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: ore*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
+      *Nel tuo sito* /b.png
 - [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +1.58*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 - [ ] [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore — *Accessibilità · sforzo: non dichiarato · +12 punti d'area · indice +1.51*
       Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
+      *Nel tuo sito* <a href="/prezzi/">i prezzi</a>
 - [ ] [AVVISO] Il documento non ha un elemento `<title>` — *SEO · sforzo: minuti · +9 punti d'area · indice +1.15*
       Dai a ogni pagina un <title> che la distingua dalle altre: e' la riga che l'assistente cita e che l'utente legge nei risultati. Un titolo uguale su tutto il sito vale quanto nessun titolo.
 - [ ] [AVVISO] Gli elementi immagine non hanno attributi `[alt]` — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
       Descrivi in alt che cosa mostra l'immagine, non come si chiama il file. Le immagini decorative prendono alt="", vuoto e presente, cosi' chi legge con uno screen reader non se le sente elencare.
+      *Nel tuo sito* <img src="/img/sala-pesi.jpg">, <img src="/img/spogliatoi.jpg">
 - [ ] [AVVISO] I link non hanno testo descrittivo — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
       Sostituisci «clicca qui» e «leggi tutto» con il nome di cio' che sta dall'altra parte. Il testo del link e' l'unica descrizione della pagina di destinazione che si legge dalla pagina di partenza.
 - [ ] [AVVISO] Il documento non ha una meta descrizione — *SEO · sforzo: giorni · +9 punti d'area · indice +1.15*
       Scrivi una meta description per pagina che risponda alla domanda della pagina invece di elencare parole chiave. E' il testo che compare sotto il titolo nei risultati, e una sola descrizione ripetuta ovunque non distingue nulla.
 - [ ] [AVVISO] Form elements must have labels — *Accessibilità · sforzo: non dichiarato · +5 punti d'area · indice +0.63*
       Ensure every form element has a label
+      *Nel tuo sito* <input type="email" name="email">
 - [ ] [AVVISO] Content Security Policy (CSP) Header Not Set — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Configura il server per impostare l'header CSP.
 - [ ] [AVVISO] CSP: Wildcard Directive — *Sicurezza · sforzo: non dichiarato · +6 punti d'area · indice +0.38*
       Sostituisci il carattere jolly con le origini che servono davvero.
+      *Nel tuo sito* Content-Security-Policy: default-src *
 - [ ] [AVVISO] Thread principale bloccato: TBT 890 ms (proxy di laboratorio dell'INP) — *Prestazioni · sforzo: giorni · +22 punti d'area*
       Spezza i task JavaScript lunghi e rimanda gli script non essenziali con defer o con un import dinamico: il thread principale deve restare libero di rispondere all'input mentre la pagina carica.
 - [ ] [AVVISO] 1/3 query senza un riscontro lessicale — *Lessicale · sforzo: ore · +20 punti d'area*
@@ -131,6 +140,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
       Aumenta il numero di passaggi tematici autonomi: ogni passaggio e' un'occasione distinta di comparire in una lista di risultati.
 - [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: minuti*
       Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
+      *Nel tuo sito* h1 I nostri servizi → h3 Percorsi post-operatori
 - [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: minuti*
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 
@@ -164,6 +174,11 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - **[CRITICO]** L'indicizzazione della pagina è bloccata
   I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell'autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.
   *Correzione:* Togli la direttiva che blocca l'indicizzazione, e cercala in tutti e tre i posti dove puo' stare: il meta robots della pagina, l'header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.
+
+  *Nel tuo sito*
+  ```
+  X-Robots-Tag: noindex
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```
@@ -207,6 +222,12 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [AVVISO] Gli elementi immagine non hanno attributi `[alt]`
   Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull'attributo `alt`.
   *Correzione:* Descrivi in alt che cosa mostra l'immagine, non come si chiama il file. Le immagini decorative prendono alt="", vuoto e presente, cosi' chi legge con uno screen reader non se le sente elencare.
+
+  *Nel tuo sito*
+  ```
+  <img src="/img/sala-pesi.jpg">
+  <img src="/img/spogliatoi.jpg">
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```
@@ -295,12 +316,33 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] axe non ha esaminato 1 delle 3 pagine del campione
 - **[CRITICO]** Le immagini devono avere un testo alternativo
   *Correzione:* Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
+
+  *Nel tuo sito*
+  ```
+  <img src="/img/sala.jpg">
+  <img src="/img/onda.svg">
+  ```
 - [AVVISO] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore
   *Correzione:* Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA
+
+  *Nel tuo sito*
+  ```
+  <a href="/prezzi/">i prezzi</a>
+  ```
 - [AVVISO] Form elements must have labels
   *Correzione:* Ensure every form element has a label
+
+  *Nel tuo sito*
+  ```
+  <input type="email" name="email">
+  ```
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
+
+  *Nel tuo sito*
+  ```
+  /b.png
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```
@@ -309,8 +351,18 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
   ```
 - [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
   *Correzione:* Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
+
+  *Nel tuo sito*
+  ```
+  h1 I nostri servizi → h3 Percorsi post-operatori
+  ```
 - **[CRITICO]** 1 campi di modulo senza etichetta
   *Correzione:* Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
+
+  *Nel tuo sito*
+  ```
+  nome
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```
@@ -330,6 +382,11 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - [INFO] 1 link con testo generico ("clicca qui", "leggi tutto")
   *Correzione:* Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
 
+  *Nel tuo sito*
+  ```
+  clicca qui → /servizi/
+  ```
+
   *Esempio — non è contenuto del tuo sito*
   ```
   <!-- invece di: <a href="/prezzi/">clicca qui</a> -->
@@ -341,12 +398,22 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 - **[CRITICO]** Cross Site Scripting (Reflected)
   Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo' farvi eseguire script arbitrario nel browser della vittima.
   *Correzione:* Convalida l'input e codifica l'output.
+
+  *Nel tuo sito*
+  ```
+  <script>alert(1)</script>
+  ```
 - [AVVISO] Content Security Policy (CSP) Header Not Set
   Senza Content-Security-Policy il browser non ha modo di sapere quali origini siano legittime.
   *Correzione:* Configura il server per impostare l'header CSP.
 - [AVVISO] CSP: Wildcard Directive
   La direttiva ammette qualunque origine, quindi non restringe nulla.
   *Correzione:* Sostituisci il carattere jolly con le origini che servono davvero.
+
+  *Nel tuo sito*
+  ```
+  Content-Security-Policy: default-src *
+  ```
 - [INFO] Strict-Transport-Security non impostato
 - [INFO] Solo scansione passiva sulle 3 pagine scansionate: spider e active scan richiedono --i-own-this-domain
 

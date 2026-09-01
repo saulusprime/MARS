@@ -2228,6 +2228,12 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
    la nomina apposta: e' il referto stesso, e il presidio cerca quella
    parola in tutta la pagina. */
 .fix-eti { color:var(--warn); font-weight:600; }
+/* La riga degli elementi citati nel piano: gli stessi toni
+   dell'etichetta dell'esempio, ma su una riga — li' un blocco
+   recintato spezzerebbe l'elenco di priorita' (I20). */
+.citati { margin:.35rem 0 0; font-size:.8rem; color:var(--muted); }
+.citati-eti { text-transform:uppercase; letter-spacing:.05em;
+              font-size:.72rem; }
 .ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
            text-transform:uppercase; letter-spacing:.05em;
            color:var(--muted); }
@@ -2807,6 +2813,80 @@ def _permalink(ancora: str, lang: str = LINGUA_CANONICA) -> str:
             % (ancora, t("Link a questo rilievo", lang)))
 
 
+def _citati(rilievo: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Gli elementi del SITO su cui il rilievo e' scattato.
+
+    Accanto all'esempio e non al posto suo: rispondono a due domande
+    diverse — «quali sono i miei» e «come devono diventare» — e
+    sostituire la seconda con la prima perdeva la forma corretta, che
+    e' cio' che il rilievo chiede. Misurato sul referto: al posto di
+    `<img src="/sala.jpg" alt="La sala trattamenti">` restava `/b.png`.
+
+    Il contenuto viene dal sito analizzato — uno snippet di axe,
+    l'`evidence` di ZAP, il `src` di un'immagine — quindi si scherma
+    come tutto il resto: l'evidence di un XSS riflesso E' un payload.
+    """
+    voci = (rilievo.get("params") or {}).get("cited") or []
+    if not isinstance(voci, (list, tuple)) or not voci:
+        return ""
+    righe = [str(v) for v in voci]
+    # Il tetto non deve essere muto: cinque nomi su venti, senza
+    # dirlo, si leggono come venti su venti (I20). Il conteggio e'
+    # sugli elementi DISTINTI, non sulle occorrenze.
+    restanti = _restanti_citati(rilievo, len(righe))
+    if restanti:
+        righe.append(t("…e altri %d, non elencati", lang) % restanti)
+    return ("<span class='ex-nota'>%s</span><pre class='ex'>%s</pre>"
+            % (_e(t("Nel tuo sito", lang)), _e("\n".join(righe))))
+
+
+def _citati_in_riga(rilievo: dict, lang: str = LINGUA_CANONICA) -> str:
+    """Gli elementi citati su una riga sola, gia' schermati.
+
+    Serve dove un blocco recintato spezzerebbe il formato: l'elenco di
+    priorita' dell'HTML e la task list del Markdown.
+    """
+    voci = (rilievo.get("params") or {}).get("cited") or []
+    if not isinstance(voci, (list, tuple)) or not voci:
+        return ""
+    elenco = ", ".join(str(v) for v in voci)
+    restanti = _restanti_citati(rilievo, len(voci))
+    if restanti:
+        elenco += ", " + (t("…e altri %d, non elencati", lang) % restanti)
+    return ("<span class='citati-eti'>%s</span> %s"
+            % (_e(t("Nel tuo sito", lang)), _e(elenco)))
+
+
+def _restanti_citati(rilievo: dict, elencati: int) -> int:
+    """Quanti elementi il tetto ha lasciato fuori, 0 se nessuno."""
+    totale = (rilievo.get("params") or {}).get("cited_total")
+    if not isinstance(totale, int) or totale <= elencati:
+        return 0
+    return totale - elencati
+
+
+def _blocco_esempio(rilievo: dict,
+                    lang: str = LINGUA_CANONICA) -> str:
+    """Didascalia piu' esempio, o la stringa vuota se non c'e' esempio.
+
+    Mai il blocco senza la sua didascalia: e' l'invariante che
+    `test_nessun_blocco_esempio_resta_senza_didascalia` conta su un
+    referto intero, e tenerli insieme qui e' il modo di non poterla
+    rompere in un punto solo.
+
+    Il letterale sta **in linea dentro `t()`** e non in una costante:
+    `test_ogni_letterale_della_cornice_e_a_catalogo` legge l'AST e
+    indicizza sul testo italiano, quindi una costante scollegherebbe la
+    traduzione senza rompere nulla (R61).
+    """
+    testo = finding_texts(rilievo, lang)["example"]
+    if not testo:
+        return ""
+    return ("<span class='ex-nota'>%s</span><pre class='ex'>%s</pre>"
+            % (_e(t("Esempio — non è contenuto del tuo sito", lang)),
+               _e(testo)))
+
+
 def _elenco_controlli(controlli: List[dict],
                       rilievi: Optional[List[dict]] = None,
                       ancore: Optional[Dict[str, str]] = None,
@@ -2863,7 +2943,7 @@ def _elenco_controlli(controlli: List[dict],
         ancora = (ancore or {}).get(rilievo.get("key") or "")
         righe.append(
             "<li%s class='%s'><span class='segno'>%s</span>"
-            "<span>%s%s%s%s</span></li>"
+            "<span>%s%s%s%s%s</span></li>"
             % (" id='%s'" % ancora if ancora else "",
                classe, segno, _e(c.get("title")),
                _permalink(ancora, lang) if ancora else "",
@@ -2873,7 +2953,15 @@ def _elenco_controlli(controlli: List[dict],
                # e il <br> aggiungerebbe una riga vuota.
                "<span class='spiegazione'>%s</span>"
                % _e(finding_texts(rilievo, lang)["detail"])
-               if rilievo.get("detail") else ""))
+               if rilievo.get("detail") else "",
+               # L'esempio sul controllo FALLITO, e solo li': un
+               # controllo superato non si corregge — la stessa porta
+               # di `mars_fixes.prescrivibile`, applicata alla resa.
+               # Senza questo l'area SEO era l'unica del referto HTML
+               # a non mostrare mai un esempio, perche' rende questo
+               # elenco al posto di `_correzioni` (I20).
+               (_citati(rilievo, lang) + _blocco_esempio(rilievo, lang))
+               if not c.get("passed") and not c.get("manual") else ""))
     return "<ul class='controlli'>%s</ul>" % "".join(righe)
 
 
@@ -2940,17 +3028,12 @@ def _correzioni(findings: List[dict],
         # proprio quello, perche' il rilievo parla della forma della
         # prosa. Senza etichetta il lettore di un referto vero l'ha
         # letto come contenuto di un altro sito finito nel suo.
-        if f.get("example"):
-            # Il letterale e non una costante condivisa col Markdown:
-            # `test_ogni_letterale_della_cornice_e_a_catalogo` legge
-            # l'AST e indicizza sul testo italiano, quindi un nome
-            # scollegherebbe la traduzione senza rompere nulla — che e'
-            # esattamente il difetto che quel presidio esiste per
-            # impedire.
-            pezzi.append(
-                "<span class='ex-nota'>%s</span>"
-                % _e(t("Esempio — non è contenuto del tuo sito", lang)))
-            pezzi.append("<pre class='ex'>%s</pre>" % _e(testi["example"]))
+        # Didascalia ed esempio insieme, dalla stessa funzione che li
+        # mette nell'elenco dei controlli: due implementazioni della
+        # stessa invariante divergerebbero, e la prima a cedere
+        # sarebbe quella meno guardata.
+        pezzi.append(_citati(f, lang))
+        pezzi.append(_blocco_esempio(f, lang))
         righe.append("<li%s>%s</li>"
                      % (" id='%s'" % ancora if ancora else "",
                         "".join(pezzi)))
@@ -3107,6 +3190,16 @@ def _voce_piano_html(voce: dict, ancore: Optional[Dict[str, str]] = None,
         parti.append("<span class='fix'><span class='fix-eti'>%s</span> "
                      "%s</span>"
                      % (_e(t("Correzione:", lang)), _e(testi["fix"])))
+    # Gli elementi del sito su UNA riga, e non il blocco recintato
+    # della scheda d'area: qui il formato e' un elenco di priorita', e
+    # `test_il_piano_html_non_ripete_gli_esempi` fissa la ragione per
+    # cui l'esempio resta di la' — sedici blocchi di codice dentro un
+    # elenco lo renderebbero illeggibile proprio come elenco. Il «quale
+    # elemento» invece serve qui, perche' e' la sezione su cui si
+    # agisce, ed e' una riga (I20).
+    riga = _citati_in_riga(voce, lang)
+    if riga:
+        parti.append("<p class='citati'>%s</p>" % riga)
     parti.append("</div>")
     return "".join(parti)
 
@@ -4148,6 +4241,19 @@ def _md_rilievo(rilievo: dict,
         righe.append("  %s" % testi["detail"])
     if testi["fix"]:
         righe.append("  *%s* %s" % (t("Correzione:", lang), testi["fix"]))
+    voci = (rilievo.get("params") or {}).get("cited") or []
+    if isinstance(voci, (list, tuple)) and voci:
+        # Gli elementi del sito PRIMA dell'esempio: si guarda cio' che
+        # si ha, poi come dovrebbe essere (I20).
+        righe.append("")
+        righe.append("  *%s*" % t("Nel tuo sito", lang))
+        righe.append("  ```")
+        righe.extend("  %s" % str(v) for v in voci)
+        restanti = _restanti_citati(rilievo, len(voci))
+        if restanti:
+            righe.append("  %s"
+                         % (t("…e altri %d, non elencati", lang) % restanti))
+        righe.append("  ```")
     if testi["example"]:
         # Recintato: un esempio nginx o JSON-LD dentro un elenco
         # perderebbe indentazione e a-capo, che sono il suo contenuto.
@@ -4155,8 +4261,7 @@ def _md_rilievo(rilievo: dict,
         # ragione (R60): il recinto dice «codice», non «inventato».
         righe.append("")
         righe.append("  *%s*"
-                     % t("Esempio — non è contenuto del tuo sito",
-                         lang))
+                     % t("Esempio — non è contenuto del tuo sito", lang))
         righe.append("  ```")
         righe.extend("  %s" % r for r in testi["example"].split("\n"))
         righe.append("  ```")
@@ -4327,6 +4432,20 @@ def render_markdown(referto: dict,
                         else ""))
             if testi["fix"]:
                 r.append("      %s" % testi["fix"])
+            # Gli elementi su una riga sola: qui il formato e' una
+            # checklist da incollare in una issue, e il blocco recintato
+            # dell'esempio la spezzerebbe. L'esempio per esteso sta
+            # nella sezione per area, sotto (I20).
+            voci = (voce.get("params") or {}).get("cited") or []
+            if isinstance(voci, (list, tuple)) and voci:
+                restanti = _restanti_citati(voce, len(voci))
+                elenco = ", ".join(str(v) for v in voci)
+                if restanti:
+                    elenco += ", " + (t("…e altri %d, non elencati", lang)
+                                      % restanti)
+                r.append("      *%s* %s" % (t("Nel tuo sito", lang), elenco))
+                # L'esempio NON si ripete qui: sta nella sezione per
+                # area, per la stessa ragione dell'HTML.
 
     r += ["", "## %s" % t("Rilievi per area", lang)]
     for area in referto.get("areas") or []:

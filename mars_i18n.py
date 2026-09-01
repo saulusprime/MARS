@@ -899,6 +899,11 @@ CAMPI_TRADOTTI: Tuple[str, ...] = ("title", "detail", "fix", "example")
 # ======================================================================
 
 _CORNICE_EN: Dict[str, str] = {
+    # Il blocco che elenca gli elementi del sito su cui il rilievo e'
+    # scattato. Sta ACCANTO all'esempio, che resta prosa nostra e
+    # conserva la didascalia di R60 (I20).
+    "Nel tuo sito": "In your site",
+    "…e altri %d, non elencati": "…and %d more, not listed",
 
     # --- Testata e cornice generale ------------------------------------
     "           MARS BEACON - REPORT FINALE           ":

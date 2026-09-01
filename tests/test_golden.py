@@ -231,7 +231,14 @@ def _violazioni_axe() -> list:
          "description": "Ensure <img> elements have alternative text or a "
                         "role of none or presentation",
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt",
-         "nodes": [{"target": ["img"]}, {"target": ["img:nth-child(2)"]}]},
+         # `html` accanto a `target`: e' cio' che axe manda davvero —
+         # misurato su axe-core 4.13 — ed e' il dato su cui poggia
+         # l'esempio dal sito (I20). Senza, la fixture congelerebbe
+         # un referto piu' povero di quello vero.
+         "nodes": [{"target": ["img"],
+                    "html": '<img src="/img/sala.jpg">'},
+                   {"target": ["img:nth-child(2)"],
+                    "html": '<img src="/img/onda.svg">'}]},
         {"id": "color-contrast", "impact": "serious",
          mars_wcag.CHIAVE_PAGINA: BASE,
          "help": "Elements must meet minimum color contrast ratio "
@@ -240,12 +247,14 @@ def _violazioni_axe() -> list:
                         "background colors meets WCAG 2 AA minimum "
                         "contrast ratio thresholds",
          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast",
-         "nodes": [{"target": ["a"]}]},
+         "nodes": [{"target": ["a"],
+                    "html": '<a href="/prezzi/">i prezzi</a>'}]},
         {"id": "label", "impact": "moderate",
          mars_wcag.CHIAVE_PAGINA: BASE + "servizi/",
          "help": "Form elements must have labels",
          "description": "Ensure every form element has a label",
-         "nodes": [{"target": ["input"]}]},
+         "nodes": [{"target": ["input"],
+                    "html": '<input type="email" name="email">'}]},
     ]
 
 
@@ -263,6 +272,12 @@ def _alert_zap() -> list:
                         "senza codifica: un attaccante puo' farvi eseguire "
                         "script arbitrario nel browser della vittima.",
          "solution": "Convalida l'input e codifica l'output.",
+         # Misurato su ZAP 2.17.0: `evidence` c'e' dove qualcosa
+         # nella RISPOSTA lo dimostra, e manca dove il difetto e'
+         # un'assenza — dei sei alert di una pagina vera, tre
+         # l'avevano e tre no. Qui la mescolanza e' la stessa, e
+         # il golden congela entrambi i rami (I20).
+         "evidence": "<script>alert(1)</script>",
          "reference": "https://owasp.org/xss\nhttps://cwe.mitre.org/79"},
         {"pluginId": "10038", "alertRef": "10038-1",
          "alert": "Content Security Policy (CSP) Header Not Set",
@@ -284,7 +299,8 @@ def _alert_zap() -> list:
          "description": "La direttiva ammette qualunque origine, quindi "
                         "non restringe nulla.",
          "solution": "Sostituisci il carattere jolly con le origini "
-                     "che servono davvero."},
+                     "che servono davvero.",
+         "evidence": "Content-Security-Policy: default-src *"},
         {"pluginId": "10035", "alert": "Strict-Transport-Security non impostato",
          "risk": "Low", "url": BASE},
     ]

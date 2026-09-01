@@ -173,6 +173,12 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
    la nomina apposta: e' il referto stesso, e il presidio cerca quella
    parola in tutta la pagina. */
 .fix-eti { color:var(--warn); font-weight:600; }
+/* La riga degli elementi citati nel piano: gli stessi toni
+   dell'etichetta dell'esempio, ma su una riga — li' un blocco
+   recintato spezzerebbe l'elenco di priorita' (I20). */
+.citati { margin:.35rem 0 0; font-size:.8rem; color:var(--muted); }
+.citati-eti { text-transform:uppercase; letter-spacing:.05em;
+              font-size:.72rem; }
 .ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
            text-transform:uppercase; letter-spacing:.05em;
            color:var(--muted); }
@@ -568,6 +574,18 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>X-Robots-Tag: noindex</span>
 <span class='spiegazione'>I motori di ricerca non sono in grado di includere le pagine nei risultati di ricerca se non dispongono dell&#x27;autorizzazione per eseguirne la scansione. Scopri di più sulle istruzioni dei crawler.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>X-Robots-Tag: noindex</pre>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;!-- 1. nella pagina: il meta va TOLTO, non negato --&gt;
+&lt;meta name=&quot;robots&quot; content=&quot;index, follow&quot;&gt;
+
+# 2. nella risposta HTTP: l&#x27;header non deve esserci
+X-Robots-Tag: index, follow
+
+# 3. in /robots.txt: nessun Disallow su questo percorso
+User-agent: *
+Disallow:</pre>
 </span>
 </li>
 <li id='r-seo-lh-document-title' class='fallito'>
@@ -576,6 +594,10 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>html</span>
 <span class='spiegazione'>Il titolo fornisce agli utenti di screen reader una panoramica della pagina, mentre per gli utenti di motori di ricerca è utile per stabilire se una pagina è pertinente alla loro ricerca. Scopri di più sui titoli dei documenti.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;head&gt;
+  &lt;title&gt;Drenaggio linfatico manuale — Studio Rossi, Bari&lt;/title&gt;
+&lt;/head&gt;</pre>
 </span>
 </li>
 <li id='r-seo-lh-meta-description' class='fallito'>
@@ -584,6 +606,8 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>Il testo della descrizione è vuoto.</span>
 <span class='spiegazione'>Le meta descrizioni possono essere incluse nei risultati di ricerca per riassumere brevemente i contenuti della pagina. Scopri di più sulla meta descrizione.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;meta name=&quot;description&quot; content=&quot;Drenaggio linfatico manuale a Bari: come funziona una seduta, quanto dura e quanto costa.&quot;&gt;</pre>
 </span>
 </li>
 <li id='r-seo-lh-link-text' class='fallito'>
@@ -592,6 +616,9 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>8 link trovati — /p0, /p1, /p2, /p3, /p4</span>
 <span class='spiegazione'>Il testo descrittivo dei link aiuta i motori di ricerca a comprendere i tuoi contenuti. Scopri come rendere più accessibili i link.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi&quot;&gt;clicca qui&lt;/a&gt; --&gt;
+&lt;a href=&quot;/prezzi&quot;&gt;i prezzi del drenaggio linfatico&lt;/a&gt;</pre>
 </span>
 </li>
 <li id='r-seo-lh-image-alt' class='fallito'>
@@ -600,6 +627,12 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>body &gt; img, body &gt; img</span>
 <span class='spiegazione'>Gli elementi informativi dovrebbero mostrare testo alternativo breve e descrittivo. Gli elementi decorativi possono essere ignorati con un attributo ALT vuoto. Scopri di più sull&#x27;attributo `alt`.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>&lt;img src=&quot;/img/sala-pesi.jpg&quot;&gt;
+&lt;img src=&quot;/img/spogliatoi.jpg&quot;&gt;</pre>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;Il lettino della sala trattamenti&quot;&gt;
+&lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;   &lt;!-- decorativa --&gt;</pre>
 </span>
 </li>
 <li id='r-seo-lh-robots-txt' class='manuale'>
@@ -650,6 +683,12 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>2,6 s</span>
 <span class='spiegazione'>Il First Contentful Paint misura quando compare il primo contenuto: fino ad allora la pagina e&#x27; bianca. Dipende quasi sempre da risorse che bloccano il rendering (CSS e font).</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>@font-face {
+  font-family: &quot;Titillium Web&quot;;
+  src: url(&quot;/font/titillium.woff2&quot;) format(&quot;woff2&quot;);
+  font-display: swap;
+}</pre>
 </span>
 </li>
 <li id='r-perf-lcp-slow' class='fallito'>
@@ -658,6 +697,10 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>4,3 s</span>
 <span class='spiegazione'>Il Largest Contentful Paint e&#x27; un Core Web Vital: misura quando compare l&#x27;elemento principale della pagina. Sopra i 4 secondi Google lo classifica scarso.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;link rel=&quot;preload&quot; as=&quot;image&quot; href=&quot;/img/hero.avif&quot;&gt;
+&lt;img src=&quot;/img/hero.avif&quot; width=&quot;1200&quot; height=&quot;600&quot;
+     alt=&quot;La sala trattamenti&quot; fetchpriority=&quot;high&quot;&gt;</pre>
 </span>
 </li>
 <li id='r-perf-tbt-high' class='fallito'>
@@ -666,6 +709,11 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>890 ms</span>
 <span class='spiegazione'>Somma dei blocchi del thread principale oltre i 50 ms durante il caricamento: misura quanto la pagina resta sorda all&#x27;input. L&#x27;INP, il Core Web Vital corrispondente, esiste solo su interazioni reali: in laboratorio Lighthouse pesa questo proxy.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;script src=&quot;/js/analytics.js&quot; defer&gt;&lt;/script&gt;
+&lt;script type=&quot;module&quot;&gt;
+  addEventListener(&quot;load&quot;, () =&gt; import(&quot;/js/widget.js&quot;));
+&lt;/script&gt;</pre>
 </span>
 </li>
 <li id='r-perf-si-slow' class='fallito'>
@@ -674,6 +722,9 @@ Disallow:</pre>
 <br>
 <span class='dettaglio'>4,2 s</span>
 <span class='spiegazione'>Lo Speed Index misura quanto in fretta si riempie la parte visibile della pagina.</span>
+<span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
+<pre class='ex'>&lt;img src=&quot;/img/galleria-1.jpg&quot; width=&quot;600&quot; height=&quot;400&quot;
+     loading=&quot;lazy&quot; alt=&quot;La palestra&quot;&gt;</pre>
 </span>
 </li>
 <li class='manuale'>
@@ -796,24 +847,33 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-axe-image-alt' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>&lt;img src=&quot;/img/sala.jpg&quot;&gt;
+&lt;img src=&quot;/img/onda.svg&quot;&gt;</pre>
 </li>
 <li id='r-wcag-axe-color-contrast'>
 <b>Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore</b>
 <a class='ancora' href='#r-wcag-axe-color-contrast' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>&lt;a href=&quot;/prezzi/&quot;&gt;i prezzi&lt;/a&gt;</pre>
 </li>
 <li id='r-wcag-axe-label'>
 <b>Form elements must have labels</b>
 <a class='ancora' href='#r-wcag-axe-label' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Ensure every form element has a label</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>&lt;input type=&quot;email&quot; name=&quot;email&quot;&gt;</pre>
 </li>
 <li id='r-wcag-img-alt-missing'>
 <b>1/2 immagini prive di testo alternativo</b>
 <a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>/b.png</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
@@ -823,12 +883,16 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-heading-skip' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>h1 I nostri servizi → h3 Percorsi post-operatori</pre>
 </li>
 <li id='r-wcag-form-label-missing'>
 <b>1 campi di modulo senza etichetta</b>
 <a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>nome</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
@@ -849,6 +913,8 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>clicca qui → /servizi/</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
@@ -879,6 +945,8 @@ Disallow:</pre>
 <span class='spiegazione'>Il valore inviato viene restituito nella pagina senza codifica: un attaccante puo&#x27; farvi eseguire script arbitrario nel browser della vittima.</span>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Convalida l&#x27;input e codifica l&#x27;output.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>&lt;script&gt;alert(1)&lt;/script&gt;</pre>
 </li>
 <li id='r-sec-zap-10038-1'>
 <b>Content Security Policy (CSP) Header Not Set</b>
@@ -893,6 +961,8 @@ Disallow:</pre>
 <span class='spiegazione'>La direttiva ammette qualunque origine, quindi non restringe nulla.</span>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Sostituisci il carattere jolly con le origini che servono davvero.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>Content-Security-Policy: default-src *</pre>
 </li>
 </ul>
 </div>
@@ -1161,6 +1231,8 @@ Disallow:</pre>
 <p class='guadagno'>+37 punti d'area (27 → 64) · indice di citabilità +4.74 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Togli la direttiva che blocca l&#x27;indicizzazione, e cercala in tutti e tre i posti dove puo&#x27; stare: il meta robots della pagina, l&#x27;header X-Robots-Tag della risposta, il Disallow di robots.txt. Toglierla da uno solo lascia il blocco in piedi.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> X-Robots-Tag: noindex</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1173,6 +1245,8 @@ Disallow:</pre>
 <p class='guadagno'>+25 punti d'area (58 → 83) · indice di citabilità +3.14 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Assicurati che gli elementi &lt;img&gt; abbiano un testo alternativo o un ruolo none o presentation</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> &lt;img src=&quot;/img/sala.jpg&quot;&gt;, &lt;img src=&quot;/img/onda.svg&quot;&gt;</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1185,6 +1259,8 @@ Disallow:</pre>
 <p class='guadagno'>+28 punti d'area (57 → 85) · indice di citabilità +1.76 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Convalida l&#x27;input e codifica l&#x27;output.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> &lt;script&gt;alert(1)&lt;/script&gt;</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1197,6 +1273,8 @@ Disallow:</pre>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> nome</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1209,6 +1287,8 @@ Disallow:</pre>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> /b.png</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1233,6 +1313,8 @@ Disallow:</pre>
 <p class='guadagno'>+12 punti d'area (58 → 70) · indice di citabilità +1.51 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Assicurati che il contrasto tra i colori in primo piano e di sfondo soddisfi le soglie minime del rapporto di contrasto WCAG 2 AA</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> &lt;a href=&quot;/prezzi/&quot;&gt;i prezzi&lt;/a&gt;</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1257,6 +1339,8 @@ Disallow:</pre>
 <p class='guadagno'>+9 punti d'area (27 → 36) · indice di citabilità +1.15 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Descrivi in alt che cosa mostra l&#x27;immagine, non come si chiama il file. Le immagini decorative prendono alt=&quot;&quot;, vuoto e presente, cosi&#x27; chi legge con uno screen reader non se le sente elencare.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> &lt;img src=&quot;/img/sala-pesi.jpg&quot;&gt;, &lt;img src=&quot;/img/spogliatoi.jpg&quot;&gt;</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1293,6 +1377,8 @@ Disallow:</pre>
 <p class='guadagno'>+5 punti d'area (58 → 63) · indice di citabilità +0.63 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Ensure every form element has a label</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> &lt;input type=&quot;email&quot; name=&quot;email&quot;&gt;</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1317,6 +1403,8 @@ Disallow:</pre>
 <p class='guadagno'>+6 punti d'area (57 → 63) · indice di citabilità +0.38 (mercato eu, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Sostituisci il carattere jolly con le origini che servono davvero.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> Content-Security-Policy: default-src *</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -1389,6 +1477,8 @@ Disallow:</pre>
 <p class='meta'>in questa esecuzione il controllo non entra nel punteggio dell&#x27;area</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> h1 I nostri servizi → h3 Percorsi post-operatori</p>
 </div>
 <div class='intervento'>
 <div class='riga'>

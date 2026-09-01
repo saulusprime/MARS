@@ -16,7 +16,12 @@ from typing import Dict, List, Optional, Tuple
 
 from mars_config import PENALITA_STATICA, PESI_AXE
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
-                       normalizza_severita)
+                       frammento_identificante, normalizza_severita)
+
+# Quanti frammenti entrano in un esempio. Chi ha venti immagini senza
+# alt non le corregge leggendone venti nel referto: da cinque riconosce
+# il caso, e il conteggio vero resta in `params["instances"]`.
+MAX_FRAMMENTI = 5
 
 # Livello dichiarato: axe-core viene limitato a queste etichette, e
 # l'euristica statica controlla criteri dello stesso livello. Dirlo e'
@@ -79,6 +84,8 @@ STATICI = {
 
 def _statico(chiave: str, testo: str,
              istanze: Optional[Tuple[str, int]] = None,
+             citati: Optional[List[str]] = None,
+             quanti_distinti: int = 0,
              **params: object) -> Finding:
     """Un rilievo statico come dato, con il suo criterio WCAG.
 
@@ -94,6 +101,14 @@ def _statico(chiave: str, testo: str,
         params["instances"] = quante
     gravita, criterio = STATICI[chiave]
     severita, peso = normalizza_severita("mars", gravita)
+    if citati:
+        # Gli elementi del sito, accanto all'esempio del catalogo e non
+        # al posto suo (I20).
+        params["cited"] = list(citati)
+        if quanti_distinti and quanti_distinti > len(citati):
+            # Il tetto non deve essere muto: chi legge cinque nomi su
+            # venti crederebbe che siano cinque.
+            params["cited_total"] = quanti_distinti
     return Finding(area="mars_wcag", severity=severita, weight=peso,
                    title=testo, key=chiave,
                    # source_severity resta vuoto: axe non ha parlato,
@@ -136,10 +151,36 @@ def controlli_statici(pages: dict) -> List[Finding]:
     # sito devono dare lo stesso referto.
     dove: Dict[str, List[str]] = {}
 
+    # Chiave del controllo -> come si chiamano gli elementi citati.
+    # NON e' markup: qui MARS il markup non ce l'ha, e ricostruirne uno
+    # sarebbe mostrare un tag mai esistito sotto una didascalia che dice
+    # «dal tuo sito». Si cita cio' che identifica l'elemento — il `src`
+    # di un'immagine, il `name` di un campo — che dal sito viene davvero.
+    # Il gruppo B ha gia' stabilito che un esempio vero non deve essere
+    # markup: l'`evidence` di ZAP non lo e' (I20).
+    citati: Dict[str, List[str]] = {}
+    # Quanti elementi DISTINTI per controllo, anche oltre il tetto.
+    distinti: Dict[str, set] = {}
+
     def segna(chiave: str, url: str) -> None:
         pagine_del_controllo = dove.setdefault(chiave, [])
         if url not in pagine_del_controllo:
             pagine_del_controllo.append(url)
+
+    def cita(chiave: str, nome: str) -> None:
+        """Il nome di un elemento citato, deduplicato e col tetto.
+
+        Vuoto significa «senza identificatore»: un campo senza `name`
+        ne' `id`, una tabella senza didascalia. Si tace invece di
+        inventargli un nome, e il conteggio resta quello vero.
+        """
+        nome = (nome or "").strip()
+        if not nome:
+            return
+        distinti.setdefault(chiave, set()).add(nome)
+        elenco = citati.setdefault(chiave, [])
+        if nome not in elenco and len(elenco) < MAX_FRAMMENTI:
+            elenco.append(nome)
 
     senza_lang = [u for u, d in pages.items() if not d.get("lang")]
     if senza_lang:
@@ -160,17 +201,22 @@ def controlli_statici(pages: dict) -> List[Finding]:
         # difetto penalizzava proprio chi aveva fatto la cosa giusta.
         # Il crawler la distinzione la conserva; era questo filtro a
         # buttarla via.
-        senza_alt = sum(1 for i in immagini
-                        if i.get("alt") is None and not i.get("aria-label"))
+        rotte = [i for i in immagini
+                 if i.get("alt") is None and not i.get("aria-label")]
+        senza_alt = len(rotte)
         mancanti += senza_alt
         if senza_alt:
             segna("wcag.img.alt_missing", url)
+            for immagine in rotte:
+                cita("wcag.img.alt_missing", immagine.get("src") or "")
     if mancanti:
         rilievi.append(_statico(
             "wcag.img.alt_missing",
             "%d/%d immagini prive di testo alternativo"
             % (mancanti, totale_img),
             istanze=("immagini", mancanti), totale=totale_img,
+            citati=citati.get("wcag.img.alt_missing"),
+            quanti_distinti=len(distinti.get("wcag.img.alt_missing") or ()),
             urls=dove.get("wcag.img.alt_missing") or []))
 
     salti = 0
@@ -184,10 +230,18 @@ def controlli_statici(pages: dict) -> List[Finding]:
         # che l'ha letta mentre il crawler aveva il DOM aperto. Questo
         # modulo decide cosa sia un difetto, non come si legge l'HTML.
         livelli = dati.get("heading_levels") or []
-        for precedente, corrente in zip(livelli, livelli[1:]):
+        testi = dati.get("heading_texts") or []
+        for i, (precedente, corrente) in enumerate(zip(livelli, livelli[1:])):
             if corrente > precedente + 1:
                 salti += 1
                 segna("wcag.heading.skip", url)
+                # Il salto sta FRA due titoli: citarne uno solo non
+                # direbbe dove guardare. Se i testi mancano — una
+                # pagina prodotta da un crawler piu' vecchio — si tace.
+                if i + 1 < len(testi):
+                    cita("wcag.heading.skip",
+                         "h%d %s → h%d %s" % (precedente, testi[i],
+                                              corrente, testi[i + 1]))
 
         for campo in dati.get("form_fields") or []:
             # I campi non interattivi non hanno un'etichetta da
@@ -198,6 +252,7 @@ def controlli_statici(pages: dict) -> List[Finding]:
             if not campo.get("labelled"):
                 input_senza_etichetta += 1
                 segna("wcag.form.label_missing", url)
+                cita("wcag.form.label_missing", campo.get("name") or "")
 
         for tabella in dati.get("tables") or []:
             if tabella.get("role") == "presentation":
@@ -205,12 +260,19 @@ def controlli_statici(pages: dict) -> List[Finding]:
             if not tabella.get("has_th"):
                 tabelle_senza_th += 1
                 segna("wcag.table.th_missing", url)
+                cita("wcag.table.th_missing", tabella.get("caption") or "")
 
         for ancora in dati.get("links") or []:
             testo = (ancora.get("text") or "").lower().strip(" .:>»→")
             if testo in TESTI_GENERICI and not ancora.get("aria-label"):
                 link_generici += 1
                 segna("wcag.link.generic", url)
+                # Il testo da solo e' il difetto, non l'identificativo:
+                # «clicca qui» su otto link e' otto volte lo stesso. E'
+                # la destinazione a dire di quale si parla.
+                cita("wcag.link.generic",
+                     "%s → %s" % (ancora.get("text") or "",
+                                  ancora.get("href") or ""))
 
         for valore in dati.get("tabindex") or []:
             try:
@@ -225,24 +287,32 @@ def controlli_statici(pages: dict) -> List[Finding]:
             "wcag.heading.skip",
             "%d salti nella gerarchia degli heading (es. h2 seguito da h4)"
             % salti, istanze=("salti", salti),
+            citati=citati.get("wcag.heading.skip"),
+            quanti_distinti=len(distinti.get("wcag.heading.skip") or ()),
             urls=dove.get("wcag.heading.skip") or []))
     if input_senza_etichetta:
         rilievi.append(_statico(
             "wcag.form.label_missing",
             "%d campi di modulo senza etichetta" % input_senza_etichetta,
             istanze=("campi", input_senza_etichetta),
+            citati=citati.get("wcag.form.label_missing"),
+            quanti_distinti=len(distinti.get("wcag.form.label_missing") or ()),
             urls=dove.get("wcag.form.label_missing") or []))
     if tabelle_senza_th:
         rilievi.append(_statico(
             "wcag.table.th_missing",
             "%d tabelle dati senza intestazioni <th>" % tabelle_senza_th,
             istanze=("tabelle", tabelle_senza_th),
+            citati=citati.get("wcag.table.th_missing"),
+            quanti_distinti=len(distinti.get("wcag.table.th_missing") or ()),
             urls=dove.get("wcag.table.th_missing") or []))
     if link_generici:
         rilievi.append(_statico(
             "wcag.link.generic",
             "%d link con testo generico (\"clicca qui\", \"leggi tutto\")"
             % link_generici, istanze=("link", link_generici),
+            citati=citati.get("wcag.link.generic"),
+            quanti_distinti=len(distinti.get("wcag.link.generic") or ()),
             urls=dove.get("wcag.link.generic") or []))
     if tabindex_positivi:
         rilievi.append(_statico(
@@ -395,8 +465,33 @@ def score_from_violations(violations: List[dict],
             "description": violazione.get("description") or "",
             "help_url": violazione.get("helpUrl") or "",
             "nodes": 0, "pages": 0, "urls": [],
+            # I frammenti veri, per l'esempio dal sito (I20). Lista e
+            # non set: l'ordine e' quello di scansione, e due
+            # esecuzioni sullo stesso sito devono dare lo stesso
+            # referto — la stessa ragione per cui `urls` e' una lista.
+            "frammenti": [],
+            # Quanti elementi DISTINTI, anche oltre il tetto: senza,
+            # il referto elencherebbe cinque immagini su venti e non
+            # direbbe di star troncando (I20). Distinti e non
+            # occorrenze — quelle le conta gia' `instances` — perche'
+            # e' con questi che si fa la sottrazione.
+            "distinti": set(),
         })
         voce["nodes"] += len(violazione.get("nodes") or []) or 1
+        for nodo in (violazione.get("nodes") or []):
+            # `html` e' il tag come sta nella pagina — lo stesso dato
+            # che Lighthouse chiama `node.snippet`, misurato su
+            # axe-core 4.13. Deduplicato: lo stesso elemento su tre
+            # pagine e' UN frammento, e quante volte ricorra lo dice
+            # gia' `instances`.
+            testo = frammento_identificante(
+                nodo.get("html") if isinstance(nodo, dict) else None)
+            if not testo:
+                continue
+            voce["distinti"].add(testo)
+            if (testo not in voce["frammenti"]
+                    and len(voce["frammenti"]) < MAX_FRAMMENTI):
+                voce["frammenti"].append(testo)
         voce["pages"] += 1
         # Le PAGINE, non solo quante sono: `pages` resta il contatore
         # su cui si calcola la diffusione — e quindi il punteggio —
@@ -462,6 +557,16 @@ def score_from_violations(violations: List[dict],
                     "instances": voce["nodes"],
                     "pages": voce["pages"], "urls": list(voce["urls"]),
                     "penalty": voce["penalty"],
+                    # Gli elementi del sito su cui la regola e'
+                    # scattata: accanto all'esempio del catalogo, non
+                    # al posto suo (I20).
+                    **({"cited": list(voce["frammenti"])}
+                       if voce["frammenti"] else {}),
+                    # Solo quando serve: uguale alla lista sarebbe
+                    # rumore, e il referto lo confronterebbe con se'.
+                    **({"cited_total": len(voce["distinti"])}
+                       if len(voce["distinti"]) > len(voce["frammenti"])
+                       else {}),
                     # Per REGOLA e non per area: un locale copre quasi
                     # tutte le regole ma non quelle aggiunte a mano, e
                     # dire "l'area e' in italiano" con dentro due

@@ -49,9 +49,24 @@ chunk su 128 senza heading, 37 identici su più pagine (R63).
 Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
 `chunks`, `json_ld`, `images`, `meta_robots`, `meta_robots_by_agent`,
 `canonical`, `x_robots_tag`, più la struttura che `estrai_struttura()`
-legge sullo stesso DOM: `heading_levels`, `form_fields`, `tables`,
-`links`, `tabindex`. Sono già estratti dal crawler: **non riparsare
-l'HTML** in un modulo, il DOM è già stato attraversato una volta.
+legge sullo stesso DOM: `heading_levels`, `heading_texts`,
+`form_fields`, `tables`, `links`, `tabindex`. Sono già estratti dal
+crawler: **non riparsare l'HTML** in un modulo, il DOM è già stato
+attraversato una volta.
+
+Ogni elemento di quelle liste porta **come si chiama**, non il suo
+markup: `images` ha `src`, `form_fields` ha `name` (o l'`id`), `tables`
+ha `caption` (o l'`id`), `links` ha `href`, e `heading_texts` è
+allineato per indice a `heading_levels` — un salto di gerarchia è una
+*relazione* fra due titoli, e senza i testi non si può dire fra quali.
+Servono a rispondere a «quale elemento», che è la domanda che il
+referto non sapeva rispondere (I20). **L'identificatore e non il
+markup, ed è una misura e non un gusto**: conservare il markup di ogni
+elemento costa il triplo (+38,9% per pagina contro +11,6%) e sarebbe
+*meno* onesto — un tag ricostruito è markup mai esistito, mentre un
+`src` viene davvero dal sito. Dove l'identificatore manca — un campo
+senza `name` né `id`, una tabella senza didascalia — il campo è vuoto e
+il referto tace invece di inventarne uno.
 
 `meta_robots` porta **solo** i `<meta name="robots">`, quelli che
 valgono per ogni crawler. Le direttive rivolte a un agente solo —
@@ -100,3 +115,13 @@ treemap del referto vi si colora sopra. Un modulo che la pagina la sa e
 non la dichiara toglie il rilievo dalla treemap **senza un errore** —
 vedi R47. Il campo `doc_url` è un'altra cosa: il link alla
 documentazione della regola dello strumento, mai una pagina del sito.
+
+`params["cited"]` è **il contenuto del sito** su cui il rilievo è
+scattato: lo snippet che axe o Lighthouse hanno mandato, l'`evidence`
+di ZAP, il `src` di un'immagine. Sta lì e **non in `example`**, che
+resta prosa nostra e mostra la forma *corretta*: sono due domande
+diverse — «quali sono i miei» e «come devono diventare» — e sostituire
+la seconda con la prima perdeva la forma corretta, misurato sul referto
+(I20). Chi lo riempie lo schermi mentalmente come dato ostile: viene
+dal sito analizzato, e l'`evidence` di un XSS riflesso *è* un payload.
+Il referto lo scherma, e un test lo prova con un payload vero.

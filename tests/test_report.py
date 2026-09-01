@@ -199,6 +199,9 @@ _RIFERIMENTI = re.compile(
     r'|@import\s+(?:url\(\s*)?[\'"]([^\'"]+)', re.I)
 
 
+_PRE = re.compile(r"<pre\b[^>]*>.*?</pre>", re.S)
+
+
 def riferimenti_esterni(html: str) -> list:
     """Gli URL che il referto andrebbe a cercare fuori da se stesso.
 
@@ -206,8 +209,17 @@ def riferimenti_esterni(html: str) -> list:
     che i test asseriscono, e la lista non vuota dice *quale* origine
     e' rientrata, che su un HTML da 300 KB e' l'unica diagnosi utile.
     """
+    # Il contenuto di un <pre> non e' markup: i `<` sono gia' `&lt;` e
+    # il browser lo rende come testo, quindi un `url(...)` li' dentro
+    # non e' una richiesta — e' l'esempio di correzione che il referto
+    # mostra a chi legge (I20, dove l'esempio `@font-face` dell'area
+    # Prestazioni ha fatto scattare questo controllo per la ragione
+    # sbagliata). L'esenzione regge SOLO finche' quel contenuto e'
+    # davvero escapato, e `test_nei_blocchi_esempio_non_c_e_markup_vivo`
+    # lo verifica: senza quella prova questa riga sarebbe un buco.
     fuori = []
-    for src, srcset, in_url, importato in _RIFERIMENTI.findall(html):
+    for src, srcset, in_url, importato in _RIFERIMENTI.findall(
+            _PRE.sub("<pre></pre>", html)):
         if srcset:
             # `srcset` e' l'unico attributo che porta piu' URL, separati
             # da virgole, ed e' l'unico che si spezza. Spezzare TUTTI i
@@ -232,6 +244,26 @@ def riferimenti_esterni(html: str) -> list:
             if candidato and not candidato.startswith(("data:", "#")):
                 fuori.append(candidato)
     return fuori
+
+
+def test_nei_blocchi_esempio_non_c_e_markup_vivo():
+    """La prova che rende lecita l'esenzione dei <pre> sopra.
+
+    `riferimenti_esterni` salta il contenuto dei <pre> perche' li' i
+    `<` sono escapati e nessun elemento nasce. Se un giorno un esempio
+    ci finisse **non** escapato, quell'esenzione diventerebbe un buco:
+    uno `<script src>` dentro un <pre> uscirebbe dal file e il
+    controllo non lo vedrebbe. Qui si verifica il presupposto invece di
+    darlo per buono."""
+    for nome in ("referto.html", "referto_degradato.html"):
+        percorso = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "golden", nome)
+        with open(percorso, encoding="utf-8") as fh:
+            html = fh.read()
+        for blocco in _PRE.findall(html):
+            interno = blocco[blocco.index(">") + 1:-len("</pre>")]
+            assert "<" not in interno, \
+                "%s: markup vivo dentro un <pre>: %r" % (nome, interno[:80])
 
 
 def test_html_autoconsistente(referto):
@@ -1226,6 +1258,67 @@ def test_controlli_agganciano_la_spiegazione_per_id_e_non_per_posizione():
     assert "alt" not in canonico.lower().replace("canonical", "")
 
 
+def test_un_controllo_fallito_mostra_il_suo_esempio():
+    """I20: nell'HTML l'area SEO rende `_elenco_controlli`, non
+    `_correzioni`, e quello mostrava `detail` ma non l'esempio. Il
+    frammento vero del sito finiva nel JSON e nel Markdown e **non
+    nella vista che il committente legge**: consegnarlo cosi' sarebbe
+    stato consegnare niente."""
+    controlli = [{"id": "image-alt", "title": "Alt", "passed": False}]
+    rilievi = [_rilievo(area="mars_seo", key="seo.lh.image_alt",
+                        detail="Perche' conta l'alt.",
+                        example='<img src="/x.jpg" alt="La sala">',
+                        params={"rule": "image-alt",
+                                "cited": ['<img src="/img/sala-pesi.jpg">']})]
+    reso = _elenco_controlli(controlli, rilievi)
+    assert "sala-pesi.jpg" in reso
+    assert "Nel tuo sito" in reso
+    assert "non è contenuto del tuo sito" in reso
+    # La stessa invariante del resto del referto: mai un blocco senza
+    # la sua didascalia.
+    assert reso.count("<pre class='ex'>") == reso.count("ex-nota") == 2
+
+
+def test_un_esempio_dal_sito_non_puo_eseguire_niente():
+    """Da I20 gruppo B il referto incorpora contenuto del SITO
+    ANALIZZATO — lo snippet di axe, l'`evidence` di ZAP — e l'evidence
+    di un XSS riflesso E' per definizione un payload. Se l'escaping
+    cedesse, aprire un referto eseguirebbe l'attacco che il referto
+    denuncia: il file e' pensato per essere archiviato e riaperto anni
+    dopo.
+
+    Non basta che i golden lo coprano per caso: qui il payload e'
+    l'input del test."""
+    payload = "<script>alert(1)</script><img src=x onerror=alert(2)>"
+    reso = _correzioni([_rilievo(fix="Codifica l'output.",
+                                 example=payload,
+                                 params={"example_real": True})])
+    # L'invariante e' «nessun ELEMENTO vivo», non «nessuna parola
+    # sospetta»: `onerror=` resta nel testo escapato ed e' inerte, ma
+    # un `<` non escapato aprirebbe un tag vero.
+    assert "<script" not in reso
+    assert "<img" not in reso
+    assert "&lt;script&gt;" in reso
+    assert "&lt;img src=x onerror=alert(2)&gt;" in reso
+    # E lo stesso per la vista dei controlli, che e' l'altra strada per
+    # cui un esempio arriva nell'HTML.
+    controlli = [{"id": "40012", "title": "XSS", "passed": False}]
+    rilievi = [_rilievo(area="mars_wapt", key="sec.zap.40012",
+                        example=payload,
+                        params={"rule": "40012", "example_real": True})]
+    assert "<script" not in _elenco_controlli(controlli, rilievi)
+
+
+def test_un_controllo_superato_non_mostra_esempi():
+    """Un controllo superato non si corregge: e' la stessa porta di
+    `mars_fixes.prescrivibile`, applicata alla resa."""
+    controlli = [{"id": "image-alt", "title": "Alt", "passed": True}]
+    rilievi = [_rilievo(area="mars_seo", key="seo.lh.image_alt",
+                        example="<img alt='...'>",
+                        params={"rule": "image-alt"})]
+    assert "<pre class='ex'>" not in _elenco_controlli(controlli, rilievi)
+
+
 def test_controlli_senza_rilievi_restano_come_prima():
     """Retrocompatibilita': `rilievi` e' facoltativo."""
     reso = _elenco_controlli([{"id": "a", "title": "A", "passed": True}])
@@ -1337,6 +1430,122 @@ def test_la_didascalia_dell_esempio_e_tradotta():
     rilievo = _rilievo(fix="Add X.", example="<h2>How long?</h2>")
     assert "not content from your site" in _correzioni([rilievo], lang="en")
     assert "non è contenuto del tuo sito" in _correzioni([rilievo])
+
+
+def test_gli_elementi_del_sito_stanno_accanto_all_esempio():
+    """I20: «quali sono i miei» e «come devono diventare» sono due
+    domande, e l'esempio risponde alla seconda. Sostituirlo con la prima
+    perdeva la forma corretta — misurato sul referto: al posto di
+    `<img src="/sala.jpg" alt="La sala trattamenti">` restava `/b.png`.
+
+    Il sito PRIMA: si guarda cio' che si ha, poi come dovrebbe essere."""
+    rilievo = _rilievo(fix="Aggiungi alt.",
+                       example='<img src="/x.jpg" alt="La sala">',
+                       params={"cited": ["/media/sala-pesi.jpg"]})
+    reso = _correzioni([rilievo])
+    assert "Nel tuo sito" in reso
+    assert "sala-pesi.jpg" in reso
+    # L'esempio resta, con la didascalia di R60 che qui e' di nuovo
+    # vera: quel markup non e' contenuto del sito.
+    assert "non è contenuto del tuo sito" in reso
+    assert "La sala" in reso
+    assert reso.index("Nel tuo sito") < reso.index("non è contenuto")
+    # L'invariante: una didascalia per ogni blocco, comunque siano.
+    assert reso.count("<pre class='ex'>") == reso.count("ex-nota") == 2
+
+
+def test_il_tetto_degli_elementi_non_e_muto():
+    """I20: cinque nomi su venti, senza dirlo, si leggono come venti su
+    venti. Il numero che manca lo porta `cited_total`."""
+    rilievo = _rilievo(fix="Aggiungi alt.", example="<img>",
+                       params={"cited": ["/a.jpg", "/b.jpg"],
+                               "cited_total": 17})
+    reso = _correzioni([rilievo])
+    assert "15" in reso, "non dice quanti ne restano fuori"
+    righe = mars_report._md_rilievo(rilievo)
+    assert "15" in "\n".join(righe)
+
+
+def test_senza_troncamento_il_referto_non_conta_nulla():
+    """Nessun «e altri 0»: il silenzio e' la risposta giusta quando la
+    lista e' completa."""
+    reso = _correzioni([_rilievo(fix="X.", example="<img>",
+                                 params={"cited": ["/a.jpg"]})])
+    assert "e altri" not in reso
+
+
+def _voce_piano(**kw):
+    base = {"key": "wcag.img.alt_missing", "area": "mars_wcag",
+            "area_label": "7. Accessibilità", "severity": SEV_CRITICAL,
+            "title": "1/2 immagini prive di alt", "fix": "Dai un alt.",
+            "example": '<img src="/x.jpg" alt="La sala">', "doc_url": "",
+            "params": {}, "penalty": 5.0, "recovery": 5,
+            "score_before": 80, "score_after": 85, "index_gain": None,
+            "profile_gains": None, "market": "global", "effort": "ore",
+            "quick_win": False, "lane": "misurato", "lane_reason": "",
+            "certified": True, "additive": True, "priority": 1}
+    base.update(kw)
+    return base
+
+
+def test_il_piano_dice_quali_elementi_ma_su_una_riga():
+    """I20: il piano rendeva `fix` e nient'altro, quindi chi agiva di
+    li' non sapeva QUALE elemento correggere.
+
+    Su una riga e non nel blocco recintato: l'esempio resta alla scheda
+    d'area, e la ragione la fissa gia'
+    `test_il_piano_html_non_ripete_gli_esempi` — sedici blocchi di
+    codice dentro un elenco di priorita' lo renderebbero illeggibile
+    proprio come elenco. Il «quale elemento» invece e' una riga, e
+    serve dove si agisce."""
+    reso = mars_report._voce_piano_html(
+        _voce_piano(params={"cited": ["/b.png"], "cited_total": 4}))
+    assert "Nel tuo sito" in reso
+    assert "/b.png" in reso
+    # «e altri 3», non un 3 qualunque: la prima stesura asseriva `"3"
+    # in reso` e passava per un 3 che stava altrove nella scheda — una
+    # mutazione che toglieva il conteggio e' sopravvissuta.
+    assert "altri 3" in reso, "il tetto resta muto nel piano"
+    # L'esempio no: quello sta nella scheda d'area.
+    assert "<pre class='ex'>" not in reso
+    assert "La sala" not in reso
+
+
+def test_il_piano_senza_elementi_resta_com_era():
+    """La maggior parte delle voci non ha elementi da citare — un
+    header mancante e' un'assenza — e li' non deve comparire nulla."""
+    reso = mars_report._voce_piano_html(_voce_piano())
+    assert "Nel tuo sito" not in reso
+    assert "Dai un alt." in reso
+
+
+def test_senza_elementi_citati_resta_il_solo_esempio():
+    """La maggior parte dei rilievi non ha elementi da citare — un
+    header mancante e' un'assenza — e li' il blocco non deve comparire
+    vuoto."""
+    reso = _correzioni([_rilievo(fix="Aggiungi X.", example="<link>")])
+    assert "Nel tuo sito" not in reso
+    assert reso.count("<pre class='ex'>") == 1
+
+
+def test_la_didascalia_degli_elementi_citati_e_tradotta():
+    """Come «Come si aggiusta» e come quella dell'esempio: italiana in
+    un referto inglese sarebbe R44 in un punto nuovo."""
+    rilievo = _rilievo(fix="Add alt.", example="<img>",
+                       params={"cited": ["/x.jpg"]})
+    assert "In your site" in _correzioni([rilievo], lang="en")
+
+
+def test_il_markdown_elenca_gli_elementi_come_l_html():
+    """Le due viste devono dire la stessa cosa — e' la ragione per cui
+    esiste il test gemello sull'esempio."""
+    righe = mars_report._md_rilievo(
+        _rilievo(fix="Fai X.", example="<img>",
+                 params={"cited": ["/x.jpg", "/y.jpg"]}))
+    testo = "\n".join(righe)
+    assert "Nel tuo sito" in testo
+    assert "/y.jpg" in testo
+    assert testo.index("Nel tuo sito") < testo.index("non è contenuto")
 
 
 def test_il_markdown_etichetta_l_esempio_come_l_html():

@@ -71,7 +71,11 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
         "chunks": mars_core.chunk_page(soup, url, titolo),
         "json_ld": [t.get_text(strip=True) for t in soup.find_all(
             "script", type="application/ld+json")],
-        "images": [{"alt": i.get("alt"), "aria-label": i.get("aria-label")}
+        # `src` come nel crawler: una fixture che non lo portasse
+        # farebbe girare i controlli statici su immagini anonime, e
+        # l'esempio dal sito non uscirebbe mai nei test (I20).
+        "images": [{"alt": i.get("alt"), "aria-label": i.get("aria-label"),
+                    "src": (i.get("src") or "").strip()}
                    for i in soup.find_all("img")],
         # Dalla funzione del crawler, non riscritta: era una seconda
         # copia dell'estrazione, ed e' proprio la forma di divergenza

@@ -16,7 +16,8 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from mars_core import (LH_MODI_NON_MISURATI, SEV_INFO, Finding,
-                       chiave_esterna, severita_lighthouse)
+                       chiave_esterna, frammento_identificante,
+                       severita_lighthouse)
 
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
 
@@ -307,6 +308,16 @@ def _rilievo_audit(voce: dict, totale_pesi: float,
     if penalita is not None:
         params["penalty"] = penalita
     prefisso = PREFISSO_NON_MISURATO.get(modo.lower())
+    # Gli elementi del SITO su cui il controllo e' scattato (I20).
+    # In `params["cited"]` e NON in `example`: sono due domande
+    # diverse — «quali sono i miei» e «come devono diventare» — e
+    # sovrapporle ne perde una. Misurato sul referto: sostituendo,
+    # l'esempio del catalogo spariva e con lui la forma corretta.
+    if voce.get("snippets"):
+        params["cited"] = list(voce["snippets"])
+        totale = voce.get("snippets_total") or 0
+        if totale > len(voce["snippets"]):
+            params["cited_total"] = totale
     return Finding(
         area="mars_seo", severity=severita, weight=peso,
         key="seo.lh.%s" % chiave_esterna(voce["id"]),
@@ -375,6 +386,52 @@ def _descrivi_item(item: object) -> str:
         return "%s: %s — %s" % (item.get("index") or "?",
                                 item["line"], item["message"])
     return ""
+
+
+def _citabili(items: List[dict]) -> List[str]:
+    """Gli elementi citabili di un audit, distinti e in ordine.
+
+    Lista e non set: l'ordine e' quello in cui Lighthouse li elenca, e
+    due esecuzioni sullo stesso sito devono dare lo stesso referto.
+    """
+    visti: List[str] = []
+    for item in items:
+        testo = _frammento_identificante(item)
+        if testo and testo not in visti:
+            visti.append(testo)
+    return visti
+
+
+def _frammento_identificante(item: object) -> str:
+    """Il tag VERO dell'elemento incriminato, se distingue qualcosa.
+
+    Lighthouse mette in `node.snippet` il tag come sta nella pagina —
+    `<img src="/img/sala-pesi.jpg">` — accanto al `selector` che
+    `_descrivi_item` gia' prende. I due rispondono a domande diverse: il
+    primo dice QUALE elemento, il secondo dove sta nel DOM. Per
+    correggere serve il primo, e infatti il ramo `source` della stessa
+    funzione la preferenza opposta ce l'ha gia' scritta.
+
+    Che cosa valga come frammento di MARKUP lo decide
+    `frammento_identificante` in `mars_core`: la stessa regola serve ad
+    axe, che manda lo stesso dato sotto un altro nome. Una `source`
+    testuale invece si cita com'e': non e' un elemento, e' una stringa
+    della risposta.
+    """
+    if not isinstance(item, dict):
+        return ""
+    nodo = item.get("node")
+    if isinstance(nodo, dict):
+        return frammento_identificante(nodo.get("snippet"))
+    # `is-crawlable` non porta un nodo: porta in `source` la stringa che
+    # BLOCCA — `X-Robots-Tag: noindex` — ed e' contenuto del sito quanto
+    # uno snippet. La regola del markup non le si applica, per la stessa
+    # ragione per cui non si applica all'`evidence` di ZAP: e' una
+    # stringa della risposta, non un elemento. Il `source` puo' anche
+    # essere un dict (una `source-location`), e li' non c'e' una
+    # stringa sola da citare.
+    sorgente = item.get("source")
+    return sorgente.strip() if isinstance(sorgente, str) else ""
 
 
 def lingua_lhr(lhr: dict) -> str:
@@ -464,6 +521,15 @@ def estrai_audit(lhr: dict) -> List[Dict[str, object]]:
             "passed": bool(punteggio) and not non_misurato,
             "manual": non_misurato,
             "items": elementi,
+            # I frammenti veri, per l'esempio dal sito (I20). Separati
+            # da `items` e non al posto loro: `items` dice DOVE sta
+            # l'elemento ed e' gia' reso nel dettaglio del referto.
+            "snippets": _citabili(grezzi)[:MAX_ELEMENTI],
+            # Quanti elementi DISTINTI Lighthouse ne ha citati, anche
+            # oltre il tetto: senza, il referto ne elencherebbe cinque
+            # su venti e non direbbe di star troncando (I20). Si conta
+            # su TUTTI gli item, non sui primi cinque.
+            "snippets_total": len(_citabili(grezzi)),
             # Quanti elementi Lighthouse ne ha trovati DAVVERO, prima
             # del troncamento a MAX_ELEMENTI: `items` e' la vista, il
             # conteggio e' il dato, ed e' su di lui che scala lo

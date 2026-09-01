@@ -173,6 +173,12 @@ ul.correzioni li { font-size:.88rem; margin:.5rem 0; padding-left:.7rem;
    la nomina apposta: e' il referto stesso, e il presidio cerca quella
    parola in tutta la pagina. */
 .fix-eti { color:var(--warn); font-weight:600; }
+/* La riga degli elementi citati nel piano: gli stessi toni
+   dell'etichetta dell'esempio, ma su una riga — li' un blocco
+   recintato spezzerebbe l'elenco di priorita' (I20). */
+.citati { margin:.35rem 0 0; font-size:.8rem; color:var(--muted); }
+.citati-eti { text-transform:uppercase; letter-spacing:.05em;
+              font-size:.72rem; }
 .ex-nota { display:block; margin:.45rem 0 .15rem; font-size:.72rem;
            text-transform:uppercase; letter-spacing:.05em;
            color:var(--muted); }
@@ -635,6 +641,8 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-img-alt-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>/b.png</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;img src=&quot;/sala.jpg&quot; alt=&quot;La sala trattamenti&quot;&gt;
 &lt;img src=&quot;/onda.svg&quot; alt=&quot;&quot;&gt;</pre>
@@ -644,12 +652,16 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-heading-skip' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>h1 I nostri servizi → h3 Percorsi post-operatori</pre>
 </li>
 <li id='r-wcag-form-label-missing'>
 <b>1 campi di modulo senza etichetta</b>
 <a class='ancora' href='#r-wcag-form-label-missing' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>nome</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;label for=&quot;nome&quot;&gt;Nome&lt;/label&gt;
 &lt;input id=&quot;nome&quot; name=&quot;nome&quot; type=&quot;text&quot;&gt;</pre>
@@ -670,6 +682,8 @@ Disallow:</pre>
 <a class='ancora' href='#r-wcag-link-generic' aria-label='Link a questo rilievo'>#</a>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Scrivi nel link la destinazione, non l&#x27;azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.</span>
+<span class='ex-nota'>Nel tuo sito</span>
+<pre class='ex'>clicca qui → /servizi/</pre>
 <span class='ex-nota'>Esempio — non è contenuto del tuo sito</span>
 <pre class='ex'>&lt;!-- invece di: &lt;a href=&quot;/prezzi/&quot;&gt;clicca qui&lt;/a&gt; --&gt;
 &lt;a href=&quot;/prezzi/&quot;&gt;Il listino dei trattamenti&lt;/a&gt;</pre>
@@ -894,6 +908,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Collega ogni campo a una &lt;label&gt;: un `placeholder` non la sostituisce, perche&#x27; sparisce appena si scrive.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> nome</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -906,6 +922,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Dai un testo alternativo a ogni immagine che porta informazione, e alt=&quot;&quot; a quelle decorative: le due cose sono diverse, e omettere l&#x27;attributo non e&#x27; nessuna delle due.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> /b.png</p>
 </div>
 <div class='intervento'>
 <div class='riga'>
@@ -942,6 +960,8 @@ add_header X-Frame-Options &quot;SAMEORIGIN&quot; always;</pre>
 <p class='guadagno'>+12 punti d'area (40 → 52) · indice di citabilità +1.62 (mercato global, stima)</p>
 <span class='fix'>
 <span class='fix-eti'>Correzione:</span> Non saltare i livelli di heading: la gerarchia e&#x27; l&#x27;indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.</span>
+<p class='citati'>
+<span class='citati-eti'>Nel tuo sito</span> h1 I nostri servizi → h3 Percorsi post-operatori</p>
 </div>
 <div class='intervento'>
 <div class='riga'>

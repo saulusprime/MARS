@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.22.0
+Versione 2.26.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -762,6 +762,53 @@ contenuto del tuo sito». Fino al 2026-08-27 non lo dichiaravano, e un
 esempio in prosa italiana plausibile e' stato letto come contenuto di
 un altro sito finito nel referto (R60). Il testo non lo mostra affatto,
 il CSV porta la sola correzione, il JSON ha la chiave `example`.
+
+Da I20 accanto all'esempio, e non al posto suo, il referto elenca
+GLI ELEMENTI DEL TUO SITO su cui il rilievo e' scattato, sotto la
+didascalia «Nel tuo sito». Sono due domande diverse — quali sono i miei
+e come devono diventare — e sovrapporle ne perde una: sostituendo,
+l'esempio del catalogo spariva e con lui la forma corretta, che e' cio'
+che il rilievo chiede. Misurato sul referto prima di scegliere.
+
+Che cosa viene citato dipende dallo strumento, e ogni caso e' stato
+misurato invece che dedotto:
+
+  - Lighthouse e axe mandano il TAG come sta nella pagina — `node.
+    snippet` per il primo, `nodes[].html` per il secondo, e' lo stesso
+    dato. Entra solo se IDENTIFICA qualcosa, cioe' se porta almeno un
+    attributo: sul titolo mancante entrambi mandano `<html>`, che di
+    elementi non ne distingue nessuno.
+  - ZAP manda l'`evidence`, che NON e' markup: e' una stringa della
+    risposta, un banner o il valore di un header. Sui tre header
+    MANCANTI non la manda affatto, perche' il difetto e' un'assenza e
+    non c'e' nulla da citare.
+  - I controlli statici di MARS il markup non ce l'hanno, e citano come
+    l'elemento si chiama: il `src` di un'immagine, il `name` di un
+    campo, la didascalia di una tabella, il testo del link con la sua
+    destinazione, e per un salto di gerarchia i due titoli fra cui sta.
+    Dove il nome manca — un campo senza `name` ne' `id` — il referto
+    tace invece di inventarlo.
+
+Un avvertimento che nasce da qui: il referto incorpora contenuto del
+sito analizzato, e l'evidence di un XSS riflesso E' un payload. Tutto
+cio' che entra viene schermato, e un test lo verifica con un payload
+vero invece di fidarsi: un referto si archivia e si riapre anni dopo, e
+non deve poter eseguire l'attacco che denuncia.
+
+Le due aree che rendono l'elenco dei CONTROLLI invece dell'elenco dei
+rilievi — SEO e Prestazioni — mostrano ora esempio ed elementi sotto il
+controllo fallito. Prima non mostravano nulla dei due: erano le uniche
+due aree del referto HTML in cui un esempio non compariva mai.
+
+L'elenco si ferma a cinque elementi per rilievo e LO DICE: «e altri 12,
+non elencati». Il conteggio e' sugli elementi distinti, non sulle
+occorrenze — quelle le dice gia' il titolo del rilievo — perche' e' con
+quelli che si fa la sottrazione.
+
+Anche il PIANO di interventi dice quali elementi, ma su una riga sola:
+li' l'esempio non si ripete, perche' sedici blocchi di codice dentro un
+elenco di priorita' lo renderebbero illeggibile proprio come elenco.
+L'esempio resta nella scheda d'area.
 
 Da I18 la correzione c'e' anche per l'AREA SEO. Lighthouse porta la
 diagnosi — la sua description finisce nel dettaglio del rilievo, i suoi

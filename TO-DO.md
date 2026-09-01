@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R66**, idee fino a
-> **I19**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I20**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -67,8 +67,16 @@
 > e la versione è **2.22.0**. Il 2026-09-01 un audit eseguito dentro il
 > container ha aperto e chiuso **R66**: il referto leggeva «Lighthouse non
 > riuscito: CalledProcessError», cioè aveva la diagnosi dello strumento —
-> `CalledProcessError` porta lo stderr — e la buttava via. La versione NON
-> si muove: nessun punteggio cambia e nessuna interfaccia, come per I8.
+> `CalledProcessError` porta lo stderr — e la buttava via; quella non ha
+> mosso la versione, perché nessun punteggio cambia e nessuna interfaccia.
+> **Il pilota di I20** sì, a **2.23.0**: il referto guadagna contenuto —
+> gli esempi delle aree SEO e Prestazioni, che nell'HTML non comparivano
+> affatto, e il frammento VERO del sito dove Lighthouse lo fornisce —
+> senza che alcun punteggio si muova, come per I18. **I20** è arrivata
+> a **2.25.0** in tre giri — i controlli SEO, poi axe e ZAP, poi i
+> controlli statici — e per la stessa ragione: il referto guadagna
+> contenuto e nessun punteggio si muove — poi a **2.26.0** col giro che
+> ha reso parlanti i tetti e ha portato il «quale elemento» nel piano.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -104,3 +112,28 @@
 - **I14** — tetto alla dimensione della risposta HTTP: `_get` scarica il corpo
   intero senza `stream` né limite, e il `timeout` copre solo l'attesa fra i
   byte.
+
+- **I20** — **restano due decisioni, e sono tue.** Tutto il tecnico è
+  fatto il 2026-09-01 e sta in [AS-IS.md](AS-IS.md): accanto
+  all'esempio il referto elenca gli elementi del sito su cui il rilievo
+  è scattato — per i controlli SEO, per axe, per ZAP e per i controlli
+  statici — il tetto dei cinque elementi dichiara quanti ne restano
+  fuori, e il piano di interventi dice quale elemento su una riga.
+
+  - **Privacy.** Il referto ora incorpora contenuto del sito: uno
+    `src`, il testo di un titolo, il valore di un header.
+    [CLAUDE.md](CLAUDE.md) impone di oscurare i dati personali, e oggi
+    il contenuto entra intero. Il presidio contro l'**esecuzione** c'è
+    ed è provato con un payload vero; l'**oscuramento** no, perché è
+    una scelta e non una misura.
+  - **«Completa» ha tre letture**, e nessuna è stata scelta: (1) piano
+    su tutti i rilievi, cioè includere i 19 `info` — codice minimo ma
+    **ribalta una decisione dichiarata** in `_e_candidato`; (2) colmare
+    i 12 esempi mancanti a catalogo; (3) ordine di lavoro per istanza,
+    che ora è quasi solo resa, perché gli elementi ci sono.
+
+  *Una previsione di questo file era sbagliata, e vale registrarla*: «il
+  piano rende `fix` e non `example`» era annotato come difetto. Non lo
+  era — `test_il_piano_html_non_ripete_gli_esempi` lo fissa come
+  decisione, con la ragione. Quello che mancava era il «quale elemento»,
+  ed è stato aggiunto senza toccare la decisione.

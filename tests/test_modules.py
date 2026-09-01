@@ -2355,8 +2355,12 @@ def _lhr(punteggio=0.27):
                                "2/document-title).",
                 "title": "Il documento non ha un elemento `<title>`",
                 "score": 0, "scoreDisplayMode": "binary",
+                # Lo snippet c'e' ma e' `<html>`: un tag nudo, che non
+                # distingue un elemento da un altro. Misurato, ed e' il
+                # caso per cui l'esempio dal sito NON deve scattare.
                 "details": {"type": "table", "items": [
                     {"node": {"type": "node", "selector": "html",
+                              "snippet": "<html>",
                               "boundingRect": {"top": 0}}}]}},
             "meta-description": {
                 "description": "Le meta descrizioni possono essere incluse nei"
@@ -2429,9 +2433,17 @@ def _lhr(punteggio=0.27):
                                "com/rules/axe/4.12/image-alt).",
                 "title": "Gli elementi immagine non hanno attributi `[alt]`",
                 "score": 0, "scoreDisplayMode": "binary",
+                # `snippet` accanto a `selector`: e' cio' che un LHR
+                # vero porta — misurato su Lighthouse 13.4.1 contro una
+                # pagina con due immagini senza alt. Senza, la fixture
+                # non eserciterebbe l'esempio dal sito (I20).
                 "details": {"type": "table", "items": [
-                    {"node": {"selector": "body > img"}},
-                    {"node": {"selector": "body > img"}}]}},
+                    {"node": {"selector": "body > img",
+                              "snippet":
+                              '<img src="/img/sala-pesi.jpg">'}},
+                    {"node": {"selector": "body > img",
+                              "snippet":
+                              '<img src="/img/spogliatoi.jpg">'}}]}},
             "hreflang": {
                 "description": "I link hreflang indicano ai motori di ricerca "
                                "quale versione di una pagina devono elencare "
@@ -3458,6 +3470,264 @@ def test_seo_ogni_ramo_non_misurato_porta_un_solo_rilievo(monkeypatch,
     assert "penalty" not in rilievo["params"]
 
 
+def _pagine_statiche():
+    """Due pagine coi cinque difetti statici, ognuno identificabile.
+
+    La seconda ripete un'immagine della prima: e' cio' che esercita la
+    deduplicazione delle citazioni.
+    """
+    return {"https://x/2": {
+        "lang": "it",
+        "images": [{"alt": None, "aria-label": None,
+                    "src": "/media/sala-pesi.jpg"}],
+        "heading_levels": [], "heading_texts": [], "form_fields": [],
+        "tables": [], "links": [], "tabindex": [],
+    }, "https://x/": {
+        "lang": "it",
+        "images": [{"alt": None, "aria-label": None,
+                    "src": "/media/sala-pesi.jpg"},
+                   {"alt": None, "aria-label": None,
+                    "src": "/media/spogliatoi.jpg"},
+                   {"alt": "", "aria-label": None, "src": "/media/onda.svg"}],
+        "heading_levels": [1, 2, 4],
+        "heading_texts": ["Studio", "Servizi", "Prezzi"],
+        "form_fields": [{"type": "text", "labelled": False,
+                         "name": "telefono"},
+                        {"type": "text", "labelled": False, "name": ""}],
+        "tables": [{"has_th": False, "role": "", "caption": "Listino 2026"},
+                   {"has_th": False, "role": "", "caption": ""}],
+        "links": [{"text": "clicca qui", "aria-label": None,
+                   "href": "/prezzi/"}],
+        "tabindex": ["3"],
+    }}
+
+
+def _statici_per_chiave():
+    return {f.key: f.as_dict()
+            for f in mars_wcag.controlli_statici(_pagine_statiche())}
+
+
+def test_wcag_statici_l_esempio_dice_quali_immagini():
+    """I20 gruppo C: il referto diceva QUANTE immagini erano prive di
+    alt e non QUALI, e chi correggeva doveva ritrovarle a mano."""
+    r = _statici_per_chiave()["wcag.img.alt_missing"]
+    # La stessa immagine su due pagine e' UNA citazione: la fixture ne
+    # ripete una apposta. Senza il duplicato la deduplicazione non
+    # verrebbe esercitata — una mutazione che la toglieva e'
+    # sopravvissuta al banco scritto senza.
+    assert r["params"]["cited"] == ["/media/sala-pesi.jpg",
+                                    "/media/spogliatoi.jpg"]
+    # `alt=""` e' la marcatura corretta di un'immagine decorativa: non
+    # e' un difetto e non deve comparire fra i citati.
+    assert "onda.svg" not in str(r["params"]["cited"])
+
+
+def test_wcag_statici_l_esempio_nomina_campi_tabelle_e_link():
+    """Ogni controllo cita cio' che identifica il suo elemento: il nome
+    del campo, la didascalia della tabella, il testo del link col suo
+    href. Non e' markup — il gruppo B ha gia' stabilito che un esempio
+    vero non deve esserlo — ed e' contenuto del sito, non ricostruito."""
+    per_chiave = _statici_per_chiave()
+
+    def citati(chiave):
+        return per_chiave[chiave]["params"]["cited"]
+
+    assert citati("wcag.form.label_missing") == ["telefono"]
+    assert citati("wcag.table.th_missing") == ["Listino 2026"]
+    assert citati("wcag.link.generic") == ["clicca qui → /prezzi/"]
+    # Un salto e' una RELAZIONE fra due heading: si dice fra quali.
+    assert citati("wcag.heading.skip") == ["h2 Servizi → h4 Prezzi"]
+
+
+def test_wcag_statici_senza_identificatore_niente_esempio():
+    """Un campo senza `name` ne' `id`, una tabella senza didascalia ne'
+    id: il referto lo dice tacendo, invece di inventare un nome. Il
+    conteggio resta quello vero."""
+    pagine = _pagine_statiche()
+    pagine["https://x/"]["form_fields"] = [{"type": "text",
+                                            "labelled": False, "name": ""}]
+    pagine["https://x/"]["tables"] = [{"has_th": False, "role": "",
+                                       "caption": ""}]
+    per_chiave = {f.key: f.as_dict()
+                  for f in mars_wcag.controlli_statici(pagine)}
+    campo = per_chiave["wcag.form.label_missing"]
+    assert "cited" not in campo["params"]
+    assert campo["params"]["instances"] == 1
+
+
+def test_wcag_l_esempio_viene_dai_nodi_di_axe():
+    """I20 gruppo B: axe manda in `nodes[].html` il tag come sta nella
+    pagina — misurato su axe-core 4.13, ed e' lo stesso dato che
+    Lighthouse chiama `node.snippet`. `score_from_violations` contava i
+    nodi e li buttava."""
+    violazioni = [{"id": "image-alt", "impact": "critical", "help": "H",
+                   "nodes": [{"html": '<img src="/img/sala-pesi.jpg">'},
+                             {"html": '<img src="/img/spogliatoi.jpg">'}]}]
+    rilievo = mars_wcag.score_from_violations(violazioni, 1)["findings"][0]
+    assert rilievo["params"]["cited"] == ['<img src="/img/sala-pesi.jpg">',
+                                          '<img src="/img/spogliatoi.jpg">']
+
+
+def test_wcag_un_tag_nudo_di_axe_non_e_un_esempio():
+    """`document-title` e `html-has-lang` mandano `<html>`: misurato, ed
+    e' lo stesso tag nudo che Lighthouse manda sullo stesso difetto. La
+    regola sta in mars_core proprio perche' e' una sola."""
+    violazioni = [{"id": "document-title", "impact": "serious", "help": "H",
+                   "nodes": [{"html": "<html>"}]}]
+    rilievo = mars_wcag.score_from_violations(violazioni, 1)["findings"][0]
+    assert "cited" not in rilievo["params"]
+
+
+def test_wcag_i_frammenti_si_deduplicano():
+    """Lo stesso elemento su piu' pagine e' UN frammento, non N: il
+    conteggio vero sta in `instances`, e l'esempio serve a riconoscere
+    il caso.
+
+    **Sotto il tetto, apposta**: con nove nodi il tetto scatterebbe
+    prima e la deduplicazione non verrebbe esercitata — una mutazione
+    che la toglieva e' sopravvissuta al banco scritto cosi'."""
+    violazioni = [
+        {"id": "image-alt", "impact": "critical", "help": "H",
+         "nodes": [{"html": '<img src="/a.jpg">'},
+                   {"html": '<img src="/b.jpg">'},
+                   {"html": '<img src="/a.jpg">'}]},
+        {"id": "image-alt", "impact": "critical", "help": "H",
+         "nodes": [{"html": '<img src="/b.jpg">'}]},
+    ]
+    rilievo = mars_wcag.score_from_violations(violazioni, 2)["findings"][0]
+    assert rilievo["params"]["cited"] == ['<img src="/a.jpg">',
+                                          '<img src="/b.jpg">']
+    # Il conteggio non si tocca: e' su quello che scala lo sforzo (R46).
+    assert rilievo["params"]["instances"] == 4
+
+
+def test_i_tetti_dicono_quanti_ne_restano_fuori():
+    """I20: il tetto era MUTO. Su venti immagini senza alt il referto
+    ne elencava cinque e non diceva di star troncando, quindi chi
+    leggeva credeva che fossero cinque. `cited_total` porta il numero
+    di elementi DISTINTI trovati, e il referto ci calcola il resto.
+
+    Distinti e non occorrenze: `instances` conta le seconde, e usarlo
+    per la sottrazione avrebbe dato «e altri 6» dove gli elementi
+    diversi erano tre."""
+    nodi = [{"html": '<img src="/img/foto-%d.jpg">' % i} for i in range(9)]
+    # Lo stesso elemento due volte: distinti 9, occorrenze 11.
+    nodi += [{"html": '<img src="/img/foto-0.jpg">'},
+             {"html": '<img src="/img/foto-1.jpg">'}]
+    violazioni = [{"id": "image-alt", "impact": "critical", "help": "H",
+                   "nodes": nodi}]
+    params = mars_wcag.score_from_violations(
+        violazioni, 1)["findings"][0]["params"]
+    assert len(params["cited"]) == mars_wcag.MAX_FRAMMENTI
+    assert params["cited_total"] == 9
+    assert params["instances"] == 11
+
+
+def test_i_tetti_parlano_anche_negli_altri_tre_moduli():
+    """Lo stesso tetto vale per Lighthouse, per i controlli statici e
+    per ZAP: presidiarlo sul solo axe lasciava passare una mutazione
+    per ognuno degli altri tre."""
+    # Lighthouse: nove nodi distinti, cinque elencati.
+    lhr = _lhr()
+    lhr["audits"]["image-alt"]["details"]["items"] = [
+        {"node": {"selector": "img", "snippet": '<img src="/f%d.jpg">' % i}}
+        for i in range(9)]
+    params = _findings(lhr)["seo.lh.image_alt"]["params"]
+    assert len(params["cited"]) == mars_seo.MAX_ELEMENTI
+    assert params["cited_total"] == 9
+
+    # Controlli statici: nove immagini senza alt, tutte identificabili.
+    pagine = {"https://x/": {
+        "lang": "it",
+        "images": [{"alt": None, "aria-label": None, "src": "/f%d.jpg" % i}
+                   for i in range(9)],
+        "heading_levels": [], "heading_texts": [], "form_fields": [],
+        "tables": [], "links": [], "tabindex": []}}
+    statici = {f.key: f.as_dict()
+               for f in mars_wcag.controlli_statici(pagine)}
+    params = statici["wcag.img.alt_missing"]["params"]
+    assert len(params["cited"]) == mars_wcag.MAX_FRAMMENTI
+    assert params["cited_total"] == 9
+
+    # ZAP: nove evidence distinte sulla stessa variante.
+    alert = [_variante("10036", risk="Low", url="https://x/%d" % i,
+                       evidence="banner-%d" % i) for i in range(9)]
+    params = mars_wapt.score_from_alerts(alert)["findings"][0]["params"]
+    assert len(params["cited"]) == mars_wapt.MAX_EVIDENZE
+    assert params["cited_total"] == 9
+
+
+def test_senza_troncamento_nessun_totale():
+    """Il totale c'e' solo quando serve: uguale alla lista sarebbe
+    rumore, e il referto lo confronterebbe con se stesso."""
+    violazioni = [{"id": "image-alt", "impact": "critical", "help": "H",
+                   "nodes": [{"html": '<img src="/a.jpg">'}]}]
+    params = mars_wcag.score_from_violations(
+        violazioni, 1)["findings"][0]["params"]
+    assert "cited_total" not in params
+
+
+def test_wcag_i_frammenti_si_fermano_al_tetto():
+    """Chi ha venti immagini senza alt non le corregge leggendone venti
+    nel referto: da cinque riconosce il caso."""
+    nodi = [{"html": '<img src="/img/foto-%d.jpg">' % i} for i in range(9)]
+    violazioni = [{"id": "image-alt", "impact": "critical", "help": "H",
+                   "nodes": nodi}]
+    rilievo = mars_wcag.score_from_violations(violazioni, 1)["findings"][0]
+    assert len(rilievo["params"]["cited"]) == mars_wcag.MAX_FRAMMENTI
+    assert rilievo["params"]["instances"] == 9
+
+
+def test_seo_l_esempio_viene_dal_sito_quando_il_frammento_identifica():
+    """I20: `<img src="/img/sala-pesi.jpg">` dice QUALE immagine correggere,
+    cosa che un esempio inventato non puo' fare. Il frammento e' gia' nel
+    LHR, accanto al selettore che oggi si prende."""
+    rilievo = _findings(_lhr())["seo.lh.image_alt"]
+    citati = rilievo["params"]["cited"]
+    assert '<img src="/img/sala-pesi.jpg">' in citati
+    assert '<img src="/img/spogliatoi.jpg">' in citati
+    # In `cited` e NON in `example`: sono due domande diverse — quali
+    # sono i miei, come devono diventare — e sovrapporle ne perde una.
+    assert rilievo["example"] == ""
+
+
+def test_seo_cita_anche_la_sorgente_non_di_nodo():
+    """`is-crawlable` non porta un nodo: porta in `source` la stringa
+    che BLOCCA — `X-Robots-Tag: noindex` — ed e' contenuto del sito
+    quanto uno snippet. La regola del markup non le si applica, come
+    per l'`evidence` di ZAP: e' una stringa della risposta."""
+    rilievo = _findings(_lhr())["seo.lh.is_crawlable"]
+    assert rilievo["params"]["cited"] == ["X-Robots-Tag: noindex"]
+
+
+def test_seo_un_tag_nudo_non_e_un_esempio_dal_sito():
+    """`document-title` fallito porta lo snippet `<html>`: un tag senza
+    attributi non distingue un elemento da un altro — di `<html>` ce n'e'
+    uno solo — e il selettore lo diceva gia'. Li' vale ancora il catalogo,
+    che mostra la forma CORRETTA, cioe' cio' che quel rilievo chiede."""
+    rilievo = _findings(_lhr())["seo.lh.document_title"]
+    assert "cited" not in rilievo["params"]
+
+
+def test_seo_senza_item_nessun_esempio_dal_sito():
+    """`meta-description` fallito arriva con ZERO item — misurato su un
+    LHR vero. Il ripiego sul catalogo e' la degradazione dichiarata del
+    principio 2, non una dimenticanza."""
+    rilievo = _findings(_lhr())["seo.lh.meta_description"]
+    assert "cited" not in rilievo["params"]
+
+
+def test_seo_gli_elementi_citati_convivono_col_catalogo():
+    """Le due cose stanno insieme: `vesti()` mette l'esempio del
+    catalogo — la forma CORRETTA — e `cited` resta con gli elementi
+    veri. Sostituire l'uno con l'altro perdeva la forma corretta, che e'
+    cio' che il rilievo chiede."""
+    import mars_fixes
+    rilievo = mars_fixes.vesti(dict(_findings(_lhr())["seo.lh.image_alt"]))
+    assert '<img src="/img/sala-pesi.jpg">' in rilievo["params"]["cited"]
+    assert 'alt=' in rilievo["example"]
+
+
 def test_seo_il_fallimento_riporta_lo_stderr_di_lighthouse(monkeypatch):
     """`CalledProcessError` PORTA lo stderr dello strumento, ed e' li'
     che Lighthouse dice perche' non e' partito. Il nome dell'eccezione
@@ -4361,6 +4631,48 @@ def _variante(plugin, ref=None, risk="Medium", url="https://x/", **extra):
         voce["alertRef"] = ref
     voce.update(extra)
     return voce
+
+
+def test_wapt_l_esempio_e_l_evidence_di_zap():
+    """I20 gruppo B, seconda meta'. La regola del markup NON si applica
+    a ZAP: misurato su ZAP 2.17.0 contro una pagina servita in locale,
+    l'`evidence` e' una stringa della RISPOSTA — `SimpleHTTP/0.6
+    Python/3.14.4` — e nessuna delle sei era markup. Il criterio qui e'
+    percio' un altro: c'e' evidence, oppure non c'e' niente da citare."""
+    esito = mars_wapt.score_from_alerts([
+        _variante("10036", risk="Low",
+                  evidence="SimpleHTTP/0.6 Python/3.14.4")])
+    rilievo = esito["findings"][0]
+    assert rilievo["params"]["cited"] == ["SimpleHTTP/0.6 Python/3.14.4"]
+
+
+def test_wapt_un_header_mancante_non_ha_niente_da_citare():
+    """Tre alert su sei — quelli che pesano di piu' — sono ASSENZE:
+    `Missing Anti-clickjacking Header`, CSP non impostata,
+    `X-Content-Type-Options` mancante. ZAP non manda evidence perche'
+    non c'e' nulla nella risposta da mostrare, e li' vale l'esempio del
+    catalogo, che dice l'header da AGGIUNGERE. Misurato, non dedotto."""
+    rilievo = mars_wapt.score_from_alerts(
+        [_variante("10038", risk="Medium")])["findings"][0]
+    assert "cited" not in rilievo["params"]
+
+
+def test_wapt_le_evidence_si_deduplicano_e_si_troncano():
+    """Lo stesso banner su venti pagine e' UNA evidence. E una evidence
+    lunga — ZAP puo' mandare l'intera stringa d'attacco — si tronca col
+    segno, perche' un testo tagliato senza segno si legge come
+    completo."""
+    lunga = "x" * (mars_wapt.MAX_EVIDENZA + 80)
+    alert = [_variante("10036", risk="Low", url="https://x/%d" % i,
+                       evidence="Server: nginx/1.2") for i in range(4)]
+    alert.append(_variante("10036", risk="Low", url="https://x/9",
+                           evidence=lunga))
+    rilievo = mars_wapt.score_from_alerts(alert)["findings"][0]
+    righe = rilievo["params"]["cited"]
+    assert righe[0] == "Server: nginx/1.2"
+    assert len(righe) == 2, "la stessa evidence quattro volte e' una"
+    assert righe[1].endswith("…")
+    assert len(righe[1]) <= mars_wapt.MAX_EVIDENZA + 1
 
 
 def test_wapt_le_sotto_varianti_diventano_rilievi_distinti():

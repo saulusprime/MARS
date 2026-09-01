@@ -30,6 +30,15 @@ from mars_core import (SEV_INFO, Finding, chiave_esterna,
 ZAP_PROXY = os.environ.get("ZAP_PROXY", "http://127.0.0.1:8080")
 ZAP_API_KEY = os.environ.get("ZAP_API_KEY", "")
 
+# Quante evidence entrano in un esempio, e quanto lunga puo' essere
+# ognuna. La regola dei frammenti di markup (`frammento_identificante`)
+# QUI NON VALE: misurato su ZAP 2.17.0, l'evidence e' una stringa della
+# risposta — un banner, un valore di header — e delle sei di una pagina
+# vera nessuna era markup. Il criterio e' percio' un altro: c'e'
+# evidence, oppure non c'e' niente del sito da citare.
+MAX_EVIDENZE = 5
+MAX_EVIDENZA = 200
+
 ZAP_TIMEOUT_SCAN = 900   # secondi per spider + active scan
 ZAP_ATTESA = 3           # secondi fra due controlli di avanzamento
 
@@ -183,6 +192,12 @@ def _rilievo_zap(voce: dict) -> Finding:
             # approssimata invece di lasciarlo credere.
             "soluzioni": len(voce["soluzioni"]),
             "penalty": float(voce["penalty"]),
+            # Cio' che ZAP ha trovato nella risposta, accanto
+            # all'esempio del catalogo e non al posto suo (I20).
+            **({"cited": list(voce["evidenze"])} if voce["evidenze"]
+               else {}),
+            **({"cited_total": len(voce["distinte"])}
+               if len(voce["distinte"]) > len(voce["evidenze"]) else {}),
             # ZAP parla inglese e basta: i suoi Messages.properties non
             # hanno una traduzione italiana, e non c'e' un `--locale`
             # da passargli. Dichiararlo qui permette al referto di
@@ -305,7 +320,28 @@ def score_from_alerts(alerts: List[dict]) -> dict:
             "soluzioni": set(),
             "references": [],
             "description": "",
+            # Le evidence vere, per l'esempio dal sito (I20). Lista e
+            # non set: l'ordine e' quello degli alert, e due esecuzioni
+            # sullo stesso sito devono dare lo stesso referto.
+            "evidenze": [],
+            # Quante evidence DISTINTE, anche oltre il tetto: senza,
+            # il referto ne elencherebbe cinque e non direbbe di star
+            # troncando (I20).
+            "distinte": set(),
         })
+        # Deduplicata: lo stesso banner su venti pagine e' UNA
+        # evidence, e quante volte ricorra lo dice gia' `instances`.
+        # Troncata col segno, perche' ZAP puo' mandare stringhe lunghe
+        # — l'intera stringa d'attacco — e un testo tagliato senza
+        # segno si legge come completo.
+        evidenza = str(alert.get("evidence") or "").strip()
+        if len(evidenza) > MAX_EVIDENZA:
+            evidenza = evidenza[:MAX_EVIDENZA].rstrip() + "…"
+        if evidenza:
+            voce["distinte"].add(evidenza)
+            if (evidenza not in voce["evidenze"]
+                    and len(voce["evidenze"]) < MAX_EVIDENZE):
+                voce["evidenze"].append(evidenza)
         if alert.get("url"):
             voce["urls"].add(alert["url"])
         # La `solution` era scartata, ed e' il campo su cui poggia la

@@ -42,14 +42,17 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
       Togli il Disallow che blocca gli agenti che vuoi ti citino. Non basta aggiungere un blocco permissivo in fondo: per ogni agente vale il PRIMO gruppo che lo nomina, quindi la riga va corretta dov'e'.
 - [ ] **[CRITICO]** 1 campi di modulo senza etichetta — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
       Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
+      *Nel tuo sito* nome
 - [ ] **[CRITICO]** 1/2 immagini prive di testo alternativo — *Accessibilità · sforzo: ore · +12 punti d'area · indice +1.62*
       Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
+      *Nel tuo sito* /b.png
 - [ ] [AVVISO] 1 blocchi JSON-LD malformati — *Dati Strutturati · sforzo: minuti · +10 punti d'area · indice +3.26*
       Correggi la sintassi del blocco: un JSON-LD che non si analizza viene ignorato per intero, non in parte.
 - [ ] [AVVISO] CSP mancante — *Sicurezza · sforzo: giorni · +15 punti d'area · indice +2.02*
       Aggiungi Content-Security-Policy. Conviene partire in sola osservazione con -Report-Only e leggere le violazioni prima di applicarla — ma il rilievo resta finche' non passi all'header vero.
 - [ ] [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4) — *Accessibilità · sforzo: minuti · +12 punti d'area · indice +1.62*
       Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
+      *Nel tuo sito* h1 I nostri servizi → h3 Percorsi post-operatori
 - [ ] [AVVISO] 1 tabelle dati senza intestazioni <th> — *Accessibilità · sforzo: minuti · +12 punti d'area · indice +1.62*
       Usa <th> per le intestazioni delle tabelle di dati, con `scope`: senza, ogni cella viene letta senza sapere di che colonna sia.
 - [ ] [AVVISO] X-Frame-Options mancante — *Sicurezza · sforzo: minuti · +10 punti d'area · indice +1.35*
@@ -123,6 +126,11 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 
+  *Nel tuo sito*
+  ```
+  /b.png
+  ```
+
   *Esempio — non è contenuto del tuo sito*
   ```
   <img src="/sala.jpg" alt="La sala trattamenti">
@@ -130,8 +138,18 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
   ```
 - [AVVISO] 1 salti nella gerarchia degli heading (es. h2 seguito da h4)
   *Correzione:* Non saltare i livelli di heading: la gerarchia e' l'indice con cui si naviga una pagina senza vederla. Per rimpicciolire un titolo si usa il CSS.
+
+  *Nel tuo sito*
+  ```
+  h1 I nostri servizi → h3 Percorsi post-operatori
+  ```
 - **[CRITICO]** 1 campi di modulo senza etichetta
   *Correzione:* Collega ogni campo a una <label>: un `placeholder` non la sostituisce, perche' sparisce appena si scrive.
+
+  *Nel tuo sito*
+  ```
+  nome
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```
@@ -150,6 +168,11 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
   ```
 - [INFO] 1 link con testo generico ("clicca qui", "leggi tutto")
   *Correzione:* Scrivi nel link la destinazione, non l'azione: chi naviga per elenco di link legge solo quel testo, fuori dal contesto della frase.
+
+  *Nel tuo sito*
+  ```
+  clicca qui → /servizi/
+  ```
 
   *Esempio — non è contenuto del tuo sito*
   ```

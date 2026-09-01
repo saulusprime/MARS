@@ -200,6 +200,72 @@ def test_crawl_su_host_ipv6(monkeypatch):
 # Tokenizzazione (R18)
 # ----------------------------------------------------------------------
 
+def test_estrai_struttura_porta_gli_identificatori():
+    """I20 gruppo C: senza un identificatore il referto puo' dire QUANTE
+    immagini sono senza alt ma non QUALI, e chi corregge deve ritrovarle
+    a mano. Si estrae l'identificatore e non il markup intero: misurato,
+    il markup costa il triplo (+38,9% per pagina contro +11,6%) e
+    sarebbe per giunta meno onesto, perche' un tag ricostruito e' markup
+    mai esistito mentre un `src` viene davvero dal sito."""
+    soup = BeautifulSoup("""
+        <h2>Servizi</h2><h4>Prezzi</h4>
+        <form><input type="text" name="telefono"><select id="citta"></select>
+              <textarea></textarea></form>
+        <table><caption>Listino 2026</caption><tr><td>a</td></tr></table>
+        <table id="orari"><tr><td>b</td></tr></table>
+        <a href="/prezzi/">clicca qui</a>
+    """, "lxml")
+    st = estrai_struttura(soup)
+    # I testi degli heading, allineati ai livelli: un salto e' una
+    # RELAZIONE fra due elementi, e senza i testi non si puo' dire fra
+    # quali due.
+    assert st["heading_levels"] == [2, 4]
+    assert st["heading_texts"] == ["Servizi", "Prezzi"]
+    # `name`, poi `id`, poi nulla: e' l'ordine in cui un campo si
+    # nomina in un modulo.
+    assert [c["name"] for c in st["form_fields"]] == ["telefono", "citta", ""]
+    # La didascalia se c'e', altrimenti l'id: una tabella non ha un
+    # identificatore naturale, e queste sono le due cose che a volte
+    # ce l'hanno.
+    assert [t["caption"] for t in st["tables"]] == ["Listino 2026", "orari"]
+    assert [a["href"] for a in st["links"]] == ["/prezzi/"]
+
+
+@pytest.mark.parametrize("grezzo, atteso", [
+    # Identificano UN elemento: il tag porta un attributo.
+    ('<img src="/img/sala-pesi.jpg">', '<img src="/img/sala-pesi.jpg">'),
+    ("<a href='/prezzi'>clicca qui</a>", "<a href='/prezzi'>clicca qui</a>"),
+    ('<input type="email">', '<input type="email">'),
+    # NON identificano nulla: un tag nudo. Di `<html>` ce n'e' uno solo
+    # per pagina, e il selettore lo diceva gia'. Misurato su Lighthouse
+    # 13.4.1 e su axe-core 4.13 — i due strumenti danno esattamente
+    # questo sullo stesso difetto.
+    ("<html>", ""),
+    ("<div>", ""),
+    ("<html >", ""),
+    # Ne' un elemento ne' un frammento: niente da mostrare.
+    ("", ""),
+    ("   ", ""),
+    ("noindex", ""),
+    # Spazi di contorno tolti: il frammento finisce in un <pre>, dove
+    # ogni carattere si vede.
+    ('  <img alt="x">  ', '<img alt="x">'),
+])
+def test_frammento_identificante(grezzo, atteso):
+    """I20: un frammento entra nel referto solo se distingue QUALE
+    elemento correggere. La regola sta in mars_core perche' la usano
+    due moduli su due strumenti diversi, e duplicarla vorrebbe dire
+    vederla divergere."""
+    assert mars_core.frammento_identificante(grezzo) == atteso
+
+
+def test_frammento_identificante_regge_il_dato_ostile():
+    """Il frammento viene da uno strumento esterno: None e numeri non
+    devono farlo sollevare."""
+    for valore in (None, 3, [], {}):
+        assert mars_core.frammento_identificante(valore) == ""
+
+
 @pytest.mark.parametrize("testo, atteso", [
     ("Come funziona?", ["come", "funziona"]),
     ("Il servizio.", ["il", "servizio"]),
@@ -1007,6 +1073,7 @@ HTML_STRUTTURA = """<html lang="it"><head><title>t</title></head><body>
 <table><tr><th>Testa</th></tr></table>
 <table role="presentation"><tr><td>x</td></tr></table>
 <a href="/1">Clicca qui</a><a href="/2" aria-label="Guida">qui</a>
+<img src="/a.png" alt="Con alt"><img src="/b.png">
 <span tabindex="3">a</span><span tabindex="abc">b</span>
 </body></html>"""
 
@@ -1034,13 +1101,22 @@ def test_estrai_struttura_legge_il_dom_una_volta_sola():
         ("", True),          # <textarea aria-label>, senza attributo type
     ]
 
+    # I livelli non bastano a dire FRA QUALI due titoli sta il salto:
+    # i testi viaggiano con loro, allineati per indice (I20).
+    assert len(s["heading_texts"]) == len(s["heading_levels"])
+
     # Dati, non giudizi: il role resta grezzo, decidere che
     # "presentation" esenti dal criterio tocca a mars_wcag.
-    assert s["tables"] == [{"has_th": True, "role": ""},
-                           {"has_th": False, "role": "presentation"}]
+    # `caption` e' l'identificatore della tabella, vuoto dove non c'e':
+    # una tabella senza didascalia ne' id resta senza nome, e il
+    # referto lo dira' invece di inventarne uno (I20).
+    assert s["tables"] == [
+        {"has_th": True, "role": "", "caption": ""},
+        {"has_th": False, "role": "presentation", "caption": ""}]
 
-    assert s["links"] == [{"text": "Clicca qui", "aria-label": None},
-                          {"text": "qui", "aria-label": "Guida"}]
+    assert s["links"] == [
+        {"text": "Clicca qui", "aria-label": None, "href": "/1"},
+        {"text": "qui", "aria-label": "Guida", "href": "/2"}]
 
     # Grezzi: un tabindex non numerico e' esso stesso un dato, e
     # convertirlo qui lo cancellerebbe.
@@ -1054,10 +1130,14 @@ def test_pagina_del_crawler_porta_la_struttura():
         "http://esempio.test/": (HTML_STRUTTURA, "text/html")})
     pagine = crawler.crawl()
     dati = pagine["http://esempio.test/"]
-    for chiave in ("heading_levels", "form_fields", "tables",
-                   "links", "tabindex"):
+    for chiave in ("heading_levels", "heading_texts", "form_fields",
+                   "tables", "links", "tabindex"):
         assert chiave in dati, "il crawler non pubblica %r" % chiave
     assert dati["heading_levels"] == [1, 2, 4]
+    # `images` NON viene da estrai_struttura: la compone il crawler, e
+    # una mutazione che ne toglieva il `src` e' sopravvissuta all'intera
+    # suite perche' ogni altro test costruisce le pagine a mano (I20).
+    assert [i["src"] for i in dati["images"]] == ["/a.png", "/b.png"]
 
 
 # ----------------------------------------------------------------------

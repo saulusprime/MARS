@@ -91,6 +91,7 @@
 | R65 | Le classifiche si fermano dove finiscono i riscontri | 2026-08-31 |
 | I19 | L'hero ricomposto: la variazione in testa, le quote come barre | 2026-08-31 |
 | R66 | «Lighthouse non riuscito: CalledProcessError», e la diagnosi buttata via | 2026-09-01 |
+| I20 | «Nel tuo sito»: quali elementi, accanto a come devono diventare | 2026-09-01 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2393,6 +2394,147 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I20 (pilota + gruppi B e C) — ✅ REALIZZATA (2026-09-01): «Nel tuo sito», accanto all'esempio
+
+*(`__version__` a **2.25.0**: il referto guadagna contenuto, nessun
+punteggio si muove. Restano aperte le sole decisioni sulla «remediation
+completa», e la privacy dei frammenti.)*
+
+**Che cosa fa.** Accanto all'esempio — che resta prosa nostra e mostra la
+forma **corretta** — il referto elenca **gli elementi del sito** su cui il
+rilievo è scattato, sotto la didascalia «Nel tuo sito». Prima diceva
+quante immagini erano prive di alt e non quali.
+
+**La stima era sbagliata di molto, e la ragione è una riga già scritta.**
+L'analisi prevedeva un motore di template — «`example` è una costante per
+chiave» — e due giornate di lavoro trasversale. Non serve: `mars_fixes
+.vesti()` scrive **solo dove il rilievo tace**, quindi un modulo che
+produca il proprio testo vince già, e il catalogo resta il ripiego
+dichiarato. È lo stesso meccanismo per cui `mars_wapt` conserva la
+`solution` di ZAP.
+
+**Il disegno è cambiato a metà strada, e l'ha deciso una misura.** Nei
+primi due giri il contenuto del sito **sostituiva** l'esempio. Sul golden
+del gruppo C la perdita è diventata visibile: al posto di
+`<img src="/sala.jpg" alt="La sala trattamenti">` — che dice *come deve
+diventare* — restava `/b.png`. Sono due domande diverse, «quali sono i
+miei» e «come devono diventare», e sovrapporle ne perde una. Il contenuto
+del sito è quindi passato in `params["cited"]`, reso in un blocco suo
+**prima** dell'esempio: si guarda ciò che si ha, poi come dovrebbe essere.
+Il cambio ha **semplificato** il resto — la didascalia di R60 torna vera
+sempre e non serve più a due stati, e sparisce la guardia i18n che serviva
+a impedire che il referto inglese sostituisse il frammento vero con
+l'esempio del catalogo (tutte e dieci le chiavi `seo.lh.*` ne hanno uno).
+
+**Tre strumenti, tre forme del dato, tutte misurate.**
+
+- **Lighthouse** (13.4.1, contro una pagina difettosa servita in locale):
+  `node.snippet` porta il tag come sta nella pagina. Entra solo se
+  **identifica** qualcosa, cioè se porta almeno un attributo: su
+  `document-title` manda `<html>`, che di elementi non ne distingue
+  nessuno e ripete ciò che il selettore diceva già. E `meta-description`
+  fallito arriva con **zero item**: il ripiego non è un caso limite
+  teorico.
+- **axe-core** (4.13, via Playwright, stessa pagina): `nodes[].html` è
+  **lo stesso dato** sotto un altro nome, e su `document-title` e
+  `html-has-lang` manda anch'esso `<html>`. Due strumenti, una regola:
+  `frammento_identificante()` sta perciò in `mars_core`.
+- **ZAP** (2.17.0, daemon vero contro la stessa pagina): dei **sei**
+  alert prodotti, **tre hanno `evidence` e nessuna è markup** — sono
+  stringhe della risposta. Gli altri tre — anti-clickjacking, CSP,
+  X-Content-Type-Options — non ne hanno affatto, perché il difetto è
+  un'**assenza**, e sono proprio quelli che pesano di più. Applicare lì
+  la regola del markup avrebbe scartato tutto.
+
+**Il gruppo C: l'identificatore, non il markup, e lo dice la misura.** I
+controlli statici il markup non ce l'hanno. Conservarlo per ogni elemento
+costa **+38,9% per pagina**; conservare il solo identificatore — `src`,
+`name`, `caption`, `href`, i testi degli heading — costa **+11,6%**, tre
+volte meno, ed è *più* onesto: un `<img src="…">` ricostruito sarebbe
+markup mai esistito, mentre un `src` viene davvero dal sito. Il gruppo B
+aveva già stabilito che un esempio vero non deve essere markup —
+l'`evidence` di ZAP non lo è. Un salto di gerarchia è una **relazione**
+fra due titoli, quindi `heading_texts` viaggia allineato a
+`heading_levels`; e dove l'identificatore manca — un campo senza `name`
+né `id` — il referto tace invece di inventarne uno.
+
+**Il lavoro sarebbe stato invisibile a chi legge.** Misurato: le aree con
+`audits` — SEO e Prestazioni — rendono `_elenco_controlli` **invece** di
+`_correzioni`, e quello mostrava titolo, dettaglio e spiegazione ma **non
+l'esempio**; il piano rende `fix` e non `example`. Erano le uniche due
+aree del referto HTML in cui un esempio non compariva mai. Il frammento
+sarebbe finito nel JSON e nel Markdown e non nella vista che il
+committente guarda.
+
+**Il difetto di sicurezza che questo lavoro introduce, e il suo presidio.**
+Da qui il referto **incorpora contenuto del sito analizzato**, e
+l'`evidence` di un XSS riflesso *è* un payload: se lo schermo cedesse,
+aprire un referto eseguirebbe l'attacco che il referto denuncia — e un
+referto è fatto per essere archiviato e riaperto anni dopo.
+`test_un_esempio_dal_sito_non_puo_eseguire_niente` usa un payload come
+**input** e copre entrambe le strade per cui il contenuto arriva
+nell'HTML. Verificato sul golden: zero script vivi.
+
+**Un presidio ha scattato per la ragione sbagliata.**
+`test_i_golden_html_non_hanno_origini_esterne` trovava
+`url(&quot;/font/titillium.woff2&quot;)` dentro l'esempio `@font-face`:
+testo escapato in un `<pre>`, inerte — falso positivo, esposto solo
+perché prima quegli esempi nell'HTML non comparivano. Il rilevatore salta
+ora il contenuto dei `<pre>`, **ma l'esenzione regge solo se quel
+contenuto è davvero escapato**: accanto c'è
+`test_nei_blocchi_esempio_non_c_e_markup_vivo`, e entrambe le mutazioni
+sono state provate.
+
+**Tre mutazioni sfuggite, e tutte e tre erano difetti del banco.** «Il
+taglio non si dichiara» risultava sfuggita perché l'ancora non
+corrispondeva e la sostituzione non era avvenuta. «I frammenti non si
+deduplicano» perché il tetto scattava **prima** che il duplicato venisse
+raggiunto. «Il `src` non viene conservato» perché ogni test costruiva le
+pagine a mano e nessuno esercitava l'estrazione **del crawler**. Tutte e
+tre chiuse: banco corretto, test spezzato in due, presidio aggiunto sul
+crawler.
+
+**Le prove.** Trenta test nuovi; **24/24 mutazioni colte** su quattro
+moduli, in tre giri. `flake8` a zero, **1402 test verdi**. Golden
+rigenerati e diff riletto: **nessun punteggio si muove**, in nessuno dei
+due referti. Le fixture sono state rese fedeli — il LHR non aveva gli
+`snippet`, i nodi axe non avevano `html`, gli alert ZAP non avevano
+`evidence` — perché senza quei campi congelavano un referto più povero di
+quello vero, che è la ragione già scritta nella docstring della fixture
+axe.
+
+**Il tetto non è più muto.** Cinque nomi su venti, senza dirlo, si
+leggono come venti su venti: `params["cited_total"]` porta il numero di
+elementi **distinti** trovati e il referto ci calcola il resto — «e altri
+12, non elencati». Distinti e non occorrenze: usare `instances` avrebbe
+detto «e altri 6» dove gli elementi diversi erano tre.
+
+**Gli item non-`node` di Lighthouse.** `is-crawlable` non porta un nodo:
+porta in `source` la stringa che blocca — `X-Robots-Tag: noindex` — ed è
+contenuto del sito quanto uno snippet. La regola del markup non le si
+applica, per la stessa ragione per cui non si applica all'`evidence` di
+ZAP: è una stringa della risposta, non un elemento.
+
+**Il piano dice quale elemento, ma su una riga — e una mia previsione era
+sbagliata.** Il TO-DO registrava come difetto che «il piano rende `fix` e
+non `example`». Non era una svista:
+`test_il_piano_html_non_ripete_gli_esempi` la fissa come **decisione**,
+con la ragione — sedici blocchi di codice dentro un elenco di priorità lo
+renderebbero illeggibile proprio come elenco. La decisione resta; quello
+che mancava davvero era il «quale elemento», che è una riga e non un
+blocco, e che serve proprio lì perché è la sezione su cui si agisce.
+Aggiunta in HTML e in Markdown, l'esempio resta alla scheda d'area.
+
+**Quattro mutazioni sfuggite in questo giro, tutte del banco.** Il totale
+era presidiato sul solo axe, quindi le mutazioni che lo toglievano da
+Lighthouse, dai controlli statici e da ZAP passavano; e nel test del
+piano l'assertion era `"3" in reso`, che passava per un `3` presente
+altrove nella scheda. Chiuse con un test che copre i quattro moduli e con
+l'assertion resa specifica («altri 3»).
+
+**Non verificato**: un active scan ZAP vero, che produce famiglie di
+alert diverse da quelle passive misurate qui.
 
 ### R66 — ✅ (2026-09-01): il referto aveva la diagnosi di Lighthouse e la buttava via
 

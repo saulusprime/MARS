@@ -378,6 +378,9 @@
             ],
             "immagini": 1,
             "instances": 1,
+            "cited": [
+              "/b.png"
+            ],
             "criterio": "1.1.1",
             "penalty": 12.0,
             "surface": true
@@ -400,6 +403,9 @@
             ],
             "salti": 1,
             "instances": 1,
+            "cited": [
+              "h1 I nostri servizi → h3 Percorsi post-operatori"
+            ],
             "criterio": "1.3.1",
             "penalty": 12.0,
             "surface": true
@@ -422,6 +428,9 @@
             ],
             "campi": 1,
             "instances": 1,
+            "cited": [
+              "nome"
+            ],
             "criterio": "1.3.1/3.3.2",
             "penalty": 12.0,
             "surface": true
@@ -466,6 +475,9 @@
             ],
             "link": 1,
             "instances": 1,
+            "cited": [
+              "clicca qui → /servizi/"
+            ],
             "criterio": "2.4.4",
             "penalty": 12.0,
             "surface": true
@@ -1015,6 +1027,9 @@
         ],
         "campi": 1,
         "instances": 1,
+        "cited": [
+          "nome"
+        ],
         "criterio": "1.3.1/3.3.2",
         "penalty": 12.0,
         "surface": true
@@ -1055,6 +1070,9 @@
         ],
         "immagini": 1,
         "instances": 1,
+        "cited": [
+          "/b.png"
+        ],
         "criterio": "1.1.1",
         "penalty": 12.0,
         "surface": true
@@ -1168,6 +1186,9 @@
         ],
         "salti": 1,
         "instances": 1,
+        "cited": [
+          "h1 I nostri servizi → h3 Percorsi post-operatori"
+        ],
         "criterio": "1.3.1",
         "penalty": 12.0,
         "surface": true

@@ -458,6 +458,26 @@ def test_una_chiave_fuori_catalogo_resta_in_italiano():
     assert finding_texts(rilievo, "en")["title"] == "Boh"
 
 
+def test_il_contenuto_del_sito_non_passa_dalla_traduzione():
+    """I20: gli elementi che vengono dal sito stanno in
+    `params["cited"]`, e i params `finding_texts` non li tocca — traduce
+    i soli quattro campi di testo.
+
+    Non e' una guardia da scrivere, e' una conseguenza di dove il dato
+    sta: e' la ragione per cui `cited` NON e' finito dentro `example`,
+    che invece a catalogo ha una traduzione per tutte e dieci le chiavi
+    `seo.lh.*` e l'avrebbe sostituito in silenzio."""
+    rilievo = {"key": "seo.lh.image_alt", "title": "T", "detail": "",
+               "fix": "Aggiungi alt.", "example": "<img alt='...'>",
+               "params": {"cited": ['<img src="/img/sala-pesi.jpg">']}}
+    testi = finding_texts(rilievo, "en")
+    # L'esempio E' prosa nostra e si traduce…
+    assert testi["fix"].startswith("Describe in alt")
+    assert testi["example"] != "<img alt='...'>"
+    # …e il contenuto del sito resta dov'era, intatto.
+    assert rilievo["params"]["cited"] == ['<img src="/img/sala-pesi.jpg">']
+
+
 def test_finding_texts_torna_sempre_i_quattro_campi():
     """Anche vuoti: il chiamante non deve distinguere «campo assente»
     da «campo non tradotto»."""

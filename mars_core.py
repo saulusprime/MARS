@@ -12,6 +12,7 @@ import importlib.util
 import json
 import math
 import os
+import re
 import sys
 import time
 import unicodedata
@@ -33,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.22.0"
+__version__ = "2.26.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -424,6 +425,56 @@ def severita_lighthouse(score: object, mode: str = "",
     if peso > 0:
         return (SEV_WARNING, 1.0)
     return (SEV_INFO, 1.0)
+
+
+# Quanto puo' essere lungo il testo con cui un elemento si identifica
+# nel referto. Un `<h2>` puo' essere lungo quanto un paragrafo, e chi
+# legge l'esempio deve riconoscere l'elemento, non rileggerlo.
+MAX_TESTO_ELEMENTO = 80
+
+# Un tag che porta almeno un attributo. E' il discrimine fra un
+# frammento che identifica UN elemento e uno che ripete quel che il
+# selettore diceva gia'.
+_TAG_CON_ATTRIBUTI = re.compile(r"<[A-Za-z][\w:.-]*\s+[^>]")
+
+
+def _didascalia_tabella(tabella: Tag) -> str:
+    """Come si chiama una tabella: `<caption>`, altrimenti `id`.
+
+    Nessuna delle due e' obbligatoria, e dove mancano entrambe la
+    tabella resta senza nome: il referto lo dira' invece di inventarne
+    uno (I20).
+    """
+    didascalia = tabella.find("caption")
+    if didascalia is not None:
+        testo = didascalia.get_text(" ", strip=True)
+        if testo:
+            return testo[:MAX_TESTO_ELEMENTO]
+    return (tabella.get("id") or "").strip()[:MAX_TESTO_ELEMENTO]
+
+
+def frammento_identificante(grezzo: object) -> str:
+    """Il frammento di markup se distingue UN elemento, altrimenti "".
+
+    Serve agli esempi che vengono dal sito (I20): Lighthouse lo chiama
+    `node.snippet`, axe lo chiama `nodes[].html`, ed e' lo stesso dato —
+    il tag come sta nella pagina. Sta qui e non in un modulo perche' i
+    due strumenti lo producono uguale e la regola deve restare una.
+
+    **Un tag nudo non identifica niente.** `<html>` esce da entrambi gli
+    strumenti sullo stesso difetto — titolo mancante, lang mancante — e
+    di `<html>` ce n'e' uno solo per pagina: mostrarlo ripeterebbe cio'
+    che il selettore diceva gia', e ruberebbe il posto all'esempio del
+    catalogo, che invece mostra la forma CORRETTA. Misurato su
+    Lighthouse 13.4.1 e su axe-core 4.13, non dedotto.
+
+    Il dato viene da uno strumento esterno: qualunque cosa non sia una
+    stringa torna "" invece di sollevare.
+    """
+    if not isinstance(grezzo, str):
+        return ""
+    testo = grezzo.strip()
+    return testo if _TAG_CON_ATTRIBUTI.match(testo) else ""
 
 
 def chiave_esterna(identificatore: object) -> str:
@@ -1047,8 +1098,14 @@ class Crawler:
                               (v if isinstance(v, list) else [v]))),
                 "x_robots_tag": resp.headers.get(
                     "X-Robots-Tag", "").strip().lower(),
+                # `src` accanto ad `alt`: senza, il referto puo'
+                # dire QUANTE immagini sono prive di alternativa
+                # testuale e non quali, e chi corregge le ricerca a
+                # mano (I20). L'identificatore e non il markup
+                # intero: misurato, il markup costa il triplo.
                 "images": [{"alt": i.get("alt"),
-                            "aria-label": i.get("aria-label")}
+                            "aria-label": i.get("aria-label"),
+                            "src": (i.get("src") or "").strip()}
                            for i in soup.find_all("img")],
                 # Letto qui una volta sola: serve a mars_wcag (criterio
                 # WCAG 3.1.1) e a mars_semantic per scegliere i termini
@@ -1187,6 +1244,10 @@ def estrai_struttura(soup: BeautifulSoup) -> dict:
     # una pagina con 80 campi costava 18,6 ms, piu' di un parse intero.
     etichette_for = {lbl.get("for") for lbl in soup.find_all("label")
                      if lbl.get("for")}
+    # Letti una volta sola: livelli e testi devono restare ALLINEATI
+    # per indice, e due `find_all` separate potrebbero divergere se un
+    # giorno l'elenco dei tag cambiasse in un punto solo.
+    intestazioni = soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])
 
     campi = []
     for campo in soup.find_all(["input", "select", "textarea"]):
@@ -1197,24 +1258,43 @@ def estrai_struttura(soup: BeautifulSoup) -> dict:
             or (campo.get("id") and campo.get("id") in etichette_for)
             or campo.find_parent("label"))
         campi.append({"type": (campo.get("type") or "").strip().lower(),
-                      "labelled": etichettato})
+                      "labelled": etichettato,
+                      # Come il campo si chiama nel modulo: `name`, e
+                      # in mancanza `id`. Senza, il referto puo' dire
+                      # QUANTI campi sono senza etichetta e non quali,
+                      # e chi corregge li ricerca a mano (I20).
+                      "name": (campo.get("name") or campo.get("id")
+                               or "").strip()})
 
     return {
         # I LIVELLI, in ordine di documento: i salti di gerarchia si
         # vedono solo dalla successione. Diverso da "headings", che
         # porta il testo dei soli h1-h3 e serve ad altro.
-        "heading_levels": [int(h.name[1]) for h in
-                           soup.find_all(["h1", "h2", "h3",
-                                          "h4", "h5", "h6"])],
+        "heading_levels": [int(h.name[1]) for h in intestazioni],
+        # I TESTI, allineati per indice ai livelli. Un salto e' una
+        # RELAZIONE fra due heading, non un elemento: senza i testi il
+        # referto puo' dire quanti salti ci sono e non fra quali due
+        # titoli (I20). Troncati, perche' un h2 puo' essere lungo
+        # quanto un paragrafo.
+        "heading_texts": [h.get_text(" ", strip=True)[:MAX_TESTO_ELEMENTO]
+                          for h in intestazioni],
         "form_fields": campi,
         "tables": [{"has_th": tabella.find("th") is not None,
-                    "role": (tabella.get("role") or "").strip().lower()}
+                    "role": (tabella.get("role") or "").strip().lower(),
+                    # Una tabella non ha un identificatore naturale:
+                    # la didascalia e l'id sono le due cose che a
+                    # volte ce l'hanno, e dove mancano il referto non
+                    # potra' dire quale tabella (I20).
+                    "caption": _didascalia_tabella(tabella)}
                    for tabella in soup.find_all("table")],
         # Il testo dei link, non un giudizio su quali siano generici:
         # l'elenco dei testi generici e' una scelta editoriale, e sta
         # nel modulo che la fa.
         "links": [{"text": a.get_text(" ", strip=True),
-                   "aria-label": a.get("aria-label")}
+                   "aria-label": a.get("aria-label"),
+                   # Dove porta il link: «clicca qui» non identifica
+                   # nulla, «clicca qui → /prezzi/» si' (I20).
+                   "href": (a.get("href") or "").strip()}
                   for a in soup.find_all("a", href=True)],
         # Valori grezzi: convertirli e' compito di chi li giudica,
         # perche' un tabindex non numerico e' esso stesso un dato.

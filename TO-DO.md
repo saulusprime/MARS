@@ -10,8 +10,8 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R65**, idee fino a
-> **I18**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **Frontiera della numerazione**: correzioni fino a **R66**, idee fino a
+> **I19**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -64,7 +64,11 @@
 > lo ricompone — la variazione rispetto al giro precedente sale in testa,
 > le tre tessere di uguale peso e il donut diventano due barre
 > proporzionali, e il movimento sta dietro `prefers-reduced-motion` —
-> e la versione è **2.22.0**.
+> e la versione è **2.22.0**. Il 2026-09-01 un audit eseguito dentro il
+> container ha aperto e chiuso **R66**: il referto leggeva «Lighthouse non
+> riuscito: CalledProcessError», cioè aveva la diagnosi dello strumento —
+> `CalledProcessError` porta lo stderr — e la buttava via. La versione NON
+> si muove: nessun punteggio cambia e nessuna interfaccia, come per I8.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

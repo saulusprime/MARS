@@ -90,6 +90,7 @@
 | I17 | La Recuperabilità è la media per query: k non muove più un voto | 2026-08-31 |
 | R65 | Le classifiche si fermano dove finiscono i riscontri | 2026-08-31 |
 | I19 | L'hero ricomposto: la variazione in testa, le quote come barre | 2026-08-31 |
+| R66 | «Lighthouse non riuscito: CalledProcessError», e la diagnosi buttata via | 2026-09-01 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2392,6 +2393,67 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R66 — ✅ (2026-09-01): il referto aveva la diagnosi di Lighthouse e la buttava via
+
+*(dal campo: il committente legge nel referto «Lighthouse non riuscito:
+CalledProcessError» dopo un audit dentro il container, e chiede che cosa
+significhi. Non significa niente — ed è il difetto.)*
+
+**Il difetto.** `esegui_lighthouse` esegue con `capture_output=True,
+text=True, check=True`, quindi il `CalledProcessError` che ne esce **porta
+con sé lo stderr di Lighthouse**: è lì che lo strumento scrive «Runtime
+error encountered: Unable to connect to Chrome», o qualunque altra sia la
+ragione. Il gestore teneva il solo `type(exc).__name__`. Il referto
+dichiarava correttamente l'area come non misurata — `score: None`,
+`status: "unavailable"` — ma la riga che avrebbe dovuto dire *perché*
+nominava una classe di eccezione Python, che non fa correggere nulla.
+Vicino a R31: una diagnosi che dice la cosa sbagliata è peggio del
+silenzio, perché sembra una risposta.
+
+**La correzione.** `_motivo_esterno()` prende le prime `MOTIVO_RIGHE`
+righe non vuote dello stderr e le mette in `detail` dopo il nome
+dell'eccezione. **La testa e non la coda**: Lighthouse scrive lì la
+ragione — «Runtime error encountered», «Failed to launch chrome» — e
+sotto c'è lo stack di Node, che nel referto sarebbe rumore. Tetto di
+`MOTIVO_MAX` caratteri contro la riga unica enorme, con l'ellissi a
+dichiarare il taglio: un messaggio troncato senza segno si legge come
+un messaggio completo che finisce a metà.
+
+**Le tre eccezioni senza stderr non cambiano.** `JSONDecodeError`,
+`KeyError` e `TypeError` non ne hanno, e `_motivo_esterno` torna la
+stringa vuota invece di un separatore che precede il nulla:
+`test_seo_il_fallimento_dice_quale`, che pinna `detail ==
+"JSONDecodeError"`, è rimasto verde senza essere toccato.
+
+**Una mutazione ha tolto codice invece di aggiungerne un test.** Il ramo
+che decodificava uno stderr `bytes` è sopravvissuto all'intera suite, ed
+era irraggiungibile per costruzione: `esegui_lighthouse` passa
+`text=True`. Rimosso — YAGNI — invece di coprirlo con un test che
+descriveva un caso impossibile.
+
+**Il banco di prova ha mentito una volta, e va detto.** Nel primo giro
+la mutazione «il taglio non si dichiara» è stata riportata *sfuggita*:
+l'ancora non corrispondeva — il sorgente aveva `"\u2026"` dove il banco
+cercava `"…"` — la sostituzione non era avvenuta, e una suite verde su
+codice **non mutato** è stata scambiata per una mutazione sopravvissuta.
+Corretto il banco perché un'ancora non applicata si dichiari, e resa
+letterale l'ellissi come in `mars_core` e `mars_report`. È la quinta
+volta che il difetto sta nel banco e non nel codice.
+
+**Le prove.** Tre test nuovi (lo stderr arriva in `detail` e nella
+issue; la riga enorme viene troncata e il taglio si vede; senza stderr
+il dettaglio resta il nome); **8/8 mutazioni colte** al giro finale, fra
+cui «lo stderr non viene mai guardato», «il troncamento non scatta mai»,
+«il motivo si aggiunge anche se vuoto» e «il separatore fra le righe
+sparisce» — le ultime due erano buchi veri, trovati dalle mutazioni e
+chiusi. `flake8` a zero, **1359 test verdi**. Golden non toccati: il
+ramo del fallimento non compare in `tests/golden/`, verificato prima di
+modificare.
+
+**Non verificato**: quale sia la ragione vera del fallimento nel
+container del committente. Questa voce fa dire al referto la ragione,
+non la indovina.
 
 ### I19 — ✅ REALIZZATA (2026-08-31): l'hero ricomposto, e il movimento dietro `prefers-reduced-motion`
 

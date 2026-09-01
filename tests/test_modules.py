@@ -3458,6 +3458,70 @@ def test_seo_ogni_ramo_non_misurato_porta_un_solo_rilievo(monkeypatch,
     assert "penalty" not in rilievo["params"]
 
 
+def test_seo_il_fallimento_riporta_lo_stderr_di_lighthouse(monkeypatch):
+    """`CalledProcessError` PORTA lo stderr dello strumento, ed e' li'
+    che Lighthouse dice perche' non e' partito. Il nome dell'eccezione
+    da solo non fa correggere nulla: un referto che legge «Lighthouse
+    non riuscito: CalledProcessError» ha una diagnosi e la nasconde."""
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome, path=None: "/usr/bin/lighthouse")
+
+    def run(*a, **k):
+        raise subprocess.CalledProcessError(
+            1, "lighthouse",
+            stderr="Runtime error encountered: Unable to connect to Chrome\n"
+                   "    at ChromeLauncher.launch (chrome-launcher.js:1:1)\n")
+
+    monkeypatch.setattr(mars_seo.subprocess, "run", run)
+
+    esito = mars_seo.audit({"url": "https://x/"})
+    rilievo = esito["findings"][0]
+    assert rilievo["key"] == "seo.status.failed"
+    assert "Unable to connect to Chrome" in rilievo["detail"]
+    assert "CalledProcessError" in rilievo["detail"]
+    assert "Unable to connect to Chrome" in esito["issues"][0]
+    # Le righe si separano: incollate darebbero «...Chrome    at
+    # ChromeLauncher», che non si legge.
+    assert " / " in rilievo["detail"]
+
+
+def test_seo_lo_stderr_lungo_viene_troncato(monkeypatch):
+    """Lo stack di Node e' lungo quanto vuole: nel referto entra la
+    testa, dove Lighthouse mette la ragione, e il taglio si vede."""
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome, path=None: "/usr/bin/lighthouse")
+
+    def run(*a, **k):
+        # UNA riga enorme, non cinquanta corte: il tetto sui caratteri
+        # protegge da questo: la testa e' gia' limitata a MOTIVO_RIGHE,
+        # quindi molte righe brevi non lo raggiungerebbero mai.
+        raise subprocess.CalledProcessError(
+            1, "lighthouse",
+            stderr="Runtime error encountered: " + "dettaglio " * 200)
+
+    monkeypatch.setattr(mars_seo.subprocess, "run", run)
+
+    rilievo = mars_seo.audit({"url": "https://x/"})["findings"][0]
+    assert rilievo["detail"].startswith("CalledProcessError: Runtime error")
+    assert len(rilievo["detail"]) <= mars_seo.MOTIVO_MAX + 40
+    assert rilievo["detail"].endswith("…")
+
+
+def test_seo_senza_stderr_il_dettaglio_resta_il_nome(monkeypatch):
+    """Tre delle quattro eccezioni non hanno uno stderr da mostrare, e
+    un separatore vuoto in coda sarebbe rumore."""
+    monkeypatch.setattr(mars_seo.shutil, "which",
+                        lambda nome, path=None: "/usr/bin/lighthouse")
+
+    def run(*a, **k):
+        raise subprocess.CalledProcessError(1, "lighthouse", stderr="   \n\n")
+
+    monkeypatch.setattr(mars_seo.subprocess, "run", run)
+
+    rilievo = mars_seo.audit({"url": "https://x/"})["findings"][0]
+    assert rilievo["detail"] == "CalledProcessError"
+
+
 def test_seo_il_fallimento_dice_quale(monkeypatch):
     """Quattro eccezioni condividono la chiave — sono gia' indistinte
     nella issue — ma `detail` dice quale, altrimenti la diagnosi si

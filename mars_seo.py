@@ -19,6 +19,13 @@ from mars_core import (LH_MODI_NON_MISURATI, SEV_INFO, Finding,
                        chiave_esterna, severita_lighthouse)
 
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
+
+# Quanto dello stderr dello strumento entra nel referto. Le righe che
+# dicono qualcosa stanno in TESTA — «Runtime error encountered»,
+# «Failed to launch chrome» — e sotto c'e' lo stack di Node, che nel
+# referto sarebbe rumore.
+MOTIVO_RIGHE = 3
+MOTIVO_MAX = 300
 CATEGORIA = "seo"
 
 # Dove cercare Lighthouse oltre al PATH. `package.json` lo dichiara fra
@@ -149,6 +156,34 @@ def _stato(chiave: str, testo: str, dettaglio: str = "",
     return Finding(area="mars_seo", severity=SEV_INFO, key=chiave,
                    title=testo, detail=dettaglio,
                    params=dict(params)).as_dict()
+
+
+def _motivo_esterno(exc: BaseException) -> str:
+    """Le prime righe non vuote dello stderr dello strumento, se ci sono.
+
+    `CalledProcessError` LO PORTA, perche' `esegui_lighthouse` cattura
+    entrambi i flussi: e' li' che Lighthouse dice perche' non e'
+    partito, e senza il referto avrebbe una diagnosi e la nasconderebbe.
+    Le altre tre eccezioni del gestore non hanno alcuno stderr, e allora
+    non c'e' nulla da aggiungere — la stringa vuota, non un separatore
+    che precede il nulla.
+
+    Il testo viene da uno strumento esterno e finisce in un referto
+    HTML: chi lo rende lo scherma, come ogni altro campo di un rilievo.
+    """
+    # `str` e non `bytes`: `esegui_lighthouse` passa `text=True`, quindi
+    # il ramo dei byte sarebbe codice che nessun test puo' raggiungere —
+    # una mutazione l'ha dimostrato sopravvivendo all'intera suite.
+    grezzo = getattr(exc, "stderr", None)
+    if not isinstance(grezzo, str):
+        return ""
+    righe = [riga.strip() for riga in grezzo.splitlines() if riga.strip()]
+    motivo = " / ".join(righe[:MOTIVO_RIGHE])
+    if len(motivo) > MOTIVO_MAX:
+        # Il taglio si dichiara: un messaggio troncato senza segno si
+        # legge come un messaggio completo che finisce a meta'.
+        motivo = motivo[:MOTIVO_MAX].rstrip() + "…"
+    return motivo
 
 
 def _penalita(voce: dict, totale_pesi: float) -> Optional[float]:
@@ -787,9 +822,12 @@ def audit(context: dict) -> dict:
         # nella issue, e quattro chiavi per quattro nomi di eccezione
         # Python farebbero della chiave un dettaglio d'implementazione.
         # Quale sia lo dice `detail`.
+        motivo = _motivo_esterno(exc)
+        dettaglio = type(exc).__name__
+        if motivo:
+            dettaglio = "%s: %s" % (dettaglio, motivo)
         return {"score": None, "status": "unavailable",
-                "issues": ["Lighthouse non riuscito: %s"
-                           % type(exc).__name__],
+                "issues": ["Lighthouse non riuscito: %s" % dettaglio],
                 "findings": [_stato("seo.status.failed",
                                     "Lighthouse non riuscito",
-                                    type(exc).__name__)]}
+                                    dettaglio)]}

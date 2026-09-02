@@ -21,7 +21,7 @@ corregge.
 
 | Voce | Valore |
 |---|---|
-| Linguaggio | Python. Il `.venv` di questa macchina gira **3.14.4**; il codice non usa sintassi oltre la 3.10 e nessuna dipendenza nativa pesante è obbligatoria, quindi la versione non è un vincolo dichiarato — se lo diventa, va scritto qui e non dato per noto |
+| Linguaggio | Python. Il `.venv` di questa macchina gira **3.10.12** — la più bassa che il progetto regga, scelta perché è lì che i difetti di versione si vedono — e l'immagine del container la 3.12. Il codice non usa sintassi oltre la 3.10 e nessuna dipendenza nativa pesante è obbligatoria, quindi la versione non è un vincolo dichiarato. **Ma la sintassi non basta a verificarlo**: R67 era un comportamento della libreria standard — `fromisoformat` e la zulu — assente sotto la 3.11, e nessuna rilettura in cerca di sintassi lo avrebbe trovato. Se un vincolo di versione nasce, va scritto qui e non dato per noto |
 | Dipendenze | `requirements.txt` (runtime), `requirements-dev.txt`, `requirements-optional.txt`. Nessun `pyproject.toml`, nessun lock. Ogni dipendenza *opzionale* deve avere un ripiego dichiarato (principio 2); una nuova dipendenza **obbligatoria** va motivata per iscritto e ha licenza MIT/BSD/Apache-2.0 |
 | Stile e strumenti | PEP 8, PEP 257, type hints PEP 484/604 sulle firme pubbliche. Il presidio è **`flake8`**, configurato in `setup.cfg`, e deve restare a zero. `ruff` e `mypy` non sono installati: non citarli in una verifica |
 | Test | `pytest`, configurato in `setup.cfg` (`addopts = -q`). Si invoca **senza `-q`** — il perché sta in [.claude/metodo.md](.claude/metodo.md). Nessun coverage gate, nessun database: la suite non tocca la rete e non deve dipendere dalla macchina. Un test di regressione per ogni difetto chiuso |

@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R66**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R67**, idee fino a
 > **I20**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -79,6 +79,13 @@
 > ha reso parlanti i tetti e ha portato il «quale elemento» nel piano,
 > e a **2.27.0** con la prima delle tre letture di «completa»: il piano
 > copre anche gli `info`.
+>
+> **Il 2026-09-02 il montaggio di un `.venv` a 3.10 su questa macchina ha
+> aperto e chiuso R67**, nata dall'ambiente e non da una revisione: la
+> suite era verde altrove e rossa qui. `_iso` passava a `fromisoformat`
+> una `Z` che solo la 3.11 legge, e sotto un `unavailable_after` scaduto
+> spariva dal referto **senza un errore**. Non muove `__version__`: sugli
+> interpreti su cui MARS gira davvero l'esito è identico prima e dopo.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

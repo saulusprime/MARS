@@ -258,7 +258,7 @@ def direttive_robots(pagina: dict) -> Set[str]:
 
 
 def _iso(valore: str) -> datetime:
-    """`datetime.fromisoformat` con la Zulu minuscola ammessa.
+    """`datetime.fromisoformat` con la zulu minuscola resa in offset.
 
     Il crawler abbassa `meta_robots` e `x_robots_tag` con `.lower()`
     (`mars_core`), quindi qui una `Z` maiuscola non arriva **mai** — e
@@ -267,9 +267,19 @@ def _iso(valore: str) -> datetime:
     `2020-09-21t12:00:00z`, non si leggeva: il difetto e' stato
     scoperto correggendo un test di R36 che esercitava la maiuscola,
     cioe' un percorso gia' chiuso un livello piu' su.
+
+    **Si sostituisce con `+00:00` e non con la `Z` maiuscola** (R67):
+    la zulu `fromisoformat` la legge solo dalla 3.11, e rialzare la
+    lettera legava a quella versione un rilievo del referto — sotto,
+    la data restava illeggibile e una pagina scaduta non ne produceva
+    alcuno, in silenzio. L'offset esplicito si legge da ogni versione.
+    Restano lette dalla sola 3.11 le forme che MARS non dichiara di
+    leggere — `+0000` senza i due punti, il formato base `20200921` —
+    e li' vale cio' che `scadenza_dichiarata` gia' dichiara: una data
+    che non si legge non produce alcun giudizio.
     """
     if valore.endswith("z"):
-        valore = valore[:-1] + "Z"
+        valore = valore[:-1] + "+00:00"
     return datetime.fromisoformat(valore)
 
 

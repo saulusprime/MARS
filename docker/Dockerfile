@@ -31,9 +31,14 @@ FROM python:3.12-slim-bookworm
 #     docker build --build-arg MARS_EMBEDDINGS=on ...
 ARG MARS_EMBEDDINGS=off
 
-# Python 3.12 e non la 3.14 del .venv di sviluppo: il codice non usa
-# sintassi oltre la 3.10 (CLAUDE.md) e la 3.12 e' la versione con la
+# Python 3.12 e non la 3.10 del .venv di sviluppo: e' la versione con la
 # copertura di wheel piu' larga per lxml, bcrypt e torch.
+#
+# La riga diceva anche «il codice non usa sintassi oltre la 3.10», ed e'
+# vero ma non e' la verifica giusta: R67 era un comportamento della
+# libreria standard — `fromisoformat` e la zulu — che la 3.10 non ha, e
+# il referto perdeva un rilievo senza un errore. Chi cambia questa
+# versione guardi il comportamento, non la sintassi.
 #
 # PIP_ROOT_USER_ACTION=ignore silenzia l'avviso «Running pip as the
 # 'root' user»: fuori da un container mette in guardia dal rompere il

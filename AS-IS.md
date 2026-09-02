@@ -93,6 +93,7 @@
 | R66 | «Lighthouse non riuscito: CalledProcessError», e la diagnosi buttata via | 2026-09-01 |
 | I20 | «Nel tuo sito»: quali elementi, accanto a come devono diventare | 2026-09-01 |
 | I20 | Il piano copre anche gli `info`, e i controlli non falliti restano fuori | 2026-09-01 |
+| R67 | La zulu minuscola legava un rilievo alla versione di Python | 2026-09-02 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2395,6 +2396,68 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R67 — ✅ (2026-09-02): la zulu minuscola legava un rilievo alla versione di Python
+
+*(nato dal montaggio di un `.venv` a 3.10 su questa macchina: la suite,
+verde altrove, è arrivata rossa. `__version__` resta **2.27.0** — sugli
+interpreti su cui MARS gira davvero, container 3.12 compreso, l'esito è
+identico prima e dopo.)*
+
+**Il difetto.** `_iso` rialzava a `Z` la zulu minuscola e passava a
+`datetime.fromisoformat`. Quella `Z` `fromisoformat` la legge **solo
+dalla 3.11**; sotto, solleva `ValueError`. E `scadenza_dichiarata`
+tratta una data illeggibile come assente — restituisce `None`, per la
+ragione dichiarata che dedurne «scaduta» sarebbe un rilievo critico su
+una misura che non c'è. Quindi `unavailable_after: 2020-09-21t12:00:00z`
+— che la docstring di `_iso` chiama «l'unica forma che il crawler
+consegna davvero», perché `mars_core` abbassa `meta_robots` con
+`.lower()` — non produceva alcun rilievo, **in silenzio**: una pagina
+che il sito dichiara scaduta non compariva da nessuna parte nel referto.
+
+**Perché nessuno l'aveva visto, ed è la parte che vale.**
+[CLAUDE.md](CLAUDE.md) dichiarava che la versione di Python non è un
+vincolo «perché il codice non usa **sintassi** oltre la 3.10», e
+`docker/Dockerfile` ripeteva la stessa ragione per scegliere la 3.12.
+La ragione è ragionevole e il bersaglio è sbagliato: questo è un
+comportamento della libreria standard, e chi rilegge in cerca di
+sintassi non lo trova mai. Era l'unico punto ≥3.11 del repository —
+cercati anche `tomllib`, `ExceptionGroup`, `StrEnum`, `except*`.
+Tutte e due le righe sono state corrette, perché la prossima persona
+che sceglie una versione legge quelle.
+
+**La correzione.** `+00:00` al posto della `Z`: l'offset esplicito lo
+legge ogni versione, misurato sulla 3.10.12. Il vincolo non si dichiara
+perché non c'è più. Restano lette dalla sola 3.11 le forme che MARS non
+dichiara di leggere — `+0000` senza i due punti, il formato base
+`20200921` — e lì vale ciò che `scadenza_dichiarata` già dichiara:
+una data che non si legge non produce alcun giudizio.
+
+**Una mutazione è equivalente, e si dichiara invece di contarla.**
+«Non togliere la `z` prima di aggiungere l'offset» lascia la suite verde,
+e non è un buco del banco: `fromisoformat` della 3.10 **tollera un
+carattere spurio** prima dell'offset — `2020-09-21t12:00:00X+00:00` si
+legge. Misurato, non dedotto. Nessun test può coglierla perché non
+cambia il risultato.
+
+**Il presidio ha un limite, e va saputo.** Il test nuovo pinna
+l'**istante** — `+00:00` e non `+01:00`, che nessun altro test guardava
+perché su una data del 2020 il rilievo scatta comunque, e la differenza
+esiste solo per una pagina che scade dentro l'ora. Ma la regressione
+originale — la `Z` che torna — è **invisibile sopra la 3.11**, dove la
+libreria fa lo stesso lavoro: là nessun test può distinguere le due
+stesure. Il presidio, per quella, è la suite eseguita sulla 3.10, ed è
+la ragione per cui il `.venv` di questa macchina ci resta.
+
+**Le prove.** Un test nuovo; **3/3 mutazioni reali colte** — la `Z`
+torna maiuscola, l'offset non è UTC, si guarda la maiuscola che non
+arriva mai. `flake8` a zero, **1405 test verdi**. Golden invariati:
+nessuno dei due dataset usa quella forma, ed è anche il motivo per cui
+i golden non l'hanno mai vista.
+
+**Non verificato**: il comportamento sulla 3.11 e sulla 3.12, che su
+questa macchina non ci sono. La correzione le riguarda solo perché
+toglie una differenza, non perché ne introduca una.
 
 ### I20 («completa», lettura 1) — ✅ REALIZZATA (2026-09-01): il piano copre anche gli `info`
 

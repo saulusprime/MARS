@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import types
+from datetime import datetime, timezone
 
 import pytest
 import requests
@@ -545,6 +546,19 @@ def test_tech_i_formati_di_data_ammessi_si_leggono_tutti(valore):
         meta_robots="unavailable_after: %s" % valore))
     assert any(f["key"] == "tech.index.unavailable_after"
                for f in esito["findings"]), valore
+
+
+def test_tech_la_zulu_finale_vale_utc_e_non_un_altro_fuso():
+    """R67: la `z` finale significa UTC, e quale offset le si sostituisca
+    non lo guarda nessun altro test.
+
+    Il caso qui sopra chiede solo se il rilievo scatta, su una data del
+    2020: spostare l'istante di un'ora lo lascia identico. La differenza
+    esiste per una pagina che scade DENTRO l'ora, ed e' l'unico punto in
+    cui `+00:00` si distingue da `+01:00`."""
+    quando = mars_tech.scadenza_dichiarata(
+        {"meta_robots": "unavailable_after: 2020-09-21t12:00:00z"})
+    assert quando == datetime(2020, 9, 21, 12, 0, tzinfo=timezone.utc)
 
 
 def test_tech_la_scadenza_si_legge_anche_dall_header():

@@ -20,7 +20,17 @@ import httpx  # noqa: E402
 import requests  # noqa: E402
 
 import mars_core  # noqa: E402
-import mars_wcag  # noqa: E402
+
+# `mars_wcag` NON si prende da un `import`, e la regola era gia' scritta
+# in `test_golden`: il caricatore lo registra in `sys.modules` al posto
+# dell'oggetto importato, quindi i due non sono lo stesso. Qui costava
+# piu' che altrove — `locale_axe_fisso` e' `autouse`, e rattoppava
+# l'oggetto morto: il modulo vivo continuava a leggere `node_modules`,
+# cioe' proprio la dipendenza dalla macchina che la fixture toglie.
+# Verde dove qualcuno ha lanciato `npm install`, rosso su un clone
+# pulito (R68).
+mars_wcag = mars_core.load_external_module("mars_wcag")
+assert mars_wcag is not None, "mars_wcag non si carica"
 
 
 class NienteRete(AssertionError, requests.RequestException):

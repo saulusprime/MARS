@@ -1908,8 +1908,14 @@ def test_wcag_la_suite_non_legge_il_locale_vero():
     i test resterebbero verdi lo stesso. Un guardiano si rileva solo se
     qualcosa prova a passargli davanti, e qui a provarci e' questa
     asserzione: 103 regole invece di 2.
+
+    **Si interroga il modulo che il caricatore restituisce**, non quello
+    importato qui: finche' erano due oggetti diversi la fixture
+    rattoppava il secondo e il primo leggeva `node_modules` lo stesso,
+    quindi il presidio sorvegliava il guardiano invece della porta —
+    e passava (R68).
     """
-    assert mars_wcag.testi_axe() == TESTI_AXE
+    assert load_external_module("mars_wcag").testi_axe() == TESTI_AXE
 
 
 def test_wcag_i_due_testi_axe_vengono_dal_locale():

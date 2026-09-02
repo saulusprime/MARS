@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R67**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R68**, idee fino a
 > **I20**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -81,11 +81,15 @@
 > copre anche gli `info`.
 >
 > **Il 2026-09-02 il montaggio di un `.venv` a 3.10 su questa macchina ha
-> aperto e chiuso R67**, nata dall'ambiente e non da una revisione: la
-> suite era verde altrove e rossa qui. `_iso` passava a `fromisoformat`
-> una `Z` che solo la 3.11 legge, e sotto un `unavailable_after` scaduto
-> spariva dal referto **senza un errore**. Non muove `__version__`: sugli
-> interpreti su cui MARS gira davvero l'esito è identico prima e dopo.
+> aperto e chiuso R67 e R68**, tutte e due nate dall'ambiente e non da una
+> revisione: la suite era verde altrove e rossa qui. **R67** — `_iso`
+> passava a `fromisoformat` una `Z` che solo la 3.11 legge, e sotto un
+> `unavailable_after` scaduto spariva dal referto **senza un errore**;
+> **R68** — `conftest` prendeva `mars_wcag` da un `import` invece che dal
+> caricatore, quindi la fixture `autouse` del locale axe rattoppava un
+> oggetto morto e la suite tornava a dipendere da `npm install`. Nessuna
+> delle due muove `__version__`: sugli interpreti su cui MARS gira davvero
+> l'esito è identico, e la seconda è banco di prova soltanto.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

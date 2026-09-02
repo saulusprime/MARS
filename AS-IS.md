@@ -94,6 +94,7 @@
 | I20 | «Nel tuo sito»: quali elementi, accanto a come devono diventare | 2026-09-01 |
 | I20 | Il piano copre anche gli `info`, e i controlli non falliti restano fuori | 2026-09-01 |
 | R67 | La zulu minuscola legava un rilievo alla versione di Python | 2026-09-02 |
+| R68 | La fixture del locale axe rattoppava un modulo morto | 2026-09-02 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2458,6 +2459,50 @@ i golden non l'hanno mai vista.
 **Non verificato**: il comportamento sulla 3.11 e sulla 3.12, che su
 questa macchina non ci sono. La correzione le riguarda solo perché
 toglie una differenza, non perché ne introduca una.
+
+### R68 — ✅ (2026-09-02): la fixture del locale axe rattoppava un modulo morto
+
+*(stesso montaggio, `node_modules` vuota, un test i18n rosso. Banco di
+prova soltanto: nessun punteggio, nessuna interfaccia, `__version__`
+ferma.)*
+
+**Il difetto.** `conftest.py` prendeva `mars_wcag` da un `import`, e
+`load_external_module` lo **sostituisce in `sys.modules`**. La trappola
+sta in CLAUDE.md, e la regola era scritta pure — in
+[tests/test_golden.py](tests/test_golden.py): «i moduli si prendono da
+`load_external_module` e NON da un `import`: il caricatore sostituisce
+l'oggetto in `sys.modules` … una patch applicata all'oggetto importato
+non arriverebbe a quello che gira». Sotto quella riga viveva
+`locale_axe_fisso`, `autouse`, che rattoppava esattamente l'oggetto
+sbagliato. Il modulo vivo continuava a leggere
+`node_modules/axe-core/locales/it.json` — cioè proprio la dipendenza
+dalla macchina che la fixture esiste per togliere: verde dove qualcuno
+ha lanciato `npm install`, rosso su un clone pulito.
+
+**Due oggetti per lo stesso file, e i test divisi fra i due.** Rosso era
+solo `test_la_lingua_dell_audit_arriva_ad_axe`, che importa `mars_wcag`
+**dentro** il test — cioè dopo che `test_modules` ha chiamato il
+caricatore in testa al proprio modulo. Ogni altro test axe teneva il
+riferimento importato prima dello scambio, quindi parlava col modulo
+rattoppato. Nulla lo dichiarava.
+
+**Il presidio sorvegliava il guardiano invece della porta.**
+`test_wcag_la_suite_non_legge_il_locale_vero` esiste esattamente per
+questo caso, ed era verde: interrogava `mars_wcag` come lo vede
+`test_modules`, cioè l'oggetto rattoppato. Ora chiede il modulo al
+caricatore, e diventa rosso **su ogni macchina** — senza il file legge
+`{}`, col file legge le regole del file. Misurato in tutti e due i
+versi, il secondo con un locale finto messo lì apposta.
+
+**Le prove.** Nessun test nuovo: quello che serviva c'era, ed è stato
+puntato sull'oggetto giusto. **3/3 mutazioni colte** — conftest torna
+all'`import` (sul presidio e sul test i18n), la fixture non rattoppa più
+nulla. `flake8` a zero, **1405 test verdi**.
+
+**Non verificato**: che nessun'altra fixture soffra dello stesso scambio.
+`mars_core` è l'unico altro modulo che `conftest` importa, e il
+caricatore non lo tocca — è lui il caricatore — ma il controllo è stato
+fatto a lettura, non con una prova.
 
 ### I20 («completa», lettura 1) — ✅ REALIZZATA (2026-09-01): il piano copre anche gli `info`
 

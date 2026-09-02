@@ -34,6 +34,25 @@ services:
       # indirizzo non risponde e l'area 8 ripiega sul controllo di
       # superficie, dichiarandolo (principio 2).
       ZAP_PROXY: "http://zap:8080"
+    # Il default di Docker e' 64 MB, e il renderer di Chromium ci muore:
+    # «Browser tab has unexpectedly crashed», misurato dentro questo
+    # stack su un sito reale. Con 1 GB lo stesso comando passa.
+    #
+    # Ne soffre il solo Lighthouse (aree 2 e 3), ed e' la stessa
+    # asimmetria del sandbox: Playwright lancia Chromium con
+    # `--disable-dev-shm-usage` fra i propri switch, quindi l'area 7
+    # funziona e l'asimmetria depista. Il binario e' lo stesso — vedi
+    # l'involucro CHROME_PATH nel Dockerfile.
+    #
+    # `shm_size` e non il flag: il flag sposta la memoria condivisa su
+    # /tmp, che nel container e' il filesystem a strati, cioe' disco.
+    # L'area 3 misura LCP, TBT e Speed Index, e un renderer rallentato
+    # dallo storage misurerebbe il container invece del sito. Quanto,
+    # non e' stato misurato — e in un'area che esiste per misurare non
+    # si accetta un rischio ignoto. Il tmpfs lascia la domanda fuori.
+    #
+    # Vale per compose. Senza, serve  --shm-size=1g  (README).
+    shm_size: "1gb"
     working_dir: /app
     volumes:
       # Il repository dell'host: e' QUESTO che gira, non una copia.

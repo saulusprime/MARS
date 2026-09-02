@@ -71,6 +71,7 @@ docker build -f docker/Dockerfile -t mars-stack:latest .
 docker run --rm \
     -v "$PWD:/app" \
     -v mars_node_modules:/app/node_modules \
+    --shm-size=1g \
     mars-stack audit https://www.example.com
 ```
 
@@ -186,13 +187,24 @@ docker compose run --rm mars python -c \
      b=p.chromium.launch(); print('chromium OK'); b.close(); p.stop()"
 ```
 
-E che **Lighthouse** parta — è l'area che il sandbox rompeva, e passa da
-un binario diverso da quello di Playwright:
+E che **Lighthouse** parta — è l'area che il sandbox rompeva, e lancia lo
+stesso binario di Playwright per un'altra strada, con altri flag:
 
 ```bash
 docker compose run --rm mars sh -c \
     'lighthouse https://example.com --output=json --quiet \
      --chrome-flags=--headless | head -c 80'
+```
+
+`example.com` è una pagina vuota e passa anche dove un sito vero non
+passa: per la memoria condivisa vedi più sotto, e provalo su un sito con
+delle immagini.
+
+E che `/dev/shm` sia quello dichiarato, perché con il default di Docker
+le aree 2 e 3 spariscono dal referto:
+
+```bash
+docker compose run --rm mars sh -c 'df -h /dev/shm'      # atteso: 1.0G
 ```
 
 ## Chromium e il sandbox
@@ -241,6 +253,35 @@ Chromium (`chrome_sandbox`, copiato e reso `4755 root`, dichiarato con
 `CHROME_DEVEL_SANDBOX`). Non basta, e la ragione è la stessa: anche
 l'helper, per costruire il sandbox, ha bisogno dei flag di `clone` che il
 seccomp predefinito nega. Misurato su un host reale, non previsto.
+
+## Chromium e `/dev/shm`
+
+**Il default di Docker è 64 MB, e il renderer ci muore.** Non è un caso
+limite: misurato dentro questo stack su un sito reale, Lighthouse esce
+con `Runtime error encountered: Browser tab has unexpectedly crashed`, e
+le aree 2 e 3 finiscono nel referto come **non misurate**. Con 1 GB lo
+stesso identico comando passa.
+
+**È la stessa asimmetria del sandbox, e depista allo stesso modo.** Il
+binario è uno solo — l'involucro `CHROME_PATH` avvolge l'eseguibile di
+Playwright — ma i due consumatori lo lanciano con flag diversi:
+`--disable-dev-shm-usage` è fra gli switch predefiniti di Playwright, e
+`chrome-launcher` non lo aggiunge. Quindi l'area 7 funziona, l'area 2 no,
+e sembra un problema di Lighthouse mentre è un problema del container.
+
+**Si alza `shm_size` invece di passare il flag**, e la ragione riguarda
+proprio ciò che MARS misura: il flag sposta la memoria condivisa su
+`/tmp`, che nel container è il filesystem a strati — disco. L'area 3
+misura LCP, TBT e Speed Index, e un renderer rallentato dallo storage
+misurerebbe il container invece del sito. Di quanto, non è stato
+misurato; in un'area che esiste per misurare, un rischio ignoto non si
+accetta. Il tmpfs toglie la domanda.
+
+`docker-compose.yml` lo dichiara sul servizio `mars`. **A mano serve
+`--shm-size=1g`**, ed è l'ennesima cosa che senza compose si dimentica:
+per questo l'entrypoint controlla la dimensione e avvisa su `stderr`
+sotto i 128 MB, invece di lasciare che il referto perda due aree con una
+diagnosi che nomina il sintomo.
 
 ## Altre scelte, in breve
 

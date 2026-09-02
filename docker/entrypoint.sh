@@ -42,6 +42,23 @@ if [ ! -f "$APP/node_modules/axe-core/axe.min.js" ]; then
     echo "        porta; a mano:  -v mars_node_modules:/app/node_modules" >&2
 fi
 
+# Stessa ragione dell'avviso qui sopra: il referto lo dichiarerebbe
+# comunque, ma chi guarda il terminale merita di saperlo prima. E qui
+# la diagnosi e' peggiore, perche' l'errore di Lighthouse nomina il
+# sintomo — «Browser tab has unexpectedly crashed» — e non la causa.
+#
+# La soglia e' 128 MB perche' sotto non l'ha scelta nessuno: il default
+# di Docker e' 64 MB. Compose dichiara 1 GB, l'unica misura che si sa
+# reggere.
+SHM_KB=$(df -k /dev/shm 2>/dev/null | awk 'NR==2 {print $2}') || true
+if [ -n "${SHM_KB:-}" ] && [ "$SHM_KB" -lt 131072 ]; then
+    echo "avviso: /dev/shm e' di $((SHM_KB / 1024)) MB — le aree 2 e 3" >&2
+    echo "        (SEO, Prestazioni) possono fallire con «Browser tab" >&2
+    echo "        has unexpectedly crashed»: e' il renderer di Chromium" >&2
+    echo "        che esaurisce la memoria condivisa." >&2
+    echo "        Con docker compose e' gia' 1 GB; a mano: --shm-size=1g" >&2
+fi
+
 case "${1:-api}" in
     api)
         # `shift` con zero argomenti e' un errore del builtin e sotto

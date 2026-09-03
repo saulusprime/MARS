@@ -127,6 +127,17 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             # sezione, e senza non si sa QUALE controllo sia fallito.
             "audits": list(res.get("audits") or []) or None,
             "form_factor": res.get("form_factor"),
+            # Il budget della scansione ZAP, dove l'area lo ha (I21).
+            # Sta accanto a `form_factor` per la stessa ragione: e' un
+            # parametro che rende due referti non confrontabili alla
+            # pari, e senza scriverlo qui bisognerebbe sapere con quale
+            # riga di comando quel referto e' stato prodotto.
+            #
+            # Nel solo dato canonico e non nelle viste umane: quando il
+            # budget MORDE, il referto lo dice gia' a parole — «rilievi
+            # parziali» — e quando non morde la misura e' intera, cioe'
+            # il numero non cambierebbe una decisione di chi legge.
+            "zap_timeout": res.get("zap_timeout"),
             # False quando lo strumento non e' arrivato in fondo (ZAP
             # interrotto dal timeout, axe che non ha caricato tutte le
             # pagine): un punteggio parziale non e' un punteggio pieno.

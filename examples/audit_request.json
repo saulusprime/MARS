@@ -33,6 +33,7 @@
   "judge_models": "",
   "i_own_this_domain": false,
   "max_children": 0,
+  "zap_timeout": 900,
   "rrf_k": 60,
   "form_factor": "mobile",
   "credentials": {

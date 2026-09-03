@@ -1774,6 +1774,36 @@ def test_build_context_porta_il_k_della_fusione(monkeypatch):
         "il default resta quello del paper (Cormack 2009)"
 
 
+def test_build_context_porta_il_budget_di_zap(monkeypatch):
+    """I21, e il buco che una mutazione ha trovato: i test di CLI e API
+    sostituiscono `build_context`, quindi dimostravano che il valore ci
+    ARRIVA e non che venga conservato.
+
+    Con `build_context` che scriveva sempre la costante, tutta la
+    catena restava verde e `--zap-timeout` era inerte — R54 un piano
+    piu' sotto."""
+    class _CrawlerFinto:
+        def __init__(self, *a, **k):
+            self.delay = 0.0
+            self.robots_info = {"found": False, "text": "", "sitemaps": []}
+            self.sitemap_info = {}
+            self.discovery = "link interni"
+            self.skipped = {}
+
+        def crawl(self):
+            return {"https://x/": {"title": "x", "text": "x", "lang": "it",
+                                   "html": "<p>x</p>", "headings": [],
+                                   "chunks": ["x"]}}
+
+    monkeypatch.setattr(mars_core, "Crawler", _CrawlerFinto)
+    ctx = mars_core.build_context("https://x/", 1, "none", "global",
+                                  zap_timeout=42)
+    assert ctx["zap_timeout"] == 42
+    ctx = mars_core.build_context("https://x/", 1, "none", "global")
+    assert ctx["zap_timeout"] == mars_core.ZAP_TIMEOUT == 900, \
+        "il default resta il quarto d'ora"
+
+
 def test_build_context_porta_il_form_factor(monkeypatch):
     """I16: il form factor sta nel context e non fra i parametri del
     `Crawler` per la stessa ragione di `max_children` — non riguarda la

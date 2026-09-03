@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.27.0
+Versione 2.28.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -269,6 +269,24 @@ attraverso il proxy. Non serve alcun pacchetto pip, solo il daemon.
     percorsa UNA, perche' robots.txt e sitemap.xml contano anch'essi
     come figli. Serve a contenere una scansione, non a renderla
     esatta: esatta non puo' essere, e il referto lo dice.
+
+    IL TEMPO e' l'altro limite, ed e' l'unico che agisca sul totale:
+    --zap-timeout (predefinito 900 secondi) e' il budget di spider e
+    active scan INSIEME. Allo scadere MARS ordina al daemon di fermarsi
+    e il referto dichiara i rilievi come parziali, invece di smettere
+    di aspettare lasciando la scansione viva (R27).
+
+    ATTENZIONE al verso: un budget corto non abbassa il punteggio, lo
+    ALZA. Meno tempo significa meno alert trovati, e zero alert vale
+    100 su 100. Per questo il valore finisce nel referto accanto agli
+    altri parametri di riproducibilita': due esecuzioni con budget
+    diversi non si confrontano alla pari. Zero e' rifiutato prima della
+    scansione — non e' un giro corto, e' un giro che non parte.
+
+    La scansione attiva satura la CPU per minuti. Nello stack in
+    container il servizio ZAP ha un tetto di un core (docker/README.md):
+    la macchina resta usabile mentre gira, al prezzo che dentro lo
+    stesso budget ZAP arriva meno lontano.
 
 MARS si collega a un daemon GIA' in esecuzione e non lo avvia:
 orchestrare un processo Java dal codice significa rischiare di

@@ -22,7 +22,8 @@ from passlib.context import CryptContext
 
 from mars_core import (CREDENZIALI_NOTE, DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
                        DEFAULT_TIMEOUT, FORM_FACTORS, MODULES_REGISTRY,
-                       RRF_K, __version__, load_external_module,
+                       RRF_K, ZAP_TIMEOUT, __version__,
+                       load_external_module,
                        normalizza_risultato)
 from mars_core import build_context as core_build_context
 from mars_report import build_report
@@ -191,6 +192,15 @@ class AuditRequest(BaseModel):
                     "con k diversi non si confrontano alla pari: il "
                     "referto dichiara in rrf.k quale ha usato, e in "
                     "rrf_sensitivity come cambierebbe.")
+    zap_timeout: int = Field(
+        ZAP_TIMEOUT, gt=0, le=86400,
+        description="Secondi concessi alla scansione ZAP, spider e active "
+                    "scan INSIEME. Allo scadere MARS ferma il daemon e i "
+                    "rilievi si dichiarano parziali. ATTENZIONE: un budget "
+                    "corto non abbassa il punteggio, lo ALZA — meno tempo "
+                    "significa meno alert, e zero alert vale 100. Il valore "
+                    "finisce nel referto: due esecuzioni con budget diversi "
+                    "non si confrontano alla pari.")
     i_own_this_domain: bool = Field(
         default=False,
         description="DICHIARAZIONE di proprietà del dominio e di assunzione "
@@ -325,6 +335,7 @@ def build_context(req: AuditRequest) -> dict:
                                  owner_declaration=req.i_own_this_domain,
                                  max_children=req.max_children,
                                  rrf_k=req.rrf_k,
+                                 zap_timeout=req.zap_timeout,
                                  llm=req.llm,
                                  judge_models=req.judge_models,
                                  queries=req.queries,

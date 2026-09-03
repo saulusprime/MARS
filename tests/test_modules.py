@@ -4965,6 +4965,69 @@ def test_wapt_il_timeout_ferma_lactive_scan(zap_veloce):
     # Lo spider era finito: non va fermato.
     assert not c.fatte("spider_stop")
 
+
+def test_wapt_run_zap_accetta_un_budget_invece_della_costante(monkeypatch):
+    """I21: il budget diventa un parametro, e la costante resta il
+    ripiego.
+
+    **Si guarda il TEMPO, non il solo esito**, ed e' una mutazione ad
+    averlo insegnato: ignorando il parametro `run_zap` si fermerebbe
+    lo stesso — alla scadenza della costante — quindi `completa is
+    False` resterebbe vero e il difetto passerebbe. La costante e' qui
+    portata a cinque secondi perche' la stessa dimostrazione contro i
+    novecento veri farebbe durare un quarto d'ora ogni giro di
+    mutazioni: la prima stesura di questo test si piantava li'."""
+    monkeypatch.setattr(mars_wapt, "ZAP_ATTESA", 0.05)
+    monkeypatch.setattr(mars_wapt, "ZAP_TIMEOUT_SCAN", 5)
+    c = _ZapFinto(spider_finisce=False)
+    inizio = time.time()
+    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c,
+                                                  active=True, timeout=0.3)
+    durata = time.time() - inizio
+    assert completa is False and fermate is True
+    assert durata < 2, ("il budget del parametro non e' stato usato: "
+                        "%.1fs, cioe' la scadenza della costante" % durata)
+
+
+def test_wapt_il_budget_arriva_dal_contesto(monkeypatch):
+    """L'anello che a `--max-children` era sfuggito DUE volte (R54,
+    R56): un parametro che si ferma prima del modulo e' indistinguibile
+    da uno che funziona, e nessun test lo attraversava.
+
+    Si intercetta `run_zap` invece di lasciarlo girare: se l'anello
+    fosse rotto il modulo userebbe i 900 secondi della costante, e un
+    test che se ne accorgesse aspettandoli sarebbe un test che si
+    pianta per un quarto d'ora."""
+    visti = {}
+
+    def finto(url, client=None, **kw):
+        visti.update(kw)
+        return [], True, True
+
+    monkeypatch.setattr(mars_wapt, "run_zap", finto)
+    mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
+                     "owner_declaration": True, "zap_timeout": 42})
+    assert visti.get("timeout") == 42
+
+
+def test_wapt_il_referto_dichiara_il_budget_che_ha_usato(monkeypatch):
+    """Due esecuzioni con budget diversi non sono confrontabili alla
+    pari — meno tempo, meno alert, punteggio piu' alto — quindi il
+    numero sta nel referto come `form_factor` e `rrf_k`.
+
+    Il default e' dichiarato quanto un valore scelto: chi rilegge un
+    referto di sei mesi fa non sa quale fosse la costante di allora."""
+    monkeypatch.setattr(mars_wapt, "run_zap",
+                        lambda url, client=None, **kw: ([], True, True))
+    esito = mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
+                             "owner_declaration": True, "zap_timeout": 42})
+    assert esito["zap_timeout"] == 42
+
+    senza = mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
+                             "owner_declaration": True})
+    assert senza["zap_timeout"] == mars_wapt.ZAP_TIMEOUT_SCAN
+
+
 # ----------------------------------------------------------------------
 # R55: lo spider e' un crawler che non rispetta robots.txt
 # ----------------------------------------------------------------------
@@ -5264,7 +5327,7 @@ def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
         monkeypatch.setattr(mars_wapt, "connect_zap",
                             lambda credentials=None: _ZapFinto())
         monkeypatch.setattr(mars_wapt, "run_zap",
-                            lambda url, client=None, active=False, urls=None, max_children=0:
+                            lambda url, client=None, **kw:
                             ([], False, fermate))
         return mars_wapt.audit({"url": "https://x/",
                                 "owner_declaration": False})
@@ -5364,11 +5427,16 @@ def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
     Si sostituisce `run_zap` intero e non il solo client: per ottenere
     `completa=False` servirebbe far scadere `_attendi`, che aspetta
     ZAP_TIMEOUT_SCAN secondi — quindici minuti dentro un test.
+
+    Il finto prende `**kw` e non la firma copiata a mano: quando I21 ha
+    aggiunto `timeout` a `run_zap`, la copia ha fatto fallire trentotto
+    test con un `TypeError` che non riguardava nessuno di loro. Un
+    doppio fedele alla firma la segue senza doverla ripetere.
     """
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None, max_children=0:
+                        lambda url, client=None, **kw:
                         (alerts, completa, fermate))
     return mars_wapt.audit({"url": "https://x/",
                             "owner_declaration": active})
@@ -5388,7 +5456,7 @@ def test_wapt_un_daemon_che_fallisce_non_ripiega_in_silenzio(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: _ZapFinto())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None, max_children=0: None)
+                        lambda url, client=None, **kw: None)
     # Il ripiego porta un rilievo suo: senza, la lista avrebbe un
     # elemento solo e l'asserzione sulla POSIZIONE sarebbe vuota —
     # misurato, una mutazione che sposta l'avviso in coda passava.
@@ -5925,7 +5993,7 @@ def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
     monkeypatch.setattr(mars_wapt, "connect_zap",
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, active=False, urls=None, max_children=0:
+                        lambda url, client=None, **kw:
                         ([_alert()], True, True))
     esito = mars_wapt.audit({
         "url": "https://x/", "owner_declaration": True,

@@ -13,7 +13,8 @@ import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
                        DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT, FORM_FACTORS,
-                       MODULES_REGISTRY, RRF_K, __version__, build_context,
+                       MODULES_REGISTRY, RRF_K, ZAP_TIMEOUT, __version__,
+                       build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
 from mars_core import load_credentials, load_queries
@@ -39,6 +40,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               owner_declaration: bool = False,
               max_children: int = 0,
               rrf_k: int = RRF_K,
+              zap_timeout: int = ZAP_TIMEOUT,
               credentials: dict | None = None,
               llm: str = "auto", judge_models: str = "",
               formato: str = "text",
@@ -54,6 +56,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             owner_declaration=owner_declaration,
                             max_children=max_children,
                             rrf_k=rrf_k,
+                            zap_timeout=zap_timeout,
                             credentials=credentials,
                             llm=llm, judge_models=judge_models,
                             queries=queries, lang=lang,
@@ -250,6 +253,27 @@ def k_non_negativo(valore: str) -> int:
         raise argparse.ArgumentTypeError(
             "--rrf-k non puo' essere negativo: la formula divide per "
             "(k + posizione + 1)")
+    return numero
+
+
+def secondi_positivi(valore: str) -> int:
+    """Il budget di --zap-timeout: intero e > 0.
+
+    Zero secondi non e' una scansione corta, e' una scansione che non
+    parte: la scadenza e' gia' passata quando `_attendi` la guarda la
+    prima volta. E il punteggio che ne uscirebbe non sarebbe basso ma
+    ALTO — `score_from_alerts([])` vale 100 — cioe' «Sicurezza 100» su
+    nulla di guardato. Argparse lo ferma prima che il sito lavori.
+    """
+    try:
+        numero = int(valore)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "--zap-timeout vuole un intero di secondi, non %r" % valore)
+    if numero <= 0:
+        raise argparse.ArgumentTypeError(
+            "--zap-timeout dev'essere positivo: con 0 la scansione non "
+            "parte e l'area 8 varrebbe 100 senza aver guardato nulla")
     return numero
 
 
@@ -461,6 +485,20 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "--judge-models anthropic,openai,qwen:qwen-max")
 
     parser.add_argument(
+        "--zap-timeout", type=secondi_positivi, default=ZAP_TIMEOUT,
+        metavar="SEC",
+        help="Secondi concessi alla scansione ZAP, spider e active scan "
+             "INSIEME (default: %d). Allo scadere MARS ferma il daemon e "
+             "il referto dichiara i rilievi come parziali. ATTENZIONE: un "
+             "budget corto non abbassa il punteggio, lo ALZA — meno tempo "
+             "significa meno alert trovati, e zero alert vale 100. Il "
+             "valore finisce nel referto, perche' due esecuzioni con "
+             "budget diversi non si confrontano alla pari. Esempi: %d "
+             "(default), 300 per un giro breve su una macchina che "
+             "serve ad altro."
+             % (ZAP_TIMEOUT, ZAP_TIMEOUT))
+
+    parser.add_argument(
         "--i-own-this-domain", action="store_true",
         dest="owner_declaration",
         help="DICHIARAZIONE: sono il proprietario del dominio e mi assumo "
@@ -511,6 +549,7 @@ def main(argv: list[str] | None = None) -> int:
                      owner_declaration=args.owner_declaration,
                      max_children=args.max_children,
                      rrf_k=args.rrf_k,
+                     zap_timeout=args.zap_timeout,
                      judge_models=args.judge_models,
                      credentials=chiavi,
                      llm=args.llm, formato=args.formato,

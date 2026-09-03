@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.27.0"
+__version__ = "2.28.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1936,6 +1936,18 @@ def chunk_page(soup: BeautifulSoup, url: str, titolo: str = "") -> List[dict]:
 # ed e' cio' che Google usa per l'indicizzazione.
 FORM_FACTORS = ("mobile", "desktop")
 
+# Il budget della scansione ZAP: spider e active scan INSIEME, non uno
+# ciascuno. Sta qui e non in `mars_wapt` perche' CLI e API lo passano
+# entrambe (principio 4), e un modulo caricato a runtime non e' un
+# posto da cui la riga di comando possa importare.
+#
+# Un quarto d'ora e' lungo, ed e' voluto: la scansione attiva satura la
+# CPU e un budget corto non produce una misura piu' piccola ma un
+# punteggio piu' ALTO — `score_from_alerts([])` vale 100, misurato.
+# Chi lo abbassa lo sta dichiarando nel referto, che e' l'unica forma
+# in cui la cosa resta onesta.
+ZAP_TIMEOUT = 900
+
 
 def build_context(url: str, max_pages: int = 10,
                   embeddings_model: str = DEFAULT_EMBEDDINGS,
@@ -1945,6 +1957,7 @@ def build_context(url: str, max_pages: int = 10,
                   owner_declaration: bool = False,
                   max_children: int = 0,
                   rrf_k: Optional[int] = None,
+                  zap_timeout: Optional[int] = None,
                   llm: str = "auto",
                   judge_models: str = "",
                   queries: Optional[List[str]] = None,
@@ -2004,6 +2017,12 @@ def build_context(url: str, max_pages: int = 10,
         # formula che la usa, e legarla qui obbligherebbe a spostarla
         # per una ragione che non ha nulla a che vedere con lei.
         "rrf_k": RRF_K if rrf_k is None else int(rrf_k),
+        # Il budget della scansione ZAP, in secondi. `None` come default
+        # della firma per la stessa ragione del k: la costante ha la sua
+        # ragione scritta accanto a se', e il chiamante che non sceglie
+        # non deve doverla nominare.
+        "zap_timeout": (ZAP_TIMEOUT if zap_timeout is None
+                        else int(zap_timeout)),
         "skipped": crawler.skipped,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.

@@ -95,6 +95,7 @@
 | I20 | Il piano copre anche gli `info`, e i controlli non falliti restano fuori | 2026-09-01 |
 | R67 | La zulu minuscola legava un rilievo alla versione di Python | 2026-09-02 |
 | R68 | La fixture del locale axe rattoppava un modulo morto | 2026-09-02 |
+| I21 | Il budget della scansione ZAP e' una scelta dichiarata, e ZAP ha un core | 2026-09-03 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2397,6 +2398,91 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I21 — ✅ REALIZZATA (2026-09-03): il budget di ZAP è una scelta dichiarata, e ZAP ha un core
+
+*(dal campo: un audit con `--i-own-this-domain` ha tenuto la CPU
+occupata quasi quattordici minuti e il committente l'ha ucciso.
+`__version__` a **2.28.0**: nessun punteggio si muove, ma nascono un
+flag, un campo API e una chiave del referto.)*
+
+**Che cosa è successo davvero, ricostruito dal journal.** L'audit delle
+17:02 senza dichiarazione è durato 2m16s. Quello delle 17:07, identico
+più `--i-own-this-domain`, ha acceso spider e active scan di ZAP ed è
+stato ucciso alle 17:21:02 — **settantadue secondi prima** che
+`ZAP_TIMEOUT_SCAN` scadesse, fermasse il daemon e facesse scrivere il
+referto con «rilievi parziali». Due esecuzioni per diciotto minuti
+complessivi e nessun referto, e una delle due era quasi arrivata. Il
+committente aveva anche provato `--max-children 1`, che non è quella
+leva: è un tetto per **nodo** e l'API dello spider non ne accetta uno
+sul totale (R56).
+
+**La proposta iniziale era «un core e dieci secondi», e una misura l'ha
+rovesciata.** `score_from_alerts([])` vale **100**, misurato: il ramo
+del timeout non tocca il punteggio, calcola sugli alert raccolti e
+dichiara la parzialità solo fra i rilievi. Dieci secondi non producono
+una misura più piccola ma un punteggio più **alto** — «Sicurezza 100»
+dopo aver guardato una pagina. È R4 che torna. «Quello che rileva
+rileva» descrive la **copertura**, non il punteggio, e le due cose non
+si possono scambiare senza inventare un numero.
+
+**Decisione del committente**, messe a confronto le tre vie: il
+contratto dell'area 8 **non si tocca** — il budget resta 900 e un
+troncamento continua a produrre un numero dichiarato parziale — e si
+costruiscono le due leve. Restava sul tavolo il rendere `unavailable`
+una scansione troncata; non è stata scelta, e chi la volesse riapra una
+voce invece di crederla implicita.
+
+**Il tetto di CPU sta nello stack, non in MARS**: `cpus: "1.0"` sul
+servizio `zap` di compose. La leva ha un verso non ovvio e va scritto
+dove qualcuno lo cambierà: un core non riduce il **lavoro**, lo rende
+più lento, quindi dentro lo stesso budget ZAP arriva *meno* lontano —
+e meno copertura significa punteggio più alto. Chi tocca quel numero
+sta muovendo anche l'area 8.
+
+**Il budget diventa un parametro dichiarato**, sul modello esatto di
+`--rrf-k` (I3) e `--form-factor` (I16): costante in `mars_core` perché
+CLI e API la condividono (principio 4), chiave nel `context`, letta da
+`mars_wapt` e **ripubblicata** nel risultato, che il referto porta
+nell'area accanto a `form_factor`. Zero è rifiutato da argparse e dal
+modello Pydantic: non è un giro corto, è un giro che non parte, e
+produrrebbe proprio il 100 di cui sopra.
+
+**Nel dato canonico e non nelle viste umane**, ed è una scelta: quando
+il budget **morde**, il referto lo dice già a parole — «rilievi
+parziali» — e quando non morde la misura è intera, cioè il numero non
+cambierebbe una decisione di chi legge.
+
+**Due difetti del banco, e il secondo è il più istruttivo.** Il primo:
+quattro finti di `run_zap` copiavano la firma a mano, e aggiungere un
+parametro ha fatto fallire **quarantacinque** test con un `TypeError`
+che non riguardava nessuno di loro — ora prendono `**kw`. Il secondo:
+la mia prima stesura del test sul budget dimostrava la differenza
+**aspettandola**, quindi la mutazione «`run_zap` ignora il parametro»
+non falliva, si **piantava per quindici minuti** — e il `timeout` che
+l'ha uccisa ha lasciato il sorgente **mutato**, con la sessione che è
+proseguita su codice sbagliato finché un test non l'ha detto. Il test
+ora guarda il tempo con la costante portata a cinque secondi; il banco
+delle mutazioni scrive l'originale su disco prima di mutare e si
+rifiuta di partire se lo trova, perché un `finally` non sopravvive a un
+`kill`.
+
+**Una mutazione sfuggita, e ha trovato un buco vero.** «`build_context`
+ignora il valore scelto» lasciava tutto verde: i test di CLI e API
+**sostituiscono** `build_context`, quindi dimostravano che il valore ci
+arriva e non che venga conservato — R54 un piano più sotto. Chiusa con
+un test che attraversa `build_context` per davvero.
+
+**Le prove.** Otto test nuovi; **8/8 mutazioni colte** al giro finale.
+`flake8` a zero, **1413 test verdi**. Golden rigenerati e diff riletto:
+venti righe, una chiave per area, diciannove `null` e **una a 900** —
+l'area 8 che dichiara il budget con cui ha girato. Nessun punteggio si
+muove.
+
+**Non verificato**: il tetto di un core sul campo. Richiede
+`docker compose up -d` e un audit con la dichiarazione, e su questa
+macchina il socket Docker chiede una password. Che ZAP arrivi meno
+lontano con un core è la conseguenza attesa, non una misura.
 
 ### R67 — ✅ (2026-09-02): la zulu minuscola legava un rilievo alla versione di Python
 

@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R68**, idee fino a
-> **I20**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I21**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -90,6 +90,20 @@
 > oggetto morto e la suite tornava a dipendere da `npm install`. Nessuna
 > delle due muove `__version__`: sugli interpreti su cui MARS gira davvero
 > l'esito è identico, e la seconda è banco di prova soltanto.
+>
+> **Il 2026-09-03 nasce e si chiude I21**, dalla stessa via: un audit con
+> `--i-own-this-domain` ha saturato la CPU per quattordici minuti ed è
+> stato ucciso 72 secondi prima che MARS lo fermasse da solo. La proposta
+> del committente — «un core e dieci secondi, quello che rileva rileva» —
+> è stata **rovesciata da una misura**: `score_from_alerts([])` vale 100,
+> quindi un budget corto non abbassa il punteggio ma lo alza. Il contratto
+> dell'area 8 resta quindi intatto per sua decisione, e si costruiscono le
+> due leve: `cpus: "1.0"` su ZAP in compose e `--zap-timeout` come scelta
+> **dichiarata nel referto**. `__version__` sale a **2.28.0**: nessun
+> punteggio si muove, ma nascono un flag, un campo API e una chiave.
+> **Resta possibile e non scelta** la terza via — rendere `unavailable`
+> una scansione troncata invece di lasciarle un numero: chi la volesse
+> riapra una voce.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

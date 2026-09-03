@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 import requests
 
 from mars_config import PENALITA_IGNOTA_ZAP, ZAP_PENALTIES
-from mars_core import (SEV_INFO, Finding, chiave_esterna,
+from mars_core import (SEV_INFO, ZAP_TIMEOUT, Finding, chiave_esterna,
                        normalizza_severita)
 
 # ZAP si raggiunge come daemon GIA' in esecuzione, non lo si avvia.
@@ -39,7 +39,10 @@ ZAP_API_KEY = os.environ.get("ZAP_API_KEY", "")
 MAX_EVIDENZE = 5
 MAX_EVIDENZA = 200
 
-ZAP_TIMEOUT_SCAN = 900   # secondi per spider + active scan
+# Il default: la costante vera sta in `mars_core`, che CLI e API
+# condividono. Qui resta il nome perche' e' il ripiego di `run_zap`
+# quando nessuno passa un budget.
+ZAP_TIMEOUT_SCAN = ZAP_TIMEOUT   # secondi per spider + active scan
 ZAP_ATTESA = 3           # secondi fra due controlli di avanzamento
 
 # I tre header del ripiego: penalita', testo della issue, gravita'
@@ -632,7 +635,8 @@ def _ferma(azione, scan_id: str) -> bool:
 
 def run_zap(url: str, client=None, active: bool = False,
             urls: Optional[List[str]] = None,
-            max_children: int = 0) -> Optional[tuple]:
+            max_children: int = 0,
+            timeout: Optional[float] = None) -> Optional[tuple]:
     """Alert ZAP, con due perimetri secondo la dichiarazione di proprieta'.
 
     **Senza dichiarazione** non parte alcuno spider: ZAP riceve le
@@ -667,7 +671,8 @@ def run_zap(url: str, client=None, active: bool = False,
     client = client or connect_zap()
     if client is None:
         return None
-    scadenza = time.time() + ZAP_TIMEOUT_SCAN
+    scadenza = time.time() + (ZAP_TIMEOUT_SCAN if timeout is None
+                              else timeout)
     # Diventa False se una scansione e' scaduta e il daemon non ha
     # accettato l'ordine di fermarla: in quel caso sta ancora girando,
     # e il referto non puo' dichiararla interrotta.
@@ -813,8 +818,12 @@ def audit(context: dict) -> dict:
                  else "passiva sulle pagine gia' scansionate"), file=sys.stderr)
         campione = list(context.get("urls") or [])
         tetto = int(context.get("max_children") or 0)
+        # Il budget viene dal contesto, non dalla costante: leggerla qui
+        # avrebbe reso `--zap-timeout` inerte esattamente come lo era
+        # `--max-children` (R54), e un parametro inerte non si vede.
+        budget = context.get("zap_timeout") or ZAP_TIMEOUT_SCAN
         esito_zap = run_zap(url, client, active=active, urls=campione,
-                            max_children=tetto)
+                            max_children=tetto, timeout=budget)
         if esito_zap is not None:
             alerts, completa, fermate = esito_zap
             # Le pagine che ZAP ha davvero guardato sulla via senza
@@ -906,6 +915,14 @@ def audit(context: dict) -> dict:
                     urls=list(perimetro)))
             return {"score": esito["score"],
                     "tool": "ZAP (attiva)" if active else "ZAP (passiva)",
+                    # Due esecuzioni con budget diversi non sono
+                    # confrontabili alla pari: meno tempo significa meno
+                    # alert e quindi punteggio piu' ALTO, che e' il
+                    # contrario di cio' che sembra. Si dichiara come
+                    # `form_factor` e `rrf_k`, e anche quando e' il
+                    # default: chi rilegge un referto vecchio non sa
+                    # quale fosse la costante di allora.
+                    "zap_timeout": budget,
                     # Il perimetro dell'area, che fino a R55 non era
                     # dichiarato: il referto in testa scrive
                     # `pages_crawled` e chi legge lo riferisce a tutte

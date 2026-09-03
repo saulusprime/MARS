@@ -451,6 +451,31 @@ def test_api_un_k_negativo_e_rifiutato(client, auth):
     assert esito.status_code == 422
 
 
+def test_api_zap_timeout_arriva_al_contesto(client, auth, monkeypatch):
+    """I21, la stessa lezione di R56 e del k: CLI e API sono due
+    interfacce sopra lo stesso motore, quindi il budget della scansione
+    si passa da entrambe o il principio 4 e' una frase."""
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_api, "core_build_context", finto)
+    client.post("/audit/full", json=dict(CORPO, zap_timeout=60), headers=auth)
+    assert visti.get("zap_timeout") == 60
+    client.post("/audit/full", json=dict(CORPO), headers=auth)
+    assert visti.get("zap_timeout") == 900, "il default resta il quarto d'ora"
+
+
+def test_api_un_budget_zap_non_positivo_e_rifiutato(client, auth):
+    """Come `--zap-timeout 0` da riga di comando: il modello lo ferma
+    prima della scansione, invece di produrre un 100 su nulla."""
+    esito = client.post("/audit/full", json=dict(CORPO, zap_timeout=0),
+                        headers=auth)
+    assert esito.status_code == 422
+
+
 def test_api_form_factor_arriva_al_contesto(client, auth, monkeypatch):
     """I16, la stessa lezione di R56 e del k: un campo che si ferma al
     modello Pydantic e' indistinguibile da uno che funziona."""

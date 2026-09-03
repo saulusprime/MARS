@@ -96,6 +96,18 @@ services:
       -config api.disablekey=true
       -config api.addrs.addr.name=.*
       -config api.addrs.addr.regex=true
+    # Un core, e non e' una taratura: la scansione ATTIVA e' l'unico
+    # carico di MARS che sature la macchina per minuti, e il tetto la
+    # lascia usabile mentre gira. Misurato il 2026-09-02: un audit con
+    # --i-own-this-domain ha tenuto la CPU occupata quasi quattordici
+    # minuti, e chi l'aveva lanciato l'ha ucciso credendolo bloccato.
+    #
+    # ATTENZIONE, la leva ha un verso non ovvio: un core non riduce il
+    # LAVORO, lo rende piu' lento. Dentro lo stesso budget
+    # (--zap-timeout, 900s) ZAP arriva quindi MENO lontano, e meno
+    # copertura significa meno alert e un punteggio piu' ALTO. Chi
+    # alza o abbassa questo numero sta muovendo anche l'area 8.
+    cpus: "1.0"
     expose:
       - "8080"
     restart: unless-stopped

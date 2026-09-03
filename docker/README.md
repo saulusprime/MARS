@@ -143,6 +143,19 @@ Spider e active scan girano **solo** con `--i-own-this-domain`: lo
 spider di ZAP non rispetta robots.txt (R55), quindi sta dietro la
 dichiarazione di proprietà come l'active scan.
 
+**Il servizio ha un tetto di un core** (`cpus: "1.0"`). La scansione
+attiva è l'unico carico di MARS che satura la macchina per minuti:
+misurato il 2026-09-02, un audit con la dichiarazione ha tenuto la CPU
+occupata quasi quattordici minuti, e chi l'aveva lanciato l'ha ucciso
+credendolo bloccato — settantadue secondi prima che MARS si fermasse da
+solo e scrivesse il referto.
+
+**La leva ha un verso non ovvio**: un core non riduce il lavoro, lo
+rende più lento. Dentro lo stesso budget — `--zap-timeout`, 900 secondi
+— ZAP arriva quindi *meno* lontano, e meno copertura significa meno
+alert e un punteggio più **alto**. Chi tocca quel numero sta muovendo
+anche l'area 8, e il referto dichiara il budget con cui ha girato.
+
 ## Che cosa porta lo stack
 
 | Area | Strumento | Nello stack |

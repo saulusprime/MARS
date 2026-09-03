@@ -453,6 +453,33 @@ def test_cli_rrf_k_arriva_al_contesto(monkeypatch):
     assert visti.get("rrf_k") == 11, "e anche dalla riga di comando"
 
 
+def test_cli_il_budget_zap_esiste_e_arriva_al_contesto(monkeypatch):
+    """I21: come per `--rrf-k` e `--form-factor`, un flag che si ferma
+    prima di `build_context` e' indistinguibile da uno che funziona."""
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).zap_timeout == 900
+    assert parser.parse_args(
+        ["https://x/", "--zap-timeout", "60"]).zap_timeout == 60
+    visti = {}
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: visti.update(k) or None)
+    mars_audit.main(["https://x/", "--zap-timeout", "60"])
+    assert visti.get("zap_timeout") == 60
+    mars_audit.main(["https://x/"])
+    assert visti.get("zap_timeout") == 900
+
+
+def test_cli_un_budget_zap_non_positivo_e_un_errore_d_uso(capsys):
+    """Zero secondi non e' una scansione corta: e' una scansione che non
+    parte. E `score_from_alerts([])` vale 100 — misurato — quindi ne
+    uscirebbe «Sicurezza 100» su nulla di guardato. Argparse lo ferma
+    prima che il sito lavori."""
+    with pytest.raises(SystemExit):
+        mars_audit.costruisci_parser().parse_args(["https://x/",
+                                                   "--zap-timeout", "0"])
+    assert "zap-timeout" in capsys.readouterr().err
+
+
 def test_cli_il_form_factor_esiste_e_arriva_al_contesto(monkeypatch):
     """I16: come per `--rrf-k`, un flag che si ferma prima di
     `build_context` e' indistinguibile da uno che funziona."""

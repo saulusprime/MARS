@@ -96,6 +96,7 @@
 | R67 | La zulu minuscola legava un rilievo alla versione di Python | 2026-09-02 |
 | R68 | La fixture del locale axe rattoppava un modulo morto | 2026-09-02 |
 | I21 | Il budget della scansione ZAP e' una scelta dichiarata, e ZAP ha un core | 2026-09-03 |
+| R69 | Un token valido che non apriva nulla, e la password nel sorgente | 2026-09-03 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2398,6 +2399,70 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R69 — ✅ (2026-09-03): un token valido che non apriva nulla, e la password nel sorgente
+
+*(dal campo: Swagger diceva «Auth error — Error: Unauthorized».
+`__version__` a **2.29.0**: cambia il contratto di configurazione
+dell'API, non un punteggio.)*
+
+**Il difetto.** `get_user()` cerca l'utente per **chiave** del
+dizionario; `/token` firma il token con il campo `username`. Erano due
+scritture indipendenti dello stesso nome, e bastava cambiarne una:
+misurato sul posto, con `username: "marsauditor"` sotto la chiave
+`"admin"` si otteneva un token — `POST /token` come `admin` dava 200 —
+e poi **ogni** richiesta protetta rispondeva 401, perché il `sub` del
+token non esisteva nel dizionario. Un token valido che non apre nulla.
+È la forma di R1, e il fatto che sia tornata cambiando **un campo** dice
+che il presidio mancava dove il difetto nasce.
+
+**La correzione non è la riga, è la struttura.** `costruisci_utenti()`
+compone il dizionario da `UTENTE_API`, usata **due volte nella stessa
+espressione**: chiave e campo non possono più divergere perché non sono
+più due scritture. Il test pinna la coerenza, non i due valori.
+
+**Il secondo difetto era accanto, e più grave.**
+`get_password_hash("…")` girava all'import con la password **in chiaro
+nel sorgente**: un segreto nel codice, che CLAUDE.md vieta, e al primo
+`git add` nella storia per sempre. Verificato con `git log -S` che non
+fosse mai stata committata.
+
+**Si legge un PERCORSO e non il valore, ed è una misura.**
+`MARS_API_PASSWORD_HASH_FILE` indica un file che contiene l'hash.
+Mettere l'hash *dentro* una variabile del `.env` sembra più semplice e
+non lo è: `docker compose` interpola il proprio `.env`, e di
+`$2b$12$DO1XFEjm…` divora i pezzi che somigliano a un nome di
+variabile — osservato sul campo, cinque avvisi «the DO1XFEjm variable
+is not set» e un hash consegnato al container **mutilato, senza un
+errore**. Un percorso i `$` non li contiene, e chi ruota la password fra
+sei mesi non deve ricordarsi di raddoppiarli.
+
+**Due dettagli che sembrano cortesia e non lo sono.** `strip()` sul
+contenuto del file: `echo hash > file` lascia un a capo, e bcrypt su
+quella stringa non verifica nulla. E **nessun hash significa nessun
+utente**, non un utente con hash vuoto: `verify_password` solleva
+`UnknownHashError` *prima* di guardare `disabled`, quindi `/token`
+risponderebbe **500** invece di 401 — «mi sono rotto» al posto di «non
+ti conosco». Misurato.
+
+**Una mutazione sfuggita, e distingueva due casi che il codice dichiara
+diversi.** Sostituendo `if not percorso` con `if percorso is None`, il
+percorso vuoto finiva dentro `open("")`: stesso valore di ritorno,
+stessa suite verde, ma su `stderr` compariva un `FileNotFoundError` per
+una variabile che nessuno aveva impostato — un errore di configurazione
+annunciato dove c'era solo una scelta. Chiusa asserendo il **silenzio**
+nel caso della variabile assente.
+
+**Le prove.** Cinque test nuovi; **4/4 mutazioni colte** al giro finale.
+`flake8` a zero, **1418 test verdi** — la suite era rossa (1 fallito, 30
+errori) perché cablava `admin`/`mars2026`, e ora la sua credenziale se
+la costruisce da sé: un test non deve dipendere dal segreto di nessuno
+né contenerne uno.
+
+**Non verificato**: il giro dentro il container. Richiede
+`docker compose restart mars` con la variabile impostata, e su questa
+macchina il socket Docker chiede una password. Il flusso è provato con
+`TestClient` sullo stesso oggetto `app`.
 
 ### I21 — ✅ REALIZZATA (2026-09-03): il budget di ZAP è una scelta dichiarata, e ZAP ha un core
 

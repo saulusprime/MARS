@@ -34,14 +34,23 @@ L'API risponde su `http://127.0.0.1:8000`, la documentazione
 interattiva su `http://127.0.0.1:8000/docs`.
 
 ```bash
-# Token (credenziali predefinite: mars_api.py:370)
 curl -s -X POST http://127.0.0.1:8000/token \
-     -d 'username=admin&password=mars2026' | python3 -m json.tool
+     -d 'username=marsauditor&password=LA_TUA_PASSWORD' | python3 -m json.tool
 ```
 
-**Cambiare quella password prima di esporre l'API**: sta in chiaro in
-`FAKE_USERS_DB` ([mars_api.py:66](../mars_api.py#L66)), che è un dizionario
-in memoria e non un database.
+**Non ci sono credenziali predefinite.** L'utente è `marsauditor` e il
+suo hash bcrypt arriva dal file indicato da
+`MARS_API_PASSWORD_HASH_FILE` (vedi `mars.env.example`): senza quella
+variabile non esiste alcun utente e `/token` risponde 401 a chiunque.
+
+Il **percorso** e non il valore, ed è una misura: compose interpola le
+variabili del proprio `.env`, e di un hash bcrypt — `$2b$12$…` — divora
+i pezzi che somigliano a un nome di variabile, consegnando al container
+una stringa mutilata **senza un errore**. Un percorso i `$` non li
+contiene.
+
+`FAKE_USERS_DB` resta un dizionario **in memoria** e non un database:
+un utente solo, e cambiare password vuol dire riavviare il processo.
 
 ## La CLI
 

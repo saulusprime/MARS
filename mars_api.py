@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import sys
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -63,17 +64,74 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-# Fake DB Utenti (in produzione usa un DB reale)
-FAKE_USERS_DB = {
-    "admin": {
-        "username": "admin",
-        "full_name": "MARS Administrator",
-        "email": "admin@mars.local",
-        # "hashed_password": hash_password("mars2026"),
-        "hashed_password": get_password_hash("mars2026"),
+# L'unico utente dell'API. Un nome, non un segreto: sta nel codice
+# perche' il codice e' dove lo si legge.
+UTENTE_API = "marsauditor"
+
+
+def leggi_hash_password(percorso: str) -> str:
+    """L'hash bcrypt letto dal file indicato, o stringa vuota.
+
+    **Un percorso e non il valore**, ed e' una misura e non un gusto:
+    `docker compose` interpola le variabili del proprio `.env`, e di un
+    hash bcrypt — `$2b$12$...` — divora i pezzi che somigliano a un nome
+    di variabile, consegnando al container una stringa mutilata **senza
+    un errore**. Un percorso i `$` non li contiene.
+
+    `strip()` non e' cortesia: `echo hash > file` lascia un a capo, e
+    bcrypt su quella stringa non verifica nulla.
+
+    Vuota per QUALUNQUE motivo — variabile non impostata, file assente,
+    illeggibile — perche' per chi chiama sono lo stesso caso: nessuna
+    credenziale configurata. Il perche' si dice su stderr.
+    """
+    if not percorso:
+        return ""
+    try:
+        with open(percorso, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError as e:
+        print("ATTENZIONE: MARS_API_PASSWORD_HASH_FILE=%s non leggibile "
+              "(%s): nessun utente configurato, /token rispondera' 401."
+              % (percorso, type(e).__name__), file=sys.stderr)
+        return ""
+
+
+def costruisci_utenti(hash_password: str) -> dict:
+    """Il dizionario degli utenti, dall'hash configurato.
+
+    **La chiave E' lo username**, e qui non possono piu' divergere
+    perche' vengono dalla stessa costante: `get_user()` cerca per
+    chiave mentre `/token` firma il token col campo `username`, e
+    finche' i due erano scritti a mano si entrava come "admin" per poi
+    prendere 401 a ogni richiesta protetta — il `sub` del token non
+    esisteva nel dizionario. E' la forma di R1.
+
+    Senza hash il dizionario e' VUOTO, e non e' la stessa cosa di un
+    utente con hash vuoto: `verify_password` solleverebbe
+    `UnknownHashError` prima di guardare `disabled`, e `/token`
+    risponderebbe 500 invece di 401. Misurato.
+    """
+    if not hash_password:
+        return {}
+    return {UTENTE_API: {
+        "username": UTENTE_API,
+        "full_name": "M.A.R.S. Auditor",
+        "email": "auditor@mars.local",
+        "hashed_password": hash_password,
         "disabled": False,
-    }
-}
+    }}
+
+
+# In produzione usa un DB reale: questo dizionario sta in memoria, non
+# si aggiorna senza riavviare il processo e ospita un utente solo.
+FAKE_USERS_DB = costruisci_utenti(
+    leggi_hash_password(os.environ.get("MARS_API_PASSWORD_HASH_FILE", "")))
+if not FAKE_USERS_DB:
+    print("ATTENZIONE: MARS_API_PASSWORD_HASH_FILE non impostata o vuota. "
+          "Nessun utente configurato: /token rispondera' 401 a chiunque. "
+          "Generare l'hash e indicarne il file — vedi README.",
+          file=sys.stderr)
 
 # ==============================================================================
 # MODELLI PYDANTIC
@@ -378,7 +436,11 @@ async def root():
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """
     Ottieni un token JWT per accedere agli endpoint protetti.
-    Credenziali di default: username='admin', password='mars2026'
+
+    Nessuna credenziale predefinita: l'utente e' `marsauditor` e il suo
+    hash arriva dal file indicato da MARS_API_PASSWORD_HASH_FILE. Senza
+    quel file non esiste alcun utente e questo endpoint risponde 401 a
+    chiunque, che e' il default sicuro.
     """
     user = authenticate_user(FAKE_USERS_DB, form_data.username, form_data.password)
     if not user:

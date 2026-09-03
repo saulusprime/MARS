@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.28.0
+Versione 2.29.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -482,12 +482,22 @@ la radice / vi reindirizza con un 307. La specifica OpenAPI vera e'
 generata da FastAPI su /openapi.json.
 
 Autenticazione. Tutti gli endpoint di audit richiedono un token JWT
-(OAuth2 password flow). Credenziali predefinite: admin / mars2026 —
-da cambiare prima di qualunque uso reale.
+(OAuth2 password flow). NON ci sono credenziali predefinite: l'utente
+e' `marsauditor` e il suo hash bcrypt si legge dal file indicato da
+MARS_API_PASSWORD_HASH_FILE. Senza quella variabile non esiste alcun
+utente e /token risponde 401 a chiunque, che e' il default sicuro.
+
+    # 0. una volta sola: generare l'hash e metterlo in un file
+    python3 -c "from getpass import getpass
+    from passlib.context import CryptContext
+    print(CryptContext(schemes=['bcrypt']).hash(getpass()))" \
+        > api-password.local.hash
+    chmod 600 api-password.local.hash
+    export MARS_API_PASSWORD_HASH_FILE=$PWD/api-password.local.hash
 
     # 1. ottenere il token
     TOKEN=$(curl -s -X POST http://127.0.0.1:8555/token \
-        -d "username=admin&password=mars2026" | python3 -c \
+        -d "username=marsauditor&password=LA_TUA_PASSWORD" | python3 -c \
         "import sys,json;print(json.load(sys.stdin)['access_token'])")
 
     # 2. usarlo

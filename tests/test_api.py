@@ -19,7 +19,25 @@ import mars_api
 import mars_core
 from conftest import pagina
 
-CREDENZIALI = {"username": "admin", "password": "mars2026"}
+# La credenziale della suite e' SUA, e non quella di chi manda in
+# esercizio: da quando l'hash arriva da un file fuori dal repository
+# (MARS_API_PASSWORD_HASH_FILE) `FAKE_USERS_DB` all'import e' vuoto su
+# ogni macchina che non l'abbia configurato — e un test non deve
+# dipendere dal segreto di nessuno, ne' contenerne uno.
+PASSWORD_DI_PROVA = "questa-non-e-un-segreto"
+# Calcolato una volta sola: bcrypt costa qualche decimo di secondo per
+# scelta, ed e' il punto — moltiplicarlo per ogni test no.
+_HASH_DI_PROVA = mars_api.get_password_hash(PASSWORD_DI_PROVA)
+CREDENZIALI = {"username": mars_api.UTENTE_API,
+               "password": PASSWORD_DI_PROVA}
+
+
+@pytest.fixture(autouse=True)
+def utente_di_prova(monkeypatch):
+    """L'utente esiste per la durata del test, e solo per quella."""
+    monkeypatch.setitem(mars_api.FAKE_USERS_DB, mars_api.UTENTE_API,
+                        dict(mars_api.costruisci_utenti(
+                            _HASH_DI_PROVA)[mars_api.UTENTE_API]))
 
 
 @pytest.fixture
@@ -88,11 +106,78 @@ def test_login_riuscito(client):
 
 
 @pytest.mark.parametrize("dati", [
-    {"username": "admin", "password": "sbagliata"},
-    {"username": "nessuno", "password": "mars2026"},
+    {"username": mars_api.UTENTE_API, "password": "sbagliata"},
+    {"username": "nessuno", "password": PASSWORD_DI_PROVA},
 ])
 def test_login_fallito(client, dati):
     assert client.post("/token", data=dati).status_code == 401
+
+
+def test_la_chiave_del_dizionario_e_lo_username(client):
+    """La forma di R1, tornata il 2026-09-03 cambiando un solo campo.
+
+    `get_user()` cerca per CHIAVE, `/token` firma il token col campo
+    `username`. Quando i due divergevano si otteneva un token e poi
+    OGNI richiesta protetta rispondeva 401, perche' il `sub` non
+    esisteva nel dizionario — un token valido che non apre nulla.
+
+    Ora vengono dalla stessa costante e il test lo pinna: e' la
+    coerenza a essere verificata, non i due valori."""
+    for chiave, utente in mars_api.costruisci_utenti("$2b$12$finto").items():
+        assert chiave == utente["username"]
+
+    # E la prova che conta: il giro completo, non il solo dizionario.
+    tok = client.post("/token", data=CREDENZIALI).json()["access_token"]
+    assert client.get("/users/me",
+                      headers={"Authorization": "Bearer %s" % tok}
+                      ).status_code == 200
+
+
+def test_senza_hash_configurato_non_esiste_alcun_utente(client, monkeypatch):
+    """Il default sicuro: nessun file di hash, nessun utente.
+
+    Registrarlo con hash VUOTO non sarebbe equivalente e non e' un
+    cavillo: `verify_password` solleva `UnknownHashError` prima di
+    guardare `disabled`, quindi `/token` risponderebbe **500** — un
+    errore del server al posto di un rifiuto, cioe' la differenza fra
+    «non ti conosco» e «mi sono rotto»."""
+    assert mars_api.costruisci_utenti("") == {}
+    monkeypatch.setattr(mars_api, "FAKE_USERS_DB", {})
+    r = client.post("/token", data=CREDENZIALI)
+    assert r.status_code == 401
+
+
+def test_l_hash_si_legge_dal_file_e_l_a_capo_non_conta(tmp_path):
+    """Il percorso e non il valore, perche' `docker compose` interpola
+    il proprio `.env` e di `$2b$12$...` divora i pezzi che sembrano
+    nomi di variabile — misurato, con un hash consegnato mutilato al
+    container e nessun errore.
+
+    L'`strip()` non e' cortesia: `echo hash > file` lascia un a capo, e
+    bcrypt su quella stringa non verifica nulla."""
+    f = tmp_path / "api-password.hash"
+    f.write_text("$2b$12$unhashfinto\n", encoding="utf-8")
+    assert mars_api.leggi_hash_password(str(f)) == "$2b$12$unhashfinto"
+
+
+@pytest.mark.parametrize("percorso", ["", "/non/esiste/da/nessuna/parte"])
+def test_un_hash_non_leggibile_vale_come_assente(percorso, capsys):
+    """Variabile non impostata e file irraggiungibile sono lo stesso
+    caso per chi chiama — nessuna credenziale — ma il secondo si dice
+    su stderr, perche' un file che c'e' e non si legge e' un errore di
+    configurazione e non una scelta."""
+    assert mars_api.leggi_hash_password(percorso) == ""
+    err = capsys.readouterr().err
+    if percorso:
+        assert "non leggibile" in err
+    else:
+        # Il silenzio e' l'asserzione: una mutazione che lasciava
+        # cadere il percorso vuoto dentro `open("")` restituiva la
+        # stessa stringa vuota — stesso valore, stessa suite verde — e
+        # annunciava un FileNotFoundError su una variabile che nessuno
+        # aveva impostato. Non e' un errore di configurazione, e
+        # chiamarlo cosi' manda a cercare un file che non esiste.
+        assert err == "", "una variabile non impostata non e' un errore"
 
 
 def test_users_me_non_espone_l_hash(client, auth):

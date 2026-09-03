@@ -30,6 +30,11 @@ lympha_env.json
 # ignora: cp examples/audit_request.json examples/mio.local.json
 *.local.json
 
+# L'hash della password dell'API: MARS_API_PASSWORD_HASH_FILE punta qui.
+# E' un hash e non una password, ma resta materiale di autenticazione e
+# fuori da git ci sta comunque.
+*.local.hash
+
 # --- Storico (dati, non codice) ---
 # Due file distinti di due funzioni distinte, e sono dato dell'utente:
 # mars_citations.py --history accoda al primo, l'audit differenziale di

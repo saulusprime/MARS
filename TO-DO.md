@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R68**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R69**, idee fino a
 > **I21**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -104,6 +104,17 @@
 > **Resta possibile e non scelta** la terza via — rendere `unavailable`
 > una scansione troncata invece di lasciarle un numero: chi la volesse
 > riapra una voce.
+>
+> **Lo stesso giorno, R69**, aperta da un «Auth error» di Swagger: la
+> chiave di `FAKE_USERS_DB` e il campo `username` erano due scritture
+> dello stesso nome, e cambiarne una restituiva un token valido che non
+> apriva nulla — la forma di R1, tornata perche' il presidio mancava
+> dove il difetto nasce. Accanto, la password in chiaro nel sorgente:
+> ora l'hash si legge dal file indicato da `MARS_API_PASSWORD_HASH_FILE`,
+> e il **percorso** invece del valore perche' compose divora i `$` di un
+> hash bcrypt senza un errore. `__version__` a **2.29.0**: cambia il
+> contratto di configurazione dell'API — non ci sono piu' credenziali
+> predefinite — e non un punteggio.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

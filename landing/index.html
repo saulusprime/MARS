@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MARS Beacon — il tuo sito visto da un assistente IA</title>
+<meta name="description" content="MARS Beacon misura dieci aree del tuo sito
+ — tecnica, SEO, prestazioni, recuperabilità, accessibilità, sicurezza — e
+ consegna un referto con il piano di intervento. Ogni punteggio deriva da una
+ misura, e ciò che non è stato guardato il referto lo dichiara.">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="salta" href="#contenuto">Salta al contenuto</a>
+
+<header class="sito">
+  <div class="contenitore barra">
+    <a class="marchio" href="#contenuto" aria-label="MARS Beacon, home">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor"
+                stroke-width="2" opacity=".25"/>
+        <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor"
+                stroke-width="2" opacity=".55"/>
+        <circle cx="16" cy="16" r="3" fill="currentColor"/>
+      </svg>
+      <span><b>MARS</b> Beacon</span>
+    </a>
+    <nav aria-label="Sezioni">
+      <ul>
+        <li><a href="#aree">Che cosa misura</a></li>
+        <li><a href="#metodo">Metodo</a></li>
+        <li><a href="#anteprima">Anteprima</a></li>
+        <li><a class="bottone piccolo" href="#accesso">Richiedi l'accesso</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="contenuto" class="contenitore">
+
+  <!-- ================= HERO ================= -->
+  <section class="apertura">
+    <div>
+      <p class="occhiello">Audit per aziende · SEO, RRF, WCAG, WAPT</p>
+      <h1>Il tuo sito come lo legge un assistente IA</h1>
+      <p class="sommario">
+        Le persone non arrivano più solo da una lista di link: chiedono, e
+        qualcuno risponde citando qualcuno. <b>MARS Beacon</b> misura dieci
+        aree del tuo sito — indicizzabilità, SEO, prestazioni,
+        recuperabilità dei passaggi, dati strutturati, accessibilità,
+        sicurezza — e consegna un referto con l'ordine di lavoro: quanto
+        c'è da recuperare, dove, e come.
+      </p>
+      <p class="sommario">
+        Nessun punteggio inventato. Dove una misura è una stima, il referto
+        lo dice; dove un'area non è stata guardata, scrive <b>non
+        misurato</b> — che non è zero.
+      </p>
+      <p class="azioni">
+        <a class="bottone" href="#accesso">Richiedi l'accesso</a>
+        <a class="bottone fantasma" href="#anteprima">Guarda un referto</a>
+      </p>
+      <p class="minuta">
+        Nessuna carta di credito. Un referto di prova sul tuo dominio.
+      </p>
+    </div>
+
+    <ul class="numeri" aria-label="In sintesi">
+      <li><b>10</b><span>aree misurate, una per modulo</span></li>
+      <li><b>13</b><span>crawler IA verificati per agente</span></li>
+      <li><b>3</b><span>formati del referto: HTML, Markdown, CSV</span></li>
+    </ul>
+  </section>
+
+  <!-- ================= LE DIECI AREE ================= -->
+  <section id="aree" aria-labelledby="t-aree">
+    <h2 id="t-aree">Che cosa misura</h2>
+    <p class="intro">
+      Un'area è un modulo, e ogni modulo dichiara che cosa della propria
+      area <i>non</i> copre ancora. È la parte del metodo che di solito
+      nessuno scrive.
+    </p>
+    <ol class="griglia-aree">
+      <li><h3>1. Tecnica</h3><p>Indicizzabilità, robots.txt, sitemap e i
+        crawler IA controllati <b>per agente</b>: escludere Google non è
+        escludere gli assistenti.</p></li>
+      <li><h3>2. SEO</h3><p>Gli stessi undici controlli della sezione SEO di
+        Lighthouse, non il solo punteggio: si sa <i>quale</i> controllo è
+        fallito.</p></li>
+      <li><h3>3. Prestazioni</h3><p>I Core Web Vitals di laboratorio letti
+        dallo stesso referto Lighthouse. L'INP non si misura in laboratorio
+        e il referto lo dichiara.</p></li>
+      <li><h3>4. Lessicale</h3><p>BM25 sui passaggi del sito, più i controlli
+        che lo alimentano: pagine troppo corte, title ripetuti, query senza
+        riscontro.</p></li>
+      <li><h3>5. Semantica</h3><p>Recupero vettoriale sugli stessi passaggi.
+        Senza modello di embedding si ripiega su un proxy scritto a mano, e
+        il referto lo dice.</p></li>
+      <li><h3>6. Dati strutturati</h3><p>JSON-LD e Schema.org: che cosa
+        dichiari di essere, e se un parser lo capisce.</p></li>
+      <li><h3>7. Accessibilità</h3><p>axe-core su Chromium, con la diffusione
+        di ogni violazione sulle pagine del campione. Non un bollino: i nodi
+        veri.</p></li>
+      <li><h3>8. Sicurezza</h3><p>Header e superficie, e con la dichiarazione
+        di proprietà la scansione attiva OWASP ZAP.</p></li>
+      <li><h3>9. Citabilità IA</h3><p>Profili per assistente — Claude,
+        ChatGPT, Perplexity, Qwen, Kimi — pesati per mercato. Stime
+        euristiche, <b>dichiarate</b>.</p></li>
+      <li><h3>10. Giudizio LLM</h3><p>Un modello legge un campione dei tuoi
+        passaggi e dice se risponderebbe citandoti. È opinione, e il referto
+        la separa dalle misure.</p></li>
+    </ol>
+  </section>
+
+  <!-- ================= METODO ================= -->
+  <section id="metodo" aria-labelledby="t-metodo">
+    <h2 id="t-metodo">Perché fidarsi del numero</h2>
+    <div class="griglia-metodo">
+      <article>
+        <h3>Ogni punteggio viene da una misura</h3>
+        <p>Se è una stima euristica, il referto lo scrive. Se uno strumento
+          non c'era, l'area vale <b>non misurato</b> e non zero: sono due
+          cose diverse e confonderle falsa la media.</p>
+      </article>
+      <article>
+        <h3>Il perimetro è dichiarato</h3>
+        <p>Quante pagine, trovate come — sitemap o link interni — e quali
+          aree hanno guardato quali pagine. Lighthouse ne misura una,
+          axe le prime del campione: sta scritto.</p>
+      </article>
+      <article>
+        <h3>Gli algoritmi sono nostri</h3>
+        <p>Crawler, BM25, fusione RRF, chunker: scritti a mano e documentati.
+          La formula del consenso è nel referto, con il <i>k</i> con cui ha
+          girato.</p>
+      </article>
+      <article>
+        <h3>Rispettiamo robots.txt</h3>
+        <p>Sempre, e per ogni strumento che tocca il sito — anche lo spider
+          di ZAP, che da sé non lo rispetta. L'unica eccezione è la tua
+          dichiarazione di proprietà, e finisce nel referto.</p>
+      </article>
+      <article>
+        <h3>Un rilievo è un controllo</h3>
+        <p>Lo stesso difetto su venti pagine resta un rilievo, con l'elenco
+          delle pagine su cui è scattato. Il conteggio dice quanto, l'elenco
+          dice dove.</p>
+      </article>
+      <article>
+        <h3>Due referti si confrontano</h3>
+        <p>Lo storico tiene i parametri di ogni esecuzione. Se cambia il
+          dispositivo emulato o il budget di scansione, il confronto lo
+          dichiara invece di far finta.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= ANTEPRIMA ================= -->
+  <section id="anteprima" aria-labelledby="t-anteprima">
+    <h2 id="t-anteprima">Un referto, da vicino</h2>
+    <p class="intro">
+      Questa è un'<b>anteprima dimostrativa</b> su un dominio di esempio:
+      la resa e il vocabolario sono quelli veri, i numeri no. Prova a
+      spostarti fra le due esecuzioni per vedere come il referto racconta un
+      confronto.
+    </p>
+
+    <div class="commuta" role="group" aria-label="Esecuzione da mostrare">
+      <button type="button" class="attivo" data-run="0" aria-pressed="true">
+        Prima esecuzione
+      </button>
+      <button type="button" data-run="1" aria-pressed="false">
+        Dopo trenta giorni di interventi
+      </button>
+    </div>
+
+    <!-- Il finto referto. I valori li scrive app.js: qui restano quelli
+         della prima esecuzione, così la pagina resta leggibile anche
+         senza JavaScript. -->
+    <div class="referto" id="referto">
+      <header class="referto-testa">
+        <p class="referto-titolo"><b>MARS</b> Beacon</p>
+        <p class="referto-meta">
+          <code>https://www.acme-manifatture.example</code>
+        </p>
+        <p class="referto-meta" id="rp-meta">
+          2026-08-04T09:12:00+0000 · 24 pagine trovate via sitemap ·
+          301 chunk · mercato eu · v2.29.0
+        </p>
+      </header>
+
+      <div class="referto-hero">
+        <div class="quadrante grande warn" id="rp-complessivo">
+          <svg viewBox="0 0 120 120" role="img"
+               aria-label="Complessivo: 51 su 100">
+            <circle class="anello" cx="60" cy="60" r="56" fill="none"
+                    stroke-width="9"/>
+            <circle class="arco" cx="60" cy="60" r="56" fill="none"
+                    stroke="currentColor" stroke-width="9"
+                    stroke-linecap="round" stroke-dasharray="351.86"
+                    stroke-dashoffset="172.41" transform="rotate(-90 60 60)"/>
+            <text class="valore" x="60" y="60" text-anchor="middle"
+                  dominant-baseline="central" fill="currentColor">51</text>
+          </svg>
+          <p class="nome">Complessivo</p>
+        </div>
+        <div class="referto-verdetto">
+          <p class="verdetto warn" id="rp-verdetto">da migliorare</p>
+          <p class="referto-meta">
+            media pesata di 7 misure · escluse 3. Prestazioni,
+            4. Lessicale, 5. Semantica, 9. Citabilità IA, 10. Giudizio LLM
+          </p>
+          <p class="referto-meta">
+            scala dichiarata: critico sotto 50 · da migliorare 50-89 ·
+            buono da 90
+          </p>
+          <p class="delta" id="rp-delta" hidden></p>
+          <div class="quote">
+            <div class="barra" aria-hidden="true">
+              <span class="fetta bad" id="rp-fetta" style="width:46.2%"></span>
+              <span class="fetta neutra"></span>
+            </div>
+            <p class="referto-meta" id="rp-conteggi">
+              <b>1</b> critico · <b>11</b> avvertenze · <b>14</b> informativi
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="referto-primi">
+        <p class="etichetta">Da dove cominciare</p>
+        <ol id="rp-primi">
+          <li class="bad">Content Security Policy (CSP) Header Not Set</li>
+          <li class="warn">Gli elementi devono soddisfare le soglie minime
+            del rapporto di contrasto di colore</li>
+          <li class="warn">3/24 pagine escluse dagli indici (noindex o none,
+            in meta robots o X-Robots-Tag)</li>
+        </ol>
+      </div>
+
+      <!-- Senza JavaScript qui resta questo elenco, che porta la STESSA
+           informazione dei quadranti: il grafico è un miglioramento del
+           testo, non il suo unico veicolo. `app.js` lo sostituisce. -->
+      <ul class="aree-testo" id="rp-quadranti">
+        <li><span>1. Tecnica</span> <b class="warn">74</b></li>
+        <li><span>2. SEO</span> <b class="ok">96</b></li>
+        <li><span>3. Prestazioni</span> <b class="warn">88</b></li>
+        <li><span>4. Lessicale</span> <b class="warn">69</b></li>
+        <li><span>5. Semantica</span> <b class="warn">77</b></li>
+        <li><span>6. Dati strutturati</span> <b class="warn">82</b></li>
+        <li><span>7. Accessibilità</span> <b class="warn">58</b></li>
+        <li><span>8. Sicurezza</span> <b class="bad">34</b></li>
+        <li><span>9. Citabilità IA</span> <b class="warn">55</b></li>
+        <li><span>10. Giudizio LLM</span> <b class="bad">45</b></li>
+      </ul>
+
+      <!-- Una scheda d'area, com'è nel referto vero: il rilievo, dove è
+           scattato, il contenuto TUO e la forma corretta accanto. -->
+      <article class="scheda">
+        <h3>7. Accessibilità <span class="pill warn" id="rp-wcag">58</span></h3>
+        <p class="referto-meta">axe-core 4.13 · 5 pagine del campione ·
+          i testi delle regole sono in italiano</p>
+        <ul class="rilievi">
+          <li class="warn">
+            <p class="rilievo-titolo">Le immagini devono avere un testo
+              alternativo</p>
+            <p class="rilievo-meta">critico · 9 immagini su 4 pagine ·
+              diffusione 1,8×</p>
+            <p class="etichetta">Nel tuo sito</p>
+            <ul class="citati">
+              <li><code>/img/linea-produzione.jpg</code></li>
+              <li><code>/img/sede-2019.png</code></li>
+              <li><code>/img/certificazione-iso.svg</code></li>
+              <li class="altri">e altre 6, non elencate</li>
+            </ul>
+            <p class="etichetta">Come deve diventare</p>
+<pre><code>&lt;img src="/img/linea-produzione.jpg"
+     alt="La linea di produzione dello stabilimento di Brescia"&gt;</code></pre>
+          </li>
+          <li class="warn">
+            <p class="rilievo-titolo">Salto di gerarchia fra i titoli</p>
+            <p class="rilievo-meta">avvertenza · 4 pagine</p>
+            <p class="etichetta">Nel tuo sito</p>
+            <ul class="citati">
+              <li><code>h1 «Chi siamo» → h3 «La nostra storia»</code></li>
+            </ul>
+          </li>
+        </ul>
+      </article>
+
+      <p class="referto-piede">
+        Anteprima dimostrativa. Il referto vero è un file unico, si stampa,
+        e porta i parametri con cui è stato prodotto.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= FORM ================= -->
+  <section id="accesso" aria-labelledby="t-accesso">
+    <h2 id="t-accesso">Richiedi l'accesso</h2>
+    <p class="intro">
+      MARS Beacon è uno strumento per aziende. Compila i campi: apriamo
+      l'accesso e il primo referto lo esegui tu, sul tuo dominio.
+    </p>
+
+    <form id="registrazione" class="modulo" novalidate>
+      <div class="errori" id="riassunto-errori" role="alert" hidden
+           tabindex="-1"></div>
+
+      <fieldset>
+        <legend>L'azienda</legend>
+
+        <div class="campo">
+          <label for="azienda">Ragione sociale <span aria-hidden="true">*</span></label>
+          <input id="azienda" name="azienda" type="text" autocomplete="organization"
+                 required aria-describedby="e-azienda">
+          <p class="errore" id="e-azienda" hidden></p>
+        </div>
+
+        <div class="campo">
+          <label for="sito">Sito da analizzare <span aria-hidden="true">*</span></label>
+          <input id="sito" name="sito" type="url" inputmode="url"
+                 placeholder="https://www.esempio.it" autocomplete="url"
+                 required aria-describedby="a-sito e-sito">
+          <p class="aiuto" id="a-sito">Il dominio su cui girerà il primo
+            referto.</p>
+          <p class="errore" id="e-sito" hidden></p>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Chi sei</legend>
+
+        <div class="due">
+          <div class="campo">
+            <label for="nome">Nome e cognome <span aria-hidden="true">*</span></label>
+            <input id="nome" name="nome" type="text" autocomplete="name"
+                   required aria-describedby="e-nome">
+            <p class="errore" id="e-nome" hidden></p>
+          </div>
+
+          <div class="campo">
+            <label for="ruolo">Ruolo <span aria-hidden="true">*</span></label>
+            <select id="ruolo" name="ruolo" required aria-describedby="e-ruolo">
+              <option value="">Scegli…</option>
+              <option>Direzione / Proprietà</option>
+              <option>Marketing / Comunicazione</option>
+              <option>IT / Sviluppo</option>
+              <option>SEO / Digital</option>
+              <option>Sicurezza / Compliance</option>
+              <option>Agenzia o consulente</option>
+              <option>Altro</option>
+            </select>
+            <p class="errore" id="e-ruolo" hidden></p>
+          </div>
+        </div>
+
+        <div class="due">
+          <div class="campo">
+            <label for="email">Email aziendale <span aria-hidden="true">*</span></label>
+            <input id="email" name="email" type="email" autocomplete="email"
+                   required aria-describedby="a-email e-email">
+            <p class="aiuto" id="a-email">Serve un indirizzo del dominio
+              aziendale: gli indirizzi personali non passano.</p>
+            <p class="errore" id="e-email" hidden></p>
+          </div>
+
+          <div class="campo">
+            <label for="telefono">Telefono <span aria-hidden="true">*</span></label>
+            <input id="telefono" name="telefono" type="tel" inputmode="tel"
+                   autocomplete="tel" required aria-describedby="e-telefono">
+            <p class="errore" id="e-telefono" hidden></p>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="consensi">
+        <legend>Prima di procedere</legend>
+
+        <div class="spunta">
+          <input id="termini" name="termini" type="checkbox" required
+                 aria-describedby="e-termini">
+          <label for="termini">Accetto i <a href="#">termini di
+            servizio</a>. <span aria-hidden="true">*</span></label>
+          <p class="errore" id="e-termini" hidden></p>
+        </div>
+
+        <div class="spunta">
+          <input id="privacy" name="privacy" type="checkbox" required
+                 aria-describedby="e-privacy">
+          <label for="privacy">Ho letto l'<a href="#">informativa
+            privacy</a> e acconsento al trattamento dei dati di contatto per
+            essere ricontattato. <span aria-hidden="true">*</span></label>
+          <p class="errore" id="e-privacy" hidden></p>
+        </div>
+
+        <div class="spunta">
+          <input id="responsabilita" name="responsabilita" type="checkbox"
+                 required aria-describedby="a-resp e-responsabilita">
+          <label for="responsabilita">Dichiaro di essere titolare del
+            dominio indicato, o di averne l'autorizzazione, e mi assumo la
+            responsabilità dell'analisi.
+            <span aria-hidden="true">*</span></label>
+          <p class="aiuto" id="a-resp">Non è una formula: la scansione
+            attiva invia richieste al tuo sito, e senza questa dichiarazione
+            resta disattivata. La dichiarazione viene registrata nel
+            referto.</p>
+          <p class="errore" id="e-responsabilita" hidden></p>
+        </div>
+      </fieldset>
+
+      <p class="azioni">
+        <button class="bottone" type="submit">Apri l'accesso</button>
+      </p>
+      <p class="minuta">
+        I campi con <span aria-hidden="true">*</span> sono obbligatori.
+        Nessun dato lascia questa pagina: è una dimostrazione.
+      </p>
+    </form>
+  </section>
+</main>
+
+<footer class="sito-piede">
+  <div class="contenitore">
+    <p><b>MARS Beacon</b> — Meta-fusion, Accessibility, Ranking &amp;
+      Security Audit.</p>
+    <p class="minuta">
+      I profili di citabilità sono stime euristiche dichiarate, non
+      comportamento documentato dai fornitori degli assistenti. Le pagine
+      analizzate rispettano robots.txt salvo dichiarazione di proprietà.
+    </p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

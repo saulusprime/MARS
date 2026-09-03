@@ -1,0 +1,942 @@
+<!--
+  M.A.R.S. Beacon — pagina da incorporare in lymphatechnologies.com.
+
+  QUESTO NON E' UN DOCUMENTO: e' il corpo di una pagina, nella stessa
+  forma di /it/ia-agenti-e-rag — uno <style> di pagina, una
+  <section class="lt-hero"> e una <section class="section"> — e va
+  incollato dentro `#main-container`. Testata, piede, navigazione,
+  cookie e font li mette il sito.
+
+  DIPENDE DAL SITO per: Bootstrap Italia (container, row, col-*, btn,
+  breadcrumb, form-check), `lympha-brand.css` (.lt-hero, .lt-hero__wave,
+  .lt-hero__content, .lt-check, .eyebrow, .lead) e i font.
+
+  NON DIPENDE DA jQuery. Lo script e' una IIFE senza variabili globali.
+
+  Tutto il CSS e' annidato sotto `.mars`, e ogni classe nostra comincia
+  per `mars-`: un selettore di elemento nudo — `h2`, `label`, `pre` —
+  uscirebbe da questa pagina e arriverebbe su tutte le altre. I due
+  prefissi corti di Bootstrap (`mb-`, `ms-`) sono suoi: `mars-` no.
+-->
+
+<style>
+/* --- M.A.R.S. Beacon: stile di pagina, tutto sotto .mars ------------ */
+.mars {
+  /* I tre colori di gravita' NON sono una scelta estetica, e sono gli
+     stessi che il referto stampa: vengono da Bootstrap Italia, che
+     questo sito usa. Quelli di Lighthouse — #0cce6b e #ffa400 — stanno
+     a 2,09:1 e 1,99:1 su bianco, sotto perfino la soglia 3:1 dei
+     componenti: una pagina che vende un audit di accessibilita' non
+     puo' fallire i propri criteri. Il colore non viaggia mai da solo,
+     la parola lo accompagna sempre. */
+  --mars-ok: #008055;
+  --mars-warn: #995c00;
+  --mars-bad: #cc334d;
+  --mars-fg: #14272b;
+  --mars-muted: #556879;
+  --mars-line: #dde5e7;
+  --mars-card: #f4f7f8;
+  --mars-track: #e6edee;
+  /* La tinta del sito, letta dal suo hero: non la inventiamo. L'onda
+     usa il proprio #5bb6bf per valore, com'e' nel sito. */
+  --mars-brand: #186078;
+}
+
+.mars-sommario { font-size: 1.02rem; }
+.mars-nota { color: var(--mars-muted); font-size: .87rem; }
+.mars-etichetta {
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--mars-muted); font-weight: 700; margin: 0 0 .35rem;
+}
+
+/* Indice laterale: la stessa forma della nav di /it/ia-agenti-e-rag. */
+.mars-indice a {
+  display: block; padding: .35rem .6rem; border-left: 2px solid var(--mars-line);
+  color: var(--mars-fg); text-decoration: none; font-size: .93rem;
+}
+.mars-indice a:hover, .mars-indice a:focus { border-left-color: var(--mars-brand); }
+
+/* --- le dieci aree --- */
+.mars-aree { list-style: none; margin: 0; padding: 0; counter-reset: mars-area; }
+.mars-aree > li {
+  border: 1px solid var(--mars-line); border-radius: 8px;
+  padding: .85rem 1rem .85rem 3rem; position: relative; height: 100%;
+  background: #fff;
+}
+.mars-aree > li::before {
+  counter-increment: mars-area; content: counter(mars-area);
+  position: absolute; left: .85rem; top: .95rem;
+  width: 1.5rem; height: 1.5rem; border-radius: 999px;
+  background: var(--mars-brand); color: #fff; font-size: .8rem; font-weight: 700;
+  display: grid; place-items: center;
+}
+.mars-aree h3 { font-size: .98rem; margin: 0 0 .2rem; color: var(--mars-brand); }
+.mars-aree p { margin: 0; font-size: .89rem; color: var(--mars-muted); }
+
+/* --- il referto dimostrativo --- */
+.mars-commuta { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.mars-referto {
+  border: 1px solid var(--mars-line); border-radius: 10px; background: #fff;
+  padding: 1.25rem; box-shadow: 0 8px 28px rgba(24, 96, 120, .10);
+}
+.mars-referto-testa { border-bottom: 1px solid var(--mars-line); padding-bottom: .9rem; }
+.mars-referto-testa p { margin: .1rem 0; }
+.mars-meta { color: var(--mars-muted); font-size: .84rem; }
+.mars-meta code {
+  background: var(--mars-card); padding: .05rem .3rem; border-radius: 4px;
+  color: var(--mars-fg);
+}
+.mars-hero-referto {
+  display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center;
+  padding: 1.25rem 0;
+}
+.mars-verdetto-box { flex: 1 1 17rem; }
+.mars-verdetto { font-size: 1.1rem; font-weight: 700; margin: 0 0 .3rem; }
+
+/* Il quadrante ha la geometria del referto vero — r=56, circonferenza
+   351,86 — cosi' l'anteprima non somiglia al prodotto: e' il prodotto. */
+.mars-quadranti { list-style: none; margin: 0; padding: .25rem 0 1.25rem;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: .9rem; }
+.mars-quadrante { text-align: center; }
+.mars-quadrante svg { width: 70px; height: 70px; display: block; margin: 0 auto; }
+.mars-quadrante.mars-grande svg { width: 112px; height: 112px; }
+.mars-anello { stroke: var(--mars-track); }
+.mars-arco { transition: stroke-dashoffset .7s ease; }
+.mars-valore { font-size: 34px; font-weight: 700; }
+.mars-quadrante.mars-grande .mars-valore { font-size: 30px; }
+.mars-quadrante .mars-nome {
+  margin: .35rem 0 0; font-size: .82rem; font-weight: 600; color: var(--mars-fg);
+}
+.mars-quadrante .mars-strumento { font-size: .72rem; color: var(--mars-muted); font-weight: 400; }
+
+.mars-ok { color: var(--mars-ok); }
+.mars-warn { color: var(--mars-warn); }
+.mars-bad { color: var(--mars-bad); }
+
+.mars-delta { font-weight: 700; margin: .4rem 0; }
+.mars-delta .mars-rispetto { font-weight: 400; font-size: .84rem; color: var(--mars-muted); }
+
+.mars-barra { display: flex; height: 9px; border-radius: 999px;
+  overflow: hidden; background: var(--mars-track); margin-bottom: .4rem; }
+.mars-fetta { display: block; transition: width .7s ease; }
+.mars-fetta.mars-warn { background: var(--mars-warn); }
+.mars-fetta.mars-bad { background: var(--mars-bad); }
+.mars-fetta.mars-resto { background: var(--mars-track); flex: 1; }
+
+.mars-primi {
+  background: var(--mars-card); border: 1px solid var(--mars-line);
+  border-radius: 8px; padding: .9rem 1rem;
+}
+.mars-primi ol { margin: 0; padding-left: 1.15rem; }
+.mars-primi li { font-size: .91rem; margin: .2rem 0; }
+
+.mars-scheda { border: 1px solid var(--mars-line); border-radius: 8px;
+  padding: 1rem; margin-top: 1.25rem; }
+.mars-scheda h3 { font-size: 1rem; color: var(--mars-brand); margin: 0 0 .2rem;
+  display: flex; align-items: center; gap: .5rem; }
+.mars-pill { border: 1px solid currentColor; border-radius: 999px;
+  padding: 0 .5rem; font-size: .82rem; font-weight: 700; }
+.mars-rilievi { list-style: none; margin: .9rem 0 0; padding: 0; }
+.mars-rilievi > li { border-left: 3px solid currentColor; padding-left: .85rem;
+  margin-bottom: 1.2rem; }
+.mars-rilievo-titolo { font-weight: 600; margin: 0 0 .15rem; color: var(--mars-fg); }
+.mars-citati { list-style: none; margin: 0 0 .8rem; padding: 0; }
+.mars-citati li { font-size: .86rem; margin: .12rem 0; }
+.mars-citati code { background: var(--mars-card); padding: .1rem .35rem;
+  border-radius: 4px; color: var(--mars-fg); }
+.mars-citati .mars-altri { color: var(--mars-muted); font-size: .81rem; }
+.mars-esempio {
+  margin: 0; background: #0b2830; color: #eaf2f4; padding: .75rem .9rem;
+  border-radius: 8px; overflow-x: auto; font-size: .82rem; line-height: 1.5;
+}
+
+/* --- il modulo ---------------------------------------------------- */
+/* Stili nostri e non quelli di Bootstrap Italia: le sue etichette
+   fluttuanti dipendono dal suo JavaScript, e su questa macchina un
+   browser per provarlo non c'e'. Meglio un modulo che si sa come rende
+   di uno che dovrebbe rendere bene. Il BOTTONE invece e' del sito. */
+.mars-modulo { max-width: 42rem; }
+.mars-gruppo { border: 1px solid var(--mars-line); border-radius: 8px;
+  padding: 1.1rem; margin: 0 0 1.1rem; }
+.mars-gruppo > legend { float: none; width: auto; padding: 0 .4rem;
+  font-size: .95rem; font-weight: 700; color: var(--mars-brand); margin: 0; }
+.mars-campo { margin-bottom: 1rem; }
+.mars-campo:last-child { margin-bottom: 0; }
+.mars-campo > label { display: block; font-weight: 600; font-size: .92rem;
+  margin-bottom: .25rem; color: var(--mars-fg); }
+.mars-campo input, .mars-campo select {
+  width: 100%; font: inherit; padding: .55rem .7rem; color: var(--mars-fg);
+  /* #748891 e non un grigio piu' chiaro: WCAG 1.4.11 chiede 3:1 per il
+     CONTORNO di un componente, e la prima stesura stava a 2,24:1 —
+     misurato, non supposto. Qui siamo a 3,70:1. */
+  border: 1px solid #748891; border-radius: 6px; background: #fff;
+  height: auto; box-shadow: none;
+}
+.mars-aiuto { margin: .3rem 0 0; font-size: .82rem; color: var(--mars-muted); }
+/* L'errore porta il simbolo oltre al colore: il colore da solo non e'
+   un'informazione (WCAG 1.4.1). */
+.mars-errore { margin: .3rem 0 0; font-size: .85rem; font-weight: 600;
+  color: var(--mars-bad); }
+.mars-errore::before { content: "\2715\00a0"; }
+.mars [aria-invalid="true"] { border-color: var(--mars-bad); border-width: 2px; }
+.mars-spunta { display: grid; grid-template-columns: auto 1fr;
+  gap: .1rem .6rem; margin-bottom: 1rem; }
+.mars-spunta input { width: 1.1rem; height: 1.1rem; margin-top: .3rem; }
+.mars-spunta label { grid-column: 2; font-size: .92rem; }
+.mars-spunta .mars-aiuto, .mars-spunta .mars-errore { grid-column: 2; }
+.mars-riassunto { border: 2px solid var(--mars-bad); border-radius: 8px;
+  padding: .9rem 1rem; margin-bottom: 1.1rem; background: #fdf3f4; }
+.mars-riassunto p { font-weight: 700; color: var(--mars-bad); margin: 0 0 .4rem; }
+.mars-riassunto ul { margin: 0; padding-left: 1.15rem; }
+.mars-riassunto a { color: var(--mars-bad); }
+
+@media (max-width: 575.98px) {
+  .mars-referto { padding: .9rem; }
+  .mars-aree > li { padding-left: 2.75rem; }
+}
+
+/* Il movimento sta dietro la preferenza dell'utente, come nel referto:
+   l'animazione degli archi e' decorativa e non porta informazione. */
+@media (prefers-reduced-motion: reduce) {
+  .mars-arco, .mars-fetta { transition: none; }
+}
+</style>
+
+
+<section class="lt-hero mars">
+  <svg class="lt-hero__wave lt-decor" viewBox="0 0 1440 400"
+       preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <path class="wv wv-a" fill="#5bb6bf" fill-opacity="0.16" data-base="250"
+          data-amp="14"
+          d="M0 250 C 155 238 155 238 310 250 C 465 262 465 262 620 250 C 775 238 775 238 930 250 C 1085 262 1085 262 1240 250 C 1395 238 1395 238 1440 250 L 1440 400 L 0 400 Z"></path>
+    <path class="wv wv-b" fill="#186078" fill-opacity="0.09" data-base="300"
+          data-amp="16"
+          d="M0 300 C 120 286 120 286 240 300 C 360 314 360 314 480 300 C 600 286 600 286 720 300 C 840 314 840 314 960 300 C 1080 286 1080 286 1200 300 C 1320 314 1320 314 1440 300 L 1440 400 L 0 400 Z"></path>
+  </svg>
+  <div class="container lt-hero__content">
+    <nav aria-label="Percorso di navigazione">
+      <ol class="breadcrumb mb-3">
+        <li class="breadcrumb-item"><a href="/it/home">Home</a></li>
+        <li class="breadcrumb-item"><a href="/it/sviluppo">Sviluppo</a></li>
+        <li class="breadcrumb-item active" aria-current="page">M.A.R.S. Beacon</li>
+      </ol>
+    </nav>
+    <p class="eyebrow">Sviluppo</p>
+    <h1>M.A.R.S. Beacon</h1>
+    <p class="lead">
+      Meta-fusion, Accessibility, Ranking &amp; Security Audit: il tuo sito
+      come lo legge un assistente IA, con i numeri e con il piano di lavoro.
+    </p>
+  </div>
+</section>
+
+
+<section class="section mars">
+  <div class="container">
+    <div class="row g-5">
+
+      <!-- ============ indice laterale, come nella pagina RAG ========= -->
+      <div class="col-lg-3">
+        <nav aria-label="In questa pagina">
+          <p class="eyebrow mb-3">In questa pagina</p>
+          <ul class="list-unstyled d-grid gap-2 mars-indice">
+            <li><a href="#mars-perche">Perché serve</a></li>
+            <li><a href="#mars-aree">Le dieci aree</a></li>
+            <li><a href="#mars-metodo">Come leggiamo i numeri</a></li>
+            <li><a href="#mars-anteprima">Un referto, da vicino</a></li>
+            <li><a href="#mars-accesso">Richiedi l'accesso</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <!-- ============ contenuto ===================================== -->
+      <div class="col-lg-9">
+        <article>
+
+          <p class="mars-sommario" id="mars-perche">
+            Le persone non arrivano più solo da una lista di link: chiedono, e
+            un assistente risponde <b>citando qualcuno</b>. Perché quel
+            qualcuno sia tu, il tuo sito deve essere raggiungibile, leggibile a
+            pezzi, corretto e sicuro — e nessuna di queste quattro cose si
+            vede guardando la home.
+          </p>
+          <p>
+            <b>M.A.R.S. Beacon</b> scansiona il sito una volta sola e ne misura
+            dieci aree con dieci strumenti diversi, poi consegna un referto con
+            l'ordine di lavoro: quanto c'è da recuperare, su quali pagine, e
+            come si corregge. Un file solo, che si stampa e si archivia.
+          </p>
+          <p class="mars-nota">
+            Nessun punteggio inventato. Dove una misura è una stima, il referto
+            lo dichiara; dove un'area non è stata guardata scrive <b>non
+            misurato</b>, che non è zero.
+          </p>
+
+          <h2 class="h5 mt-4" id="mars-aree">Le dieci aree</h2>
+          <p>
+            Un'area è un modulo, e ogni modulo dichiara che cosa della propria
+            area <i>non</i> copre ancora.
+          </p>
+          <ul class="row row-cols-1 row-cols-md-2 g-3 mars-aree">
+            <li class="col"><h3>Tecnica</h3><p>Indicizzabilità, robots.txt,
+              sitemap e tredici crawler IA controllati <b>per agente</b>:
+              escludere Google non è escludere gli assistenti.</p></li>
+            <li class="col"><h3>SEO</h3><p>Gli undici controlli della sezione
+              SEO di Lighthouse, non il solo punteggio: si sa <i>quale</i>
+              controllo è fallito.</p></li>
+            <li class="col"><h3>Prestazioni</h3><p>I Core Web Vitals di
+              laboratorio, dallo stesso referto Lighthouse. L'INP in
+              laboratorio non si misura, e il referto lo dice.</p></li>
+            <li class="col"><h3>Lessicale</h3><p>BM25 sui passaggi del sito,
+              più i controlli che lo alimentano: pagine troppo corte, titoli
+              ripetuti, domande senza risposta nel testo.</p></li>
+            <li class="col"><h3>Semantica</h3><p>Recupero vettoriale sugli
+              stessi passaggi. Senza modello di embedding si ripiega su un
+              proxy scritto a mano, dichiarandolo.</p></li>
+            <li class="col"><h3>Dati strutturati</h3><p>JSON-LD e Schema.org:
+              che cosa dichiari di essere, e se un parser lo capisce.</p></li>
+            <li class="col"><h3>Accessibilità</h3><p>axe-core su Chromium, con
+              la diffusione di ogni violazione sulle pagine del campione. Non
+              un bollino: i nodi veri.</p></li>
+            <li class="col"><h3>Sicurezza</h3><p>Header e superficie, e con la
+              dichiarazione di proprietà la scansione attiva OWASP ZAP.</p></li>
+            <li class="col"><h3>Citabilità IA</h3><p>Profili per assistente —
+              Claude, ChatGPT, Perplexity, Qwen, Kimi — pesati per mercato.
+              Stime euristiche, <b>dichiarate</b>.</p></li>
+            <li class="col"><h3>Giudizio LLM</h3><p>Un modello legge un
+              campione dei tuoi passaggi e dice se ti citerebbe. È opinione, e
+              il referto la tiene separata dalle misure.</p></li>
+          </ul>
+
+          <h2 class="h5 mt-4" id="mars-metodo">Come leggiamo i numeri</h2>
+          <ul class="lt-check">
+            <li><b>Ogni punteggio viene da una misura.</b> Se è una stima
+              euristica il referto lo scrive; se uno strumento non c'era
+              l'area vale «non misurato» e non zero — sono due cose diverse e
+              confonderle falsa la media.</li>
+            <li><b>Il perimetro è dichiarato.</b> Quante pagine, trovate come
+              — sitemap o link interni — e quali aree hanno guardato quali
+              pagine: Lighthouse ne misura una, axe le prime del campione.</li>
+            <li><b>Gli algoritmi sono nostri.</b> Crawler, BM25, fusione RRF e
+              segmentazione dei passaggi sono scritti a mano e documentati; la
+              formula del consenso è nel referto, con il parametro con cui ha
+              girato.</li>
+            <li><b>robots.txt si rispetta.</b> Sempre, e per ogni strumento
+              che tocca il sito — anche lo spider di ZAP, che da sé non lo
+              rispetta. L'unica eccezione è la tua dichiarazione di proprietà,
+              e finisce scritta nel referto.</li>
+            <li><b>Un rilievo è un controllo, non un'occorrenza.</b> Lo stesso
+              difetto su venti pagine resta un rilievo, con l'elenco delle
+              pagine su cui è scattato: il conteggio dice quanto, l'elenco
+              dice dove.</li>
+            <li><b>Due referti si confrontano.</b> Lo storico conserva i
+              parametri di ogni esecuzione: se cambia il dispositivo emulato o
+              il budget di scansione, il confronto lo dichiara invece di far
+              finta di niente.</li>
+          </ul>
+
+          <h2 class="h5 mt-4" id="mars-anteprima">Un referto, da vicino</h2>
+          <p>
+            Anteprima <b>dimostrativa</b> su un dominio di esempio: la resa e
+            il vocabolario sono quelli veri, i numeri no. Spostati fra le due
+            esecuzioni per vedere come il referto racconta un confronto.
+          </p>
+
+          <figure class="my-4">
+            <div class="mars-commuta" role="group"
+                 aria-label="Esecuzione da mostrare">
+              <button type="button" class="btn btn-primary btn-sm"
+                      data-mars-run="0" aria-pressed="true">
+                Prima esecuzione
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm"
+                      data-mars-run="1" aria-pressed="false">
+                Dopo trenta giorni di interventi
+              </button>
+            </div>
+
+            <div class="mars-referto">
+              <div class="mars-referto-testa">
+                <p><b>M.A.R.S.</b> Beacon</p>
+                <p class="mars-meta">
+                  <code>https://www.acme-manifatture.example</code>
+                </p>
+                <p class="mars-meta" id="mars-rp-meta">
+                  2026-08-04T09:12:00+0000 · 24 pagine trovate via sitemap ·
+                  301 chunk · mercato eu · v2.29.0
+                </p>
+              </div>
+
+              <div class="mars-hero-referto">
+                <div class="mars-quadrante mars-grande mars-warn"
+                     id="mars-rp-complessivo">
+                  <svg viewBox="0 0 120 120" role="img"
+                       aria-label="Complessivo: 51 su 100">
+                    <circle class="mars-anello" cx="60" cy="60" r="56"
+                            fill="none" stroke-width="9"></circle>
+                    <circle class="mars-arco" cx="60" cy="60" r="56" fill="none"
+                            stroke="currentColor" stroke-width="9"
+                            stroke-linecap="round" stroke-dasharray="351.86"
+                            stroke-dashoffset="172.41"
+                            transform="rotate(-90 60 60)"></circle>
+                    <text class="mars-valore" x="60" y="60" text-anchor="middle"
+                          dominant-baseline="central"
+                          fill="currentColor">51</text>
+                  </svg>
+                  <p class="mars-nome">Complessivo</p>
+                </div>
+
+                <div class="mars-verdetto-box">
+                  <p class="mars-verdetto mars-warn" id="mars-rp-verdetto">
+                    da migliorare
+                  </p>
+                  <p class="mars-meta">
+                    media pesata di 7 misure · escluse 3. Prestazioni,
+                    4. Lessicale, 5. Semantica, 9. Citabilità IA,
+                    10. Giudizio LLM
+                  </p>
+                  <p class="mars-meta">
+                    scala dichiarata: critico sotto 50 · da migliorare 50-89 ·
+                    buono da 90
+                  </p>
+                  <p class="mars-delta" id="mars-rp-delta" hidden></p>
+                  <div class="mars-barra" aria-hidden="true">
+                    <span class="mars-fetta mars-bad" id="mars-rp-fetta"
+                          style="width:46.2%"></span>
+                    <span class="mars-fetta mars-resto"></span>
+                  </div>
+                  <p class="mars-meta" id="mars-rp-conteggi">
+                    <b>1</b> critico · <b>11</b> avvertenze ·
+                    <b>14</b> informativi
+                  </p>
+                </div>
+              </div>
+
+              <div class="mars-primi">
+                <p class="mars-etichetta">Da dove cominciare</p>
+                <ol id="mars-rp-primi">
+                  <li class="mars-bad">Content Security Policy (CSP) Header
+                    Not Set</li>
+                  <li class="mars-warn">Gli elementi devono soddisfare le
+                    soglie minime del rapporto di contrasto di colore</li>
+                  <li class="mars-warn">3/24 pagine escluse dagli indici
+                    (noindex o none, in meta robots o X-Robots-Tag)</li>
+                </ol>
+              </div>
+
+              <ul class="mars-quadranti" id="mars-rp-quadranti"></ul>
+
+              <div class="mars-scheda">
+                <h3>7. Accessibilità
+                  <span class="mars-pill mars-warn" id="mars-rp-wcag">58</span>
+                </h3>
+                <p class="mars-meta">axe-core 4.13 · 5 pagine del campione ·
+                  i testi delle regole sono in italiano</p>
+                <ul class="mars-rilievi">
+                  <li class="mars-warn">
+                    <p class="mars-rilievo-titolo">Le immagini devono avere un
+                      testo alternativo</p>
+                    <p class="mars-meta">critico · 9 immagini su 4 pagine ·
+                      diffusione 1,8×</p>
+                    <p class="mars-etichetta">Nel tuo sito</p>
+                    <ul class="mars-citati">
+                      <li><code>/img/linea-produzione.jpg</code></li>
+                      <li><code>/img/sede-2019.png</code></li>
+                      <li><code>/img/certificazione-iso.svg</code></li>
+                      <li class="mars-altri">e altre 6, non elencate</li>
+                    </ul>
+                    <p class="mars-etichetta">Come deve diventare</p>
+<pre class="mars-esempio"><code>&lt;img src="/img/linea-produzione.jpg"
+     alt="La linea di produzione dello stabilimento di Brescia"&gt;</code></pre>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <figcaption class="mars-nota mt-2">
+              Anteprima dimostrativa: dominio e numeri sono inventati, la resa
+              e la scala sono quelle del referto vero.
+            </figcaption>
+          </figure>
+
+          <h2 class="h5 mt-4" id="mars-accesso">Richiedi l'accesso</h2>
+          <p>
+            M.A.R.S. Beacon è uno strumento per aziende. Compila i campi:
+            apriamo l'accesso e il primo referto lo esegui tu, sul tuo dominio.
+          </p>
+
+          <form id="mars-registrazione" class="mars-modulo" novalidate
+                action="/it/mars-beacon-accesso" method="post">
+            <div class="mars-riassunto" id="mars-riassunto" role="alert" hidden
+                 tabindex="-1"></div>
+
+            <fieldset class="mars-gruppo">
+              <legend>L'azienda</legend>
+              <div class="mars-campo">
+                <label for="mars-azienda">Ragione sociale *</label>
+                <input id="mars-azienda" name="azienda" type="text"
+                       autocomplete="organization" required
+                       aria-describedby="mars-e-azienda">
+                <p class="mars-errore" id="mars-e-azienda" hidden></p>
+              </div>
+              <div class="mars-campo">
+                <label for="mars-sito">Sito da analizzare *</label>
+                <input id="mars-sito" name="sito" type="url" inputmode="url"
+                       placeholder="https://www.esempio.it" autocomplete="url"
+                       required aria-describedby="mars-a-sito mars-e-sito">
+                <p class="mars-aiuto" id="mars-a-sito">Il dominio su cui girerà
+                  il primo referto.</p>
+                <p class="mars-errore" id="mars-e-sito" hidden></p>
+              </div>
+            </fieldset>
+
+            <fieldset class="mars-gruppo">
+              <legend>Chi sei</legend>
+              <div class="row g-3">
+                <div class="col-md-6 mars-campo">
+                  <label for="mars-nome">Nome e cognome *</label>
+                  <input id="mars-nome" name="nome" type="text"
+                         autocomplete="name" required
+                         aria-describedby="mars-e-nome">
+                  <p class="mars-errore" id="mars-e-nome" hidden></p>
+                </div>
+                <div class="col-md-6 mars-campo">
+                  <label for="mars-ruolo">Ruolo *</label>
+                  <select id="mars-ruolo" name="ruolo" required
+                          aria-describedby="mars-e-ruolo">
+                    <option value="">Scegli…</option>
+                    <option>Direzione / Proprietà</option>
+                    <option>Marketing / Comunicazione</option>
+                    <option>IT / Sviluppo</option>
+                    <option>SEO / Digital</option>
+                    <option>Sicurezza / Compliance</option>
+                    <option>Agenzia o consulente</option>
+                    <option>Altro</option>
+                  </select>
+                  <p class="mars-errore" id="mars-e-ruolo" hidden></p>
+                </div>
+                <div class="col-md-6 mars-campo">
+                  <label for="mars-email">Email aziendale *</label>
+                  <input id="mars-email" name="email" type="email"
+                         autocomplete="email" required
+                         aria-describedby="mars-a-email mars-e-email">
+                  <p class="mars-aiuto" id="mars-a-email">Serve un indirizzo del
+                    dominio aziendale: quelli personali non passano.</p>
+                  <p class="mars-errore" id="mars-e-email" hidden></p>
+                </div>
+                <div class="col-md-6 mars-campo">
+                  <label for="mars-telefono">Telefono *</label>
+                  <input id="mars-telefono" name="telefono" type="tel"
+                         inputmode="tel" autocomplete="tel" required
+                         aria-describedby="mars-e-telefono">
+                  <p class="mars-errore" id="mars-e-telefono" hidden></p>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="mars-gruppo">
+              <legend>Prima di procedere</legend>
+              <div class="mars-spunta">
+                <input id="mars-termini" name="termini" type="checkbox" required
+                       aria-describedby="mars-e-termini">
+                <label for="mars-termini">Accetto i
+                  <a href="/it/termini-di-servizio">termini di servizio</a>. *</label>
+                <p class="mars-errore" id="mars-e-termini" hidden></p>
+              </div>
+              <div class="mars-spunta">
+                <input id="mars-privacy" name="privacy" type="checkbox" required
+                       aria-describedby="mars-e-privacy">
+                <label for="mars-privacy">Ho letto l'<a href="/it/privacy">informativa
+                  privacy</a> e acconsento al trattamento dei dati di contatto
+                  per essere ricontattato. *</label>
+                <p class="mars-errore" id="mars-e-privacy" hidden></p>
+              </div>
+              <div class="mars-spunta">
+                <input id="mars-responsabilita" name="responsabilita"
+                       type="checkbox" required
+                       aria-describedby="mars-a-resp mars-e-responsabilita">
+                <label for="mars-responsabilita">Dichiaro di essere titolare del
+                  dominio indicato, o di averne l'autorizzazione, e mi assumo la
+                  responsabilità dell'analisi. *</label>
+                <p class="mars-aiuto" id="mars-a-resp">Non è una formula: la
+                  scansione attiva invia richieste al tuo sito, e senza questa
+                  dichiarazione resta disattivata. La dichiarazione viene
+                  registrata nel referto.</p>
+                <p class="mars-errore" id="mars-e-responsabilita" hidden></p>
+              </div>
+            </fieldset>
+
+            <button class="btn btn-primary" type="submit">Apri l'accesso</button>
+            <p class="mars-aiuto">I campi con * sono obbligatori.</p>
+          </form>
+
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<script>
+/* M.A.R.S. Beacon — script di pagina. IIFE, nessuna variabile globale,
+ * nessuna dipendenza da jQuery: il sito lo carica, ma legarsi a lui
+ * renderebbe questa pagina fragile a un suo aggiornamento.
+ *
+ * Tutto viene cercato DENTRO `.mars`: se un domani questo frammento
+ * convivesse con un altro nella stessa pagina, non si ruberebbero i
+ * nodi a vicenda. */
+(function () {
+  "use strict";
+
+  var radice = document.querySelector(".section.mars");
+  if (!radice) { return; }
+
+  /* La geometria e' quella del referto: r=56, quindi 2*pi*56 = 351,86.
+   * Un disegno che somigli a un quadrante non e' un quadrante. */
+  var CIRC = 351.86;
+
+  /* La scala dichiarata: critico sotto 50, da migliorare fino a 89,
+   * buono da 90. Sta scritta una volta sola perche' decide sia il
+   * colore sia la parola, e due copie divergerebbero. */
+  function classe(voto) {
+    if (voto === null || voto === undefined) { return ""; }
+    if (voto >= 90) { return "mars-ok"; }
+    if (voto >= 50) { return "mars-warn"; }
+    return "mars-bad";
+  }
+
+  function verdetto(voto) {
+    if (voto >= 90) { return "buono"; }
+    if (voto >= 50) { return "da migliorare"; }
+    return "critico";
+  }
+
+  var AREE = [
+    ["Tecnica", ""], ["SEO", "Lighthouse"], ["Prestazioni", "desktop"],
+    ["Lessicale", "BM25"], ["Semantica", "proxy dichiarato"],
+    ["Dati strutturati", ""], ["Accessibilità", "axe-core"],
+    ["Sicurezza", "ZAP passiva"], ["Citabilità IA", "stima"],
+    ["Giudizio LLM", "opinione"]
+  ];
+
+  /* Due esecuzioni dello stesso dominio di esempio: la seconda e' quella
+   * che si vede dopo aver lavorato sul piano del referto. E' il
+   * confronto che il prodotto sa davvero raccontare. */
+  var RUN = [
+    {
+      meta: "2026-08-04T09:12:00+0000 · 24 pagine trovate via sitemap · " +
+            "301 chunk · mercato eu · v2.29.0",
+      complessivo: 51, delta: null, wcag: 58,
+      voti: [74, 96, 88, 69, 77, 82, 58, 34, 55, 45],
+      conteggi: [1, 11, 14],
+      primi: [
+        ["mars-bad", "Content Security Policy (CSP) Header Not Set"],
+        ["mars-warn", "Gli elementi devono soddisfare le soglie minime del " +
+                      "rapporto di contrasto di colore"],
+        ["mars-warn", "3/24 pagine escluse dagli indici (noindex o none, in " +
+                      "meta robots o X-Robots-Tag)"]
+      ]
+    },
+    {
+      meta: "2026-09-03T08:40:00+0000 · 26 pagine trovate via sitemap · " +
+            "348 chunk · mercato eu · v2.29.0",
+      complessivo: 73, delta: 22, wcag: 86,
+      voti: [91, 100, 92, 78, 84, 95, 86, 71, 68, 61],
+      conteggi: [0, 4, 16],
+      primi: [
+        ["mars-warn", "2/26 pagine sotto le 300 parole recuperabili"],
+        ["mars-warn", "Sub Resource Integrity Attribute Missing"],
+        ["mars-warn", "L'INP non si misura in laboratorio: non misurato"]
+      ]
+    }
+  ];
+
+  function id(nome) { return radice.querySelector("#" + nome); }
+
+  function offset(voto) {
+    return (CIRC * (1 - Math.min(voto, 100) / 100)).toFixed(2);
+  }
+
+  function quadrante(nome, voto, strumento) {
+    /* Un <li>, perche' il contenitore e' una <ul>: infilarci dei <div>
+     * darebbe markup non valido, su una pagina che vende un audit di
+     * accessibilita'. */
+    var li = document.createElement("li");
+    li.className = "mars-quadrante " + classe(voto);
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 120 120");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", nome + ": " + voto + " su 100");
+    [["mars-anello", null], ["mars-arco", offset(voto)]].forEach(function (c) {
+      var cerchio = document.createElementNS(ns, "circle");
+      cerchio.setAttribute("class", c[0]);
+      cerchio.setAttribute("cx", "60");
+      cerchio.setAttribute("cy", "60");
+      cerchio.setAttribute("r", "56");
+      cerchio.setAttribute("fill", "none");
+      cerchio.setAttribute("stroke-width", "9");
+      if (c[1] !== null) {
+        cerchio.setAttribute("stroke", "currentColor");
+        cerchio.setAttribute("stroke-linecap", "round");
+        cerchio.setAttribute("stroke-dasharray", CIRC);
+        cerchio.setAttribute("stroke-dashoffset", c[1]);
+        cerchio.setAttribute("transform", "rotate(-90 60 60)");
+      }
+      svg.appendChild(cerchio);
+    });
+    var testo = document.createElementNS(ns, "text");
+    testo.setAttribute("class", "mars-valore");
+    testo.setAttribute("x", "60");
+    testo.setAttribute("y", "60");
+    testo.setAttribute("text-anchor", "middle");
+    testo.setAttribute("dominant-baseline", "central");
+    testo.setAttribute("fill", "currentColor");
+    testo.textContent = voto;
+    svg.appendChild(testo);
+    li.appendChild(svg);
+
+    var p = document.createElement("p");
+    p.className = "mars-nome";
+    p.textContent = nome;
+    if (strumento) {
+      p.appendChild(document.createElement("br"));
+      var s = document.createElement("span");
+      s.className = "mars-strumento";
+      s.textContent = strumento;
+      p.appendChild(s);
+    }
+    li.appendChild(p);
+    return li;
+  }
+
+  function disegna(i) {
+    var r = RUN[i];
+    if (!r) { return; }
+
+    id("mars-rp-meta").textContent = r.meta;
+
+    var box = id("mars-rp-complessivo");
+    box.className = "mars-quadrante mars-grande " + classe(r.complessivo);
+    box.querySelector(".mars-arco").setAttribute("stroke-dashoffset",
+                                                 offset(r.complessivo));
+    box.querySelector(".mars-valore").textContent = r.complessivo;
+    box.querySelector("svg").setAttribute(
+      "aria-label", "Complessivo: " + r.complessivo + " su 100");
+
+    var v = id("mars-rp-verdetto");
+    v.className = "mars-verdetto " + classe(r.complessivo);
+    v.textContent = verdetto(r.complessivo);
+
+    /* La variazione porta il simbolo oltre al colore, sempre. */
+    var d = id("mars-rp-delta");
+    d.textContent = "";
+    if (r.delta === null) {
+      d.hidden = true;
+    } else {
+      d.hidden = false;
+      d.className = "mars-delta " + (r.delta >= 0 ? "mars-ok" : "mars-bad");
+      d.appendChild(document.createTextNode(
+        (r.delta >= 0 ? "▲ +" : "▼ ") + r.delta + " "));
+      var sp = document.createElement("span");
+      sp.className = "mars-rispetto";
+      sp.textContent = "rispetto all'esecuzione precedente";
+      d.appendChild(sp);
+    }
+
+    /* La barra e i conteggi dicono la stessa cosa: la barra da sola non
+     * direbbe nulla a chi non la vede, ed e' `aria-hidden`. */
+    var c = r.conteggi;
+    var tot = c[0] + c[1] + c[2];
+    var fetta = id("mars-rp-fetta");
+    fetta.style.width = (tot ? ((c[0] + c[1]) / tot) * 100 : 0).toFixed(1) + "%";
+    fetta.className = "mars-fetta " + (c[0] ? "mars-bad" : "mars-warn");
+
+    var conteggi = id("mars-rp-conteggi");
+    conteggi.textContent = "";
+    [[c[0], c[0] === 1 ? "critico" : "critici"],
+     [c[1], c[1] === 1 ? "avvertenza" : "avvertenze"],
+     [c[2], "informativi"]].forEach(function (voce, k) {
+      if (k) { conteggi.appendChild(document.createTextNode(" · ")); }
+      var b = document.createElement("b");
+      b.textContent = voce[0];
+      conteggi.appendChild(b);
+      conteggi.appendChild(document.createTextNode(" " + voce[1]));
+    });
+
+    var ol = id("mars-rp-primi");
+    ol.textContent = "";
+    r.primi.forEach(function (voce) {
+      var li = document.createElement("li");
+      li.className = voce[0];
+      li.textContent = voce[1];
+      ol.appendChild(li);
+    });
+
+    var griglia = id("mars-rp-quadranti");
+    griglia.textContent = "";
+    AREE.forEach(function (area, k) {
+      griglia.appendChild(quadrante(area[0], r.voti[k], area[1]));
+    });
+
+    /* Il punteggio della scheda deve concordare col suo quadrante: due
+     * numeri sulla stessa area che si contraddicono sono il difetto
+     * peggiore di un referto. */
+    var pill = id("mars-rp-wcag");
+    pill.className = "mars-pill " + classe(r.wcag);
+    pill.textContent = r.wcag;
+  }
+
+  var bottoni = Array.prototype.slice.call(
+    radice.querySelectorAll("[data-mars-run]"));
+  bottoni.forEach(function (b) {
+    b.addEventListener("click", function () {
+      bottoni.forEach(function (altro) {
+        altro.className = "btn btn-outline-primary btn-sm";
+        altro.setAttribute("aria-pressed", "false");
+      });
+      b.className = "btn btn-primary btn-sm";
+      b.setAttribute("aria-pressed", "true");
+      disegna(parseInt(b.getAttribute("data-mars-run"), 10));
+    });
+  });
+  disegna(0);
+
+  /* ---------------- il modulo ---------------- */
+
+  /* L'email dev'essere AZIENDALE: e' un requisito del prodotto, non un
+   * capriccio. L'elenco e' dichiarato e corto per scelta — dedurre
+   * «personale» da una regola generale produrrebbe falsi rifiuti, e un
+   * rifiuto sbagliato costa piu' di un lead in piu' da guardare. */
+  var PERSONALI = ["gmail.com", "googlemail.com", "outlook.com", "outlook.it",
+    "hotmail.com", "hotmail.it", "live.com", "live.it", "msn.com",
+    "yahoo.com", "yahoo.it", "icloud.com", "me.com", "aol.com", "libero.it",
+    "virgilio.it", "alice.it", "tin.it", "tiscali.it", "fastwebnet.it",
+    "email.it", "inwind.it", "protonmail.com", "proton.me", "gmx.com",
+    "yandex.com", "mail.com", "zoho.com"];
+
+  var form = id("mars-registrazione");
+  if (!form) { return; }
+
+  var REGOLE = [
+    ["mars-azienda", function (v) {
+      return v.trim().length >= 2 ? "" : "Indica la ragione sociale.";
+    }],
+    ["mars-sito", function (v) {
+      if (!v.trim()) { return "Indica il sito da analizzare."; }
+      /* Si valida col parser del browser e non con una regex: un URL e'
+       * dato ostile anche qui, e le regex scritte a mano su questo hanno
+       * una storia di casi limite — un IPv6 fra le quadre, per dirne
+       * uno — che non conviene riscrivere. */
+      var u;
+      try { u = new URL(v.trim()); } catch (e) {
+        return "Serve un indirizzo completo, per esempio https://www.esempio.it";
+      }
+      if (u.protocol !== "http:" && u.protocol !== "https:") {
+        return "Sono ammessi solo indirizzi http:// o https://";
+      }
+      return u.hostname.indexOf(".") === -1
+        ? "L'indirizzo non contiene un dominio valido." : "";
+    }],
+    ["mars-nome", function (v) {
+      return v.trim() ? "" : "Indica nome e cognome.";
+    }],
+    ["mars-ruolo", function (v) { return v ? "" : "Scegli il tuo ruolo."; }],
+    ["mars-email", function (v) {
+      var s = v.trim().toLowerCase();
+      if (!s) { return "Indica l'email aziendale."; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) {
+        return "Questo indirizzo non sembra valido.";
+      }
+      var dominio = s.split("@")[1];
+      return PERSONALI.indexOf(dominio) === -1 ? ""
+        : "Serve un indirizzo aziendale: " + dominio +
+          " è un provider personale.";
+    }],
+    ["mars-telefono", function (v) {
+      var s = v.replace(/[\s./()-]/g, "");
+      if (!s) { return "Indica un numero di telefono."; }
+      return /^\+?\d{6,15}$/.test(s) ? ""
+        : "Il numero non sembra valido: cifre, eventualmente con +.";
+    }],
+    ["mars-termini", function (_, el) {
+      return el.checked ? "" : "Devi accettare i termini di servizio.";
+    }],
+    ["mars-privacy", function (_, el) {
+      return el.checked ? "" : "Devi accettare l'informativa privacy.";
+    }],
+    ["mars-responsabilita", function (_, el) {
+      return el.checked ? ""
+        : "Senza questa dichiarazione l'analisi non può partire.";
+    }]
+  ];
+
+  function controlla(chiave, regola) {
+    var el = id(chiave);
+    var p = id("mars-e-" + chiave.replace("mars-", ""));
+    var messaggio = regola(el.value, el);
+    if (messaggio) {
+      el.setAttribute("aria-invalid", "true");
+      p.textContent = messaggio;
+      p.hidden = false;
+    } else {
+      el.removeAttribute("aria-invalid");
+      p.textContent = "";
+      p.hidden = true;
+    }
+    return messaggio;
+  }
+
+  /* Si valida all'uscita dal campo e non a ogni tasto: dire «email non
+   * valida» a chi ha scritto la prima lettera e' rumore. Ma un errore
+   * gia' mostrato si toglie mentre lo si corregge. */
+  REGOLE.forEach(function (coppia) {
+    var el = id(coppia[0]);
+    if (!el) { return; }
+    el.addEventListener(el.type === "checkbox" ? "change" : "blur",
+                        function () { controlla(coppia[0], coppia[1]); });
+    el.addEventListener("input", function () {
+      if (el.getAttribute("aria-invalid") === "true") {
+        controlla(coppia[0], coppia[1]);
+      }
+    });
+  });
+
+  form.addEventListener("submit", function (evento) {
+    var guasti = [];
+    REGOLE.forEach(function (coppia) {
+      var m = controlla(coppia[0], coppia[1]);
+      if (m) { guasti.push([coppia[0], m]); }
+    });
+    if (!guasti.length) { return; }   /* valido: l'invio prosegue al server */
+
+    evento.preventDefault();
+    /* Il riassunto esiste per chi il campo rosso non lo vede: ogni voce
+     * porta al proprio campo, e il riquadro prende il fuoco perche' un
+     * `role="alert"` fuori dallo schermo viene letto e poi perso. */
+    var box = id("mars-riassunto");
+    box.textContent = "";
+    var titolo = document.createElement("p");
+    titolo.textContent = guasti.length === 1
+      ? "C'è un campo da correggere:"
+      : "Ci sono " + guasti.length + " campi da correggere:";
+    box.appendChild(titolo);
+    var ul = document.createElement("ul");
+    guasti.forEach(function (g) {
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.href = "#" + g[0];
+      a.textContent = g[1];
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        id(g[0]).focus();
+      });
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    box.hidden = false;
+    box.focus();
+  });
+}());
+</script>

@@ -21,7 +21,7 @@ services:
       dockerfile: docker/Dockerfile
       args:
         # `on` aggiunge sentence-transformers e torch: alcuni GB.
-        MARS_EMBEDDINGS: "off"
+        MARS_EMBEDDINGS: "on"
     image: mars-stack:latest
     command: ["api"]
     ports:
@@ -70,6 +70,15 @@ services:
       # resta quello vecchio:
       #     docker compose down -v && docker compose up -d --build
       - mars_node_modules:/app/node_modules
+      # Gli ordini di riavvio (I22). NON il socket di Docker: montarlo
+      # qui dentro equivale a dare root sull'host a chiunque raggiunga
+      # l'API, che sta dietro una credenziale sola. Qui passa un file,
+      # e a eseguirlo e' tools/mars-restart-watcher.sh sull'host, che ha
+      # un proprio elenco di nomi permessi.
+      #
+      # La cartella va creata sull'host prima di salire:
+      #     mkdir -p ../restart.local
+      - ../restart.local:/app/restart.local
     restart: unless-stopped
 
   # Profilo separato: `docker compose up` da solo non lo tira giu'.

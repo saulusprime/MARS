@@ -118,6 +118,49 @@ docker compose down -v && docker compose up -d --build
 Se axe-core non è raggiungibile l'entrypoint lo dice su `stderr` e
 l'area 7 ripiega sull'euristica dichiarandolo nel referto (principio 2).
 
+## Riavviare un container dall'API (I22)
+
+`POST /admin/restart` con `{"container": "zap"}`, autenticato come ogni
+altro endpoint. **L'API non parla con Docker**, e non è una limitazione:
+è la scelta. Montare `/var/run/docker.sock` dentro un container equivale
+a dare **root sull'host** a chiunque riesca a parlargli — con l'accesso
+al demone si avvia un container privilegiato che monta `/` — e questa
+API sta dietro una credenziale sola, senza limite ai tentativi di login.
+
+Quindi passa un **file**, non un comando:
+
+```
+API (container)  ──scrive──▶  restart.local/zap.restart
+                                      │
+host  ──mars-restart-watcher.sh──▶  docker restart zap
+```
+
+**Due porte, e la seconda non si fida della prima.** L'API accetta i
+nomi di `MARS_RESTART_ALLOWED`; il sorvegliante sull'host ha il **suo**
+elenco, passato sulla riga di comando. Il container è il lato non
+fidato: se venisse compromesso potrebbe scrivere file, non decidere che
+cosa riavviare.
+
+```bash
+mkdir -p restart.local
+# sull'host, non nel container:
+tools/mars-restart-watcher.sh restart.local zap
+# oppure un giro solo, da systemd .timer o .path:
+tools/mars-restart-watcher.sh --una-volta restart.local zap
+```
+
+La risposta è **202 e non 200**: da dentro il container non si può
+constatare che il riavvio sia avvenuto, e dire 200 dichiarerebbe un
+esito che nessuno ha visto. Senza `MARS_RESTART_DIR` l'endpoint risponde
+**503** e dice che manca, invece di accettare un ordine che nessuno
+raccoglierebbe.
+
+**Dopo R70 questo endpoint non serve più a raddrizzare i punteggi.** Si
+riavviava ZAP perché la sua sessione non veniva azzerata e il secondo
+audit sommava i rilievi del primo; ora la sessione si azzera a ogni
+scansione. L'endpoint resta per le altre ragioni per cui si riavvia un
+servizio.
+
 ## Le chiavi
 
 **Variabili d'ambiente** — `.env`, letto da compose. MARS ne legge

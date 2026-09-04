@@ -180,6 +180,75 @@ def test_un_hash_non_leggibile_vale_come_assente(percorso, capsys):
         assert err == "", "una variabile non impostata non e' un errore"
 
 
+# ----------------------------------------------------------------------
+# Riavvio dei container (I22)
+# ----------------------------------------------------------------------
+
+@pytest.fixture
+def cartella_riavvii(tmp_path, monkeypatch):
+    """L'endpoint configurato, con una cartella usa e getta."""
+    monkeypatch.setattr(mars_api, "RESTART_DIR", str(tmp_path))
+    monkeypatch.setattr(mars_api, "RESTART_PERMESSI", ("zap",))
+    return tmp_path
+
+
+def test_riavvio_senza_token_e_rifiutato(client, cartella_riavvii):
+    """Prima di ogni altra cosa: un endpoint che fa muovere qualcosa
+    sull'HOST non puo' essere raggiungibile senza credenziali, e questa
+    API sta su un indirizzo pubblico."""
+    r = client.post("/admin/restart", json={"container": "zap"})
+    assert r.status_code == 401
+    assert not list(cartella_riavvii.iterdir()), \
+        "nessun ordine deve essere lasciato da una richiesta non autenticata"
+
+
+def test_riavvio_non_configurato_lo_dichiara(client, auth, monkeypatch):
+    """Senza `MARS_RESTART_DIR` non c'e' nessun sorvegliante sull'host:
+    503 e il motivo, invece di un 202 che promette un riavvio che non
+    avverra' mai."""
+    monkeypatch.setattr(mars_api, "RESTART_DIR", "")
+    r = client.post("/admin/restart", json={"container": "zap"},
+                    headers=auth)
+    assert r.status_code == 503
+    assert "MARS_RESTART_DIR" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("nome", [
+    "mars",                    # non in elenco
+    "../../etc/passwd",        # traversal
+    "zap/../../root",          # traversal mascherato da nome permesso
+    "zap ; rm -rf /",          # se un giorno finisse in una shell
+    "",                        # vuoto
+    "ZAP",                     # il confronto e' esatto, non a caso
+])
+def test_un_container_non_in_elenco_e_rifiutato(nome, client, auth,
+                                                cartella_riavvii):
+    """L'elenco si CONFRONTA, non si compone: il nome non viene mai
+    unito a un percorso ne' passato a una shell prima di essere
+    riconosciuto. Cosi' il traversal non e' respinto da un controllo che
+    qualcuno potrebbe togliere — non ha proprio una strada."""
+    r = client.post("/admin/restart", json={"container": nome}, headers=auth)
+    assert r.status_code in (400, 422), nome
+    assert not list(cartella_riavvii.iterdir()), \
+        "un nome rifiutato non deve lasciare alcun file: %r" % nome
+
+
+def test_un_riavvio_permesso_lascia_l_ordine(client, auth, cartella_riavvii):
+    """202 e non 200: l'API scrive l'ordine, il riavvio lo fa l'host, e
+    da qui non si puo' constatare che sia avvenuto. Dire 200 sarebbe
+    dichiarare un esito che non abbiamo visto."""
+    r = client.post("/admin/restart", json={"container": "zap"}, headers=auth)
+    assert r.status_code == 202, r.text
+    assert r.json()["container"] == "zap"
+    file = list(cartella_riavvii.iterdir())
+    assert len(file) == 1
+    assert file[0].name == "zap.restart"
+    # Chi ha chiesto il riavvio e quando: senza, un ordine trovato
+    # sull'host non si sa da dove venga.
+    contenuto = file[0].read_text(encoding="utf-8")
+    assert mars_api.UTENTE_API in contenuto
+
+
 def test_users_me_non_espone_l_hash(client, auth):
     """Regressione R2: lo schema pubblicava l'hash bcrypt."""
     r = client.get("/users/me", headers=auth)
@@ -210,7 +279,12 @@ def test_get_current_user_non_porta_mai_l_hash(token):
 HANDLER_BLOCCANTI = ("audit_tech", "audit_seo", "audit_perf",
                      "audit_lexical", "audit_semantic", "audit_schema",
                      "audit_wcag", "audit_wapt", "audit_full",
-                     "login_for_access_token")
+                     "login_for_access_token",
+                     # Scrive un file su un montaggio dell'host: e'
+                     # I/O breve ma su un filesystem che puo'
+                     # impuntarsi, e l'event loop non e' il posto
+                     # dove aspettarlo.
+                     "restart_container")
 
 
 @pytest.mark.parametrize("nome", HANDLER_BLOCCANTI)

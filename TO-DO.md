@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R70**, idee fino a
-> **I21**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I22**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -125,6 +125,16 @@
 > vergine, 30 al giro dopo, e otto audit consecutivi a 400 istanze fisse.
 > `__version__` a **2.30.0**, perche' da qui i punteggi di sicurezza si
 > muovono a sito invariato.
+>
+> **I22**, lo stesso giorno, e' la richiesta da cui R70 e' nata: «una
+> chiamata API che riavvii i container». La premessa era falsa — i
+> container non vanno riavviati — e l'endpoint e' stato costruito lo
+> stesso, per decisione del committente, ma non serve piu' a quello. Il
+> socket di Docker nel container e' stato **rifiutato**: equivale a root
+> sull'host per chi raggiunge l'API. Passa un file, e a eseguirlo e' un
+> sorvegliante sull'host con un proprio elenco di nomi permessi — due
+> porte, e la seconda non si fida della prima. `__version__` a
+> **2.31.0**: nasce un endpoint, nessun punteggio si muove.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

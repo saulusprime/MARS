@@ -98,6 +98,7 @@
 | I21 | Il budget della scansione ZAP e' una scelta dichiarata, e ZAP ha un core | 2026-09-03 |
 | R69 | Un token valido che non apriva nulla, e la password nel sorgente | 2026-09-03 |
 | R70 | La sessione ZAP non si azzerava, e il secondo audit sommava il primo | 2026-09-04 |
+| I22 | Il riavvio di un container passa da un file, non dal socket di Docker | 2026-09-04 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2400,6 +2401,67 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I22 — ✅ REALIZZATA (2026-09-04): il riavvio passa da un file, non dal socket di Docker
+
+*(chiesta come «una chiamata API che faccia `sudo docker restart`».
+`__version__` a **2.31.0**: nasce un endpoint, nessun punteggio si
+muove.)*
+
+**La richiesta nasceva da una premessa falsa, e la misura l'ha
+smontata**: i container non vanno riavviati dopo ogni audit. Era R70 —
+la sessione ZAP che non si azzerava — e il riavvio ne era la cura del
+sintomo. L'endpoint è stato costruito lo stesso, per decisione del
+committente, ma **non serve più a quello**, e sia il codice sia il
+README lo dicono.
+
+**Il socket di Docker nel container è stato rifiutato, e la ragione è
+esatta.** Montare `/var/run/docker.sock` dentro un container equivale a
+dare **root sull'host** a chi riesce a parlargli: con l'accesso al
+demone si avvia un container privilegiato che monta `/`. Questa API sta
+dietro **una** credenziale, su un indirizzo pubblico in HTTP semplice,
+senza limite ai tentativi su `/token`. Il socket lì dentro avrebbe
+trasformato una password trapelata in root sulla macchina.
+
+**Passa quindi un file**: l'API scrive `<nome>.restart` in una cartella
+condivisa, e `tools/mars-restart-watcher.sh` — sull'host, l'unico pezzo
+che parla con Docker — lo esegue.
+
+**Due porte, e la seconda non si fida della prima.** L'API confronta il
+nome con `MARS_RESTART_ALLOWED`; il sorvegliante ha il **suo** elenco.
+Il container è il lato non fidato: compromesso, potrebbe scrivere file,
+non scegliere che cosa riavviare. Un solo elenco, dentro il container,
+sarebbe stato un controllo che l'attaccante possiede.
+
+**Il nome si confronta e non si compone**, ed è la stessa regola di
+`--form-factor` (I16) e della riga sulla shell in `.claude/sicurezza.md`:
+non viene normalizzato, ripulito né unito a un percorso *prima* di
+essere riconosciuto. Così `../../etc/passwd` non è respinto da un
+controllo che qualcuno un giorno potrebbe togliere — non ha una strada.
+Sei nomi ostili sono nel banco, fra cui due traversal e uno con `;`.
+
+**202 e non 200**, e non è pedanteria: da dentro il container non si può
+constatare che il riavvio sia avvenuto. Dire 200 dichiarerebbe un esito
+che nessuno ha visto — è la stessa disciplina del «non misurato».
+
+**Il sorvegliante toglie l'ordine sempre**, permesso o no: lasciarlo
+significherebbe ritentare in eterno un nome rifiutato. E non esce al
+primo errore, perché un sorvegliante che muore sul primo guaio smette di
+sorvegliare tutto il resto.
+
+**Le prove.** Nove test nuovi; **4/4 mutazioni colte** — l'elenco non si
+guarda, la cartella non configurata non si dichiara, l'endpoint perde
+l'autenticazione, il file perde il suffisso. `flake8` a zero, **1432
+test verdi**. Lo script è stato **eseguito** contro un `docker` finto sul
+PATH: dei tre ordini deposti — `zap`, `mars`, `evasione` — solo il primo
+ha prodotto una chiamata, `restart zap`, e tutti e tre i file sono stati
+rimossi.
+
+**Non verificato**: il giro completo dentro lo stack. Richiede
+`docker compose up` con la cartella montata e il sorvegliante avviato
+sull'host, e su questa macchina il socket Docker chiede una password.
+L'API è provata con `TestClient`, lo script con un `docker` finto: il
+punto di giunzione fra i due — il montaggio — non è stato esercitato.
 
 ### R70 — ✅ (2026-09-04): la sessione ZAP non si azzerava, e il secondo audit sommava il primo
 

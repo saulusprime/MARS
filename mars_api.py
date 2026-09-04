@@ -123,6 +123,27 @@ def costruisci_utenti(hash_password: str) -> dict:
     }}
 
 
+# --- Riavvio dei container (I22) ---------------------------------------
+#
+# L'API NON parla con Docker, e non e' una limitazione: e' la voce.
+# Montare /var/run/docker.sock in un container equivale a dare root
+# sull'HOST a chiunque riesca a parlargli — con l'accesso al demone si
+# avvia un container privilegiato che monta la radice — e questa API sta
+# su un indirizzo raggiungibile, con una credenziale sola.
+#
+# Quindi qui si scrive soltanto un FILE in una cartella condivisa, e il
+# riavvio lo fa un sorvegliante sull'host (tools/mars-restart-watcher.sh)
+# che ha un proprio elenco di nomi permessi. Il container e' il lato non
+# fidato: se venisse compromesso potrebbe scrivere file, non riavviare
+# cio' che vuole. L'elenco qui sotto e' la prima delle due porte, non
+# l'unica.
+RESTART_DIR = os.environ.get("MARS_RESTART_DIR", "")
+RESTART_PERMESSI = tuple(
+    nome.strip() for nome in
+    os.environ.get("MARS_RESTART_ALLOWED", "zap").split(",")
+    if nome.strip()
+)
+
 # In produzione usa un DB reale: questo dizionario sta in memoria, non
 # si aggiorna senza riavviare il processo e ospita un utente solo.
 FAKE_USERS_DB = costruisci_utenti(
@@ -136,6 +157,18 @@ if not FAKE_USERS_DB:
 # ==============================================================================
 # MODELLI PYDANTIC
 # ==============================================================================
+
+
+class RestartRequest(BaseModel):
+    """Quale container riavviare. Un nome, non un comando."""
+    container: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Nome del container da riavviare. Deve essere fra "
+                    "quelli permessi (MARS_RESTART_ALLOWED): il valore si "
+                    "CONFRONTA con l'elenco, non viene mai composto in un "
+                    "percorso né passato a una shell.")
 
 
 class Token(BaseModel):
@@ -454,6 +487,63 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/admin/restart", status_code=status.HTTP_202_ACCEPTED,
+          tags=["Amministrazione"])
+def restart_container(req: RestartRequest,
+                      current_user: User = Depends(get_current_user)) -> dict:
+    """Chiede il riavvio di un container. **Non lo esegue.**
+
+    L'API non parla con Docker per scelta: il socket del demone dentro
+    un container e' root sull'host. Qui si lascia un ORDINE in una
+    cartella condivisa, e un sorvegliante sull'host lo esegue se il nome
+    e' fra quelli che *lui* permette.
+
+    Da qui non si puo' constatare che il riavvio sia avvenuto: per
+    questo la risposta e' **202** e non 200. Dire 200 dichiarerebbe un
+    esito che nessuno ha visto.
+
+    Dopo R70 questo endpoint non serve piu' a correggere i punteggi di
+    sicurezza — la sessione ZAP si azzera da se' a ogni scansione — e
+    resta per le altre ragioni per cui si riavvia un servizio.
+    """
+    if not RESTART_DIR:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Riavvio non configurato: manca MARS_RESTART_DIR, "
+                   "quindi nessun sorvegliante sull'host raccoglierebbe "
+                   "l'ordine.")
+
+    # Il nome si CONFRONTA con l'elenco. Non si normalizza, non si
+    # ripulisce e non si compone in un percorso prima di essere
+    # riconosciuto: un traversal non viene respinto da un controllo che
+    # qualcuno potrebbe togliere, semplicemente non ha una strada.
+    if req.container not in RESTART_PERMESSI:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Container non permesso: %r. Permessi: %s"
+                   % (req.container, ", ".join(RESTART_PERMESSI) or "nessuno"))
+
+    ordine = os.path.join(RESTART_DIR, "%s.restart" % req.container)
+    try:
+        with open(ordine, "w", encoding="utf-8") as fh:
+            # Chi e quando: un ordine trovato sull'host senza firma non
+            # si sa da dove venga, e questo e' un file che fa muovere un
+            # servizio.
+            fh.write("%s %s\n" % (
+                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z"),
+                current_user.username))
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cartella degli ordini non scrivibile (%s): il "
+                   "montaggio di MARS_RESTART_DIR non c'e' o e' in sola "
+                   "lettura." % type(e).__name__)
+
+    return {"container": req.container, "ordine": ordine,
+            "nota": "Ordine registrato. Il riavvio lo esegue il "
+                    "sorvegliante sull'host: da qui non se ne vede l'esito."}
 
 
 @app.get("/users/me", response_model=User, tags=["Authentication"])

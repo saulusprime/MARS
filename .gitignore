@@ -35,6 +35,9 @@ lympha_env.json
 # fuori da git ci sta comunque.
 *.local.hash
 
+# La cartella degli ordini di riavvio (I22): contenuto effimero.
+restart.local/
+
 # --- Storico (dati, non codice) ---
 # Due file distinti di due funzioni distinte, e sono dato dell'utente:
 # mars_citations.py --history accoda al primo, l'audit differenziale di

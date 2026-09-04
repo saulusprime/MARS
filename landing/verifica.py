@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Controlli statici sul frammento di pagina di M.A.R.S. Beacon.
+"""Controlli statici sulla pagina di M.A.R.S. Beacon.
 
 Su questa macchina un browser non c'e' — niente Node, e Chromium sta
 solo dentro l'immagine del container — quindi la resa non si puo'
-provare. Questo script prova cio' che si puo' provare senza aprirlo, e
-sono i modi in cui un frammento incorporato fa danno: un selettore che
-esce dai propri confini, un id che lo script cerca e non trova,
-un'etichetta che non punta al proprio campo, un contrasto sotto la
-soglia in una pagina che vende un audit di accessibilita'.
+provare. Questo script prova cio' che si puo' provare senza aprirlo: un
+selettore che esce dai propri confini, un id che lo script cerca e non
+trova, un'etichetta che non punta al proprio campo, un contrasto sotto
+la soglia in una pagina che vende un audit di accessibilita', un file
+di assets/ citato e non presente.
+
+I controlli distinguono CIO' CHE E' NOSTRO dal telaio del sito. Il
+telaio — testata, menu, piede — e' copiato da ia-agenti-rag.html: il
+suo piede porta un badge di terze parti e i suoi link vanno a pagine
+che qui non ci sono, e giudicarlo con le nostre regole significherebbe
+solo imparare a ignorare l'esito.
 
 Esce 1 se qualcosa non torna, cosi' vale in una pipeline.
 
@@ -24,8 +30,8 @@ from typing import List, Tuple
 
 from bs4 import BeautifulSoup
 
-FRAMMENTO = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         "pagina-mars-beacon.html")
+QUI = os.path.dirname(os.path.abspath(__file__))
+PAGINA = os.path.join(QUI, "mars-beacon.html")
 
 # La soglia AA per il testo, e quella dei componenti non testuali
 # (WCAG 1.4.11), che vale per il contorno di un campo.
@@ -122,12 +128,18 @@ def controlla(percorso: str) -> List[str]:
             if riferimento not in ids:
                 guai.append("aria-describedby=%r non esiste" % riferimento)
 
-    # 4. Nessuna origine esterna: il sito ha una CSP e un consenso
-    #    Cookiebot, e una richiesta a un terzo li aggirerebbe entrambi.
-    esterne = [u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', grezzo)
-               if "w3.org" not in u]
-    for url in esterne:
-        guai.append("origine esterna: %s" % url)
+    # 4. Nessuna origine esterna DA CIO' CHE E' NOSTRO: il sito ha una
+    #    CSP e un consenso Cookiebot, e una richiesta a un terzo li
+    #    aggirerebbe entrambi. Si guarda dentro <main>, perche' il piede
+    #    del sito un badge esterno ce l'ha davvero e non e' roba nostra.
+    principale = zuppa.find("main")
+    if principale is None:
+        guai.append("<main> assente: la pagina non ha un contenuto")
+    else:
+        nostro = str(principale)
+        for url in re.findall(r'(?:src|href)="(https?://[^"]+)"', nostro):
+            if "w3.org" not in url:
+                guai.append("origine esterna dentro <main>: %s" % url)
 
     # 5. Un solo h1 e nessun salto di gerarchia: e' un criterio che
     #    l'area 7 del prodotto misura sui siti dei clienti.
@@ -165,20 +177,52 @@ def controlla(percorso: str) -> List[str]:
             guai.append("il colore %s non e' ne' misurato ne' dichiarato "
                         "esente: aggiungerlo a COPPIE o a ESENTI" % colore)
 
+    # 9. Ogni file di assets/ che la pagina cita esiste davvero. E' la
+    #    proprieta' per cui la pagina si apre da sola: un percorso
+    #    sbagliato non solleva nulla, il browser lascia solo un buco
+    #    dove c'era il foglio di stile.
+    #
+    #    Se assets/ NON C'E' AFFATTO il controllo si salta, e lo dice:
+    #    quella cartella e' del sito e non sta in questo repository, e
+    #    un controllo verde qui e rosso su un clone appena fatto
+    #    renderebbe la verifica dipendente dalla macchina — la stessa
+    #    trappola gia' pagata con node_modules.
+    citati = sorted(set(re.findall(r'(?:src|href)="(assets/[^"]+)"', grezzo)))
+    if not os.path.isdir(os.path.join(QUI, "assets")):
+        print("assets/ assente: i %d file citati non sono stati controllati "
+              "(vedi landing/README.md)" % len(citati), file=sys.stderr)
+    else:
+        for percorso in citati:
+            if not os.path.exists(os.path.join(QUI, percorso)):
+                guai.append("citato e assente: %s" % percorso)
+
+    # 10. Il telaio del sito e' arrivato tutto: i due fogli di stile, lo
+    #     script, e i punti in cui la pagina si aggancia a loro.
+    for atteso, dove in (
+            ("assets/vendor/bootstrap-italia/css/bootstrap-italia.min.css",
+             "Bootstrap Italia"),
+            ("assets/css/lympha.css", "il foglio del sito"),
+            ("assets/js/lympha.js", "lo script del sito")):
+        if atteso not in grezzo:
+            guai.append("manca %s (%s)" % (atteso, dove))
+    if not zuppa.find(attrs={"data-article": True}):
+        guai.append("nessun [data-article]: lo scrollspy dell'indice "
+                    "resta spento")
+
     return guai
 
 
 def main() -> int:
-    if not os.path.exists(FRAMMENTO):
-        print("frammento assente: %s" % FRAMMENTO, file=sys.stderr)
+    if not os.path.exists(PAGINA):
+        print("pagina assente: %s" % PAGINA, file=sys.stderr)
         return 1
-    guai = controlla(FRAMMENTO)
+    guai = controlla(PAGINA)
     if guai:
         print("PROBLEMI (%d):" % len(guai))
         for guaio in guai:
             print("  - %s" % guaio)
         return 1
-    print("nessun problema rilevato in %s" % os.path.basename(FRAMMENTO))
+    print("nessun problema rilevato in %s" % os.path.basename(PAGINA))
     print("  %d contrasti misurati, il piu' basso %.2f:1"
           % (len(COPPIE), min(contrasto(t, f) for _, t, f, _ in COPPIE)))
     return 0

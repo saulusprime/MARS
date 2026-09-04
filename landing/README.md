@@ -1,70 +1,88 @@
-# La pagina di M.A.R.S. Beacon per lymphatechnologies.com
+# La pagina di M.A.R.S. Beacon per lymphatech.it
 
-**Non è un sito a sé: è il corpo di una pagina del sito**, nella stessa
-forma di [/it/ia-agenti-e-rag](https://www.lymphatechnologies.com/it/ia-agenti-e-rag).
-Testata, piede, menu, cookie e font li mette il sito.
+**Una pagina intera e autoconsistente**, nella stessa forma delle altre
+pagine del sito: si apre da sola in un browser, con testata, menu, piede
+e fogli di stile suoi.
 
 | File | Cosa fa |
 |---|---|
-| `pagina-mars-beacon.html` | **Il frammento da incollare.** Uno `<style>`, una `<section class="lt-hero">`, una `<section class="section">` e uno `<script>` |
-| `anteprima.html` | Involucro di sola anteprima: carica il frammento con i CSS veri del sito. **Non si pubblica** |
+| `mars-beacon.html` | **La pagina.** Si apre così com'è: `xdg-open landing/mars-beacon.html` |
+| `ia-agenti-rag.html` | La pagina del sito da cui viene il telaio. Sta qui per il diff: se il telaio del sito cambia, la differenza si vede invece di doverla cercare |
+| `verifica.py` | I controlli statici, descritti in fondo |
+| `assets/` | Bootstrap Italia, `lympha.css`, `lympha.js`, font e immagini del sito. **Non versionata** — vedi sotto |
 
 ---
 
-## Come si incorpora
+## `assets/` non sta in questo repository
 
-Il contenuto di `pagina-mars-beacon.html` va **dentro `#main-container`**,
-esattamente come nella pagina di riferimento. Nient'altro: niente
-`<html>`, niente `<head>`, nessun foglio di stile aggiuntivo.
+Sono 11 MB e 254 file, e sono **del sito**: Bootstrap Italia, il foglio e
+lo script di lymphatech.it, i suoi font, le sue immagini. Duplicarli
+nella storia di MARS non serve a nessuno, e la pagina li ritrova da sé
+quando viene messa accanto al sito.
 
-Da rivedere prima di pubblicare, perché dipendono da dove archiviate la
-pagina:
+Su un clone appena fatto la cartella manca, la pagina si apre nuda e
+`verifica.py` **lo dichiara** invece di fallire: un controllo verde qui e
+rosso altrove renderebbe la verifica dipendente dalla macchina, che è la
+trappola già pagata con `node_modules`.
 
-- il **breadcrumb** dice `Home / Sviluppo / M.A.R.S. Beacon`;
-- l'**occhiello** sopra il titolo dice `Sviluppo`;
-- l'`action` del modulo punta a `/it/mars-beacon-accesso`;
-- i link a `/it/termini-di-servizio` e `/it/privacy`.
+Per rivederla come sarà: copiare `assets/` dal sito accanto a
+`mars-beacon.html`.
 
-## Che cosa prende dal sito e che cosa porta con sé
+## Che cosa è nostro e che cosa è del sito
 
-**Dal sito**: Bootstrap Italia (`container`, `row`, `col-*`, `g-*`,
-`btn btn-primary`, `btn btn-outline-primary`, `btn-sm`, `breadcrumb`),
-`lympha-brand.css` (`.lt-hero`, `.lt-hero__wave`, `.lt-hero__content`,
-`.lt-check`, `.eyebrow`, `.lead`) e i font.
+**Del sito**, copiato da `ia-agenti-rag.html` **senza ritocchi**: il
+`<head>` (a meno di titolo, descrizione, canonical, OG e breadcrumb
+JSON-LD), la testata col menu, il piede. L'unica modifica è la voce di
+questa pagina aggiunta al menu **Sviluppo** — che va aggiunta anche alle
+altre pagine del sito, altrimenti il menu di M.A.R.S. Beacon elenca una
+voce che le sorelle non hanno.
 
-**Con sé**: il proprio `<style>` e il proprio `<script>`. Nessuna origine
-esterna — nessun CDN, nessun font remoto, nessuna immagine — quindi non
-tocca la CSP né il consenso Cookiebot.
+**Nostro**: tutto ciò che sta dentro `<main>`, più lo `<style>` nel
+`<head>` e lo `<script>` in fondo. Nessuna origine esterna: nessun CDN,
+nessun font remoto, nessuna immagine di terzi, quindi la nostra parte non
+tocca né la CSP né il consenso Cookiebot. Il piede del sito un badge
+esterno ce l'ha — è suo, ed è rimasto com'era.
 
-**Non dipende da jQuery.** Il sito lo carica, ma legarcisi renderebbe
-questa pagina fragile a un suo aggiornamento.
+**Non dipende da jQuery**, e non dipende nemmeno da `lympha.js`: senza
+quello l'indice laterale perde solo l'evidenziazione della sezione
+corrente.
 
-## Le due regole che tengono il frammento dentro i suoi confini
+## Le due regole che tengono il nostro CSS dentro i suoi confini
 
-1. **Tutto il CSS è ancorato a una classe `.mars`**, che sta su entrambe
-   le sezioni. Un selettore di elemento nudo — `h2`, `label`, `pre` —
-   uscirebbe da qui e arriverebbe su ogni altra pagina del sito. Un
-   controllo statico lo verifica: vedi sotto.
+1. **Tutto il CSS nostro è annidato sotto `.mars`**, che sta su entrambe
+   le sezioni. Un selettore di elemento nudo — `h2`, `label`, `pre` — non
+   farebbe danno finché la pagina è sola, ma il giorno in cui il file
+   entra nel sito arriverebbe su ogni altra pagina. `verifica.py` lo
+   controlla.
 2. **Ogni classe e ogni id nostri cominciano per `mars-`.** I prefissi
    corti (`mb-`, `ms-`, `mt-`) sono utilità di Bootstrap: riusarli
    significherebbe sovrascriverle in tutto il sito.
 
 Lo script cerca i propri nodi **dentro** `.section.mars` e non nel
-documento: se un domani questa pagina convivesse con un altro frammento,
-non si ruberebbero i nodi a vicenda.
+documento.
 
-## Vedere il risultato prima di pubblicare
+## Che cosa riusa del sito, invece di rifarlo
 
-`fetch()` su `file://` è vietato dal browser, quindi serve un server:
+L'indice laterale è un `<nav class="lt-toc" data-toc>` e l'articolo porta
+`data-article`: sono i due agganci che `lympha.js` cerca per evidenziare
+la sezione corrente durante lo scorrimento. Prima quell'indice aveva il
+proprio CSS e nessuna evidenziazione; ora ha quella del sito e cinque
+righe di foglio in meno.
 
-```bash
-python3 -m http.server -d landing 8080
-# poi http://127.0.0.1:8080/anteprima.html
-```
+Sopra l'indice ci sono le pagine della sezione **Sviluppo**, come in
+`ia-agenti-rag.html`, con questa marcata `aria-current="page"`.
 
-L'anteprima **carica** il frammento invece di copiarlo: due copie
-divergerebbero, e quella sbagliata sarebbe proprio la copia che si
-guarda.
+## I link da rivedere prima di pubblicare
+
+Dipendono da dove archiviate la pagina, e oggi puntano a:
+
+- `index.html`, `sviluppo.html` — breadcrumb e colonna laterale;
+- `mars-beacon-accesso.html` — l'`action` del modulo, **pagina che non
+  esiste ancora**;
+- `termini-di-servizio.html` — **non esiste ancora**;
+- `privacy-cookie.html` — questa c'è, è quella del piede.
+
+L'occhiello sopra il titolo e il breadcrumb dicono `Sviluppo`.
 
 ## L'anteprima del referto
 
@@ -131,13 +149,21 @@ Fatta staticamente, con `landing/verifica.py`:
 .venv/bin/python landing/verifica.py
 ```
 
-Controlla che ogni selettore CSS sia ancorato a `.mars`, che ogni id
-cercato dallo script esista, che ogni `<label for>` e ogni
-`aria-describedby` puntino a qualcosa, che non ci siano origini esterne,
-che ci sia un solo `<h1>` senza salti di gerarchia e che nessuna lista
-abbia figli che non siano `<li>`.
+Dieci controlli: ogni selettore CSS ancorato a `.mars`; ogni id cercato
+dallo script esistente; ogni `<label for>` e ogni `aria-describedby` che
+puntano a qualcosa; nessuna origine esterna **dentro `<main>`**; un solo
+`<h1>` senza salti di gerarchia; nessuna lista con figli che non siano
+`<li>`; i quindici contrasti; ogni tinta misurata o esente con la sua
+ragione; ogni file di `assets/` citato che esiste davvero; il telaio del
+sito arrivato tutto, agganci allo scrollspy compresi.
 
-**Non verificato**: il frammento non è mai stato aperto in un browser —
-su questa macchina non c'è né Node né un Chromium fuori dall'immagine —
-quindi la resa dentro Bootstrap Italia, il comportamento dei bottoni e
-la validazione live restano da guardare con `anteprima.html`.
+Otto mutazioni provate una per una — `data-article` tolto, un percorso
+di `assets/` sbagliato, lo script del sito rimosso, un CDN dentro
+`<main>`, una `<label for>` rotta, un `h2` nudo nel foglio, un colore non
+dichiarato, un secondo `<h1>` — e **otto colte**.
+
+**Non verificato**: la pagina non è mai stata aperta in un browser — su
+questa macchina non c'è né Node né un Chromium fuori dall'immagine —
+quindi la resa dentro Bootstrap Italia, i menu a tendina, l'onda animata
+dell'hero, il comportamento dei bottoni e la validazione live restano da
+guardare.

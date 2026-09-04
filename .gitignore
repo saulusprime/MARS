@@ -64,3 +64,11 @@ htmlcov/
 # renderer: si rigenerano con MARS_RIGENERA_GOLDEN=1 e si RIVEDONO nel
 # diff, quindi vanno versionati.
 !tests/golden/referto*
+
+# --- Gli assets del sito ospite (landing/) ---
+# Sono di lymphatech.it — Bootstrap Italia, il foglio e lo script del
+# sito, i suoi font e le sue immagini: 11 MB, 254 file, gia' pubblicati
+# la'. Duplicarli nella storia di MARS non serve a nessuno, e la pagina
+# li ritrova quando viene messa accanto al sito. landing/verifica.py sa
+# che possono mancare e lo dichiara invece di fallire.
+landing/assets/

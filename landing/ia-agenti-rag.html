@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>IA, Agenti e RAG — Lympha Technologies</title>
+  <meta name="description" content="Architetture RAG e agenti IA on-premise: modelli collegati ai dati reali dell'azienda, con fonti verificabili — nel tuo perimetro, senza vendor lock-in. Con schemi e demo della piattaforma ACME ECMS IA &amp; RAG Integration.">
+  <meta name="theme-color" content="#186078">
+  <link rel="canonical" href="https://www.lymphatech.it/ia-agenti-rag.html">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="icon" href="assets/img/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="assets/img/favicon-180.png">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-italia/css/bootstrap-italia.min.css">
+  <link rel="stylesheet" href="assets/css/lympha.css">
+  <meta property="og:site_name" content="Lympha Technologies">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="IA, Agenti e RAG — Lympha Technologies">
+  <meta property="og:description" content="Un'IA che risponde con i dati della tua azienda, dentro il tuo perimetro e con fonti verificabili: come funzionano agenti e RAG on-premise — schemi e demo inclusi.">
+  <meta property="og:url" content="https://www.lymphatech.it/ia-agenti-rag.html">
+  <meta property="og:image" content="https://www.lymphatech.it/assets/img/og/og-site.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Lympha Technologies — Think. Design. Resolve.">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://www.lymphatech.it/"},{"@type":"ListItem","position":2,"name":"Sviluppo","item":"https://www.lymphatech.it/sviluppo.html"},{"@type":"ListItem","position":3,"name":"IA, Agenti e RAG"}]}</script>
+</head>
+<body>
+  <a class="lt-skiplink" href="#contenuto-principale">Salta al contenuto principale</a>
+
+  <!-- ===================== HEADER / NAV ===================== -->
+  <header class="lt-header sticky-top">
+    <div class="container py-2">
+      <div class="d-flex flex-wrap flex-xl-nowrap align-items-center justify-content-between gap-3">
+        <a class="lt-brand" href="index.html" aria-label="Lympha Technologies, vai alla home">
+          <img class="lt-logo" src="assets/img/lympha-mark.svg" alt="" aria-hidden="true">
+          <span>
+            <span class="lt-name d-block">Lympha</span>
+            <span class="lt-tag d-none d-sm-block">technologies</span>
+          </span>
+        </a>
+
+        <button class="navbar-toggler border-0 d-xl-none p-2" type="button"
+                aria-controls="menuPrincipale" aria-expanded="false"
+                aria-label="Apri o chiudi il menu di navigazione" style="min-height:44px;min-width:44px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#17324d" stroke-width="2"
+               aria-hidden="true" focusable="false"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+
+        <nav class="collapse navbar-collapse lt-nav d-xl-block" id="menuPrincipale" aria-label="Navigazione principale">
+          <ul class="navbar-nav flex-xl-row align-items-xl-center justify-content-xl-end gap-xl-1 mt-3 mt-xl-0">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+
+            <li class="nav-item lt-has-drop">
+              <button type="button" class="nav-link lt-drop-toggle" id="dt-chi-siamo" aria-expanded="false" aria-controls="drop-chi-siamo">Chi siamo <svg class="lt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></button>
+              <div class="lt-dropdown" id="drop-chi-siamo" role="group" aria-labelledby="dt-chi-siamo"><ul class="lt-dropdown__list">
+                <li><a href="chi-siamo.html"><span class="lt-dd-label">Panoramica</span><span class="lt-dd-desc">Identità, posizionamento e valori</span></a></li>
+                <li><a href="storia.html"><span class="lt-dd-label">La nostra storia</span><span class="lt-dd-desc">Percorso di crescita e tappe principali</span></a></li>
+                <li><a href="mission.html"><span class="lt-dd-label">Mission</span><span class="lt-dd-desc">Perché esistiamo e cosa portiamo ai clienti</span></a></li>
+                <li><a href="vision.html"><span class="lt-dd-label">Vision</span><span class="lt-dd-desc">La direzione strategica che guida le scelte</span></a></li>
+                <li><a href="perche-lympha.html"><span class="lt-dd-label">Perché Lympha</span><span class="lt-dd-desc">Il senso del nome e del nostro metodo</span></a></li>
+                <li><a href="certificazioni.html"><span class="lt-dd-label">Certificazioni</span><span class="lt-dd-desc">Qualità, processi e affidabilità</span></a></li>
+                <li><a href="partnership.html"><span class="lt-dd-label">Partnership</span><span class="lt-dd-desc">Ecosistema di collaborazione e competenze</span></a></li>
+                <li><a href="ambiente.html"><span class="lt-dd-label">Il nostro impegno per l'ambiente</span><span class="lt-dd-desc">Approccio green e sostenibilità</span></a></li>
+              </ul></div>
+            </li>
+
+            <li class="nav-item lt-has-drop">
+              <button type="button" class="nav-link lt-drop-toggle" id="dt-servizi" aria-expanded="false" aria-controls="drop-servizi">Servizi <svg class="lt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></button>
+              <div class="lt-dropdown lt-dropdown--wide" id="drop-servizi" role="group" aria-labelledby="dt-servizi"><ul class="lt-dropdown__list">
+                <li><a href="data-protection.html"><span class="lt-dd-label">Data Protection</span><span class="lt-dd-desc">Analisi e policy per la protezione del dato</span></a></li>
+                <li><a href="bcdr.html"><span class="lt-dd-label">Business Continuity &amp; Disaster Recovery</span><span class="lt-dd-desc">Resilienza e continuità operativa</span></a></li>
+                <li><a href="noc.html"><span class="lt-dd-label">NOC &amp; Monitoraggio</span><span class="lt-dd-desc">Controllo h24 e presidio proattivo</span></a></li>
+                <li><a href="cybersecurity.html"><span class="lt-dd-label">Cybersecurity</span><span class="lt-dd-desc">Prevenzione, analisi e protezione</span></a></li>
+                <li><a href="itsm.html"><span class="lt-dd-label">Information Technology &amp; System Management (ITSM)</span><span class="lt-dd-desc">Gestione strutturata dei servizi IT</span></a></li>
+                <li><a href="server-farm.html"><span class="lt-dd-label">Progettazione Server Farm &amp; Data Center</span><span class="lt-dd-desc">Architetture, capacity e facility planning</span></a></li>
+                <li><a href="it-governance.html"><span class="lt-dd-label">IT Governance</span><span class="lt-dd-desc">Modelli decisionali, controllo e KPI</span></a></li>
+                <li><a href="dcmm.html"><span class="lt-dd-label">Data Center Maturity Model (DCMM)</span><span class="lt-dd-desc">Assessment evolutivo dell'infrastruttura</span></a></li>
+                <li><a href="facility-management.html"><span class="lt-dd-label">Facility Management</span><span class="lt-dd-desc">Gestione tecnologica dei siti e degli asset</span></a></li>
+                <li><a href="private-cloud.html"><span class="lt-dd-label">Hybrid/Private Cloud &amp; VDC</span><span class="lt-dd-desc">Cloud ibrido-privato, virtualizzazione e servizi dedicati</span></a></li>
+                <li><a href="service-lifecycle.html"><span class="lt-dd-label">Service Lifecycle &amp; Service Management</span><span class="lt-dd-desc">Dalla progettazione al supporto continuativo</span></a></li>
+                <li><a href="recruiting.html"><span class="lt-dd-label">Recruiting &amp; Competence Center</span><span class="lt-dd-desc">Competenze specialistiche e team dedicati</span></a></li>
+              </ul></div>
+            </li>
+
+            <li class="nav-item lt-has-drop">
+              <button type="button" class="nav-link lt-drop-toggle" id="dt-sviluppo" aria-expanded="false" aria-controls="drop-sviluppo">Sviluppo <svg class="lt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></button>
+              <div class="lt-dropdown" id="drop-sviluppo" role="group" aria-labelledby="dt-sviluppo"><ul class="lt-dropdown__list">
+                <li><a href="ia-agenti-rag.html"><span class="lt-dd-label">IA, Agenti e RAG</span><span class="lt-dd-desc">Quando l'AI non si limita a rispondere ma diventa valore</span></a></li>
+                <li><a href="custom-development.html"><span class="lt-dd-label">Custom development</span><span class="lt-dd-desc">Applicazioni progettate sul processo reale</span></a></li>
+                <li><a href="cms.html"><span class="lt-dd-label">Content Management System</span><span class="lt-dd-desc">Portali, aree riservate e contenuti governabili</span></a></li>
+                <li><a href="workflow.html"><span class="lt-dd-label">Workflow &amp; Process Orchestration</span><span class="lt-dd-desc">Automazione, integrazione e controllo</span></a></li>
+              </ul></div>
+            </li>
+
+            <li class="nav-item lt-has-drop">
+              <button type="button" class="nav-link lt-drop-toggle" id="dt-settori" aria-expanded="false" aria-controls="drop-settori">Settori <svg class="lt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"/></svg></button>
+              <div class="lt-dropdown" id="drop-settori" role="group" aria-labelledby="dt-settori"><ul class="lt-dropdown__list">
+                <li><a href="pa-locale.html">Pubblica Amministrazione Locale</a></li>
+                <li><a href="sanita.html">Sanità</a></li>
+                <li><a href="grandi-aziende.html">Grandi Aziende</a></li>
+                <li><a href="pmi.html">PMI</a></li>
+              </ul></div>
+            </li>
+
+            <li class="nav-item"><a class="nav-link" href="metodo.html">Metodo</a></li>
+            <li class="nav-item"><a class="nav-link" href="faq.html">FAQ</a></li>
+            <li class="nav-item"><a class="nav-link" href="contatti.html">Contatti</a></li>
+            <li class="nav-item ms-xl-2 mt-2 mt-xl-0"><a class="btn btn-primary" href="contatti.html">Richiedi una consulenza</a></li>
+            <li class="nav-item d-flex align-items-center ms-xl-3 mt-3 mt-xl-0"><span class="lt-lang" role="group" aria-label="Selezione lingua"><a href="index.html" aria-current="true" hreflang="it" lang="it">IT</a><a href="en/index.html" hreflang="en" lang="en">EN</a></span></li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenuto-principale" tabindex="-1">
+
+    <section class="lt-hero">
+      <svg class="lt-hero__wave lt-decor" viewBox="0 0 1440 400" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="wv wv-a" data-base="250" data-amp="14" d="M0 250 C 155 238 155 238 310 250 C 465 262 465 262 620 250 C 775 238 775 238 930 250 C 1085 262 1085 262 1240 250 C 1395 238 1395 238 1440 250 L 1440 400 L 0 400 Z" fill="#5bb6bf" fill-opacity="0.16"/><path class="wv wv-b" data-base="300" data-amp="16" d="M0 300 C 120 286 120 286 240 300 C 360 314 360 314 480 300 C 600 286 600 286 720 300 C 840 314 840 314 960 300 C 1080 286 1080 286 1200 300 C 1320 314 1320 314 1440 300 L 1440 400 L 0 400 Z" fill="#186078" fill-opacity="0.09"/></svg>
+      <div class="container lt-hero__content" style="padding-block:clamp(2rem,5vw,3.5rem);">
+        <nav aria-label="Percorso di navigazione">
+          <ol class="breadcrumb mb-3"><li class="breadcrumb-item"><a href="index.html">Home</a></li><li class="breadcrumb-item"><a href="sviluppo.html">Sviluppo</a></li><li class="breadcrumb-item active" aria-current="page">IA, Agenti e RAG</li></ol>
+        </nav>
+        <p class="eyebrow">Sviluppo</p>
+        <h1>IA, Agenti e RAG</h1>
+        <p class="lead" style="max-width:64ch;">Quando l'AI non si limita a rispondere, ma diventa valore.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="row g-5">
+          <div class="col-lg-3">
+            <nav style="position:sticky; top:calc(var(--lt-header-h) + 1rem);" aria-label="Pagine della sezione Sviluppo">
+              <p class="eyebrow mb-3">Sviluppo</p>
+              <ul class="list-unstyled d-grid gap-2">
+                <li><a class="text-decoration-none fw-700 text-teal" href="sviluppo.html">Panoramica</a></li>
+                <li><span class="fw-700" aria-current="page" style="color:var(--lt-ink);">IA, Agenti e RAG</span></li>
+                <li><a class="text-decoration-none fw-700 text-teal" href="custom-development.html">Custom development</a></li>
+                <li><a class="text-decoration-none fw-700 text-teal" href="cms.html">Content Management System</a></li>
+                <li><a class="text-decoration-none fw-700 text-teal" href="workflow.html">Workflow &amp; Orchestration</a></li>
+              </ul>
+            </nav>
+          </div>
+          <div class="col-lg-9">
+            <article id="ia-agenti-rag">
+              <p>Un modello linguistico generico conosce il mondo, ma non conosce la tua organizzazione. Con le architetture <strong>RAG (Retrieval-Augmented Generation)</strong> colleghiamo i modelli ai dati reali dell'azienda — documenti, basi di conoscenza, sistemi gestionali — così le risposte sono <strong>pertinenti, aggiornate e verificabili</strong>, con il riferimento alle fonti da cui provengono. Con gli <strong>agenti</strong> facciamo il passo successivo: l'IA non solo risponde, ma esegue attività — consulta sistemi, prepara documenti, avvia flussi — dentro <strong>regole e permessi definiti da te</strong>.</p>
+
+          <h2 class="h5 mt-4">Non è teoria: l'abbiamo costruita</h2>
+          <p>La nostra piattaforma RAG on-premise <strong>ACME ECMS IA &amp; RAG Integration</strong> (<em>Private, Simple &amp; Fast RAG</em>) è uno stack <strong>interamente containerizzato</strong>, eseguito su <strong>GPU dedicate</strong> in una rete privata isolata: nel nostro <a class="text-teal fw-700 text-decoration-none" href="private-cloud.html">Private Cloud &amp; VDC</a> o direttamente nel data center del cliente. Tutti i componenti sono <strong>open source</strong> e i modelli sono <strong>intercambiabili</strong> (Mistral, Gemma, Qwen…): nessuna chiamata a servizi esterni, nessun dato che lascia il perimetro, nessun vendor lock-in.</p>
+
+          <figure class="my-4" style="background:#fff;border:1px solid var(--lt-border);border-radius:1.25rem;padding:1rem;">
+            <svg viewBox="0 0 960 600" role="img" aria-labelledby="dia-infra-t dia-infra-d" style="width:100%;height:auto;display:block;font-family:'Titillium Web',system-ui,sans-serif;">
+              <title id="dia-infra-t">Schema dell'infrastruttura RAG on-premise</title>
+              <desc id="dia-infra-d">Dentro una rete privata containerizzata: gli utenti usano Open WebUI; l'interfaccia e l'agente della piattaforma interrogano LightRAG, il motore RAG; LightRAG usa i modelli eseguiti su GPU NVIDIA (Ollama per LLM ed embeddings, vLLM per il re-ranking, ComfyUI per le immagini) e salva vettori e knowledge graph in PostgreSQL con pgvector e Apache AGE; Redis fa da cache; pgAdmin, il monitoraggio dei container e RAGAS completano l'esercizio; volumi persistenti e backup dedicati.</desc>
+              <!-- perimetro on-premise -->
+              <rect x="8" y="8" width="944" height="584" rx="16" fill="none" stroke="#186078" stroke-width="2" stroke-dasharray="7 6"/>
+              <text x="26" y="32" font-size="14" font-weight="700" fill="#0c3540">INFRASTRUTTURA ON-PREMISE</text>
+              <text x="255" y="32" font-size="12.5" fill="#3c5054">· Private Cloud/VDC Lympha oppure data center del cliente · nessun dato verso l'esterno</text>
+              <!-- rete privata -->
+              <rect x="24" y="46" width="912" height="532" rx="14" fill="#eef6f7" stroke="#186078" stroke-width="1.5"/>
+              <text x="40" y="70" font-size="12.5" font-weight="700" fill="#0f4a5b">RETE PRIVATA DEDICATA — stack containerizzato (Docker Compose)</text>
+              <!-- marker freccia -->
+              <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0f4a5b"/></marker></defs>
+              <!-- riga accesso -->
+              <rect x="44" y="92" width="140" height="66" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="114" y="119" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">Utenti</text>
+              <text x="114" y="138" font-size="12" fill="#3c5054" text-anchor="middle">browser aziendale</text>
+              <rect x="236" y="92" width="180" height="66" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="326" y="119" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">Open WebUI</text>
+              <text x="326" y="138" font-size="12" fill="#3c5054" text-anchor="middle">interfaccia chat</text>
+              <rect x="444" y="92" width="164" height="66" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="526" y="119" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">Agente IA</text>
+              <text x="526" y="138" font-size="12" fill="#3c5054" text-anchor="middle">planner + azioni</text>
+              <line x1="184" y1="125" x2="228" y2="125" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <!-- LightRAG -->
+              <rect x="236" y="212" width="372" height="78" rx="10" fill="#fff" stroke="#186078" stroke-width="2.5"/>
+              <text x="422" y="243" font-size="15" font-weight="700" fill="#0c3540" text-anchor="middle">LightRAG — motore RAG</text>
+              <text x="422" y="264" font-size="12" fill="#3c5054" text-anchor="middle">retrieval ibrido: indice vettoriale + knowledge graph</text>
+              <line x1="326" y1="158" x2="326" y2="204" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <line x1="526" y1="158" x2="526" y2="204" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <!-- dati -->
+              <rect x="236" y="352" width="240" height="88" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="356" y="381" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">PostgreSQL</text>
+              <text x="356" y="400" font-size="12" fill="#3c5054" text-anchor="middle">pgvector · vettori</text>
+              <text x="356" y="417" font-size="12" fill="#3c5054" text-anchor="middle">Apache AGE · grafo di conoscenza</text>
+              <rect x="500" y="352" width="108" height="88" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="554" y="389" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">Redis</text>
+              <text x="554" y="408" font-size="12" fill="#3c5054" text-anchor="middle">cache</text>
+              <line x1="356" y1="290" x2="356" y2="344" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <line x1="554" y1="290" x2="554" y2="344" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <!-- backup -->
+              <rect x="236" y="486" width="372" height="60" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <text x="422" y="511" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Volumi persistenti &amp; backup</text>
+              <text x="422" y="530" font-size="12" fill="#3c5054" text-anchor="middle">script di backup dedicato, ripristino verificabile</text>
+              <line x1="422" y1="440" x2="422" y2="478" stroke="#0f4a5b" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <!-- banda GPU -->
+              <rect x="640" y="92" width="272" height="348" rx="14" fill="#0c3540"/>
+              <text x="776" y="116" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">GPU NVIDIA — esecuzione modelli</text>
+              <rect x="656" y="130" width="240" height="80" rx="10" fill="#fff" stroke="#5bb6bf" stroke-width="1.5"/>
+              <text x="776" y="158" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">Ollama</text>
+              <text x="776" y="177" font-size="12" fill="#3c5054" text-anchor="middle">LLM &amp; embeddings</text>
+              <text x="776" y="194" font-size="12" fill="#3c5054" text-anchor="middle">Mistral · Gemma · Qwen…</text>
+              <rect x="656" y="224" width="240" height="72" rx="10" fill="#fff" stroke="#5bb6bf" stroke-width="1.5"/>
+              <text x="776" y="252" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">vLLM — re-ranking</text>
+              <text x="776" y="271" font-size="12" fill="#3c5054" text-anchor="middle">ordina i passaggi più pertinenti</text>
+              <rect x="656" y="310" width="240" height="72" rx="10" fill="#fff" stroke="#5bb6bf" stroke-width="1.5"/>
+              <text x="776" y="338" font-size="14" font-weight="700" fill="#0c3540" text-anchor="middle">ComfyUI</text>
+              <text x="776" y="357" font-size="12" fill="#3c5054" text-anchor="middle">generazione immagini (FLUX)</text>
+              <line x1="608" y1="238" x2="648" y2="182" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <line x1="608" y1="262" x2="648" y2="260" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr)"/>
+              <!-- esercizio -->
+              <rect x="640" y="458" width="272" height="52" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="776" y="480" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">pgAdmin · monitoraggio container</text>
+              <text x="776" y="498" font-size="12" fill="#3c5054" text-anchor="middle">amministrazione ed esercizio</text>
+              <rect x="640" y="520" width="272" height="46" rx="10" fill="#fff" stroke="#d86010" stroke-width="1.5"/>
+              <text x="776" y="539" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">RAGAS — qualità misurata</text>
+              <text x="776" y="556" font-size="12" fill="#3c5054" text-anchor="middle">test e metriche in italiano</text>
+            </svg>
+            <figcaption class="mt-2 mb-0" style="font-size:.88rem;color:var(--lt-ink-soft);">Schema d'infrastruttura della piattaforma: lo stack reale, containerizzato in una rete privata dedicata, così come lo installiamo nel nostro cloud privato o presso il cliente.</figcaption>
+          </figure>
+
+          <h2 class="h5 mt-4">Come funziona: le tecnologie integrate</h2>
+          <p>Il flusso logico ha due percorsi — l'<strong>ingestion</strong>, che trasforma i tuoi documenti in una base di conoscenza privata, e la <strong>query</strong>, che porta dalla domanda alla risposta con le fonti — più un circuito di <strong>misura della qualità</strong>.</p>
+
+          <figure class="my-4" style="background:#fff;border:1px solid var(--lt-border);border-radius:1.25rem;padding:1rem;">
+            <svg viewBox="0 0 960 560" role="img" aria-labelledby="dia-log-t dia-log-d" style="width:100%;height:auto;display:block;font-family:'Titillium Web',system-ui,sans-serif;">
+              <title id="dia-log-t">Schema logico della pipeline RAG</title>
+              <desc id="dia-log-d">Fase uno, ingestion: i documenti vengono suddivisi da LightRAG, che estrae entità e relazioni; gli embeddings calcolati da Ollama finiscono nell'indice vettoriale pgvector e le entità nel knowledge graph Apache AGE, formando la base di conoscenza privata. Fase due, query: la domanda passa dal planner dell'agente, che decide tra risposta diretta e RAG; il retrieval ibrido combina vettori e grafo, il re-ranking vLLM ordina i passaggi, e il modello su Ollama genera la risposta con le fonti, in italiano. Fase tre: RAGAS genera domande di test dai documenti e misura la qualità delle risposte; Redis accelera con la cache.</desc>
+              <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0f4a5b"/></marker></defs>
+              <!-- LANE 1: ingestion -->
+              <rect x="8" y="8" width="944" height="196" rx="14" fill="#eef6f7" stroke="#186078" stroke-width="1.5"/>
+              <text x="24" y="32" font-size="13" font-weight="700" fill="#0f4a5b">1 · INGESTION — i tuoi documenti diventano conoscenza</text>
+              <rect x="32" y="76" width="150" height="70" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="107" y="104" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">Documenti</text>
+              <text x="107" y="123" font-size="12" fill="#3c5054" text-anchor="middle">PDF, Office, testi</text>
+              <rect x="222" y="76" width="212" height="70" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="328" y="99" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">LightRAG</text>
+              <text x="328" y="117" font-size="12" fill="#3c5054" text-anchor="middle">chunking · embeddings (Ollama)</text>
+              <text x="328" y="134" font-size="12" fill="#3c5054" text-anchor="middle">estrazione entità e relazioni</text>
+              <rect x="482" y="44" width="216" height="60" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="590" y="68" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Indice vettoriale</text>
+              <text x="590" y="86" font-size="12" fill="#3c5054" text-anchor="middle">pgvector</text>
+              <rect x="482" y="118" width="216" height="60" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="590" y="142" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Knowledge graph</text>
+              <text x="590" y="160" font-size="12" fill="#3c5054" text-anchor="middle">Apache AGE · entità e relazioni</text>
+              <rect x="746" y="76" width="182" height="70" rx="10" fill="#0c3540"/>
+              <text x="837" y="104" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">Base di conoscenza</text>
+              <text x="837" y="123" font-size="12" fill="#b7e0e3" text-anchor="middle">privata, nel tuo perimetro</text>
+              <line x1="182" y1="111" x2="214" y2="111" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="434" y1="96" x2="474" y2="78" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="434" y1="126" x2="474" y2="144" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="698" y1="78" x2="738" y2="98" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="698" y1="144" x2="738" y2="124" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <!-- LANE 2: query -->
+              <rect x="8" y="222" width="944" height="212" rx="14" fill="#eef6f7" stroke="#186078" stroke-width="1.5"/>
+              <text x="24" y="246" font-size="13" font-weight="700" fill="#0f4a5b">2 · QUERY — dalla domanda alla risposta, con le fonti</text>
+              <rect x="32" y="284" width="128" height="76" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="96" y="315" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">Domanda</text>
+              <text x="96" y="334" font-size="12" fill="#3c5054" text-anchor="middle">chat o API</text>
+              <rect x="196" y="284" width="172" height="76" rx="10" fill="#fff" stroke="#d86010" stroke-width="2"/>
+              <text x="282" y="309" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">Planner (agente)</text>
+              <text x="282" y="328" font-size="12" fill="#3c5054" text-anchor="middle">serve il RAG o basta</text>
+              <text x="282" y="345" font-size="12" fill="#3c5054" text-anchor="middle">la risposta diretta?</text>
+              <rect x="404" y="284" width="180" height="76" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="494" y="309" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">Retrieval ibrido</text>
+              <text x="494" y="328" font-size="12" fill="#3c5054" text-anchor="middle">vettori + knowledge graph</text>
+              <text x="494" y="345" font-size="12" fill="#3c5054" text-anchor="middle">(LightRAG)</text>
+              <rect x="620" y="284" width="140" height="76" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="690" y="309" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">Re-ranking</text>
+              <text x="690" y="328" font-size="12" fill="#3c5054" text-anchor="middle">vLLM: solo i passaggi</text>
+              <text x="690" y="345" font-size="12" fill="#3c5054" text-anchor="middle">più pertinenti</text>
+              <rect x="796" y="284" width="132" height="76" rx="10" fill="#0c3540"/>
+              <text x="862" y="309" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">Risposta</text>
+              <text x="862" y="328" font-size="12" fill="#b7e0e3" text-anchor="middle">LLM su Ollama</text>
+              <text x="862" y="345" font-size="12" fill="#b7e0e3" text-anchor="middle">con fonti, in italiano</text>
+              <line x1="160" y1="322" x2="188" y2="322" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="368" y1="322" x2="396" y2="322" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="584" y1="322" x2="612" y2="322" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <line x1="760" y1="322" x2="788" y2="322" stroke="#0f4a5b" stroke-width="2" marker-end="url(#arr2)"/>
+              <path d="M 282 360 L 282 400 L 862 400 L 862 368" fill="none" stroke="#d86010" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arr2)"/>
+              <text x="572" y="392" font-size="12" font-weight="700" fill="#a8480f" text-anchor="middle">risposta diretta (senza RAG), se la domanda non riguarda i tuoi documenti</text>
+              <!-- LANE 3: qualità -->
+              <rect x="8" y="452" width="944" height="100" rx="14" fill="#eef6f7" stroke="#186078" stroke-width="1.5"/>
+              <text x="24" y="476" font-size="13" font-weight="700" fill="#0f4a5b">3 · QUALITÀ E MIGLIORAMENTO CONTINUO</text>
+              <rect x="32" y="488" width="380" height="52" rx="10" fill="#fff" stroke="#d86010" stroke-width="1.5"/>
+              <text x="222" y="509" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">RAGAS — valutazione automatica</text>
+              <text x="222" y="527" font-size="12" fill="#3c5054" text-anchor="middle">genera domande di test dai tuoi documenti e misura le risposte</text>
+              <rect x="440" y="488" width="240" height="52" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="560" y="509" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Cache Redis</text>
+              <text x="560" y="527" font-size="12" fill="#3c5054" text-anchor="middle">risposte più rapide, meno GPU</text>
+              <rect x="708" y="488" width="220" height="52" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+              <text x="818" y="509" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Monitoraggio &amp; backup</text>
+              <text x="818" y="527" font-size="12" fill="#3c5054" text-anchor="middle">esercizio da servizio gestito</text>
+            </svg>
+            <figcaption class="mt-2 mb-0" style="font-size:.88rem;color:var(--lt-ink-soft);">Schema logico: le tecnologie integrate nella pipeline, dall'ingestion dei documenti alla risposta con fonti, con la qualità misurata in modo continuo.</figcaption>
+          </figure>
+
+          <h2 class="h5 mt-4">Guardala all'opera</h2>
+          <p>Una simulazione del ciclo di vita reale della piattaforma: lo stack che si avvia, i componenti che si integrano, e una richiesta che attraversa il RAG — dalla shell dell'utente allo spazio latente dove la conoscenza è indicizzata, fino alla risposta con le fonti.</p>
+
+          <figure class="my-4" style="background:#fff;border:1px solid var(--lt-border);border-radius:1.25rem;padding:1rem;">
+            <style>
+              #gd-wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:1rem;align-items:stretch;}
+              @media (max-width:820px){#gd-wrap{grid-template-columns:1fr;}}
+              .gd-term{background:#0b2430;border-radius:.75rem;padding:.9rem 1rem;height:440px;overflow:hidden;
+                font-family:'Roboto Mono',ui-monospace,Consolas,monospace;font-size:.78rem;line-height:1.6;color:#dfe8f0;}
+              .gd-term .gd-bar{display:flex;gap:.4rem;margin-bottom:.6rem;}
+              .gd-term .gd-bar i{width:10px;height:10px;border-radius:50%;background:#28536b;display:inline-block;}
+              .gd-term .ok{color:#6fd08c}.gd-term .stp{color:#f2a35c}.gd-term .src{color:#8fd4dc}
+              .gd-term .cmd{color:#fff;font-weight:600}.gd-term .dim{color:#9db8c2}.gd-term .pr{color:#5bb6bf}
+              .gd-cur{display:inline-block;width:.55em;height:1em;background:#5bb6bf;vertical-align:-.15em;animation:gdBlink 1s steps(1) infinite}
+              @keyframes gdBlink{50%{opacity:0}}
+              .gd-node{opacity:.22;transition:opacity .5s ease}
+              .gd-node.on{opacity:1}
+              .gd-node rect{transition:stroke .3s ease}
+              .gd-node.hot rect{stroke:#d86010;stroke-width:2.5;}
+              .gd-edge{stroke:#8fb2be;stroke-width:1.6;opacity:0;transition:opacity .7s ease}
+              .gd-edge.live{opacity:.75}
+            </style>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <p class="mb-0 fw-700 text-teal" style="font-size:.9rem;">Demo: dal <code>docker compose up</code> alla risposta con le fonti</p>
+              <button type="button" id="gd-replay" class="btn btn-outline-primary btn-sm" style="min-height:36px;">Riavvia la demo</button>
+            </div>
+            <div id="gd-wrap" aria-hidden="true">
+              <div class="gd-term" id="gd-term"><div class="gd-bar"><i></i><i></i><i></i></div><div id="gd-lines"></div></div>
+              <svg id="gd-svg" viewBox="0 0 460 440" style="width:100%;height:auto;display:block;font-family:'Titillium Web',system-ui,sans-serif;background:#f4fafb;border-radius:.75rem;" focusable="false">
+                <defs><marker id="gd-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8fb2be"/></marker></defs>
+                <!-- archi -->
+                <line class="gd-edge" data-e="user-rag" x1="103" y1="80" x2="196" y2="146"/>
+                <line class="gd-edge" data-e="ollama-rag" x1="357" y1="80" x2="266" y2="146"/>
+                <line class="gd-edge" data-e="vllm-rag" x1="360" y1="252" x2="300" y2="200"/>
+                <line class="gd-edge" data-e="redis-rag" x1="90" y1="252" x2="168" y2="200"/>
+                <line class="gd-edge" data-e="db-rag" x1="230" y1="316" x2="230" y2="212"/>
+                <!-- nodi -->
+                <g class="gd-node" id="gd-user" data-cx="103" data-cy="50">
+                  <rect x="16" y="20" width="174" height="60" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+                  <text x="103" y="45" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Utente — shell / chat</text>
+                  <text x="103" y="64" font-size="11.5" fill="#3c5054" text-anchor="middle">Open WebUI · terminale</text>
+                </g>
+                <g class="gd-node" id="gd-ollama" data-cx="357" data-cy="50">
+                  <rect x="270" y="20" width="174" height="60" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+                  <text x="357" y="45" font-size="13" font-weight="700" fill="#0c3540" text-anchor="middle">Ollama — LLM</text>
+                  <text x="357" y="64" font-size="11.5" fill="#3c5054" text-anchor="middle">embeddings &amp; generazione · GPU</text>
+                </g>
+                <g class="gd-node" id="gd-rag" data-cx="230" data-cy="179">
+                  <rect x="130" y="148" width="200" height="62" rx="10" fill="#fff" stroke="#186078" stroke-width="2.5"/>
+                  <text x="230" y="174" font-size="13.5" font-weight="700" fill="#0c3540" text-anchor="middle">LightRAG</text>
+                  <text x="230" y="193" font-size="11.5" fill="#3c5054" text-anchor="middle">motore RAG + planner</text>
+                </g>
+                <g class="gd-node" id="gd-redis" data-cx="66" data-cy="266">
+                  <rect x="16" y="240" width="100" height="52" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+                  <text x="66" y="262" font-size="12.5" font-weight="700" fill="#0c3540" text-anchor="middle">Redis</text>
+                  <text x="66" y="279" font-size="11" fill="#3c5054" text-anchor="middle">cache</text>
+                </g>
+                <g class="gd-node" id="gd-vllm" data-cx="372" data-cy="266">
+                  <rect x="300" y="240" width="144" height="52" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+                  <text x="372" y="262" font-size="12.5" font-weight="700" fill="#0c3540" text-anchor="middle">vLLM</text>
+                  <text x="372" y="279" font-size="11" fill="#3c5054" text-anchor="middle">re-ranking</text>
+                </g>
+                <g class="gd-node" id="gd-db" data-cx="230" data-cy="372">
+                  <rect x="60" y="318" width="340" height="106" rx="10" fill="#fff" stroke="#0f4a5b" stroke-width="1.5"/>
+                  <text x="230" y="340" font-size="12.5" font-weight="700" fill="#0c3540" text-anchor="middle">PostgreSQL — lo spazio latente della conoscenza</text>
+                  <text x="230" y="357" font-size="11" fill="#3c5054" text-anchor="middle">pgvector (vettori) · Apache AGE (grafo)</text>
+                  <g id="gd-dots"></g>
+                </g>
+              </svg>
+            </div>
+            <figcaption class="mt-2 mb-0" style="font-size:.88rem;color:var(--lt-ink-soft);">Simulazione dimostrativa (dati fittizi): avvio dello stack containerizzato, integrazione dei componenti, poi una richiesta dell'utente — il planner sceglie il RAG, la ricerca attraversa lo spazio latente (vettori + grafo), il re-ranking filtra i passaggi e il modello locale compone la risposta con le fonti.</figcaption>
+            <script>
+            (function(){
+              "use strict";
+              var fig=document.getElementById("gd-wrap"); if(!fig) return;
+              var lines=document.getElementById("gd-lines"), term=document.getElementById("gd-term"),
+                  svg=document.getElementById("gd-svg"), NS="http://www.w3.org/2000/svg", gen=0, running=false;
+              // spazio latente: punti deterministici (pseudo-random con seed fisso)
+              var seed=42; function rnd(){ seed=(seed*1103515245+12345)%2147483648; return seed/2147483648; }
+              var dotsG=document.getElementById("gd-dots"), dots=[];
+              for(var i=0;i<42;i++){ var d=document.createElementNS(NS,"circle");
+                d.setAttribute("cx",78+rnd()*304); d.setAttribute("cy",368+rnd()*46);
+                d.setAttribute("r",2.4); d.setAttribute("fill","#5bb6bf"); d.setAttribute("opacity",".45");
+                dotsG.appendChild(d); dots.push(d); }
+              var HITS=[4,11,19,27,35];
+              function resetDots(){ dots.forEach(function(d){ d.setAttribute("fill","#5bb6bf"); d.setAttribute("opacity",".45"); d.setAttribute("r","2.4"); }); }
+              function node(id){ return document.getElementById(id); }
+              function center(id){ var n=node(id); return {x:+n.getAttribute("data-cx"), y:+n.getAttribute("data-cy")}; }
+              function on(id){ node(id).classList.add("on"); }
+              function hot(id,v){ node(id).classList.toggle("hot",v!==false); }
+              function edgesLive(v){ svg.querySelectorAll(".gd-edge").forEach(function(e){ e.classList.toggle("live",v!==false); }); }
+              function clearAll(){ lines.innerHTML=""; resetDots(); edgesLive(false);
+                svg.querySelectorAll(".gd-node").forEach(function(n){ n.classList.remove("on","hot"); });
+                svg.querySelectorAll(".gd-pulse").forEach(function(p){ p.remove(); }); }
+              function sleep(ms,g){ return new Promise(function(res,rej){ setTimeout(function(){ (g===gen?res:rej)("stale"); },ms); }); }
+              function line(html){ var d=document.createElement("div"); d.innerHTML=html; lines.appendChild(d); term.scrollTop=term.scrollHeight; return d; }
+              function typeCmd(promptHtml,cmd,g){ return new Promise(function(res,rej){
+                var d=line(promptHtml+'<span class="cmd"></span><span class="gd-cur"></span>');
+                var span=d.querySelector(".cmd"), cur=d.querySelector(".gd-cur"), i=0;
+                (function tick(){ if(g!==gen){ rej("stale"); return; }
+                  if(i<cmd.length){ span.textContent+=cmd.charAt(i++); term.scrollTop=term.scrollHeight; setTimeout(tick,34); }
+                  else { cur.remove(); res(); } })(); }); }
+              function pulse(a,b,g,color,dur){ return new Promise(function(res,rej){
+                var p1=center(a),p2=center(b),c=document.createElementNS(NS,"circle");
+                c.setAttribute("r","5"); c.setAttribute("fill",color||"#d86010"); c.setAttribute("class","gd-pulse");
+                svg.appendChild(c); var t0=performance.now(); dur=dur||650;
+                (function step(now){ if(g!==gen){ c.remove(); rej("stale"); return; }
+                  var p=Math.min(1,(now-t0)/dur), e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+                  c.setAttribute("cx",p1.x+(p2.x-p1.x)*e); c.setAttribute("cy",p1.y+(p2.y-p1.y)*e);
+                  if(p<1) requestAnimationFrame(step); else { c.remove(); res(); } })(t0); }); }
+              function hitDots(g){ return HITS.reduce(function(pr,idx){ return pr.then(function(){
+                  return sleep(150,g).then(function(){ var d=dots[idx];
+                    d.setAttribute("fill","#d86010"); d.setAttribute("opacity","1"); d.setAttribute("r","4.2"); }); });
+                }, Promise.resolve()); }
+              var PR='<span class="pr">utente@onprem:~$</span> ';
+              function run(){ var g=++gen; running=true; clearAll();
+                typeCmd(PR,"docker compose up -d",g)
+                .then(function(){ line('<span class="dim">[+] Avvio dello stack — rete privata dedicata, GPU pronte</span>');
+                  var boots=[["postgres","pgvector + Apache AGE","gd-db"],["redis","cache","gd-redis"],
+                             ["ollama","LLM & embeddings · GPU","gd-ollama"],["vllm-rerank","re-ranking","gd-vllm"],
+                             ["lightrag","motore RAG","gd-rag"],["open-webui","interfaccia chat","gd-user"]];
+                  return boots.reduce(function(pr,b){ return pr.then(function(){ return sleep(380,g).then(function(){
+                      line(' <span class="ok">✔</span> '+(b[0]+"              ").slice(0,14)+'<span class="dim">'+b[1]+"</span>"); on(b[2]); }); });
+                    }, Promise.resolve()); })
+                .then(function(){ return sleep(380,g); })
+                .then(function(){ edgesLive(); line('<span class="ok">Stack pronto.</span> <span class="dim">Componenti integrati. Nessun dato esce dal perimetro.</span>'); return sleep(1300,g); })
+                .then(function(){ return typeCmd(PR,'ask "Quali scadenze prevede il contratto Alfa?"',g); })
+                .then(function(){ hot("gd-user"); return pulse("gd-user","gd-rag",g); })
+                .then(function(){ hot("gd-rag"); line('<span class="stp">→ planner:</span> la domanda riguarda documenti locali → uso il RAG'); return sleep(520,g); })
+                .then(function(){ line('<span class="stp">→ embeddings</span> della domanda (Ollama)'); return pulse("gd-rag","gd-ollama",g); })
+                .then(function(){ return pulse("gd-ollama","gd-rag",g); })
+                .then(function(){ line('<span class="stp">→ retrieval ibrido:</span> cerco nello spazio latente (vettori + grafo)'); return pulse("gd-rag","gd-db",g); })
+                .then(function(){ hot("gd-db"); return hitDots(g); })
+                .then(function(){ return pulse("gd-db","gd-rag",g); })
+                .then(function(){ hot("gd-db",false); line('<span class="dim">   12 passaggi trovati nello spazio latente</span>'); return sleep(420,g); })
+                .then(function(){ line('<span class="stp">→ re-ranking</span> (vLLM): restano i 4 passaggi davvero pertinenti'); return pulse("gd-rag","gd-vllm",g); })
+                .then(function(){ return pulse("gd-vllm","gd-rag",g); })
+                .then(function(){ line('<span class="stp">→ generazione</span> della risposta (LLM locale)…'); return pulse("gd-rag","gd-ollama",g); })
+                .then(function(){ hot("gd-ollama"); return sleep(850,g); })
+                .then(function(){ hot("gd-ollama",false); return pulse("gd-rag","gd-user",g,"#186078"); })
+                .then(function(){ hot("gd-rag",false); return typeCmd("","Rinnovo annuale automatico; disdetta entro 60 giorni dalla scadenza.",g); })
+                .then(function(){ line('<span class="src">  [fonti: contratto_alfa.pdf §4.2 · verbale_CdA.docx]</span>'); hot("gd-user",false);
+                  line(PR+'<span class="gd-cur"></span>'); return sleep(5200,g); })
+                .then(function(){ if(g===gen) run(); })
+                .catch(function(){ /* riavviata o fuori viewport */ });
+              }
+              document.getElementById("gd-replay").addEventListener("click",function(){ run(); });
+              if("IntersectionObserver" in window){
+                var io=new IntersectionObserver(function(es){ es.forEach(function(e){
+                  if(e.isIntersecting){ if(!running) run(); }
+                  else { gen++; running=false; } }); },{threshold:.25});
+                io.observe(fig);
+              } else { run(); }
+            })();
+            </script>
+          </figure>
+
+          <div class="row g-4 mt-1">
+            <div class="col-lg-6">
+              <h2 class="h6 text-uppercase" style="letter-spacing:.06em;">Cosa rende diversa la nostra piattaforma</h2>
+              <ul class="lt-check">
+                <li><strong>Non solo vettori: un knowledge graph.</strong> Oltre all'indice vettoriale, LightRAG costruisce un grafo di entità e relazioni (Apache AGE su PostgreSQL): le risposte collegano i fatti, non si limitano a somigliare alla domanda</li>
+                <li><strong>Re-ranking dedicato</strong> (vLLM): i passaggi recuperati vengono riordinati per pertinenza e filtrati prima di arrivare al modello — meno rumore, risposte più precise</li>
+                <li><strong>Un planner che decide</strong>: l'agente valuta ogni domanda e sceglie tra risposta diretta e RAG, spiegando il perché — niente ricerche inutili, niente risposte inventate</li>
+                <li><strong>Qualità misurata, non dichiarata</strong>: RAGAS genera set di domande di test dai tuoi stessi documenti e valuta le risposte con metriche, in italiano</li>
+                <li><strong>Anche le immagini</strong>: lo stack include la generazione di immagini on-premise (ComfyUI), con la stessa riservatezza dei testi</li>
+              </ul>
+            </div>
+            <div class="col-lg-6">
+              <h2 class="h6 text-uppercase" style="letter-spacing:.06em;">Governata come un servizio, non come un esperimento</h2>
+              <ul class="lt-check">
+                <li><strong>I dati non escono dal perimetro</strong>: modelli, indici e documenti vivono nella rete privata dedicata — conformità GDPR fin dal disegno</li>
+                <li><strong>Componenti open source e modelli intercambiabili</strong>: nessun vendor lock-in, costi prevedibili (l'hardware è tuo o in canone, non a consumo di token)</li>
+                <li><strong>Esercizio incluso</strong>: monitoraggio dei container, amministrazione, volumi persistenti e <strong>backup con ripristino verificabile</strong> — con l'eventuale presidio del nostro <a class="text-teal fw-700 text-decoration-none" href="noc.html">NOC</a></li>
+                <li><strong>Su misura</strong>: la piattaforma è un punto di partenza collaudato; modelli, fonti dati, permessi e integrazioni si adattano al tuo contesto</li>
+              </ul>
+            </div>
+          </div>
+
+          <h2 class="h6 text-uppercase mt-4" style="letter-spacing:.06em;">Casi d'uso tipici</h2>
+          <ul class="lt-check">
+            <li><strong>Ricerca documentale intelligente</strong>: interrogare in linguaggio naturale archivi, delibere, manuali e procedure — con la fonte citata</li>
+            <li><strong>Assistenti interni</strong> su knowledge base aziendale: help desk, supporto operativo, onboarding</li>
+            <li><strong>Analisi e preparazione di documenti</strong>: sintesi, classificazione, estrazione di dati da pratiche e contratti</li>
+            <li><strong>Agenti nei processi</strong>: attività ripetitive eseguite dall'IA dentro i flussi di lavoro, con approvazione umana dove serve</li>
+          </ul>
+          <p class="mt-3 mb-0"><strong>Per chi</strong>: PA, sanità e imprese che vogliono i benefici dell'IA generativa senza rinunciare a riservatezza, conformità e controllo — o che hanno già provato l'IA "generica" e ne hanno visto i limiti sui propri dati.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="lt-footer">
+    <div class="container section" style="padding-block:3.5rem;">
+      <div class="row g-4">
+
+        <!-- Dati aziendali (come da sito ufficiale) -->
+        <div class="col-lg-4">
+          <p class="lt-footer__brand mb-3"><span class="lt-name">Lympha Technologies S.r.l.</span></p>
+          <address class="mb-3" style="font-style:normal;color:#cdd8e4;font-size:.86rem;line-height:1.6;">
+            <strong class="d-block mt-2" style="color:#fff;">Sede legale</strong>
+            Via Guglielmo Marconi, 32 - 40122 Bologna (BO)
+            <strong class="d-block mt-2" style="color:#fff;">Sede operativa</strong>
+            Via Antonio Meucci, 24/c – 40024 Castel San Pietro Terme (BO)
+            <strong class="d-block mt-2" style="color:#fff;">Green Data Center 00GATE</strong>
+            Via Antonio Meucci, 24/i/2 – 40024 Castel San Pietro Terme (BO)
+            <span class="d-block mt-2">Partita IVA e Codice Fiscale 03099141206<br>
+            Numero REA BO – 491736<br>
+            SDI M5UXCR1<br>
+            Capitale Sociale 25.000 euro, i.v.</span>
+            <span class="d-block mt-2">Tel: <a href="tel:+390510981815">+39 051 0981815</a><br>
+            Email: <a href="mailto:info@lymphatech.it">info@lymphatech.it</a></span>
+            <span class="d-block mt-2">Codice LEI <a href="codice-lei.html">8945007RB5QFYZ1XFW64</a><br>
+            D-U-N-S &reg; Number 430735178<br>
+            Rating di legalità RT18284<img class="lt-rating-badge" src="assets/img/badge_stella_due_plus_oro.svg" alt="Rating di legalità: una stella e due plus" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-left:.4rem;"></span>
+          </address>
+          <p class="mb-0" style="color:#aebfd0;font-size:.92rem;">Lympha Technologies è Service Provider &amp; Systems Integrator, fornitore di tecnologie, know-how e creatore d'innovazione.</p>
+        </div>
+
+        <!-- Servizi -->
+        <div class="col-6 col-lg-2">
+          <h2>Servizi</h2>
+          <ul class="list-unstyled d-grid gap-2 mt-3">
+            <li><a href="data-protection.html">Data Protection</a></li>
+            <li><a href="cybersecurity.html">Cybersecurity</a></li>
+            <li><a href="private-cloud.html">Private Cloud &amp; VDC</a></li>
+            <li><a href="bcdr.html">Business Continuity</a></li>
+            <li><a href="noc.html">NOC &amp; Monitoraggio</a></li>
+          </ul>
+        </div>
+
+        <!-- Azienda -->
+        <div class="col-6 col-lg-2">
+          <h2>Azienda</h2>
+          <ul class="list-unstyled d-grid gap-2 mt-3">
+            <li><a href="chi-siamo.html">Chi siamo</a></li>
+            <li><a href="sviluppo.html">Sviluppo</a></li>
+            <li><a href="settori.html">Settori</a></li>
+            <li><a href="metodo.html">Metodo</a></li>
+            <li><a href="blog.html">Blog</a></li>
+            <li><a href="faq.html">Domande frequenti</a></li>
+            <li><a href="contatti.html">Contatti</a></li>
+          </ul>
+        </div>
+
+        <!-- Documenti & policy -->
+        <div class="col-lg-4">
+          <h2>Documenti e policy</h2>
+          <ul class="list-unstyled d-grid gap-2 mt-3">
+            <li><a href="privacy-cookie.html">Privacy e Cookie Policy</a></li>
+            <li><a href="politica-qualita.html">Politica per la qualità</a></li>
+            <li><a href="certificato-qualita.html">Certificato qualità (ISO 9001)</a></li>
+            <li><a href="codice-etico.html">Codice etico</a></li>
+            <li><a href="sostenibilita.html">Sostenibilità</a></li>
+            <li><a href="dichiarazione-accessibilita.html">Dichiarazione di accessibilità</a></li>
+            <li><a href="mailto:abusi@lymphatechnologies.com">Segnalazione abusi</a></li>
+          </ul>
+          <div class="mt-3">
+            <span class="lt-cert-plate"><img src="assets/img/accredia_kiwa.png" alt="Accredia · Kiwa — Sistema di gestione certificato"></span>
+            <p class="lt-cert-cap mt-2 mb-0">ISO 9001:2015 — Reg. Num. 19349-A<br>Erogazione di servizi di consulenza nel settore information technology</p>
+          </div>
+          <div class="mt-3 d-flex flex-column align-items-start gap-3">
+            <!-- Ecomate ESG Rating Badge - Extended -->
+            <div lang="en" style="width:171px;font-family:Arial,sans-serif;line-height:normal;">
+              <div style="background-color:#28a745;border-radius:6px 6px 0 0;padding:3px;text-align:center;">
+                <p style="margin:0;color:white;font-size:5px;line-height:normal;">EU-VAT: EU-03099141206 | June 2026</p>
+              </div>
+              <div style="background-color:#f8f9fa;display:flex;">
+                <div style="flex:1;padding:7px;">
+                  <p style="margin:0;font-size:10px;font-weight:bold;color:#212529;line-height:normal;">ESG</p>
+                  <p style="margin:0;font-size:8px;font-weight:bold;color:#212529;line-height:normal;">SME Rating</p>
+                </div>
+                <div style="flex:1;background-color:rgba(255,193,7,0.5);color:#212529;display:flex;align-items:center;justify-content:center;padding:7px;">
+                  <span style="font-weight:bold;font-size:14px;">BBB</span>
+                </div>
+              </div>
+              <div style="background-color:#28a745;border-radius:0 0 6px 6px;padding:3px;text-align:center;">
+                <p style="margin:0;color:white;font-size:5px;line-height:normal;">Issued by Ecomate S.R.L. - The Open-ESG Rating Agency</p>
+              </div>
+            </div>
+            <a href="https://www.green-cloud.it/api/green-certificates/v1/certificatesUuid/f0bfb489-140f-4940-a1e2-a6c24012fe79/fdf102fd-eca1-4b4c-bcba-30632e4b4404" target="_blank" rel="noopener" data-focus-mouse="false">
+                <span class="lt-green-plate"><img src="https://www.green-cloud.it/api/green-certificates/v1/badgesUuid/f0bfb489-140f-4940-a1e2-a6c24012fe79/fdf102fd-eca1-4b4c-bcba-30632e4b4404/Company_H_CO/sm/0" alt="Badge Green Cloud" class="img-fluid" id="iplhw"></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="lt-footer__bar">
+      <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center gap-3" style="font-size:.85rem;color:#aebfd0;">
+        <p class="mb-0">Copyright © 2011–<span data-year>2026</span> Lympha Technologies S.r.l.</p>
+        <div class="d-flex align-items-center gap-3">
+          <a href="https://www.linkedin.com/company/lympha-technologies-s-r-l-/" target="_blank" rel="noopener" aria-label="LinkedIn di Lympha Technologies" style="display:inline-flex;padding:.25rem;"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" style="width:24px;height:24px;"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.25 8.25h4.5V23h-4.5V8.25zM8.25 8.25h4.31v2.01h.06c.6-1.14 2.07-2.34 4.26-2.34 4.56 0 5.4 3 5.4 6.9V23h-4.5v-6.54c0-1.56-.03-3.57-2.18-3.57-2.18 0-2.51 1.7-2.51 3.46V23h-4.5V8.25z"/></svg></a>
+          <img src="assets/img/wcag2.1AA-v.png" alt="Conformità WCAG 2.1 livello AA" style="height:34px;width:auto;display:block;">
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/lympha.js" defer></script>
+</body>
+</html>

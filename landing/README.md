@@ -1,4 +1,4 @@
-# La pagina di M.A.R.S. Beacon per lymphatech.it
+# La pagina di M.A.R.S. per lymphatech.it
 
 **Una pagina intera e autoconsistente**, nella stessa forma delle altre
 pagine del sito: si apre da sola in un browser, con testata, menu, piede
@@ -8,6 +8,7 @@ e fogli di stile suoi.
 |---|---|
 | `mars-beacon.html` | **La pagina.** Si apre così com'è: `xdg-open landing/mars-beacon.html` |
 | `ia-agenti-rag.html` | La pagina del sito da cui viene il telaio. Sta qui per il diff: se il telaio del sito cambia, la differenza si vede invece di doverla cercare |
+| `logo.png` | Il marchio del prodotto, 744×752. **Nostro**, quindi versionato: `assets/` non lo e' |
 | `verifica.py` | I controlli statici, descritti in fondo |
 | `assets/` | Bootstrap Italia, `lympha.css`, `lympha.js`, font e immagini del sito. **Non versionata** — vedi sotto |
 
@@ -34,7 +35,7 @@ Per rivederla come sarà: copiare `assets/` dal sito accanto a
 `<head>` (a meno di titolo, descrizione, canonical, OG e breadcrumb
 JSON-LD), la testata col menu, il piede. L'unica modifica è la voce di
 questa pagina aggiunta al menu **Sviluppo** — che va aggiunta anche alle
-altre pagine del sito, altrimenti il menu di M.A.R.S. Beacon elenca una
+altre pagine del sito, altrimenti il menu di M.A.R.S. elenca una
 voce che le sorelle non hanno.
 
 **Nostro**: tutto ciò che sta dentro `<main>`, più lo `<style>` nel
@@ -83,6 +84,27 @@ Dipendono da dove archiviate la pagina, e oggi puntano a:
 - `privacy-cookie.html` — questa c'è, è quella del piede.
 
 L'occhiello sopra il titolo e il breadcrumb dicono `Sviluppo`.
+
+## Il marchio
+
+`logo.png` sta accanto al sommario, non nell'hero: il titolo il nome lo
+dice gia', e li' l'immagine sarebbe stata una ripetizione. L'`alt` e'
+**vuoto di proposito** per la stessa ragione — un lettore di schermo
+direbbe «M.A.R.S.» due volte a due dita di distanza.
+
+`width` e `height` ci sono: senza, la riga di testo salta quando
+l'immagine arriva, ed e' il CLS che il prodotto misura sui siti dei
+clienti.
+
+**Pesa 352 KB per mostrarsi a 96 pixel**, ed e' un difetto vero: su
+questa macchina non c'e' nulla per ridimensionare un PNG — niente PIL,
+niente ImageMagick — quindi la riduzione la fa il browser a ogni
+visita. Prima di pubblicare va rifatto a misura (192 px per gli schermi
+a densita' doppia), o convertito in SVG.
+
+Quando la pagina va sul sito il file la segue: sta accanto a
+`mars-beacon.html`, non in `assets/img/`, perche' e' nostro e
+`assets/` non entra in git.
 
 ## L'anteprima del referto
 
@@ -149,18 +171,22 @@ Fatta staticamente, con `landing/verifica.py`:
 .venv/bin/python landing/verifica.py
 ```
 
-Dieci controlli: ogni selettore CSS ancorato a `.mars`; ogni id cercato
+Undici controlli: ogni selettore CSS ancorato a `.mars`; ogni id cercato
 dallo script esistente; ogni `<label for>` e ogni `aria-describedby` che
 puntano a qualcosa; nessuna origine esterna **dentro `<main>`**; un solo
 `<h1>` senza salti di gerarchia; nessuna lista con figli che non siano
 `<li>`; i quindici contrasti; ogni tinta misurata o esente con la sua
-ragione; ogni file di `assets/` citato che esiste davvero; il telaio del
-sito arrivato tutto, agganci allo scrollspy compresi.
+ragione; ogni immagine e ogni file di `assets/` citati che esistono
+davvero, e ogni immagine con `width` e `height`; il telaio del sito
+arrivato tutto, agganci allo scrollspy compresi; ogni ancora interna che
+porta a un id che c'e'.
 
-Otto mutazioni provate una per una — `data-article` tolto, un percorso
-di `assets/` sbagliato, lo script del sito rimosso, un CDN dentro
-`<main>`, una `<label for>` rotta, un `h2` nudo nel foglio, un colore non
-dichiarato, un secondo `<h1>` — e **otto colte**.
+Dodici mutazioni provate una per una e **dodici colte**: `data-article`
+tolto, un percorso di `assets/` sbagliato, lo script del sito rimosso, un
+CDN dentro `<main>`, una `<label for>` rotta, un `h2` nudo nel foglio, un
+colore non dichiarato, un secondo `<h1>`, il logo che non c'e', il logo
+senza `width`/`height`, il logo preso da un CDN, un'ancora dell'indice
+che non porta a nessun id.
 
 **Non verificato**: la pagina non è mai stata aperta in un browser — su
 questa macchina non c'è né Node né un Chromium fuori dall'immagine —

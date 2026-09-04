@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>M.A.R.S. Beacon — Lympha Technologies</title>
+  <title>M.A.R.S. — Lympha Technologies</title>
   <meta name="description" content="Meta-fusion, Accessibility, Ranking &amp; Security Audit: dieci aree del sito misurate con dieci strumenti diversi, e un referto solo con l'ordine di lavoro. Il tuo sito come lo legge un assistente IA.">
   <meta name="theme-color" content="#186078">
   <link rel="canonical" href="https://www.lymphatech.it/mars-beacon.html">
@@ -15,7 +15,7 @@
   <meta property="og:site_name" content="Lympha Technologies">
   <meta property="og:locale" content="it_IT">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="M.A.R.S. Beacon — Lympha Technologies">
+  <meta property="og:title" content="M.A.R.S. — Lympha Technologies">
   <meta property="og:description" content="Dieci aree misurate con dieci strumenti, un referto solo con l'ordine di lavoro: quanto c'è da recuperare, su quali pagine e come si corregge.">
   <meta property="og:url" content="https://www.lymphatech.it/mars-beacon.html">
   <meta property="og:image" content="https://www.lymphatech.it/assets/img/og/og-site.png">
@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Lympha Technologies — Think. Design. Resolve.">
   <meta name="twitter:card" content="summary_large_image">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://www.lymphatech.it/"},{"@type":"ListItem","position":2,"name":"Sviluppo","item":"https://www.lymphatech.it/sviluppo.html"},{"@type":"ListItem","position":3,"name":"M.A.R.S. Beacon"}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://www.lymphatech.it/"},{"@type":"ListItem","position":2,"name":"Sviluppo","item":"https://www.lymphatech.it/sviluppo.html"},{"@type":"ListItem","position":3,"name":"M.A.R.S."}]}</script>
 
   <!--
     LA PAGINA E' AUTOCONSISTENTE: si apre da sola, e tutto quello che
@@ -45,7 +45,7 @@
   -->
 
 <style>
-/* --- M.A.R.S. Beacon: stile di pagina, tutto sotto .mars ------------ */
+/* --- M.A.R.S.: stile di pagina, tutto sotto .mars ------------ */
 .mars {
   /* I tre colori di gravita' NON sono una scelta estetica, e sono gli
      stessi che il referto stampa: vengono da Bootstrap Italia, che
@@ -68,6 +68,16 @@
 }
 
 .mars-sommario { font-size: 1.02rem; }
+
+/* Marchio e sommario affiancati finche' c'e' spazio. Il file e' 744x752
+   e si mostra a 96: la riduzione la fa il browser, perche' su questa
+   macchina non c'e' nulla per ridimensionare un PNG. */
+.mars-apertura { display: flex; gap: 1.15rem; align-items: flex-start; }
+.mars-marchio { width: 96px; height: auto; flex: none; }
+@media (max-width: 575.98px) {
+  .mars-apertura { display: block; }
+  .mars-marchio { margin-bottom: .7rem; }
+}
 .mars-nota { color: var(--mars-muted); font-size: .87rem; }
 .mars-etichetta {
   font-size: .74rem; text-transform: uppercase; letter-spacing: .08em;
@@ -285,7 +295,7 @@
                 <li><a href="ia-agenti-rag.html"><span class="lt-dd-label">IA, Agenti e RAG</span><span class="lt-dd-desc">Quando l'AI non si limita a rispondere ma diventa valore</span></a></li>
                 <li><a href="custom-development.html"><span class="lt-dd-label">Custom development</span><span class="lt-dd-desc">Applicazioni progettate sul processo reale</span></a></li>
                 <li><a href="cms.html"><span class="lt-dd-label">Content Management System</span><span class="lt-dd-desc">Portali, aree riservate e contenuti governabili</span></a></li>
-                <li><a href="mars-beacon.html"><span class="lt-dd-label">M.A.R.S. Beacon</span><span class="lt-dd-desc">L'audit del sito per gli assistenti IA: dieci aree, un referto</span></a></li>
+                <li><a href="mars-beacon.html"><span class="lt-dd-label">M.A.R.S.</span><span class="lt-dd-desc">L'audit del sito per gli assistenti IA: dieci aree, un referto</span></a></li>
                 <li><a href="workflow.html"><span class="lt-dd-label">Workflow &amp; Process Orchestration</span><span class="lt-dd-desc">Automazione, integrazione e controllo</span></a></li>
               </ul></div>
             </li>
@@ -331,11 +341,11 @@
         <ol class="breadcrumb mb-3">
           <li class="breadcrumb-item"><a href="index.html">Home</a></li>
           <li class="breadcrumb-item"><a href="sviluppo.html">Sviluppo</a></li>
-          <li class="breadcrumb-item active" aria-current="page">M.A.R.S. Beacon</li>
+          <li class="breadcrumb-item active" aria-current="page">M.A.R.S.</li>
         </ol>
       </nav>
       <p class="eyebrow">Sviluppo</p>
-      <h1>M.A.R.S. Beacon</h1>
+      <h1>M.A.R.S.</h1>
       <p class="lead">
         Meta-fusion, Accessibility, Ranking &amp; Security Audit: il tuo sito
         come lo legge un assistente IA, con i numeri e con il piano di lavoro.
@@ -360,7 +370,7 @@
               <ul class="list-unstyled d-grid gap-2">
                 <li><a class="text-decoration-none fw-700 text-teal" href="sviluppo.html">Panoramica</a></li>
                 <li><a class="text-decoration-none fw-700 text-teal" href="ia-agenti-rag.html">IA, Agenti e RAG</a></li>
-                <li><span class="fw-700" aria-current="page" style="color:var(--lt-ink);">M.A.R.S. Beacon</span></li>
+                <li><span class="fw-700" aria-current="page" style="color:var(--lt-ink);">M.A.R.S.</span></li>
                 <li><a class="text-decoration-none fw-700 text-teal" href="custom-development.html">Custom development</a></li>
                 <li><a class="text-decoration-none fw-700 text-teal" href="cms.html">Content Management System</a></li>
                 <li><a class="text-decoration-none fw-700 text-teal" href="workflow.html">Workflow &amp; Orchestration</a></li>
@@ -383,15 +393,26 @@
         <div class="col-lg-9">
           <article data-article>
 
-            <p class="mars-sommario" id="mars-perche">
-              Le persone non arrivano più solo da una lista di link: chiedono, e
-              un assistente risponde <b>citando qualcuno</b>. Perché quel
-              qualcuno sia tu, il tuo sito deve essere raggiungibile, leggibile a
-              pezzi, corretto e sicuro — e nessuna di queste quattro cose si
-              vede guardando la home.
-            </p>
+            <!-- Il marchio accanto al sommario, non nell'hero: il titolo
+                 dice gia' il nome, e qui l'immagine entra dove comincia
+                 il discorso. `alt` vuoto di proposito — ripeterebbe l'<h1>
+                 che sta due dita piu' su, e un lettore di schermo lo
+                 direbbe due volte. width/height ci sono per lo spazio:
+                 senza, la riga salta quando l'immagine arriva (CLS, che
+                 e' una delle misure che questa pagina vende). -->
+            <div class="mars-apertura" id="mars-perche">
+              <img class="mars-marchio" src="logo.png" width="744" height="752"
+                   alt="" loading="lazy" decoding="async">
+              <p class="mars-sommario">
+                Le persone non arrivano più solo da una lista di link: chiedono,
+                e un assistente risponde <b>citando qualcuno</b>. Perché quel
+                qualcuno sia tu, il tuo sito deve essere raggiungibile, leggibile
+                a pezzi, corretto e sicuro — e nessuna di queste quattro cose si
+                vede guardando la home.
+              </p>
+            </div>
             <p>
-              <b>M.A.R.S. Beacon</b> scansiona il sito una volta sola e ne misura
+              <b>M.A.R.S.</b> scansiona il sito una volta sola e ne misura
               dieci aree con dieci strumenti diversi, poi consegna un referto con
               l'ordine di lavoro: quanto c'è da recuperare, su quali pagine, e
               come si corregge. Un file solo, che si stampa e si archivia.
@@ -487,7 +508,7 @@
 
               <div class="mars-referto">
                 <div class="mars-referto-testa">
-                  <p><b>M.A.R.S.</b> Beacon</p>
+                  <p><b>M.A.R.S.</b></p>
                   <p class="mars-meta">
                     <code>https://www.acme-manifatture.example</code>
                   </p>
@@ -590,7 +611,7 @@
 
             <h2 class="h5 mt-4" id="mars-accesso">Richiedi l'accesso</h2>
             <p>
-              M.A.R.S. Beacon è uno strumento per aziende. Compila i campi:
+              M.A.R.S. è uno strumento per aziende. Compila i campi:
               apriamo l'accesso e il primo referto lo esegui tu, sul tuo dominio.
             </p>
 
@@ -817,7 +838,7 @@
   <script src="assets/js/lympha.js" defer></script>
 
 <script>
-/* M.A.R.S. Beacon — script di pagina. IIFE, nessuna variabile globale,
+/* M.A.R.S. — script di pagina. IIFE, nessuna variabile globale,
  * nessuna dipendenza da jQuery: il sito lo carica, ma legarsi a lui
  * renderebbe questa pagina fragile a un suo aggiornamento.
  *

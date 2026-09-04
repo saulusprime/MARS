@@ -188,6 +188,19 @@ def controlla(percorso: str) -> List[str]:
     #    renderebbe la verifica dipendente dalla macchina — la stessa
     #    trappola gia' pagata con node_modules.
     citati = sorted(set(re.findall(r'(?:src|href)="(assets/[^"]+)"', grezzo)))
+    #    Le immagini nostre stanno fuori da assets/ e in git ci sono:
+    #    quelle si controllano sempre.
+    if principale is not None:
+        for tag in principale.find_all("img"):
+            fonte = tag.get("src", "")
+            if fonte and not re.match(r"(?:https?:|data:|//)", fonte):
+                if not os.path.exists(os.path.join(QUI, fonte)):
+                    guai.append("<img src=%r> non esiste" % fonte)
+                elif not (tag.get("width") and tag.get("height")):
+                    # Senza le due misure il testo salta quando
+                    # l'immagine arriva, ed e' il CLS che il prodotto
+                    # misura sui siti dei clienti.
+                    guai.append("<img src=%r> senza width/height" % fonte)
     if not os.path.isdir(os.path.join(QUI, "assets")):
         print("assets/ assente: i %d file citati non sono stati controllati "
               "(vedi landing/README.md)" % len(citati), file=sys.stderr)
@@ -208,6 +221,15 @@ def controlla(percorso: str) -> List[str]:
     if not zuppa.find(attrs={"data-article": True}):
         guai.append("nessun [data-article]: lo scrollspy dell'indice "
                     "resta spento")
+
+    # 11. Ogni ancora interna porta da qualche parte. Un `#` che non
+    #     esiste non solleva: il browser resta dov'e', e l'indice
+    #     laterale sembra rotto senza che nulla lo dica.
+    if principale is not None:
+        for collegamento in principale.find_all("a", href=True):
+            meta = collegamento["href"]
+            if meta.startswith("#") and len(meta) > 1 and meta[1:] not in ids:
+                guai.append("l'ancora %s non porta a nessun id" % meta)
 
     return guai
 

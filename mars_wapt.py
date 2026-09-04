@@ -464,6 +464,21 @@ class ZapClient:
     def version(self) -> str:
         return str(self._get("core/view/version").get("version", ""))
 
+    def new_session(self) -> bool:
+        """Sessione ZAP nuova, e quindi albero dei siti e alert vuoti.
+
+        SENZA NOME di proposito: `core/action/newSession` senza `name`
+        crea una sessione che non viene scritta su disco. Darle un nome
+        significherebbe lasciare un file nel daemon a ogni audit.
+
+        E' la correzione di R70. `core/view/alerts` restituisce gli
+        alert dell'intera sessione, non quelli della scansione appena
+        conclusa: senza azzerarla il secondo audit dello stesso sito
+        somma i rilievi del primo, e il punteggio scende a sito fermo.
+        """
+        self._get("core/action/newSession")
+        return True
+
     def spider_scan(self, url: str, max_children: int = 0) -> str:
         """Avvia lo spider. `max_children` e' l'UNICO tetto che l'API
         accetta, ed e' per nodo: `spider/action/scan` prende
@@ -662,7 +677,11 @@ def run_zap(url: str, client=None, active: bool = False,
     locale, il campione del crawler conserva **4 regole distinte su 5**
     rispetto allo spider, senza toccare alcun URL vietato.
 
-    Restituisce (alerts, completata, fermate). None se fallisce.
+    Restituisce (alerts, completata, fermate, sessione_nuova). None se
+    fallisce. `sessione_nuova` e' False quando il daemon ha rifiutato
+    di azzerare la sessione: i rilievi possono allora includere
+    scansioni precedenti, e chi scrive il referto deve poterlo dire
+    (R70).
     `fermate` e' False quando una scansione e' scaduta e il daemon non
     ha accettato l'ordine di fermarla: sta ancora girando, e chi scrive
     il referto deve poterlo dire. Sulla via senza spider e' sempre True
@@ -671,6 +690,18 @@ def run_zap(url: str, client=None, active: bool = False,
     client = client or connect_zap()
     if client is None:
         return None
+    # PRIMA di qualunque traffico: azzerarla dopo cancellerebbe cio' che
+    # si e' appena misurato. Un fallimento non ferma l'audit — principio
+    # 2 — ma non puo' restare muto: i conteggi che il referto stampera'
+    # potrebbero includere scansioni precedenti (R70).
+    sessione_nuova = True
+    try:
+        client.new_session()
+    except (requests.RequestException, ValueError, KeyError) as e:
+        sessione_nuova = False
+        print("  ZAP: sessione non azzerata (%s): i rilievi possono "
+              "includere scansioni precedenti." % type(e).__name__,
+              file=sys.stderr)
     scadenza = time.time() + (ZAP_TIMEOUT_SCAN if timeout is None
                               else timeout)
     # Diventa False se una scansione e' scaduta e il daemon non ha
@@ -686,7 +717,7 @@ def run_zap(url: str, client=None, active: bool = False,
             for indirizzo in list(urls or []) or [url]:
                 client.access_url(indirizzo)
             completa = _attendi_passiva(client, scadenza)
-            return client.alerts(url), completa, True
+            return client.alerts(url), completa, True, sessione_nuova
 
         scan_id = client.spider_scan(url, max_children)
         spider_ok = _attendi(client.spider_status, scan_id, scadenza)
@@ -711,7 +742,7 @@ def run_zap(url: str, client=None, active: bool = False,
         # Gli alert parziali di una scansione interrotta valgono piu'
         # di niente, ma spacciarli per completi no: il chiamante deve
         # poterlo dire nel referto.
-        return alerts, (spider_ok and ascan_ok), fermate
+        return alerts, (spider_ok and ascan_ok), fermate, sessione_nuova
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return None
 
@@ -825,7 +856,7 @@ def audit(context: dict) -> dict:
         esito_zap = run_zap(url, client, active=active, urls=campione,
                             max_children=tetto, timeout=budget)
         if esito_zap is not None:
-            alerts, completa, fermate = esito_zap
+            alerts, completa, fermate, sessione_nuova = esito_zap
             # Le pagine che ZAP ha davvero guardato sulla via senza
             # spider: il campione, o l'URL di partenza se il crawl non
             # ha prodotto nulla. Ricalcolato come in `run_zap`, che e'
@@ -841,6 +872,17 @@ def audit(context: dict) -> dict:
             # potrebbero piu' confrontare.
             testa: List[Finding] = []
             coda: List[Finding] = []
+            if not sessione_nuova:
+                # In testa, prima dei timeout: se i conteggi sono
+                # gonfiati da una scansione precedente, ogni altra riga
+                # di quest'area va letta sapendolo.
+                issues.insert(0, "Sessione ZAP non azzerata: i rilievi "
+                                 "possono includere scansioni precedenti")
+                testa.append(_stato(
+                    "sec.status.session_kept",
+                    "Sessione ZAP non azzerata: i rilievi possono includere "
+                    "scansioni precedenti",
+                    active_scan=active))
             if not completa and fermate:
                 issues.insert(0, "Scansione ZAP interrotta dal timeout e "
                                  "fermata: i rilievi sono parziali")

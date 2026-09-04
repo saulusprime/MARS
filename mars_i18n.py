@@ -487,6 +487,10 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
                  "own, at most %(max_children)d children per node and "
                  "%(max_depth)d levels deep",
     },
+    "sec.status.session_kept": {
+        "title": "ZAP session not reset: the findings may include earlier "
+                 "scans",
+    },
     "sec.status.partial": {
         "title": "ZAP scan interrupted by the timeout and stopped: the "
                  "findings are partial",

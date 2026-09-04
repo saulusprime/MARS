@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R69**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R70**, idee fino a
 > **I21**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -115,6 +115,16 @@
 > hash bcrypt senza un errore. `__version__` a **2.29.0**: cambia il
 > contratto di configurazione dell'API — non ci sono piu' credenziali
 > predefinite — e non un punteggio.
+>
+> **Il 2026-09-04, R70**, aperta da una richiesta che chiedeva altro:
+> «riavviare i container dopo ogni audit». Non serve — il riavvio era la
+> cura del sintomo. `core/view/alerts` restituisce gli alert dell'intera
+> SESSIONE ZAP, e MARS non ne apriva mai una nuova: il secondo audit
+> dello stesso sito sommava i rilievi del primo, e il punteggio scendeva
+> a sito fermo. Nello storico del committente si vede: 76 con sessione
+> vergine, 30 al giro dopo, e otto audit consecutivi a 400 istanze fisse.
+> `__version__` a **2.30.0**, perche' da qui i punteggi di sicurezza si
+> muovono a sito invariato.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,

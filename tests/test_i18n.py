@@ -229,6 +229,9 @@ def _params_del_banco(monkeypatch) -> dict:
     import mars_wapt
 
     class _ZapPerIl18n:
+        def new_session(self):
+            return True
+
         def spider_scan(self, url, max_children=0):
             return "1"
 

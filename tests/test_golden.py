@@ -24,7 +24,7 @@ import mars_wcag
 from conftest import pagina
 from mars_core import MODULES_REGISTRY, load_external_module
 from mars_report import RENDERERS
-from test_modules import _lhr
+from test_modules import _esito_zap, _lhr
 
 GOLDEN = os.path.join(os.path.dirname(__file__), "golden")
 
@@ -528,7 +528,7 @@ def _referto_completo(monkeypatch) -> dict:
             monkeypatch.setattr(
                 modulo, "run_zap",
                 lambda url, client=None, **kw:
-                (_alert_zap(), True, True))
+                _esito_zap(_alert_zap()))
         if nome == "mars_llm_judge":
             monkeypatch.setitem(sys.modules, "anthropic", _anthropic_finto())
             contesto["_anthropic_client"] = _ClientLLM(_giudizio_llm())

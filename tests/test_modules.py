@@ -4822,6 +4822,10 @@ def test_wapt_la_dichiarazione_governa_spider_E_active_scan():
     chiamate = {}
 
     class ClientFinto:
+        def new_session(self):
+            chiamate["sessione"] = True
+            return True
+
         def spider_scan(self, url, max_children=0):
             chiamate["spider"] = True
             chiamate["tetto"] = max_children
@@ -4859,6 +4863,18 @@ def test_wapt_la_dichiarazione_governa_spider_E_active_scan():
     assert chiamate.get("spider") and chiamate.get("ascan")
 
 
+def _esito_zap(alerts=None, completa=True, fermate=True, sessione=True):
+    """Il valore che `run_zap` restituisce, costruito in un posto solo.
+
+    Ogni finto lo prende da qui e non lo scrive a mano: quando R70 ha
+    aggiunto la quarta voce, i cinque finti che la componevano da se'
+    hanno fatto fallire 65 test con un `ValueError` che non riguardava
+    nessuno di loro. La FIRMA l'avevo gia' resa fedele dopo I21; il
+    VALORE DI RITORNO no, ed e' l'altra meta' della stessa lezione.
+    """
+    return (alerts if alerts is not None else [], completa, fermate, sessione)
+
+
 class _ZapFinto:
     """Daemon ZAP finto che REGISTRA gli ordini ricevuti.
 
@@ -4868,13 +4884,21 @@ class _ZapFinto:
     """
 
     def __init__(self, spider_finisce=True, ascan_finisce=True,
-                 stop_solleva=None, lentezza=0.0, coda_passiva=None):
+                 stop_solleva=None, lentezza=0.0, coda_passiva=None,
+                 sessione_solleva=None):
         self.chiamate = []
+        self.sessione_solleva = sessione_solleva
         self.spider_finisce = spider_finisce
         self.ascan_finisce = ascan_finisce
         self.stop_solleva = stop_solleva
         self.lentezza = lentezza
         self.coda_passiva = list(coda_passiva or [])
+
+    def new_session(self):
+        self.chiamate.append(("new_session", None))
+        if self.sessione_solleva:
+            raise self.sessione_solleva
+        return True
 
     def spider_scan(self, url, max_children=0):
         self.chiamate.append(("spider_scan", url, max_children))
@@ -4947,8 +4971,8 @@ def test_wapt_il_timeout_ferma_lo_spider(zap_veloce):
     # dichiarazione di proprieta'. La disciplina che questo test
     # presidia — R27 — e' la stessa, ed e' li' che ora vive.
     c = _ZapFinto(spider_finisce=False)
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c,
-                                                  active=True)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap(
+        "https://x/", c, active=True)
     assert completa is False
     assert fermate is True
     assert c.fatte("spider_stop") == [("spider_stop", "11")], \
@@ -4959,7 +4983,7 @@ def test_wapt_il_timeout_ferma_lactive_scan(zap_veloce):
     """L'active scan invia payload d'attacco: abbandonarlo in corso e'
     la forma peggiore del difetto."""
     c = _ZapFinto(ascan_finisce=False)
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap("https://x/", c, active=True)
     assert completa is False and fermate is True
     assert c.fatte("ascan_stop") == [("ascan_stop", "22")]
     # Lo spider era finito: non va fermato.
@@ -4981,8 +5005,8 @@ def test_wapt_run_zap_accetta_un_budget_invece_della_costante(monkeypatch):
     monkeypatch.setattr(mars_wapt, "ZAP_TIMEOUT_SCAN", 5)
     c = _ZapFinto(spider_finisce=False)
     inizio = time.time()
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c,
-                                                  active=True, timeout=0.3)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap(
+        "https://x/", c, active=True, timeout=0.3)
     durata = time.time() - inizio
     assert completa is False and fermate is True
     assert durata < 2, ("il budget del parametro non e' stato usato: "
@@ -5002,7 +5026,7 @@ def test_wapt_il_budget_arriva_dal_contesto(monkeypatch):
 
     def finto(url, client=None, **kw):
         visti.update(kw)
-        return [], True, True
+        return _esito_zap()
 
     monkeypatch.setattr(mars_wapt, "run_zap", finto)
     mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
@@ -5018,7 +5042,7 @@ def test_wapt_il_referto_dichiara_il_budget_che_ha_usato(monkeypatch):
     Il default e' dichiarato quanto un valore scelto: chi rilegge un
     referto di sei mesi fa non sa quale fosse la costante di allora."""
     monkeypatch.setattr(mars_wapt, "run_zap",
-                        lambda url, client=None, **kw: ([], True, True))
+                        lambda url, client=None, **kw: _esito_zap())
     esito = mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
                              "owner_declaration": True, "zap_timeout": 42})
     assert esito["zap_timeout"] == 42
@@ -5026,6 +5050,55 @@ def test_wapt_il_referto_dichiara_il_budget_che_ha_usato(monkeypatch):
     senza = mars_wapt.audit({"url": "https://x/", "_zap_client": _ZapFinto(),
                              "owner_declaration": True})
     assert senza["zap_timeout"] == mars_wapt.ZAP_TIMEOUT_SCAN
+
+
+def test_wapt_la_sessione_si_azzera_PRIMA_di_ogni_traffico(zap_veloce):
+    """R70, e l'ordine e' tutta la voce.
+
+    `core/view/alerts` restituisce gli alert dell'intera SESSIONE del
+    daemon, non quelli della scansione appena fatta. Senza azzerarla, il
+    secondo audit dello stesso sito somma i rilievi del primo: misurato
+    sullo storico di un sito vero, da 76 a 30 con il sito fermo, e da 1
+    a 23 istanze.
+
+    Azzerarla DOPO aver mandato traffico cancellerebbe cio' che si e'
+    appena misurato, quindi non basta che la chiamata ci sia: dev'essere
+    la prima."""
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=True)
+    nomi = [chiamata[0] for chiamata in c.chiamate]
+    assert nomi[0] == "new_session", \
+        "la sessione non e' azzerata per prima: %s" % nomi[:3]
+
+
+def test_wapt_la_sessione_si_azzera_anche_senza_dichiarazione(zap_veloce):
+    """La via passiva legge gli stessi alert di sessione: escluderla
+    lascerebbe il difetto intero proprio sul percorso predefinito, che
+    e' quello che gira senza `--i-own-this-domain`."""
+    c = _ZapFinto()
+    mars_wapt.run_zap("https://x/", c, active=False, urls=["https://x/a"])
+    assert [chiamata[0] for chiamata in c.chiamate][0] == "new_session"
+
+
+@pytest.mark.parametrize("proprietario", [True, False])
+def test_wapt_una_sessione_non_azzerata_si_dichiara(proprietario, zap_veloce,
+                                                    monkeypatch):
+    """Se il daemon rifiuta di azzerare, l'audit prosegue — principio 2 —
+    ma il referto NON puo' tacerlo: i conteggi che sta per stampare
+    possono includere scansioni precedenti, e un punteggio piu' basso
+    senza una ragione visibile e' peggio di un'area mancante.
+
+    **I due rami, e non il solo attivo**: una mutazione che cablava la
+    dichiarazione sulla via passiva era sfuggita, ed e' la via
+    PREDEFINITA — quella che gira senza `--i-own-this-domain`."""
+    monkeypatch.setattr(mars_wapt, "connect_zap",
+                        lambda credentials=None: _ZapFinto(
+                            sessione_solleva=requests.RequestException("no")))
+    esito = mars_wapt.audit({"url": "https://x/",
+                             "owner_declaration": proprietario})
+    chiavi = [f["key"] for f in esito["findings"]]
+    assert "sec.status.session_kept" in chiavi, chiavi
+    assert any("sessione" in i.lower() for i in esito["issues"]), esito["issues"]
 
 
 # ----------------------------------------------------------------------
@@ -5110,8 +5183,8 @@ def test_wapt_si_aspetta_che_la_coda_passiva_si_svuoti(zap_veloce):
     nulla lo dichiari.
     """
     c = _ZapFinto(coda_passiva=[3, 2, 1, 0])
-    _, completa, _ = mars_wapt.run_zap("https://x/", c, active=False,
-                                       urls=["https://x/"])
+    _, completa, _, _sessione = mars_wapt.run_zap(
+        "https://x/", c, active=False, urls=["https://x/"])
     assert len(c.fatte("records_to_scan")) == 4, \
         "si controlla finche' la coda non e' vuota, non una volta sola"
     assert completa is True
@@ -5122,8 +5195,8 @@ def test_wapt_una_coda_passiva_che_non_si_svuota_non_e_completa(zap_veloce):
     dichiarare parziali gli alert invece di spacciarli per tutti. Non
     c'e' nulla da fermare: la passiva legge traffico gia' avvenuto."""
     c = _ZapFinto(coda_passiva=[9] * 500)
-    _, completa, fermate = mars_wapt.run_zap("https://x/", c, active=False,
-                                             urls=["https://x/"])
+    _, completa, fermate, _sessione = mars_wapt.run_zap(
+        "https://x/", c, active=False, urls=["https://x/"])
     assert completa is False
     assert fermate is True
 
@@ -5260,7 +5333,7 @@ def test_wapt_non_avvia_un_attacco_che_non_puo_sorvegliare(zap_veloce):
     abbandonato. Meglio non avviarlo.
     """
     c = _ZapFinto(spider_finisce=True, lentezza=0.8)   # consuma il budget
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap("https://x/", c, active=True)
     assert not c.fatte("ascan_scan"), \
         "nessun payload d'attacco senza tempo per sorvegliarlo"
     assert completa is False, "e l'audit deve dichiararsi incompleto"
@@ -5283,7 +5356,7 @@ def test_wapt_una_scansione_gia_conclusa_non_e_un_fallimento(zap_veloce):
     # presidia — R27 — e' la stessa, ed e' li' che ora vive.
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.HTTPError(response=risposta))
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap("https://x/", c, active=True)
     assert completa is False
     assert fermate is True, "non c'e' piu' nulla da fermare: e' l'esito buono"
 
@@ -5302,8 +5375,8 @@ def test_wapt_solo_does_not_exist_vale_come_fermata(zap_veloce, stato, corpo):
     risposta._content = corpo
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.HTTPError(response=risposta))
-    _, completa, fermate = mars_wapt.run_zap("https://x/", c,
-                                             active=True)
+    _, completa, fermate, _sessione = mars_wapt.run_zap(
+        "https://x/", c, active=True)
     assert completa is False
     assert fermate is False, "un errore diverso non prova che si sia fermata"
 
@@ -5316,7 +5389,7 @@ def test_wapt_un_daemon_muto_non_puo_dirsi_fermato(zap_veloce):
     """
     c = _ZapFinto(spider_finisce=False,
                   stop_solleva=requests.ConnectionError("daemon muto"))
-    alerts, completa, fermate = mars_wapt.run_zap("https://x/", c, active=True)
+    alerts, completa, fermate, _sessione = mars_wapt.run_zap("https://x/", c, active=True)
     assert completa is False and fermate is False
 
 
@@ -5328,7 +5401,7 @@ def test_wapt_il_referto_distingue_fermata_da_abbandonata(zap_veloce,
                             lambda credentials=None: _ZapFinto())
         monkeypatch.setattr(mars_wapt, "run_zap",
                             lambda url, client=None, **kw:
-                            ([], False, fermate))
+                            _esito_zap(completa=False, fermate=fermate))
         return mars_wapt.audit({"url": "https://x/",
                                 "owner_declaration": False})
 
@@ -5437,7 +5510,7 @@ def _audit_zap(monkeypatch, alerts, completa=True, fermate=True,
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
                         lambda url, client=None, **kw:
-                        (alerts, completa, fermate))
+                        _esito_zap(alerts, completa, fermate))
     return mars_wapt.audit({"url": "https://x/",
                             "owner_declaration": active})
 
@@ -5994,7 +6067,7 @@ def test_wapt_nessuna_credenziale_finisce_nei_rilievi(monkeypatch):
                         lambda credentials=None: object())
     monkeypatch.setattr(mars_wapt, "run_zap",
                         lambda url, client=None, **kw:
-                        ([_alert()], True, True))
+                        _esito_zap([_alert()]))
     esito = mars_wapt.audit({
         "url": "https://x/", "owner_declaration": True,
         "credentials": {"zap_api_key": "SPIA",

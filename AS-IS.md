@@ -97,6 +97,7 @@
 | R68 | La fixture del locale axe rattoppava un modulo morto | 2026-09-02 |
 | I21 | Il budget della scansione ZAP e' una scelta dichiarata, e ZAP ha un core | 2026-09-03 |
 | R69 | Un token valido che non apriva nulla, e la password nel sorgente | 2026-09-03 |
+| R70 | La sessione ZAP non si azzerava, e il secondo audit sommava il primo | 2026-09-04 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2399,6 +2400,71 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R70 — ✅ (2026-09-04): la sessione ZAP non si azzerava, e il secondo audit sommava il primo
+
+*(dal campo: «bisogna riavviare i container dopo ogni audit». Non
+bisogna — quella era la cura del sintomo. `__version__` a **2.30.0**:
+da qui i punteggi di sicurezza si muovono a sito invariato.)*
+
+**Il difetto.** `client.alerts()` interroga `core/view/alerts`, che
+restituisce gli alert dell'intera **sessione** del daemon, non quelli
+della scansione appena conclusa. E MARS non apriva mai una sessione
+nuova: non c'era una sola chiamata a `core/action/newSession` nel
+modulo. Il secondo audit dello stesso sito sommava quindi i rilievi del
+primo, e il punteggio scendeva **a sito fermo**.
+
+**Lo si vede nello storico del committente, ed è la prova.** Stesso
+sito, due audit dello stesso giorno: il primo dopo un riavvio della
+macchina — cioè su sessione vergine — dà **1 istanza** e `mars_wapt: 76`;
+il secondo, sulla stessa sessione, dà **23 istanze** e `mars_wapt: 30`.
+Più indietro, otto audit consecutivi senza mai riavviare stanno tutti a
+**400 istanze** e 30 fisso. Il riavvio dei container non serviva a far
+funzionare MARS: **nascondeva questo**.
+
+**La correzione sta in `run_zap` e non nel chiamante**, ed è una
+posizione: chi invoca `run_zap` non deve poter saltare l'azzeramento.
+`core/action/newSession` senza `name`, perché una sessione con un nome
+verrebbe scritta su disco e ne lascerebbe una a ogni audit.
+
+**E va PRIMA di qualunque traffico**, che è tutta la voce: azzerare dopo
+aver misurato cancellerebbe la misura appena fatta. Il test non guarda
+che la chiamata ci sia, guarda che sia **la prima** — `nomi[0] ==
+"new_session"`.
+
+**Un rifiuto del daemon non ferma l'audit ma non resta muto.**
+Principio 2 per la prima metà, principio 5 per la seconda: se
+l'azzeramento fallisce l'audit prosegue, e il referto porta in testa
+«Sessione ZAP non azzerata: i rilievi possono includere scansioni
+precedenti». Un punteggio più basso senza una ragione visibile è peggio
+di un'area mancante.
+
+**Il banco di prova ha ripetuto lo stesso errore su un altro asse.**
+Dopo I21 avevo reso i finti di `run_zap` fedeli nella **firma**
+(`**kw`); il **valore di ritorno** restava scritto a mano, quindi la
+quarta voce della tupla ha fatto fallire **65 test** con un `ValueError`
+che non riguardava nessuno di loro. Ora `_esito_zap()` costruisce quella
+tupla in un posto solo, e i cinque finti la prendono da lì. È la stessa
+lezione due volte: un doppio è fedele quando segue la forma, non quando
+la copia.
+
+**Una mutazione sfuggita, sul ramo che conta di più.** Cablare la
+dichiarazione a `True` sulla **via passiva** lasciava tutto verde: il
+test esercitava il solo percorso del proprietario, mentre quello passivo
+è il predefinito — è ciò che gira senza `--i-own-this-domain`. Il test è
+ora parametrizzato sui due rami.
+
+**Le prove.** Quattro test nuovi; **4/4 mutazioni colte** al giro finale.
+`flake8` a zero, **1421 test verdi**. Golden invariati: i due referti
+sintetici passano da un `run_zap` finto, quindi la sessione vera non la
+toccano.
+
+**Non verificato**: la chiamata contro un daemon ZAP reale. Che
+`core/action/newSession` senza nome crei una sessione non persistita è
+documentato da ZAP, non misurato qui. E non è verificato che
+l'azzeramento non perda la configurazione che `_profondita` legge
+(`MaxDepth`): la sessione e la configurazione sono due cose distinte
+nell'API, ma il primo audit dopo questa modifica va guardato.
 
 ### R69 — ✅ (2026-09-03): un token valido che non apriva nulla, e la password nel sorgente
 

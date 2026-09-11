@@ -29,7 +29,7 @@ FROM python:3.12-slim-bookworm
 # ripiega sul proxy char-TFIDF scritto a mano e LO DICHIARA nel referto
 # (principio 2). Chi li vuole:
 #     docker build --build-arg MARS_EMBEDDINGS=on ...
-ARG MARS_EMBEDDINGS=off
+ARG MARS_EMBEDDINGS=on
 
 # Python 3.12 e non la 3.10 del .venv di sviluppo: e' la versione con la
 # copertura di wheel piu' larga per lxml, bcrypt e torch.

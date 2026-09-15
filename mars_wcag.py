@@ -130,9 +130,14 @@ def _statico(chiave: str, testo: str,
 def _senza_alternativa(immagine: dict) -> bool:
     """Vero se l'immagine non ha alcuna alternativa testuale (1.1.1).
 
-    `alt is None` e non `not alt`: l'attributo ASSENTE e' l'unica
-    violazione, perche' `alt=""` e' la marcatura CORRETTA di
-    un'immagine decorativa (tecnica H67) — R26.
+    `alt=""` e' la marcatura CORRETTA di un'immagine decorativa
+    (tecnica H67) e non un difetto — R26. Ma il vuoto e' una cosa e
+    gli spazi un'altra: `alt=" "` non dice nulla allo screen reader e
+    non lo fa nemmeno saltare l'immagine, ed e' una violazione per axe
+    — spazio, tabulazione, a capo e spazio unificatore, misurati tutti
+    e quattro su axe-core 4.13.0 (R72). Lo `strip()` li copre tutti,
+    NBSP compreso, mentre un elenco di caratteri scritto a mano lo
+    avrebbe dimenticato.
 
     Le altre esenzioni sono quelle su cui axe non solleva (R71): un
     nome accessibile da qualsiasi fonte (`labelled`), un ruolo
@@ -140,7 +145,10 @@ def _senza_alternativa(immagine: dict) -> bool:
     dall'albero — tanto che axe non la esamina affatto. Il valore
     dev'essere `"true"`: `aria-hidden="false"` non nasconde nulla.
     """
-    if immagine.get("alt") is not None or immagine.get("labelled"):
+    alt = immagine.get("alt")
+    if alt is not None and (alt == "" or alt.strip()):
+        return False
+    if immagine.get("labelled"):
         return False
     if immagine.get("role") in RUOLI_DECORATIVI:
         return False

@@ -19,8 +19,8 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Una casella aperta, R72**, dal 2026-09-15; prima di quel giorno non ce
-> n'erano. Il programma UPGRADE è chiuso, salvo la fase
+> **Nessuna casella aperta.** Il 2026-09-15 ne sono state aperte due e
+> chiuse due, R71 e R72. Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -160,7 +160,10 @@
 > `__version__` a **2.32.0**: da lì i punteggi WCAG si muovono a sito
 > invariato, verso l'alto — 88 → 100 dove il sito aveva marcato bene le
 > proprie immagini decorative. La misura che l'ha chiusa ha aperto
-> **R72**, il difetto opposto.
+> **R72**, il difetto opposto — `alt=" "` vale come alternativa
+> testuale e non lo è — chiusa a sua volta lo stesso giorno, in un commit
+> suo perché muove i punteggi **verso il basso**: sotto una versione sola
+> i due movimenti non si sarebbero più letti. `__version__` a **2.33.0**.
 >
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
@@ -177,23 +180,7 @@
 
 ## Correzioni
 
-- [ ] **R72** — **`alt="   "` è una violazione per axe e non per MARS.**
-  Il filtro guarda `alt is not None`
-  ([mars_wcag.py](mars_wcag.py)), quindi un `alt` fatto di soli spazi
-  conta come alternativa testuale. **Misurato su axe-core 4.13.0**: `alt=""`
-  passa — è la tecnica H67 — ma `alt=" "` **viola**, e la distinzione non è
-  un cavillo, perché uno screen reader su uno spazio non legge nulla e sul
-  vuoto salta l'immagine.
-
-  È il difetto **opposto** a R71, che l'ha scoperto: là MARS contava difetti
-  che non c'erano, qui non conta un difetto che c'è. Per questo non è stato
-  chiuso nello stesso commit: R71 alza i punteggi, R72 li abbassa, e due
-  movimenti opposti sotto una versione sola non si sanno più leggere.
-
-  La correzione è una riga in `_senza_alternativa()` — `alt` vale solo se è
-  `""` oppure ha del testo dopo lo `strip()` — ma è **una decisione**: da lì
-  i punteggi WCAG scendono a sito invariato su ogni sito che usi `alt=" "`,
-  e va misurato su quanti prima di sceglierla.
+**Nessuna aperta.**
 
 ---
 

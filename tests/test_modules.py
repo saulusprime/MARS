@@ -1826,6 +1826,49 @@ def test_wcag_un_role_qualunque_non_esenta():
     assert alternativi == ["[1.1.1] 2/2 immagini prive di testo alternativo"]
 
 
+def test_wcag_un_alt_di_soli_spazi_non_e_un_alt():
+    """R72: `alt=""` e `alt=" "` non sono la stessa cosa.
+
+    Il vuoto e' la tecnica H67 — dice allo screen reader di saltare
+    l'immagine — mentre uno spazio gli fa leggere nulla lasciandogli
+    l'immagine in mezzo. Misurato su axe-core 4.13.0: `alt=""` passa,
+    e spazio, tabulazione, a capo e spazio unificatore violano tutti
+    e quattro.
+
+    Lo `strip()` di Python li copre tutti e quattro, NBSP compreso —
+    verificato, perche' `"\xa0".isspace()` e' vero e un elenco di
+    caratteri scritto a mano lo avrebbe dimenticato.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<img src="1.png" alt="">'
+                    '<img src="2.png" alt=" ">'
+                    '<img src="3.png" alt="\t">'
+                    '<img src="4.png" alt="\xa0">'
+                    '<img src="5.png" alt="Grafico">'
+                    '</body></html>')
+
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
+    alternativi = [r for r in rilievi if "[1.1.1]" in r]
+    assert alternativi == ["[1.1.1] 3/5 immagini prive di testo alternativo"]
+
+
+def test_wcag_un_alt_di_spazi_su_un_immagine_decorativa_non_conta():
+    """R72 non annulla R71: un `alt` inutile su un'immagine gia' marcata
+    decorativa resta non-difetto, perche' axe su quella non solleva —
+    il ruolo la toglie dal criterio prima che l'`alt` conti.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<img src="1.png" alt=" " role="presentation">'
+                    '<img src="2.png" alt=" " aria-hidden="true">'
+                    '<img src="3.png" alt=" " aria-label="Logo">'
+                    '</body></html>')
+
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
+    assert [r for r in rilievi if "[1.1.1]" in r] == []
+
+
 def test_wcag_non_riparsa_l_html(contesto):
     """R26: i controlli statici leggono la struttura estratta dal
     crawler, non l'HTML.

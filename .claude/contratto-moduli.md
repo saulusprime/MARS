@@ -70,9 +70,11 @@ senza `name` né `id`, una tabella senza didascalia — il campo è vuoto e
 il referto tace invece di inventarne uno.
 
 `images` porta, accanto all'`src`, le marcature che decidono se
-un'immagine abbia un'alternativa testuale: `alt` (dove `None` è
-l'attributo assente e `""` la marcatura corretta di un'immagine
-decorativa), `role` e `aria-hidden` **grezzi e solo abbassati** — quali
+un'immagine abbia un'alternativa testuale: `alt` **grezzo**, dove
+`None` è l'attributo assente, `""` la marcatura corretta di un'immagine
+decorativa e `" "` un difetto — il modulo li distingue tutti e tre, e
+appiattirli con un `not alt` è stato due volte un difetto (R26, R72);
+`role` e `aria-hidden` **grezzi e solo abbassati** — quali
 valori esentino lo decide il modulo — e `labelled`, che è un fatto del
 DOM come per i campi di modulo, perché `aria-labelledby` si risolve
 solo col documento intero. Il riferimento di quali marcature esentino

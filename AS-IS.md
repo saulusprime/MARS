@@ -100,6 +100,7 @@
 | R70 | La sessione ZAP non si azzerava, e il secondo audit sommava il primo | 2026-09-04 |
 | I22 | Il riavvio di un container passa da un file, non dal socket di Docker | 2026-09-04 |
 | R71 | L'immagine decorativa marcata bene contata come difetto | 2026-09-15 |
+| R72 | `alt=" "` non e' `alt=""`: il difetto opposto di R71 | 2026-09-15 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2402,6 +2403,44 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R72 — ✅ (2026-09-15): `alt=" "` non è `alt=""`, e il difetto era l'opposto di R71
+
+**Il difetto.** Il filtro guardava `alt is not None`, quindi un `alt`
+fatto di soli spazi valeva come alternativa testuale. È il difetto
+**opposto** a R71 — là MARS contava difetti che non c'erano, qui non
+contava un difetto che c'era — e a trovarlo è stata la misura con cui
+R71 si chiudeva.
+
+**Perché non è un cavillo.** `alt=""` dice allo screen reader di
+saltare l'immagine (tecnica H67); `alt=" "` gli fa leggere *nulla* e
+gli lascia l'immagine in mezzo al contenuto. Sono due esiti diversi per
+chi ascolta la pagina, e axe li distingue.
+
+**Misurato su axe-core 4.13.0**: `alt=""` passa; spazio, tabulazione, a
+capo e **spazio unificatore** violano tutti e quattro. La correzione usa
+`strip()` e non un elenco di caratteri proprio per l'ultimo: `"\xa0"`
+è `isspace()` per Python, mentre un elenco scritto a mano lo avrebbe
+dimenticato — è la stessa ragione per cui `_spoglia()` guarda la
+categoria Unicode invece di elencare la punteggiatura.
+
+**R72 non annulla R71**, ed è coperto da un test: un `alt` di spazi su
+un'immagine già marcata `role="presentation"`, `aria-hidden="true"` o
+con un nome accessibile resta un non-difetto, perché il ruolo la toglie
+dal criterio prima che l'`alt` conti — e axe su quelle non solleva.
+
+**Perché in due commit e non in uno.** R71 alza i punteggi e R72 li
+abbassa: sotto una versione sola i due movimenti non si sarebbero più
+letti, e «i punteggi WCAG si muovono a sito invariato» avrebbe voluto
+dire due cose opposte insieme.
+
+**Verifiche.** `flake8` a zero; `pytest` 1440 passati su Python 3.10.12.
+**Quattordici mutazioni, nessuna sfuggita**, fra cui le tre che contano
+qui: togliere R72, rompere R26 pretendendo `alt.strip()` anche sul
+vuoto, e sostituire lo `strip()` con la verità dell'oggetto, che
+lascerebbe passare gli spazi. Un sito con due immagini `alt=" "` passa
+da **100 a 88**. `__version__` a **2.33.0**: da qui i punteggi WCAG si
+muovono a sito invariato, verso il basso.
 
 ### R71 — ✅ (2026-09-15): l'immagine decorativa marcata bene contata come difetto
 

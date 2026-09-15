@@ -19,9 +19,10 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Una casella aperta, R73.** Il 2026-09-15 ne sono state aperte tre e
-> chiuse due — R71 e R72 — e realizzate le idee I23 e I24; R73 è nata
-> dalla misura di I24. Il programma UPGRADE è chiuso, salvo la fase
+> **Nessuna casella aperta.** Il 2026-09-15 ne sono state aperte tre e
+> chiuse tutte e tre — R71, R72 e R73 — e realizzate le idee I23 e I24.
+> Ognuna delle tre è nata dalla misura che chiudeva la precedente.
+> Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -181,24 +182,7 @@
 
 ## Correzioni
 
-- [ ] **R73** — **il livello WCAG del ramo di ripiego è italiano dentro un
-  referto inglese.** `mars_wcag` compone
-  `"%s (parziale: solo criteri statici)"`, e `_qualificatori`
-  ([mars_report.py:1288](mars_report.py#L1288)) dichiara di non tradurre
-  `wcag_level` perché «WCAG 2.1 AA è uguale in ogni lingua» — vero per il
-  livello, falso per la parentesi che gli sta accanto.
-
-  **Misurato il 2026-09-15**: `_qualificatori({"tool": "markup",
-  "wcag_level": "WCAG 2.1 A + AA (parziale: solo criteri statici)"}, "en")`
-  rende `['markup', 'WCAG 2.1 A + AA (parziale: solo criteri statici)']`.
-
-  È la famiglia di R44 e R61 — un pezzo di interfaccia che sfugge al
-  catalogo perché nasce dentro un modulo invece che dentro il referto. La
-  correzione è una decisione di contratto, non una riga: o il modulo
-  dichiara il livello e lo stato in **due campi** e il referto li compone
-  tradotti, o `wcag_level` comincia a passare da `t()` e allora smette di
-  essere il campo neutro che la docstring promette. Aperta da I24, che ha
-  toccato quella stringa senza chiuderla.
+**Nessuna aperta.**
 
 ---
 

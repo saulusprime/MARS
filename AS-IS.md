@@ -103,6 +103,7 @@
 | R72 | `alt=" "` non e' `alt=""`: il difetto opposto di R71 | 2026-09-15 |
 | I23 | Perche' axe non ha esaminato una pagina entra nel referto | 2026-09-15 |
 | I24 | Il tag WCAG 2.2 di axe, e un livello che dichiara cio' che misura | 2026-09-15 |
+| R73 | Il livello WCAG del ripiego era italiano in un referto inglese | 2026-09-15 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2405,6 +2406,51 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R73 — ✅ (2026-09-15): il livello WCAG del ripiego era italiano in un referto inglese
+
+**Il difetto.** Nel ramo di ripiego `mars_wcag` componeva
+`"%s (parziale: solo criteri statici)" % WCAG_LIVELLO`, e
+`_qualificatori` dichiara di **non** tradurre `wcag_level` perché «WCAG
+2.1 AA e mobile sono gli stessi in ogni lingua» — vero del livello,
+falso della parentesi che gli stava accanto. Misurato:
+`_qualificatori(area, "en")` rendeva
+`['markup', 'WCAG 2.1 A + AA (parziale: solo criteri statici)']`.
+
+È la famiglia di R44 e R61: un pezzo di interfaccia che sfugge al
+catalogo perché nasce dentro un modulo invece che dentro il referto.
+
+**La correzione non aggiunge una traduzione: toglie una duplicazione.**
+Il fatto era detto **tre volte** sulla stessa riga — `tool: markup`,
+la parentesi, e `status: "surface"` che il referto rende come
+«controllo di superficie» / «surface check» — e solo la seconda delle
+tre sfuggiva al catalogo. Il livello resta nudo.
+
+**Il precedente è R21, nella stessa funzione**: là una qualifica
+duplicata sull'`aria-label` fu **tolta** e non riparata, perché
+«ripeterla la duplicava e sbagliarla era peggio che ometterla». R21 è
+anche ciò che ha costruito il canale giusto: `status` reso per ogni
+area, in entrambe le viste, attraverso `t()`.
+
+**Un test che guarda i due lati.** Che l'italiano sparisca non basta:
+un test così passerebbe anche se l'informazione fosse sparita con lui.
+La guardia in `tests/test_i18n.py` chiede che «parziale» e «superficie»
+non compaiano nella resa inglese **e** che «surface check» ci sia.
+
+**Un test esistente è stato cambiato, e va detto**:
+`test_wcag_senza_browser_usa_il_ripiego_statico` asseriva
+`"parziale" in esito["wcag_level"]`, cioè fissava il difetto. L'intento
+— «il referto deve dichiarare che la misura è parziale» — resta, e
+l'asserzione si sposta sul canale che lo porta davvero.
+
+**Verifiche.** `flake8` a zero; `pytest` 1448 passati su Python 3.10.12.
+**Tre mutazioni, nessuna sfuggita**: rimettere la parentesi, togliere
+`surface` dallo stato, e far saltare `t()` allo stato. Golden
+rigenerati e **diff riletto**: sparisce la sola parentesi dai quattro
+formati del referto degradato, nessun punteggio si muove.
+`__version__` **non si muove**: nessun punteggio cambia, nessun campo
+nasce o sparisce, e il valore di uno diventa quello che la sua
+docstring già prometteva — come per R61, che è la stessa famiglia.
 
 ### I24 — ✅ REALIZZATA (2026-09-15): il tag 2.2, e un livello che dichiara ciò che misura
 

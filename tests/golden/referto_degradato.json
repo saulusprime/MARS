@@ -494,7 +494,7 @@
       "reference_score": null,
       "reference_tool": null,
       "lighthouse_scores": null,
-      "wcag_level": "WCAG 2.1 A + AA (parziale: solo criteri statici)",
+      "wcag_level": "WCAG 2.1 A + AA",
       "pages_tested": null,
       "audits": null,
       "form_factor": null,

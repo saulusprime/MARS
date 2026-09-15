@@ -2021,7 +2021,13 @@ def test_wcag_senza_browser_usa_il_ripiego_statico(contesto):
     esito = mars_wcag.audit(contesto)
     assert esito["tool"] == "markup"
     assert esito["status"] == "surface"
-    assert "parziale" in esito["wcag_level"]
+    # R73: il livello resta NUDO, e l'asserzione cambia canale invece di
+    # sparire. Che la misura sia parziale lo dicono `tool` e `status`,
+    # che il referto rende TRADOTTI per ogni area (R21); la parentesi
+    # «(parziale: solo criteri statici)» era italiana dentro un campo
+    # che il referto non traduce, quindi un referto inglese la portava
+    # in italiano.
+    assert esito["wcag_level"] == mars_wcag.WCAG_LIVELLO
 
 
 def test_wcag_ramo_axe_con_dati_iniettati(contesto, monkeypatch):

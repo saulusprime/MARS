@@ -830,6 +830,34 @@ def _testi_dal_dato() -> set:
     return {x for x in testi if x}
 
 
+def test_r73_il_livello_wcag_non_porta_italiano_in_un_referto_inglese():
+    """R73: `wcag_level` non passa da `t()`, quindi dev'essere neutro.
+
+    `_qualificatori` lo dichiara — «WCAG 2.1 AA e mobile sono gli stessi
+    in ogni lingua» — ed e' vero del livello, era falso della parentesi
+    che gli stava accanto nel ramo di ripiego.
+
+    Il test guarda i due lati insieme: l'italiano non deve comparire, e
+    il fatto che la misura sia di superficie deve restare detto, in
+    inglese. Un test che controllasse solo il primo passerebbe anche se
+    l'informazione fosse sparita.
+    """
+    import mars_report
+
+    # Dal caricatore e non da un `import`: e' la lezione di R68.
+    mars_wcag = mars_core.load_external_module("mars_wcag")
+
+    esito = mars_wcag.audit({"pages": {"https://esempio.test/": pagina(
+        '<html><body><h1>t</h1><img src="a.png"></body></html>')}})
+    assert esito["tool"] == "markup", "serve il ramo di ripiego"
+
+    resa = " ".join(mars_report._qualificatori(esito, "en"))
+    assert "parziale" not in resa
+    assert "superficie" not in resa
+    assert "surface check" in resa, \
+        "il fatto resta detto, e tradotto: e' il canale di R21"
+
+
 @pytest.mark.parametrize("lingua", TRADOTTE)
 def test_ogni_letterale_della_cornice_e_a_catalogo(lingua):
     """Il presidio che regge la scelta di indicizzare sul testo italiano.

@@ -18,7 +18,7 @@ Media pesata di 4 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9.
 | 4. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
 | 5. Semantica | errore del modulo |  |
 | 6. Dati Strutturati | 90/100 |  |
-| 7. Accessibilità | 40/100 | markup · WCAG 2.1 A + AA (parziale: solo criteri statici) · controllo di superficie |
+| 7. Accessibilità | 40/100 | markup · WCAG 2.1 A + AA · controllo di superficie |
 | 8. Sicurezza | 75/100 | HTTP-Headers · controllo di superficie |
 | 9. Citabilità IA | 68/100 |  |
 | 10. Giudizio LLM | disattivato |  |

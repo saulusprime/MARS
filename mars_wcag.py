@@ -962,7 +962,21 @@ def audit(context: dict) -> dict:
         f.params["surface"] = True
     return {"score": max(0, score), "status": "surface", "tool": "markup",
             **_riferimento(context),
-            "wcag_level": "%s (parziale: solo criteri statici)" % WCAG_LIVELLO,
+            # Il livello NUDO, senza la parentesi che diceva «parziale:
+            # solo criteri statici» (R73). Quella prosa era italiana e il
+            # referto non traduce `wcag_level` — dichiara di non doverlo
+            # fare, perche' «WCAG 2.1 AA» e' uguale in ogni lingua — cosi'
+            # un referto inglese la portava in italiano, la famiglia di
+            # R44 e R61.
+            #
+            # Il fatto non si perde: lo dicono gia' `tool: markup` e
+            # `status: "surface"`, che il referto rende tradotto
+            # («controllo di superficie» / «surface check») per OGNI area,
+            # ed e' il canale che R21 ha costruito apposta. R21 stessa
+            # tolse una qualifica duplicata invece di ripararla:
+            # ripeterla la duplicava, e sbagliarla era peggio che
+            # ometterla.
+            "wcag_level": WCAG_LIVELLO,
             "pages_total": len(pages),
             "issues": riga_caduta + testi_statici,
             "findings": caduta + [f.as_dict() for f in statici],

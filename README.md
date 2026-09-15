@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.33.0
+Versione 2.34.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -211,6 +211,11 @@ risultati sbagliati, che e' peggio che non darli. Per attivarlo:
     pip install -r requirements-optional.txt
     python -m playwright install chromium
     npm install axe-core     (oppure e' gia' in node_modules)
+
+Quando una pagina non si lascia esaminare — un timeout, un 404, il
+browser che non parte — il referto dice quante pagine sono mancate E
+perche': il motivo viene dallo strumento, non da noi, e senza di esso
+chi legge non sa se rifare l'audit o correggere il sito.
 
 Senza browser restano i controlli statici sul solo markup, che coprono
 tutte le pagine del campione mentre axe ne vede le prime cinque. Sul

@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from mars_config import PENALITA_STATICA, PESI_AXE
 from mars_core import (SEV_INFO, Finding, chiave_esterna,
-                       frammento_identificante, normalizza_severita)
+                       frammento_identificante, normalizza_severita,
+                       taglia_motivo)
 
 # Quanti frammenti entrano in un esempio. Chi ha venti immagini senza
 # alt non le corregge leggendone venti nel referto: da cinque riconosce
@@ -648,6 +650,48 @@ def score_from_violations(violations: List[dict],
             "findings": [f.as_dict() for f in stato + rilievi_dato]}
 
 
+@dataclass
+class AxeRun:
+    """Esito di una passata di axe, con il PERCHE' di cio' che non e' andato.
+
+    Struttura interna al modulo, quindi un `@dataclass` e non un dict:
+    il contratto dei plugin riguarda cio' che `audit()` restituisce
+    (principio 3), e qui si attraversa solo il confine fra due funzioni
+    di questo file.
+
+    Prima di I23 questa era una tupla `(violazioni, analizzate)` oppure
+    `None`, e il motivo di ogni fallimento veniva scartato da due
+    `except` — quindi il referto sapeva dire QUANTE pagine axe non
+    aveva esaminato e mai perche', ne' perche' l'intera area fosse
+    ripiegata sul markup. E' la forma di R66: la diagnosi c'e', in mano
+    allo strumento, e si butta via.
+
+    - `failures` — `(url, motivo)` per ogni pagina caduta da sola.
+    - `error` — il guasto che ha fermato TUTTO: il browser che non
+      parte, Playwright che non si importa. Con questo pieno,
+      `analyzed` e' zero per costruzione.
+    """
+
+    violations: List[dict] = field(default_factory=list)
+    analyzed: int = 0
+    failures: List[Tuple[str, str]] = field(default_factory=list)
+    error: str = ""
+
+    def motivi(self) -> List[str]:
+        """I motivi distinti, nell'ordine in cui si sono presentati.
+
+        Distinti perche' cinque pagine cadute per lo stesso timeout
+        sono un'informazione sola, e ripeterla cinque volte nel referto
+        la nasconderebbe invece di darla. Lista e non set: due
+        esecuzioni sullo stesso sito devono dare lo stesso referto.
+        """
+        distinti: List[str] = []
+        for _, motivo in self.failures:
+            if motivo and motivo not in distinti:
+                distinti.append(motivo)
+        return distinti
+
+
 def run_axe(urls: List[str],
             delay: float = 0.0) -> Optional[Tuple[List[dict], int]]:
     """Esegue axe-core sulle pagine indicate.
@@ -657,20 +701,26 @@ def run_axe(urls: List[str],
     contenuto generato darebbero risultati sbagliati, che e' peggio che
     non darli.
 
-    Restituisce (violazioni, pagine ANALIZZATE) oppure None. Il
-    conteggio non e' un dettaglio: prima i fallimenti per-URL venivano
-    inghiottiti senza tenerne traccia, quindi con tutte le pagine
-    irraggiungibili la funzione restituiva una lista VUOTA — che
-    audit() leggeva come "nessuna violazione" e pubblicava come
-    100/100 misurato con axe-core. Zero pagine analizzate non e' un
-    sito perfetto: e' una misura che non c'e' stata.
+    Restituisce sempre un `AxeRun`: il conteggio non e' un dettaglio —
+    prima i fallimenti per-URL venivano inghiottiti, quindi con tutte
+    le pagine irraggiungibili la funzione restituiva una lista VUOTA,
+    che audit() leggeva come "nessuna violazione" e pubblicava come
+    100/100 misurato con axe-core (R20). Zero pagine analizzate non e'
+    un sito perfetto: e' una misura che non c'e' stata.
+
+    E **con il conteggio viaggia il motivo** (I23): chi riceve il
+    referto non deve dedurre da «1 delle 2 pagine» se sia stato un
+    timeout, un 404 o Chromium che non parte.
     """
     try:
         from playwright.sync_api import sync_playwright
-    except ImportError:
-        return None
+    except ImportError as exc:
+        # Praticamente irraggiungibile, perche' `axe_disponibile()`
+        # importa gia' playwright: resta per chi chiami run_axe da solo.
+        return AxeRun(error=taglia_motivo(str(exc)) or "playwright assente")
 
     violazioni: List[dict] = []
+    guasti: List[Tuple[str, str]] = []
     analizzate = 0
     try:
         with sync_playwright() as pw:
@@ -698,16 +748,26 @@ def run_axe(urls: List[str],
                             violazione[CHIAVE_PAGINA] = url
                     violazioni.extend(esito or [])
                     analizzate += 1
-                except Exception:
+                except Exception as exc:
+                    # Il motivo si conserva: e' l'unico momento in cui
+                    # esiste. Il tipo dell'eccezione accanto al testo
+                    # perche' Playwright ne solleva di muti — un
+                    # TimeoutError il cui `str()` e' vuoto direbbe
+                    # «axe non ha esaminato la pagina ()».
+                    motivo = taglia_motivo(str(exc)) or type(exc).__name__
+                    guasti.append((url, motivo))
                     continue
                 if delay:
                     pagina.wait_for_timeout(int(delay * 1000))
             browser.close()
-    except Exception:
-        return None
-    if not analizzate:
-        return None
-    return violazioni, analizzate
+    except Exception as exc:
+        # Il guasto che ferma tutto: il browser che non parte. Senza
+        # questo motivo l'area ripiega sul markup e il referto non dice
+        # perche' — e' la meta' meno visibile di I23.
+        return AxeRun(error=taglia_motivo(str(exc)) or type(exc).__name__,
+                      failures=guasti)
+    return AxeRun(violations=violazioni, analyzed=analizzate,
+                  failures=guasti)
 
 
 # ======================================================================
@@ -776,44 +836,67 @@ def audit(context: dict) -> dict:
     statici = controlli_statici(pages)
     testi_statici = [_issue_statica(f) for f in statici]
 
+    # Il motivo per cui axe non ha girato, quando c'e': lo porta il
+    # ramo di ripiego, che altrimenti dichiarerebbe di aver ripiegato e
+    # non perche' (I23).
+    caduta: List[dict] = []
+    riga_caduta: List[str] = []
+
     if axe_disponibile():
         urls = list(pages)[:MAX_PAGINE_AXE]
-        esito_axe = run_axe(urls, context.get("delay") or 0.0)
-        if esito_axe is not None:
-            violazioni, analizzate = esito_axe
+        passata = run_axe(urls, context.get("delay") or 0.0)
+        if passata.analyzed:
             # La diffusione si misura sulle pagine ANALIZZATE, non su
             # quelle tentate, altrimenti una regola presente su tutte
             # sembrerebbe presente su meno.
-            esito = score_from_violations(violazioni, analizzate,
+            esito = score_from_violations(passata.violations,
+                                          passata.analyzed,
                                           context.get("lang") or "it")
             rilievi = list(esito["issues"])
             # Il rilievo di stato, se la scansione e' stata parziale.
             parziale: List[dict] = []
-            if analizzate < len(urls):
+            if passata.analyzed < len(urls):
                 # Una scansione parziale vale piu' di niente, ma
                 # spacciarla per completa no: e' la stessa regola
                 # applicata alle scansioni ZAP interrotte (C9).
-                mancate = len(urls) - analizzate
+                mancate = len(urls) - passata.analyzed
+                motivi = passata.motivi()
+                # Il motivo in coda alla riga, e solo se c'e': una
+                # parentesi vuota si legge come una diagnosi mancante
+                # invece che come una diagnosi assente (I23).
                 rilievi.insert(0, "axe non ha potuto esaminare %d delle %d "
                                   "pagine del campione: i rilievi sono "
-                                  "parziali" % (mancate, len(urls)))
+                                  "parziali%s"
+                                  % (mancate, len(urls),
+                                     " (%s)" % " / ".join(motivi)
+                                     if motivi else ""))
                 parziale = [Finding(
                     area="mars_wcag", severity=SEV_INFO,
                     key="wcag.status.partial",
                     title="axe non ha esaminato %d delle %d pagine del "
                           "campione" % (mancate, len(urls)),
+                    detail=" / ".join(motivi),
                     params={"mancate": mancate, "tentate": len(urls),
-                            "analizzate": analizzate}).as_dict()]
+                            "analizzate": passata.analyzed,
+                            # Quali pagine e per cosa: il conteggio dice
+                            # quanto, questo dice dove e perche'. NON in
+                            # `urls`, che il referto legge come «le
+                            # pagine su cui il difetto e' scattato» e
+                            # colorerebbe la treemap su pagine che axe
+                            # non ha nemmeno visto.
+                            "failures": ["%s: %s" % (u, m)
+                                         for u, m in passata.failures],
+                            "reasons": motivi}).as_dict()]
             return {
                 "score": esito["score"],
                 **_riferimento(context),
                 "tool": "axe-core",
                 "wcag_level": WCAG_LIVELLO,
                 # Le pagine davvero esaminate, non quelle tentate.
-                "pages_tested": analizzate,
+                "pages_tested": passata.analyzed,
                 "pages_attempted": len(urls),
                 "pages_total": len(pages),
-                "complete": analizzate == len(urls),
+                "complete": passata.analyzed == len(urls),
                 "violations_by_impact": esito["violations_by_impact"],
                 "rules_violated": esito["rules_violated"],
                 # I rilievi statici restano: coprono l'intero campione,
@@ -826,6 +909,26 @@ def audit(context: dict) -> dict:
                              + [f.as_dict() for f in statici]),
                 "static_findings": testi_statici,
             }
+
+        else:
+            # axe c'era e non ha misurato nulla. Il ripiego era gia'
+            # dichiarato; il PERCHE' no, e senza quello chi riceve il
+            # referto non sa se rifare l'audit o correggere il sito.
+            motivo = passata.error or " / ".join(passata.motivi())
+            riga_caduta = ["axe non ha potuto esaminare alcuna pagina: "
+                           "si ripiega sui controlli statici%s"
+                           % (" (%s)" % motivo if motivo else "")]
+            caduta = [Finding(
+                area="mars_wcag", severity=SEV_INFO,
+                key="wcag.status.axe_failed",
+                title="axe non ha esaminato alcuna delle %d pagine del "
+                      "campione" % len(urls),
+                detail=motivo,
+                params={"tentate": len(urls),
+                        "failures": ["%s: %s" % (u, m)
+                                     for u, m in passata.failures],
+                        "reasons": passata.motivi(),
+                        "error": passata.error}).as_dict()]
 
     # Ripiego dichiarato: senza rendering restano fuori contrasto,
     # focus e ordine di lettura. Non e' un audit di conformita'.
@@ -840,6 +943,7 @@ def audit(context: dict) -> dict:
     return {"score": max(0, score), "status": "surface", "tool": "markup",
             **_riferimento(context),
             "wcag_level": "%s (parziale: solo criteri statici)" % WCAG_LIVELLO,
-            "pages_total": len(pages), "issues": testi_statici,
-            "findings": [f.as_dict() for f in statici],
+            "pages_total": len(pages),
+            "issues": riga_caduta + testi_statici,
+            "findings": caduta + [f.as_dict() for f in statici],
             "static_findings": testi_statici}

@@ -226,25 +226,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **I23 è realizzata** e sta in
+[AS-IS.md](AS-IS.md); restano sei. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I23** — **perché axe non ha esaminato una pagina non lo dice nessuno.**
-  `run_axe` scarta l'eccezione per-URL ([mars_wcag.py:666](mars_wcag.py#L666))
-  e quella del browser intero ([mars_wcag.py:671](mars_wcag.py#L671)). Il
-  referto sa dire «axe non ha potuto esaminare 2 delle 5 pagine» e non se sia
-  stato un timeout, un 404 o Chromium che non parte. È la forma di R66 — la
-  diagnosi c'è, in mano allo strumento, e si butta via — e la seconda `except`
-  è anche ciò che fa ripiegare l'**intera area** su `markup` senza dirne il
-  motivo: il ripiego è dichiarato, la sua causa no. **Misurato** con una
-  pagina buona e una irraggiungibile: il referto dice «axe non ha potuto
-  esaminare 1 delle 2 pagine del campione: i rilievi sono parziali» e porta
-  `{'mancate': 1, 'tentate': 2, 'analizzate': 1}`. Il browser aveva in mano
-  `net::ERR_FILE_NOT_FOUND`, e nel referto non ne resta nulla.
 
 - **I24** — **il livello dichiarato si ferma a WCAG 2.1.** `AXE_TAGS`
   ([mars_wcag.py:30](mars_wcag.py#L30)) chiede `wcag2a`, `wcag2aa`, `wcag21a`,

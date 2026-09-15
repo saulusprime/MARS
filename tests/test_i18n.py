@@ -149,6 +149,16 @@ def _params_del_banco(monkeypatch) -> dict:
         '<html><body><h1>t</h1><div tabindex="3">x</div></body></html>')}}
     raccogli(mars_wcag.audit(wcag))
 
+    # Area 7, ramo di ripiego CON la diagnosi (I23): axe c'e' e non
+    # riesce a esaminare nulla. I due referti sintetici hanno una
+    # scansione axe riuscita, quindi questa chiave la accende solo qui.
+    with monkeypatch.context() as ctx:
+        ctx.setattr(mars_wcag, "axe_disponibile", lambda: True)
+        ctx.setattr(mars_wcag, "run_axe",
+                    lambda urls, delay=0.0: mars_wcag.AxeRun(
+                        error="Failed to launch chromium"))
+        raccogli(mars_wcag.audit(wcag))
+
     # Area 2: Lighthouse c'e' ma non risponde entro il tempo.
     monkeypatch.setattr(mars_seo.shutil, "which", lambda _, path=None: "/bin/lighthouse")
     monkeypatch.setattr(mars_seo, "esegui_lighthouse", _timeout_lighthouse)
@@ -1235,7 +1245,7 @@ def test_la_lingua_dell_audit_arriva_ad_axe(contesto, monkeypatch):
     contesto["pages"] = {"https://x/": pagina()}
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
     monkeypatch.setattr(mars_wcag, "run_axe",
-                        lambda urls, delay=0.0: ([dict(violazione)], 1))
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([dict(violazione)], 1))
 
     contesto["lang"] = "it"
     italiano = [f for f in mars_wcag.audit(contesto)["findings"]

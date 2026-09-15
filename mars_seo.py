@@ -17,16 +17,13 @@ from typing import Dict, List, Optional, Tuple
 
 from mars_core import (LH_MODI_NON_MISURATI, SEV_INFO, Finding,
                        chiave_esterna, frammento_identificante,
-                       severita_lighthouse)
+                       severita_lighthouse, taglia_motivo)
 
 LIGHTHOUSE_TIMEOUT = 120  # secondi: Lighthouse puo' bloccarsi a lungo
 
-# Quanto dello stderr dello strumento entra nel referto. Le righe che
-# dicono qualcosa stanno in TESTA — «Runtime error encountered»,
-# «Failed to launch chrome» — e sotto c'e' lo stack di Node, che nel
-# referto sarebbe rumore.
-MOTIVO_RIGHE = 3
-MOTIVO_MAX = 300
+# Il taglio della diagnosi sta in mars_core con le sue due costanti:
+# lo usa anche mars_wcag (I23), e due tagli diversi darebbero allo
+# stesso guasto due forme nello stesso referto.
 CATEGORIA = "seo"
 
 # Dove cercare Lighthouse oltre al PATH. `package.json` lo dichiara fra
@@ -175,16 +172,9 @@ def _motivo_esterno(exc: BaseException) -> str:
     # `str` e non `bytes`: `esegui_lighthouse` passa `text=True`, quindi
     # il ramo dei byte sarebbe codice che nessun test puo' raggiungere —
     # una mutazione l'ha dimostrato sopravvivendo all'intera suite.
-    grezzo = getattr(exc, "stderr", None)
-    if not isinstance(grezzo, str):
-        return ""
-    righe = [riga.strip() for riga in grezzo.splitlines() if riga.strip()]
-    motivo = " / ".join(righe[:MOTIVO_RIGHE])
-    if len(motivo) > MOTIVO_MAX:
-        # Il taglio si dichiara: un messaggio troncato senza segno si
-        # legge come un messaggio completo che finisce a meta'.
-        motivo = motivo[:MOTIVO_MAX].rstrip() + "…"
-    return motivo
+    # `taglia_motivo` lo ricontrolla, e va bene: qui il tipo e' una
+    # cucitura con subprocess, la' e' il contratto della funzione.
+    return taglia_motivo(getattr(exc, "stderr", None))
 
 
 def _penalita(voce: dict, totale_pesi: float) -> Optional[float]:

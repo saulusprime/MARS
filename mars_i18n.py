@@ -370,6 +370,10 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "axe did not examine %(mancate)d of the %(tentate)d "
                  "pages in the sample",
     },
+    "wcag.status.axe_failed": {
+        "title": "axe examined none of the %(tentate)d pages in the "
+                 "sample",
+    },
     "wcag.status.no_fixes": {
         "title": "axe correction texts unavailable: the Italian "
                  "axe-core locale is missing",

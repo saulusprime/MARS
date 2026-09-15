@@ -324,6 +324,7 @@ Confronto con il 2025-12-01T09:00:00+0000 (v0.0.0).
 ### 7. Accessibilità
 
 - [INFO] axe non ha esaminato 1 delle 3 pagine del campione
+  Timeout 30000ms exceeded
 - **[CRITICO]** Le immagini devono avere un testo alternativo
   *Correzione:* Assicurati che gli elementi <img> abbiano un testo alternativo o un ruolo none o presentation
 

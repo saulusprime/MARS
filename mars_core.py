@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.33.0"
+__version__ = "2.34.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -475,6 +475,40 @@ def frammento_identificante(grezzo: object) -> str:
         return ""
     testo = grezzo.strip()
     return testo if _TAG_CON_ATTRIBUTI.match(testo) else ""
+
+
+# Quanto della diagnosi di uno strumento esterno entra nel referto. Le
+# righe che dicono qualcosa stanno in TESTA — «Failed to launch
+# chrome», «net::ERR_NAME_NOT_RESOLVED» — e sotto c'e' lo stack, che
+# nel referto sarebbe rumore.
+MOTIVO_RIGHE = 3
+MOTIVO_MAX = 300
+
+
+def taglia_motivo(grezzo: object) -> str:
+    """La diagnosi di uno strumento esterno, ridotta a una riga sola.
+
+    Sta qui e non in un modulo perche' la usano in due — `mars_seo` con
+    lo stderr di Lighthouse (R66), `mars_wcag` con l'eccezione di
+    Playwright (I23) — e due tagli che divergono darebbero allo stesso
+    guasto due forme diverse nello stesso referto.
+
+    Vuoto per un input vuoto o non testuale: **la stringa vuota e non
+    un separatore che precede il nulla**, cosi' chi compone il
+    messaggio puo' decidere di tacere.
+
+    Il testo viene da uno strumento esterno e finisce in un referto
+    HTML: chi lo rende lo scherma, come ogni altro campo di un rilievo.
+    """
+    if not isinstance(grezzo, str):
+        return ""
+    righe = [riga.strip() for riga in grezzo.splitlines() if riga.strip()]
+    motivo = " / ".join(righe[:MOTIVO_RIGHE])
+    if len(motivo) > MOTIVO_MAX:
+        # Il taglio si dichiara: un messaggio troncato senza segno si
+        # legge come un messaggio completo che finisce a meta'.
+        motivo = motivo[:MOTIVO_MAX].rstrip() + "…"
+    return motivo
 
 
 def chiave_esterna(identificatore: object) -> str:

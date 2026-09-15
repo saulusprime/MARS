@@ -519,8 +519,15 @@ def _referto_completo(monkeypatch) -> dict:
             continue
         if nome == "mars_wcag":
             monkeypatch.setattr(modulo, "axe_disponibile", lambda: True)
-            monkeypatch.setattr(modulo, "run_axe",
-                                lambda urls, delay=0.0: (_violazioni_axe(), 2))
+            # Due pagine analizzate su tre, e la terza con il suo
+            # MOTIVO: da I23 il referto lo porta, e una fixture che
+            # non lo portasse congelerebbe un referto piu' povero di
+            # quello vero — la regola di R44 applicata al campo.
+            monkeypatch.setattr(
+                modulo, "run_axe",
+                lambda urls, delay=0.0: mars_wcag.AxeRun(
+                    violations=_violazioni_axe(), analyzed=2,
+                    failures=[(urls[-1], "Timeout 30000ms exceeded")]))
             monkeypatch.setattr(modulo, "testi_axe", _testi_axe)
         if nome == "mars_wapt":
             # La cucitura documentata: il client entra dal context.

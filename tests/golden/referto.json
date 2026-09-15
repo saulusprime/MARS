@@ -968,7 +968,7 @@
       "score": 58,
       "status": null,
       "issues": [
-        "axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali",
+        "axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali (Timeout 30000ms exceeded)",
         "[axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)",
         "[axe:serious] Gli elementi devono soddisfare le soglie minime del rapporto di contrasto di colore (1 elementi su 1 pagine)",
         "[axe:moderate] Form elements must have labels (1 elementi su 1 pagine)",
@@ -984,7 +984,7 @@
           "severity": "info",
           "title": "axe non ha esaminato 1 delle 3 pagine del campione",
           "key": "wcag.status.partial",
-          "detail": "",
+          "detail": "Timeout 30000ms exceeded",
           "fix": "",
           "example": "",
           "doc_url": "",
@@ -993,7 +993,13 @@
           "params": {
             "mancate": 1,
             "tentate": 3,
-            "analizzate": 2
+            "analizzate": 2,
+            "failures": [
+              "https://esempio.test/faq/: Timeout 30000ms exceeded"
+            ],
+            "reasons": [
+              "Timeout 30000ms exceeded"
+            ]
           }
         },
         {

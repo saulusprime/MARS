@@ -101,6 +101,7 @@
 | I22 | Il riavvio di un container passa da un file, non dal socket di Docker | 2026-09-04 |
 | R71 | L'immagine decorativa marcata bene contata come difetto | 2026-09-15 |
 | R72 | `alt=" "` non e' `alt=""`: il difetto opposto di R71 | 2026-09-15 |
+| I23 | Perche' axe non ha esaminato una pagina entra nel referto | 2026-09-15 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2403,6 +2404,63 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I23 — ✅ REALIZZATA (2026-09-15): perché axe non ha esaminato una pagina
+
+**Il difetto.** `run_axe` aveva due `except Exception` che scartavano
+l'eccezione: una per URL, una per l'intera passata. Il referto sapeva
+dire «axe non ha potuto esaminare 1 delle 3 pagine» e mai se fosse un
+timeout, un 404 o Chromium che non parte — e, nel caso peggiore,
+dichiarava di aver ripiegato sui controlli statici senza una parola sul
+perché. È la forma di R66: la diagnosi c'è, in mano allo strumento, e
+si butta via.
+
+**Perché conta.** Le due cause chiedono due azioni opposte a chi riceve
+il referto: un timeout si rifà, un 404 si corregge sul sito. Senza il
+motivo il lettore non sa quale delle due.
+
+**La soluzione.** `run_axe` restituisce sempre un `AxeRun` — un
+`@dataclass`, perché è struttura interna al modulo e il contratto dei
+plugin riguarda ciò che `audit()` restituisce (principio 3) — con
+`violations`, `analyzed`, `failures` (url, motivo) ed `error`, il
+guasto che ferma tutto. Spariscono il `None` e la tupla, che erano
+proprio ciò che non aveva posto dove mettere il motivo.
+
+Il motivo arriva a tre lettori diversi: la riga che si legge («… i
+rilievi sono parziali (Timeout 30000ms exceeded)»), il `detail` del
+rilievo, e `params["failures"]` con la pagina accanto alla causa. I
+motivi sono **distinti**: cinque pagine cadute per lo stesso timeout
+sono un'informazione sola, e ripeterla cinque volte la nasconderebbe.
+Le pagine invece restano tutte — il conteggio dice quanto, i motivi
+perché, l'elenco dove, come `instances` e `urls` nel resto di MARS.
+
+**`params["failures"]` e non `params["urls"]`**: il referto legge `urls`
+come «le pagine su cui il difetto è scattato» e colorerebbe la treemap
+su pagine che axe non ha nemmeno visto.
+
+**Il taglio del motivo è passato in `mars_core`** (`taglia_motivo`, con
+`MOTIVO_RIGHE` e `MOTIVO_MAX`): lo usava già `mars_seo` per lo stderr di
+Lighthouse, e due tagli che divergono darebbero allo stesso guasto due
+forme nello stesso referto.
+
+**Una nuova chiave**, `wcag.status.axe_failed`, distinta dallo stato
+normale di una macchina senza `node_modules`: axe che non c'è non è axe
+che cade, e un rilievo che li confondesse direbbe che qualcosa è andato
+storto dove non è andato storto nulla. Un test lo presidia.
+
+**Verifiche.** `flake8` a zero; `pytest` 1445 passati su Python 3.10.12.
+I golden si sono rigenerati e **il diff è stato riletto**: il motivo
+compare in tutti e cinque i formati e **nessun punteggio si muove** —
+58 resta 58, il complessivo 69 resta 69. `__version__` a **2.34.0**: il
+referto guadagna contenuto e nasce una chiave, come per U10.1.
+
+**Una mutazione sfuggita, e ciò che ha rivelato.** Azzerare l'`error`
+del guasto globale lasciava la suite verde: quel ramo non era esercitato
+da nessun test, perché il finto Playwright non sapeva fare un browser
+che non parte — tutti i test del ramo iniettavano `run_axe` dall'esterno
+e non ne attraversavano mai il corpo. È lo stesso punto cieco di R20,
+nello stesso file. Ora il finto sa fallire il `launch`, e la mutazione
+fa rosso.
 
 ### R72 — ✅ (2026-09-15): `alt=" "` non è `alt=""`, e il difetto era l'opposto di R71
 

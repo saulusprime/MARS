@@ -1459,7 +1459,7 @@ def test_wcag_nel_ramo_axe_gli_statici_non_pagano_il_punteggio(contesto,
     contesto["pages"] = {"https://x/": pagina(html=HTML_INACCESSIBILE)}
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
     monkeypatch.setattr(mars_wcag, "run_axe",
-                        lambda urls, delay=0.0: ([_viol()], 1))
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([_viol()], 1))
     esito = mars_wcag.audit(contesto)
 
     statici = [f for f in esito["findings"] if f["key"] in mars_wcag.STATICI]
@@ -1546,13 +1546,21 @@ def test_wcag_la_scansione_parziale_e_un_rilievo(contesto, monkeypatch):
     contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(4)}
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
     monkeypatch.setattr(mars_wcag, "run_axe",
-                        lambda urls, delay=0.0: ([_viol()], 2))
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([_viol()], 2))
     esito = mars_wcag.audit(contesto)
 
     assert esito["complete"] is False
     stato = [f for f in esito["findings"] if f["key"] == "wcag.status.partial"]
     assert len(stato) == 1
-    assert stato[0]["params"] == {"mancate": 2, "tentate": 4, "analizzate": 2}
+    assert stato[0]["params"]["mancate"] == 2
+    assert stato[0]["params"]["tentate"] == 4
+    assert stato[0]["params"]["analizzate"] == 2
+    # Da I23 il rilievo porta anche il perche'. Qui il finto non
+    # dichiara guasti — puo' succedere, se le pagine sono meno del
+    # campione — e allora i due campi sono vuoti e il referto tace
+    # invece di stampare una parentesi senza motivo dentro.
+    assert stato[0]["params"]["reasons"] == []
+    assert stato[0]["detail"] == ""
     # E non pesa sul punteggio: e' uno stato, non un difetto del sito.
     assert "penalty" not in stato[0]["params"]
 
@@ -1632,11 +1640,19 @@ class _PaginaFinta:
 
 
 class _PlaywrightFinto:
-    def __init__(self, pagina_finta):
+    def __init__(self, pagina_finta, non_parte=""):
         self._pagina = pagina_finta
         self.chromium = types.SimpleNamespace(
-            launch=lambda **kwargs: types.SimpleNamespace(
-                new_page=lambda: self._pagina, close=lambda: None))
+            launch=self._launch if non_parte else
+            (lambda **kwargs: types.SimpleNamespace(
+                new_page=lambda: self._pagina, close=lambda: None)))
+        self._non_parte = non_parte
+
+    def _launch(self, **kwargs):
+        # Il browser che non parte: e' il guasto che ferma TUTTO, e
+        # senza un finto che lo sappia fare il ramo resta non
+        # esercitato — una mutazione di I23 lo ha dimostrato passando.
+        raise RuntimeError(self._non_parte)
 
     def __enter__(self):
         return self
@@ -1645,26 +1661,55 @@ class _PlaywrightFinto:
         return False
 
 
-def _playwright_finto(monkeypatch, falliscono=()):
+def _playwright_finto(monkeypatch, falliscono=(), non_parte=""):
     pagina_finta = _PaginaFinta(falliscono)
     modulo = types.ModuleType("playwright.sync_api")
-    modulo.sync_playwright = lambda: _PlaywrightFinto(pagina_finta)
+    modulo.sync_playwright = lambda: _PlaywrightFinto(pagina_finta, non_parte)
     monkeypatch.setitem(sys.modules, "playwright.sync_api", modulo)
     return pagina_finta
+
+
+def test_run_axe_il_browser_che_non_parte_porta_il_suo_motivo(monkeypatch):
+    """I23: il guasto che ferma tutto non e' una pagina caduta.
+
+    Qui non c'e' alcun `failures` da cui dedurre qualcosa — il ciclo
+    sugli URL non comincia nemmeno — quindi senza `error` l'area
+    ripiegherebbe sul markup senza una parola sul perche'. E' il ramo
+    che una mutazione ha attraversato lasciando la suite verde: il
+    finto non sapeva ancora fare un browser che non parte.
+    """
+    spia = _playwright_finto(monkeypatch,
+                             non_parte="Failed to launch chromium")
+    passata = mars_wcag.run_axe(["https://x/1"])
+
+    assert passata.analyzed == 0
+    assert passata.error == "Failed to launch chromium"
+    assert passata.failures == [], "nessuna pagina e' stata tentata"
+    assert spia.visitate == []
 
 
 def test_run_axe_senza_una_sola_pagina_analizzata(monkeypatch):
     """Regressione R20, nel punto esatto in cui viveva il difetto.
 
     Con tutte le navigazioni fallite run_axe restituiva [] — che
-    audit() leggeva come "nessuna violazione". Deve restituire None:
-    zero pagine analizzate non e' un sito perfetto, e' una misura che
-    non c'e' stata.
+    audit() leggeva come "nessuna violazione". `analyzed` deve restare
+    zero: zero pagine analizzate non e' un sito perfetto, e' una misura
+    che non c'e' stata.
+
+    Da I23 la funzione non restituisce piu' `None` ma un `AxeRun`, e
+    quel che era un `is None` diventa una domanda piu' precisa: zero
+    analizzate **e** un motivo per ciascuna pagina caduta.
     """
     urls = ["https://x/1", "https://x/2"]
     spia = _playwright_finto(monkeypatch, falliscono=urls)
-    assert mars_wcag.run_axe(urls) is None
+    passata = mars_wcag.run_axe(urls)
+
+    assert passata.analyzed == 0
+    assert not passata.violations
     assert spia.visitate == urls, "le pagine devono essere state tentate"
+    assert [u for u, _ in passata.failures] == urls
+    assert passata.motivi() == ["navigazione fallita"], \
+        "il motivo esiste solo in quel momento: scartarlo era I23"
 
 
 def test_run_axe_conta_le_pagine_riuscite(monkeypatch):
@@ -1672,12 +1717,16 @@ def test_run_axe_conta_le_pagine_riuscite(monkeypatch):
     parziale era indistinguibile da una scansione completa."""
     urls = ["https://x/1", "https://x/2", "https://x/3"]
     _playwright_finto(monkeypatch, falliscono=["https://x/2"])
-    violazioni, analizzate = mars_wcag.run_axe(urls)
-    assert analizzate == 2
-    assert len(violazioni) == 2      # una per pagina riuscita
+    passata = mars_wcag.run_axe(urls)
+    assert passata.analyzed == 2
+    assert len(passata.violations) == 2      # una per pagina riuscita
+    # E il conteggio non e' l'unica cosa che resta della pagina persa.
+    assert passata.failures == [("https://x/2", "navigazione fallita")]
 
     _playwright_finto(monkeypatch)
-    assert mars_wcag.run_axe(urls)[1] == 3
+    intera = mars_wcag.run_axe(urls)
+    assert intera.analyzed == 3
+    assert intera.failures == [], "nessun guasto, nessun motivo"
 
 
 def test_run_axe_etichetta_ogni_violazione_con_la_sua_pagina(monkeypatch):
@@ -1690,7 +1739,7 @@ def test_run_axe_etichetta_ogni_violazione_con_la_sua_pagina(monkeypatch):
     grigio pur essendoci un critico sopra."""
     urls = ["https://x/1", "https://x/2", "https://x/3"]
     _playwright_finto(monkeypatch, falliscono=["https://x/2"])
-    violazioni, _ = mars_wcag.run_axe(urls)
+    violazioni = mars_wcag.run_axe(urls).violations
     assert [v[mars_wcag.CHIAVE_PAGINA] for v in violazioni] == [
         "https://x/1", "https://x/3"], "la pagina fallita non ne porta"
 
@@ -1940,7 +1989,8 @@ def test_wcag_ramo_axe_con_dati_iniettati(contesto, monkeypatch):
     legittimo: e' il caso che va distinto da quello di R20.
     """
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
-    monkeypatch.setattr(mars_wcag, "run_axe", lambda urls, delay=0.0: ([], 1))
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([], 1))
     esito = mars_wcag.audit(contesto)
     assert esito["tool"] == "axe-core"
     assert esito["score"] == 100
@@ -1957,7 +2007,10 @@ def test_wcag_axe_fallita_non_fabbrica_un_cento(contesto, monkeypatch):
     axe-core riuscita. Un sito mai caricato non e' un sito perfetto.
     """
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
-    monkeypatch.setattr(mars_wcag, "run_axe", lambda urls, delay=0.0: None)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: mars_wcag.AxeRun(
+            error="Failed to launch chromium"))
     esito = mars_wcag.audit(contesto)
     assert esito["tool"] == "markup", \
         "senza pagine analizzate non si puo' dichiarare axe-core"
@@ -1971,12 +2024,107 @@ def test_wcag_axe_parziale_e_dichiarata(contesto, monkeypatch):
     contesto["pages"] = pagine
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
     monkeypatch.setattr(mars_wcag, "run_axe",
-                        lambda urls, delay=0.0: ([_viol()], 2))
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([_viol()], 2))
     esito = mars_wcag.audit(contesto)
     assert esito["pages_tested"] == 2, "le pagine ESAMINATE, non le tentate"
     assert esito["pages_attempted"] == 5
     assert esito["complete"] is False
     assert "parziali" in esito["issues"][0]
+
+
+def test_wcag_la_scansione_parziale_dice_anche_perche(contesto, monkeypatch):
+    """I23: «1 delle 3 pagine» non dice se sia un timeout o un 404.
+
+    E' la forma di R66 — la diagnosi c'e', in mano allo strumento, e si
+    butta via — applicata alle due `except` di run_axe. Il motivo
+    compare nella riga che si legge, nel `detail` del rilievo e nei
+    params, perche' i tre li leggono lettori diversi.
+    """
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(3)}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: mars_wcag.AxeRun(
+            violations=[_viol()], analyzed=2,
+            failures=[("https://x/2", "Timeout 30000ms exceeded")]))
+    esito = mars_wcag.audit(contesto)
+
+    assert "Timeout 30000ms exceeded" in esito["issues"][0]
+    stato = [f for f in esito["findings"]
+             if f["key"] == "wcag.status.partial"][0]
+    assert stato["detail"] == "Timeout 30000ms exceeded"
+    assert stato["params"]["failures"] == [
+        "https://x/2: Timeout 30000ms exceeded"]
+
+
+def test_wcag_lo_stesso_motivo_su_piu_pagine_si_dice_una_volta(contesto,
+                                                               monkeypatch):
+    """Cinque pagine cadute per lo stesso timeout sono un'informazione
+    sola: ripeterla cinque volte la nasconderebbe invece di darla.
+
+    Le pagine pero' restano tutte, in `failures`: il conteggio dice
+    quanto, i motivi dicono perche', l'elenco dice dove — tre domande
+    diverse, come `urls` e `instances` nel resto di MARS.
+    """
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(4)}
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: mars_wcag.AxeRun(
+            violations=[_viol()], analyzed=1,
+            failures=[("https://x/1", "Timeout 30000ms exceeded"),
+                      ("https://x/2", "Timeout 30000ms exceeded"),
+                      ("https://x/3", "net::ERR_NAME_NOT_RESOLVED")]))
+    esito = mars_wcag.audit(contesto)
+    stato = [f for f in esito["findings"]
+             if f["key"] == "wcag.status.partial"][0]
+
+    assert stato["params"]["reasons"] == ["Timeout 30000ms exceeded",
+                                          "net::ERR_NAME_NOT_RESOLVED"]
+    assert len(stato["params"]["failures"]) == 3
+    assert esito["issues"][0].count("Timeout") == 1
+
+
+def test_wcag_il_ripiego_sul_markup_dice_perche(contesto, monkeypatch):
+    """I23, la meta' meno visibile: quando axe non esamina NULLA l'area
+    ripiega sui controlli statici, e prima non diceva perche'.
+
+    Il ripiego era gia' dichiarato — `tool: markup`, `status: surface` —
+    ma chi riceve il referto non sapeva se rifare l'audit o correggere
+    il sito. Sono due azioni diverse, e la differenza stava tutta in un
+    `except Exception: return None`.
+    """
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: mars_wcag.AxeRun(
+            error="Failed to launch chromium"))
+    esito = mars_wcag.audit(contesto)
+
+    assert esito["tool"] == "markup", "senza pagine non si dichiara axe-core"
+    assert "Failed to launch chromium" in esito["issues"][0]
+    stato = [f for f in esito["findings"]
+             if f["key"] == "wcag.status.axe_failed"][0]
+    assert stato["detail"] == "Failed to launch chromium"
+    assert stato["params"]["error"] == "Failed to launch chromium"
+    # Uno stato, non un difetto del sito: non pesa sul punteggio.
+    assert "penalty" not in stato["params"]
+
+
+def test_wcag_senza_axe_installato_non_si_inventa_un_guasto(contesto,
+                                                            monkeypatch):
+    """Il contrario del test qui sopra: axe che NON c'e' non e' axe che
+    cade. Il primo e' lo stato normale di una macchina senza
+    node_modules, il secondo un guasto — e un rilievo che li
+    confondesse direbbe che qualcosa e' andato storto dove non e'
+    andato storto nulla.
+    """
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: False)
+    esito = mars_wcag.audit(contesto)
+
+    assert esito["tool"] == "markup"
+    assert not [f for f in esito["findings"]
+                if f["key"] == "wcag.status.axe_failed"]
 
 
 def test_wcag_axe_parziale_pesa_sulle_pagine_viste(contesto, monkeypatch):
@@ -1990,7 +2138,8 @@ def test_wcag_axe_parziale_pesa_sulle_pagine_viste(contesto, monkeypatch):
     contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(5)}
     monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
     monkeypatch.setattr(mars_wcag, "run_axe",
-                        lambda urls, delay=0.0: ([_viol(), _viol()], 2))
+                        lambda urls, delay=0.0: mars_wcag.AxeRun(
+                            [_viol(), _viol()], 2))
     parziale = mars_wcag.audit(contesto)
     completa = mars_wcag.score_from_violations([_viol(), _viol()], 2)
     assert parziale["score"] == completa["score"], \
@@ -3910,7 +4059,8 @@ def test_seo_lo_stderr_lungo_viene_troncato(monkeypatch):
 
     rilievo = mars_seo.audit({"url": "https://x/"})["findings"][0]
     assert rilievo["detail"].startswith("CalledProcessError: Runtime error")
-    assert len(rilievo["detail"]) <= mars_seo.MOTIVO_MAX + 40
+    # La costante e' in mars_core da I23: il taglio lo usano in due.
+    assert len(rilievo["detail"]) <= mars_core.MOTIVO_MAX + 40
     assert rilievo["detail"].endswith("…")
 
 

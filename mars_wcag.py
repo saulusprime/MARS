@@ -29,7 +29,27 @@ MAX_FRAMMENTI = 5
 # l'euristica statica controlla criteri dello stesso livello. Dirlo e'
 # necessario: "accessibile" senza un livello non significa nulla.
 WCAG_LIVELLO = "WCAG 2.1 A + AA"
-AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
+
+# `wcag22aa` in coda, e non per completezza: misurato su axe-core
+# 4.13.0 interrogando `axe.getRules()` sulle sue 105 regole, quel tag
+# ne porta **una sola** — `target-size`, criterio 2.5.8 — mentre
+# `wcag22a` e `wcag22aaa` non esistono affatto. E' un controllo in piu',
+# non una famiglia, e sulla stessa pagina con due bersagli da 16px
+# passa da nessuna violazione a una `serious`: i punteggi si muovono a
+# sito invariato (I24).
+AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
+
+# Cio' che il ramo axe copre davvero, e **non** «WCAG 2.2 AA»: di quel
+# livello axe ha una regola, e dichiararlo per intero sarebbe la
+# promessa di una misura che non c'e' stata. Il ramo di ripiego resta a
+# `WCAG_LIVELLO`, perche' i controlli statici di 2.2 non guardano nulla
+# — il contrasto e la dimensione dei bersagli hanno bisogno del CSS
+# applicato.
+#
+# Resta **neutro rispetto alla lingua**: il referto non lo traduce
+# (`_qualificatori` in mars_report lo dichiara), quindi una parola
+# italiana qui comparirebbe dentro un referto inglese.
+WCAG_LIVELLO_AXE = "%s + 2.2 target-size" % WCAG_LIVELLO
 
 AXE_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                       "node_modules", "axe-core", "axe.min.js")
@@ -891,7 +911,7 @@ def audit(context: dict) -> dict:
                 "score": esito["score"],
                 **_riferimento(context),
                 "tool": "axe-core",
-                "wcag_level": WCAG_LIVELLO,
+                "wcag_level": WCAG_LIVELLO_AXE,
                 # Le pagine davvero esaminate, non quelle tentate.
                 "pages_tested": passata.analyzed,
                 "pages_attempted": len(urls),

@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.34.0
+Versione 2.35.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -204,7 +204,12 @@ e' piu' indulgente qui, piu' severo sull'accessibilita').
 
 WCAG: se Playwright e axe-core sono disponibili, l'accessibilita' viene
 misurata con axe-core su Chromium, limitato alle regole WCAG 2.1 livelli
-A e AA. Serve un browser reale: criteri come il contrasto colore
+A e AA, piu' target-size (criterio 2.5.8 di WCAG 2.2). Quella e' l'unica
+regola che axe-core 4.13 porta per il 2.2, quindi il referto dichiara
+"WCAG 2.1 A + AA + 2.2 target-size" e non "WCAG 2.2 AA": il livello
+intero sarebbe la promessa di una misura che non c'e' stata. Senza
+browser i controlli statici restano al solo 2.1, perche' la dimensione
+dei bersagli ha bisogno del CSS applicato. Serve un browser reale: criteri come il contrasto colore
 dipendono dal CSS applicato, e valutarli sull'HTML grezzo darebbe
 risultati sbagliati, che e' peggio che non darli. Per attivarlo:
 

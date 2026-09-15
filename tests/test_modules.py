@@ -1387,6 +1387,43 @@ def test_wcag_esclusioni_corrette():
         "i campi non interattivi non vanno contati"
 
 
+def test_wcag_chiede_ad_axe_i_tag_che_dichiara(monkeypatch):
+    """I24: fra i tag c'e' `wcag22aa`, e arriva davvero ad axe.run.
+
+    Misurato su axe-core 4.13.0: quel tag porta **una sola** regola,
+    `target-size` (criterio 2.5.8), e `wcag22a`/`wcag22aaa` non
+    esistono. E' un controllo in piu', non una famiglia — ma cambia il
+    punteggio a sito invariato, quindi dev'essere una scelta visibile e
+    non un dettaglio sepolto nella lista.
+    """
+    assert "wcag22aa" in mars_wcag.AXE_TAGS
+    spia = _playwright_finto(monkeypatch)
+    mars_wcag.run_axe(["https://x/1"])
+    assert spia.tag_chiesti == mars_wcag.AXE_TAGS, \
+        "i tag dichiarati e quelli chiesti devono essere gli stessi"
+
+
+def test_wcag_il_livello_dichiara_solo_cio_che_misura(contesto, monkeypatch):
+    """I24: «WCAG 2.2 AA» sarebbe la promessa di una misura che non c'e'.
+
+    Di 2.2 axe copre una regola sola, quindi il ramo axe dichiara quella
+    e non il livello. Il ramo di ripiego non deve nominare 2.2 affatto:
+    i controlli statici non ne guardano nulla — la dimensione dei
+    bersagli ha bisogno del CSS applicato.
+    """
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([_viol()], 1))
+    con_axe = mars_wcag.audit(contesto)["wcag_level"]
+    assert "target-size" in con_axe
+    assert "2.2 AA" not in con_axe, \
+        "una regola sola non e' il livello 2.2 AA"
+
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: False)
+    ripiego = mars_wcag.audit(contesto)["wcag_level"]
+    assert "2.2" not in ripiego, "il markup di 2.2 non guarda nulla"
+
+
 def test_wcag_dichiara_sempre_il_livello():
     esito = mars_wcag.audit({"pages": {"https://x/": pagina()}})
     assert "WCAG 2.1" in esito["wcag_level"]
@@ -1633,6 +1670,11 @@ class _PaginaFinta:
         pass
 
     def evaluate(self, script, arg=None):
+        # I tag chiesti si conservano: sono l'unico punto in cui si
+        # vede COSA MARS abbia chiesto ad axe, e senza questo una
+        # mutazione potrebbe togliere un livello dall'elenco senza che
+        # nulla diventi rosso (I24).
+        self.tag_chiesti = arg
         return [_viol()]
 
     def wait_for_timeout(self, ms):

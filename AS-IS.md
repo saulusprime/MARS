@@ -102,6 +102,7 @@
 | R71 | L'immagine decorativa marcata bene contata come difetto | 2026-09-15 |
 | R72 | `alt=" "` non e' `alt=""`: il difetto opposto di R71 | 2026-09-15 |
 | I23 | Perche' axe non ha esaminato una pagina entra nel referto | 2026-09-15 |
+| I24 | Il tag WCAG 2.2 di axe, e un livello che dichiara cio' che misura | 2026-09-15 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2404,6 +2405,51 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I24 — ✅ REALIZZATA (2026-09-15): il tag 2.2, e un livello che dichiara ciò che misura
+
+**Il fatto.** `AXE_TAGS` si fermava a `wcag21aa`, e il referto
+dichiarava «WCAG 2.1 A + AA». Non era un difetto — era una scelta mai
+riesaminata dopo che axe ha aggiunto il 2.2.
+
+**Misurato prima di decidere**, su axe-core 4.13.0, interrogando
+`axe.getRules()` sulle sue 105 regole: `wcag22aa` esiste e porta **una
+regola sola**, `target-size` (criterio 2.5.8); `wcag22a` e `wcag22aaa`
+non esistono affatto. La decisione era quindi piccola e netta: un
+controllo in più, non una famiglia.
+
+**Ma cambia i punteggi a sito invariato.** Misurato su una pagina con
+due bersagli da 16 px: zero violazioni con i tag di prima, una
+`serious` con il tag nuovo. `PESI_AXE["serious"]` vale 12, quindi non è
+un aggiustamento cosmetico.
+
+**Il livello dichiarato è la metà più delicata della voce.** Aggiungere
+il tag **non** rende il referto «WCAG 2.2 AA»: di quel livello axe ha
+una regola. Nasce `WCAG_LIVELLO_AXE` — «WCAG 2.1 A + AA + 2.2
+target-size» — che nomina la regola invece del livello, e il ramo di
+ripiego resta a `WCAG_LIVELLO`, perché i controlli statici di 2.2 non
+guardano nulla: la dimensione dei bersagli ha bisogno del CSS
+applicato, come il contrasto. Un test lo presidia da entrambi i lati.
+
+**Perché la stringa resta senza parole italiane.** `_qualificatori` in
+`mars_report` non traduce `wcag_level`, sulla dichiarazione che «WCAG
+2.1 AA» è uguale in ogni lingua: una parola italiana qui comparirebbe
+dentro un referto inglese.
+
+**Verifiche.** `flake8` a zero; `pytest` 1447 passati su Python 3.10.12.
+**Sei mutazioni, nessuna sfuggita**, fra cui le due che contano: far
+promettere al livello tutto il 2.2 AA, e chiedere ad axe tag diversi da
+quelli dichiarati — quest'ultima colta perché il finto Playwright ora
+registra i tag ricevuti. I golden rigenerati, **diff riletto**: cambia
+il solo livello dichiarato in quattro formati, nessun punteggio si
+muove (il referto sintetico non ha bersagli piccoli). `__version__` a
+**2.35.0**: su un sito vero i punteggi WCAG scendono a sito invariato.
+
+**Una cosa che la misura ha trovato e che questa voce NON chiude**: nel
+ramo di ripiego il livello è `"%s (parziale: solo criteri statici)"`, e
+quella parentesi è **italiana dentro un referto inglese** — verificato
+chiamando `_qualificatori` con `lang="en"`. È la famiglia di R44 e R61,
+e sta in [TO-DO.md](TO-DO.md) come R73.
 
 ### I23 — ✅ REALIZZATA (2026-09-15): perché axe non ha esaminato una pagina
 

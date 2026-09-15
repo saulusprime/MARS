@@ -20,7 +20,7 @@ Media pesata di 7 misure; escluse 3. Prestazioni, 4. Lessicale, 5. Semantica, 9.
 | 4. Lessicale | 60/100 | BM25 (k1=1.5, b=0.75) · con una classifica dei passaggi |
 | 5. Semantica | 92/100 | proxy char-TFIDF · con una classifica dei passaggi |
 | 6. Dati Strutturati | 90/100 |  |
-| 7. Accessibilità | 58/100 | axe-core · WCAG 2.1 A + AA · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
+| 7. Accessibilità | 58/100 | axe-core · WCAG 2.1 A + AA + 2.2 target-size · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa) |
 | 8. Sicurezza | 57/100 | ZAP (passiva) · 3 pagine esaminate |
 | 9. Citabilità IA | 68/100 |  |
 | 10. Giudizio LLM | 61/100 |  |

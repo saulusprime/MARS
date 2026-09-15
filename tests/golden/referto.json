@@ -1204,7 +1204,7 @@
       "reference_score": 97.0,
       "reference_tool": "Lighthouse",
       "lighthouse_scores": null,
-      "wcag_level": "WCAG 2.1 A + AA",
+      "wcag_level": "WCAG 2.1 A + AA + 2.2 target-size",
       "pages_tested": 2,
       "audits": null,
       "form_factor": null,

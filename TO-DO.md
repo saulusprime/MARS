@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R72**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R73**, idee fino a
 > **I29**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,8 +19,9 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Nessuna casella aperta.** Il 2026-09-15 ne sono state aperte due e
-> chiuse due, R71 e R72. Il programma UPGRADE è chiuso, salvo la fase
+> **Una casella aperta, R73.** Il 2026-09-15 ne sono state aperte tre e
+> chiuse due — R71 e R72 — e realizzate le idee I23 e I24; R73 è nata
+> dalla misura di I24. Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -180,7 +181,24 @@
 
 ## Correzioni
 
-**Nessuna aperta.**
+- [ ] **R73** — **il livello WCAG del ramo di ripiego è italiano dentro un
+  referto inglese.** `mars_wcag` compone
+  `"%s (parziale: solo criteri statici)"`, e `_qualificatori`
+  ([mars_report.py:1288](mars_report.py#L1288)) dichiara di non tradurre
+  `wcag_level` perché «WCAG 2.1 AA è uguale in ogni lingua» — vero per il
+  livello, falso per la parentesi che gli sta accanto.
+
+  **Misurato il 2026-09-15**: `_qualificatori({"tool": "markup",
+  "wcag_level": "WCAG 2.1 A + AA (parziale: solo criteri statici)"}, "en")`
+  rende `['markup', 'WCAG 2.1 A + AA (parziale: solo criteri statici)']`.
+
+  È la famiglia di R44 e R61 — un pezzo di interfaccia che sfugge al
+  catalogo perché nasce dentro un modulo invece che dentro il referto. La
+  correzione è una decisione di contratto, non una riga: o il modulo
+  dichiara il livello e lo stato in **due campi** e il referto li compone
+  tradotti, o `wcag_level` comincia a passare da `t()` e allora smette di
+  essere il campo neutro che la docstring promette. Aperta da I24, che ha
+  toccato quella stringa senza chiuderla.
 
 ---
 
@@ -226,25 +244,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **I23 è realizzata** e sta in
-[AS-IS.md](AS-IS.md); restano sei. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **I23 e I24 sono realizzate** e stanno in
+[AS-IS.md](AS-IS.md); restano cinque. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I24** — **il livello dichiarato si ferma a WCAG 2.1.** `AXE_TAGS`
-  ([mars_wcag.py:30](mars_wcag.py#L30)) chiede `wcag2a`, `wcag2aa`, `wcag21a`,
-  `wcag21aa` e nient'altro. **Misurato su axe-core 4.13.0**, interrogando
-  `axe.getRules()` sulle sue 105 regole: `wcag22aa` esiste e porta **una
-  regola sola**, `target-size` (criterio 2.5.8); `wcag22a` e `wcag22aaa` non
-  esistono affatto. La decisione è quindi piccola e netta — un controllo in
-  più, non una famiglia — e il costo è che il livello dichiarato cambia: è
-  un cambio di contratto dell'area, non una riga di configurazione, e su un
-  sito con bersagli piccoli il punteggio scende a sito invariato.
-  **Attenzione a cosa si dichiara**: aggiungere il tag non rende il referto
-  «WCAG 2.2 AA», perché di quel livello axe copre una regola sola.
 
 - **I25** — **il controllo 2.4.4 è monolingue.** `TESTI_GENERICI`
   ([mars_wcag.py:61](mars_wcag.py#L61)) sono dieci testi italiani e inglesi

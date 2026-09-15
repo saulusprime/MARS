@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.31.0
+Versione 2.32.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -211,6 +211,14 @@ risultati sbagliati, che e' peggio che non darli. Per attivarlo:
     pip install -r requirements-optional.txt
     python -m playwright install chromium
     npm install axe-core     (oppure e' gia' in node_modules)
+
+Senza browser restano i controlli statici sul solo markup, che coprono
+tutte le pagine del campione mentre axe ne vede le prime cinque. Sul
+criterio 1.1.1 i due rami danno la stessa risposta: un'immagine marcata
+alt="", role="presentation", role="none" o aria-hidden="true", o con un
+nome accessibile (aria-label, title, aria-labelledby risolto), non e' un
+difetto — sono le marcature che axe stesso accetta, e contarle sarebbe
+segnalare un difetto a chi ha fatto la cosa giusta.
 
 I testi delle regole axe — il titolo del rilievo e la sua correzione —
 vengono dal file di locale che axe-core porta nel proprio pacchetto npm,

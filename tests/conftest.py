@@ -81,12 +81,11 @@ def pagina(html: str = HTML_BASE, url: str = "https://esempio.test/",
         "chunks": mars_core.chunk_page(soup, url, titolo),
         "json_ld": [t.get_text(strip=True) for t in soup.find_all(
             "script", type="application/ld+json")],
-        # `src` come nel crawler: una fixture che non lo portasse
-        # farebbe girare i controlli statici su immagini anonime, e
-        # l'esempio dal sito non uscirebbe mai nei test (I20).
-        "images": [{"alt": i.get("alt"), "aria-label": i.get("aria-label"),
-                    "src": (i.get("src") or "").strip()}
-                   for i in soup.find_all("img")],
+        # La funzione del crawler, non una copia: la copia era gia'
+        # divergente — non conosceva le marcature che esentano —
+        # e una fixture infedele nasconde il difetto invece di
+        # esercitarlo, come l'adattatore finto di R16/R17 (R71).
+        "images": mars_core.estrai_immagini(soup),
         # Dalla funzione del crawler, non riscritta: era una seconda
         # copia dell'estrazione, ed e' proprio la forma di divergenza
         # che le due note qui sotto evitano per link e struttura.

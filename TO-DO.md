@@ -10,7 +10,7 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R71**, idee fino a
+> **Frontiera della numerazione**: correzioni fino a **R72**, idee fino a
 > **I29**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
@@ -19,7 +19,7 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Una casella aperta, R71**, dal 2026-09-15; prima di quel giorno non ce
+> **Una casella aperta, R72**, dal 2026-09-15; prima di quel giorno non ce
 > n'erano. Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
@@ -153,6 +153,15 @@
 > `landing/` dal repository: se quella decisione va registrata, il posto è
 > [AS-IS.md](AS-IS.md), non questo file.
 >
+> **R71 è chiusa lo stesso giorno** e sta in [AS-IS.md](AS-IS.md):
+> `estrai_immagini()` porta al modulo le marcature che esentano, e
+> `_senza_alternativa()` decide quali, concordando con axe perché è lo
+> stesso strumento del ramo forte. Undici mutazioni, nessuna sfuggita.
+> `__version__` a **2.32.0**: da lì i punteggi WCAG si muovono a sito
+> invariato, verso l'alto — 88 → 100 dove il sito aveva marcato bene le
+> proprie immagini decorative. La misura che l'ha chiusa ha aperto
+> **R72**, il difetto opposto.
+>
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
 > li lascia verdi. Misurato, e scritto in [AS-IS.md](AS-IS.md): il presidio di
@@ -168,43 +177,23 @@
 
 ## Correzioni
 
-- [ ] **R71** — **l'immagine decorativa marcata bene viene contata come
-  difetto.** `controlli_statici` considera «priva di testo alternativo»
-  ogni `<img>` senza `alt` e senza `aria-label`
-  ([mars_wcag.py:204](mars_wcag.py#L204)), quindi anche quella marcata
-  `role="presentation"`, `role="none"` o `aria-hidden="true"`. È la
-  forma di R26 #1 — penalizzare chi ha fatto la cosa giusta — e
-  l'asimmetria sta dentro un file solo: la tabella di layout il modulo la
-  esenta già ([mars_wcag.py:258](mars_wcag.py#L258)). I dati per chiuderla
-  non ci sono: `images` porta `alt`, `aria-label` e `src`
-  ([mars_core.py:1106](mars_core.py#L1106)), e il `role` non arriva fino
-  al modulo — quindi il campo si aggiunge lì, dove il crawler ha il DOM
-  aperto, e non si riapre l'HTML nel modulo.
+- [ ] **R72** — **`alt="   "` è una violazione per axe e non per MARS.**
+  Il filtro guarda `alt is not None`
+  ([mars_wcag.py](mars_wcag.py)), quindi un `alt` fatto di soli spazi
+  conta come alternativa testuale. **Misurato su axe-core 4.13.0**: `alt=""`
+  passa — è la tecnica H67 — ma `alt=" "` **viola**, e la distinzione non è
+  un cavillo, perché uno screen reader su uno spazio non legge nulla e sul
+  vuoto salta l'immagine.
 
-  **Misurato il 2026-09-15**, su una pagina con cinque immagini di cui una
-  sola davvero senza alternativa: il modulo ne dichiara **4 su 5**, e fra
-  quelle che il referto elenca come «nel tuo sito» ci sono `deco.png`,
-  `niente.png` e `nascosta.png` — cioè manda a correggere tre immagini
-  marcate come si deve. Sul sito le cui SOLE immagini senza alt sono
-  decorative e marcate bene, il punteggio dell'area è **88 invece di
-  100**: un rilievo intero, `PENALITA_STATICA = 12`. Nel ramo axe il
-  punteggio non si muove — lì i controlli statici hanno penalità zero —
-  ma il conteggio sbagliato si legge in entrambi i rami.
+  È il difetto **opposto** a R71, che l'ha scoperto: là MARS contava difetti
+  che non c'erano, qui non conta un difetto che c'è. Per questo non è stato
+  chiuso nello stesso commit: R71 alza i punteggi, R72 li abbassa, e due
+  movimenti opposti sotto una versione sola non si sanno più leggere.
 
-  **Che cosa faccia axe non è più da assumere: misurato su axe-core
-  4.13.0**, sulla stessa pagina. La regola `image-alt` dà **una sola**
-  violazione, `vera.png`, e mette fra i `passes` sia `role="presentation"`
-  sia `role="none"` sia l'`alt=""`; l'immagine `aria-hidden="true"` non
-  compare in alcun gruppo, perché axe esclude dalla scansione ciò che è
-  nascosto. La correzione ha quindi la sua forma: le tre marcature
-  esentano, e MARS deve concordare con axe perché è **lo stesso strumento**
-  che il ramo forte dell'area già usa.
-
-  **E i due rami si contraddicono dentro lo stesso referto.** Su un audit
-  con quelle immagini su due pagine, l'area 7 stampa una accanto all'altra
-  «Le immagini devono avere un testo alternativo (1 elementi su 1 pagine)»
-  — axe — e «8/10 immagini prive di testo alternativo» — il controllo
-  statico. Chi riceve il referto legge 1 e 8 sulla stessa area.
+  La correzione è una riga in `_senza_alternativa()` — `alt` vale solo se è
+  `""` oppure ha del testo dopo lo `strip()` — ma è **una decisione**: da lì
+  i punteggi WCAG scendono a sito invariato su ogni sito che usi `alt=" "`,
+  e va misurato su quanti prima di sceglierla.
 
 ---
 

@@ -1752,6 +1752,80 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
 
 
+def test_wcag_le_marcature_che_esentano_non_sono_un_difetto():
+    """R71: un'immagine marcata decorativa NON e' priva di alternativa.
+
+    E' la forma di R26 #1, che chiuse il caso `alt=""`: qui tornano le
+    altre marcature, quelle che vivono in un attributo diverso da `alt`.
+    Il riferimento non e' il nostro gusto ma **axe**, cioe' lo stesso
+    strumento che il ramo forte dell'area gia' usa: misurato su
+    axe-core 4.13.0, `image-alt` mette fra i `passes` role=presentation,
+    role=none, aria-label, aria-labelledby risolto e title, e l'immagine
+    `aria-hidden="true"` non la esamina affatto. Senza questo accordo i
+    due rami dello stesso modulo si contraddicono dentro lo stesso
+    referto: 1 violazione da axe e 8 dal controllo statico.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<span id="eti">Grafico delle vendite</span>'
+                    '<img src="1.png" role="presentation">'
+                    '<img src="2.png" role="none">'
+                    '<img src="3.png" aria-hidden="true">'
+                    '<img src="4.png" aria-label="Logo">'
+                    '<img src="5.png" aria-labelledby="eti">'
+                    '<img src="6.png" title="Grafico">'
+                    '<img src="7.png" role="PRESENTATION">'
+                    '<img src="8.png">'
+                    '</body></html>')
+
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
+    alternativi = [r for r in rilievi if "[1.1.1]" in r]
+    assert alternativi == ["[1.1.1] 1/8 immagini prive di testo alternativo"]
+
+
+def test_wcag_le_marcature_vuote_non_esentano():
+    """R71: l'attributo c'e' ma non dice nulla, e allora non esenta.
+
+    Misurato su axe-core 4.13.0, che su tutti e cinque questi casi
+    produce una violazione: un `aria-label` vuoto non e' un nome
+    accessibile, un `aria-labelledby` che punta a un id inesistente non
+    si risolve, `aria-hidden="false"` non nasconde e `role=""` non e'
+    una marcatura. E' il confine che rende la correzione di R71 sicura:
+    senza, basterebbe un attributo vuoto a far sparire un difetto vero.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<img src="1.png" aria-label="">'
+                    '<img src="2.png" aria-labelledby="non-esiste">'
+                    '<img src="3.png" title="">'
+                    '<img src="4.png" aria-hidden="false">'
+                    '<img src="5.png" role="">'
+                    '</body></html>')
+
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
+    alternativi = [r for r in rilievi if "[1.1.1]" in r]
+    assert alternativi == ["[1.1.1] 5/5 immagini prive di testo alternativo"]
+
+
+def test_wcag_un_role_qualunque_non_esenta():
+    """R71: esentano `presentation` e `none`, non un ruolo qualsiasi.
+
+    `role="img"` senza `alt` resta una violazione per axe — misurato —
+    e deve restarlo qui: una correzione che guardasse solo «c'e' un
+    role?» trasformerebbe R71 in un difetto peggiore di quello che
+    chiude, perche' nasconderebbe i difetti veri.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<img src="1.png" role="img">'
+                    '<img src="2.png" role="button">'
+                    '</body></html>')
+
+    rilievi = [mars_wcag._issue_statica(f) for f in
+               mars_wcag.controlli_statici({"https://esempio.test/": p})]
+    alternativi = [r for r in rilievi if "[1.1.1]" in r]
+    assert alternativi == ["[1.1.1] 2/2 immagini prive di testo alternativo"]
+
+
 def test_wcag_non_riparsa_l_html(contesto):
     """R26: i controlli statici leggono la struttura estratta dal
     crawler, non l'HTML.

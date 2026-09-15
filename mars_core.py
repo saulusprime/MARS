@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.31.0"
+__version__ = "2.32.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1098,15 +1098,11 @@ class Crawler:
                               (v if isinstance(v, list) else [v]))),
                 "x_robots_tag": resp.headers.get(
                     "X-Robots-Tag", "").strip().lower(),
-                # `src` accanto ad `alt`: senza, il referto puo'
-                # dire QUANTE immagini sono prive di alternativa
-                # testuale e non quali, e chi corregge le ricerca a
-                # mano (I20). L'identificatore e non il markup
-                # intero: misurato, il markup costa il triplo.
-                "images": [{"alt": i.get("alt"),
-                            "aria-label": i.get("aria-label"),
-                            "src": (i.get("src") or "").strip()}
-                           for i in soup.find_all("img")],
+                # In una funzione perche' la usa anche il banco di
+                # prova, come `estrai_meta_robots`: l'`src` che porta
+                # serve a dire QUALI immagini (I20), le marcature a
+                # non dirlo di quelle a posto (R71).
+                "images": estrai_immagini(soup),
                 # Letto qui una volta sola: serve a mars_wcag (criterio
                 # WCAG 3.1.1) e a mars_semantic per scegliere i termini
                 # interrogativi giusti.
@@ -1217,6 +1213,54 @@ def estrai_meta_robots(soup: BeautifulSoup) -> Tuple[str, Dict[str, str]]:
     return (" ".join(globali),
             {agente: ", ".join(pezzi)
              for agente, pezzi in per_agente.items()})
+
+
+def estrai_immagini(soup: BeautifulSoup) -> List[dict]:
+    """Le immagini con cio' che decide se abbiano un'alternativa testuale.
+
+    Sta in una funzione perche' la usa anche il banco di prova:
+    ricopiarla li' congelerebbe nei golden un'estrazione che in
+    produzione non esiste — la ragione di `estrai_meta_robots`.
+
+    **Dati e non giudizi**: `role` e `aria-hidden` arrivano grezzi, solo
+    abbassati, e quali valori esentino dal criterio 1.1.1 lo decide
+    `mars_wcag`. `labelled` invece e' un fatto del DOM, come per i campi
+    di modulo: `aria-labelledby` si risolve solo col documento intero, e
+    a valle non sarebbe piu' ricostruibile (R71).
+    """
+    # Gli id col loro testo, raccolti UNA volta. Risolvere ogni
+    # aria-labelledby con soup.find(id=...) sarebbe O(immagini x
+    # documento): e' la trappola che R26 ha gia' pagato sulle <label for>,
+    # dove costava piu' di un parse intero.
+    testo_per_id: Dict[str, str] = {}
+    for elemento in soup.find_all(attrs={"id": True}):
+        chiave = (elemento.get("id") or "").strip()
+        # Il primo vince: un id duplicato e' HTML non valido, e il
+        # browser risolve sul primo.
+        if chiave and chiave not in testo_per_id:
+            testo_per_id[chiave] = elemento.get_text(" ", strip=True)
+
+    immagini = []
+    for img in soup.find_all("img"):
+        # Un nome accessibile e' tale se dice qualcosa. Misurato su
+        # axe-core 4.13.0: `aria-label=""`, `title=""` e un
+        # `aria-labelledby` che punta a un id inesistente o a un
+        # elemento vuoto sono tutti violazioni. Bastasse la presenza
+        # dell'attributo, un attributo vuoto nasconderebbe un difetto.
+        riferiti = (img.get("aria-labelledby") or "").split()
+        immagini.append({
+            "alt": img.get("alt"),
+            "labelled": bool(
+                (img.get("aria-label") or "").strip()
+                or (img.get("title") or "").strip()
+                or any(testo_per_id.get(rif) for rif in riferiti)),
+            # Abbassati perche' axe li confronta senza guardare al caso:
+            # `role="PRESENTATION"` per lui e' una marcatura valida.
+            "role": (img.get("role") or "").strip().lower(),
+            "aria-hidden": (img.get("aria-hidden") or "").strip().lower(),
+            "src": (img.get("src") or "").strip(),
+        })
+    return immagini
 
 
 def estrai_struttura(soup: BeautifulSoup) -> dict:

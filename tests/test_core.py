@@ -26,7 +26,8 @@ from mars_core import (AREA_PREFIX, MAX_REDIRECT, MODULES_REGISTRY,
                        Finding, LexicalRetriever, VectorRetriever,
                        pagine_del_rilievo,
                        chiave_esterna, chunk_page, decode_html,
-                       default_queries, describe_chunk, estrai_struttura,
+                       default_queries, describe_chunk,
+                       estrai_immagini, estrai_struttura,
                        host_matches, load_external_module, load_queries,
                        norm_host, normalize_url, normalizza_severita,
                        reciprocal_rank_fusion, safe_normalize_url,
@@ -1138,6 +1139,51 @@ def test_pagina_del_crawler_porta_la_struttura():
     # una mutazione che ne toglieva il `src` e' sopravvissuta all'intera
     # suite perche' ogni altro test costruisce le pagine a mano (I20).
     assert [i["src"] for i in dati["images"]] == ["/a.png", "/b.png"]
+
+
+HTML_IMMAGINI = """<html lang="it"><head><title>t</title></head><body>
+<span id="eti">Grafico delle vendite</span><span id="vuoto"></span>
+<img src="/1.png" role="PRESENTATION">
+<img src="/2.png" aria-hidden="TRUE">
+<img src="/3.png" aria-labelledby="eti">
+<img src="/4.png" aria-labelledby="vuoto">
+<img src="/5.png" title="Grafico">
+<img src="/6.png" aria-label="   ">
+<img src="/7.png">
+</body></html>"""
+
+
+def test_estrai_immagini_porta_le_marcature_non_il_giudizio():
+    """R71: il crawler estrae le marcature; a giudicarle e' mars_wcag.
+
+    `role` e `aria-hidden` arrivano abbassati perche' axe li confronta
+    senza guardare al caso, e non filtrati: quali valori esentino e'
+    una decisione del modulo. `labelled` invece e' gia' risolto,
+    perche' `aria-labelledby` punta a un id che solo il documento
+    intero contiene — a valle non sarebbe piu' ricostruibile.
+    """
+    from bs4 import BeautifulSoup
+    immagini = estrai_immagini(BeautifulSoup(HTML_IMMAGINI, "lxml"))
+
+    assert [i["role"] for i in immagini][0] == "presentation"
+    assert [i["aria-hidden"] for i in immagini][1] == "true"
+    # Il terzo si risolve, il quarto no: l'elemento c'e' ed e' vuoto.
+    assert [i["labelled"] for i in immagini] == [
+        False, False, True, False, True, False, False]
+
+
+def test_pagina_del_crawler_porta_le_marcature_delle_immagini():
+    """R71, il punto d'integrazione: `estrai_immagini` puo' essere
+    giusta e non essere chiamata. E' gia' successo con il `src`, che
+    una mutazione tolse senza che la suite se ne accorgesse (I20).
+    """
+    crawler = _crawler_finto({
+        "http://esempio.test/": (HTML_IMMAGINI, "text/html")})
+    immagini = crawler.crawl()["http://esempio.test/"]["images"]
+
+    for chiave in ("alt", "labelled", "role", "aria-hidden", "src"):
+        assert chiave in immagini[0], "il crawler non pubblica %r" % chiave
+    assert immagini[0]["role"] == "presentation"
 
 
 # ----------------------------------------------------------------------

@@ -61,6 +61,17 @@ TIMEOUT_AXE = 30000  # millisecondi
 TESTI_GENERICI = {"clicca qui", "click here", "leggi tutto", "read more",
                   "qui", "here", "link", "continua", "more", "vai"}
 
+# I ruoli che tolgono un'immagine dal criterio 1.1.1. Sono due e non
+# "un role qualsiasi": `role="img"` senza alt resta una violazione, e
+# una regola piu' larga nasconderebbe i difetti veri.
+#
+# L'elenco non e' un gusto: axe li mette fra i `passes` della regola
+# `image-alt` — misurato su axe-core 4.13.0 — ed e' con axe che questi
+# controlli devono concordare, perche' e' lo STESSO strumento che il
+# ramo forte dell'area usa. Finche' non concordavano, lo stesso
+# referto portava 1 violazione da axe e 8 da qui (R71).
+RUOLI_DECORATIVI = ("presentation", "none")
+
 # Gravita' EDITORIALE dei controlli statici, dichiarata qui invece che
 # dedotta. axe una scala ce l'ha; questi sette no, e sceglierla e'
 # nostro: `critico` va a cio' che blocca uno screen reader — nessuna
@@ -114,6 +125,26 @@ def _statico(chiave: str, testo: str,
                    # source_severity resta vuoto: axe non ha parlato,
                    # la gravita' l'abbiamo scelta noi.
                    params=dict(params, criterio=criterio, penalty=0.0))
+
+
+def _senza_alternativa(immagine: dict) -> bool:
+    """Vero se l'immagine non ha alcuna alternativa testuale (1.1.1).
+
+    `alt is None` e non `not alt`: l'attributo ASSENTE e' l'unica
+    violazione, perche' `alt=""` e' la marcatura CORRETTA di
+    un'immagine decorativa (tecnica H67) — R26.
+
+    Le altre esenzioni sono quelle su cui axe non solleva (R71): un
+    nome accessibile da qualsiasi fonte (`labelled`), un ruolo
+    decorativo, e `aria-hidden="true"`, che toglie l'immagine
+    dall'albero — tanto che axe non la esamina affatto. Il valore
+    dev'essere `"true"`: `aria-hidden="false"` non nasconde nulla.
+    """
+    if immagine.get("alt") is not None or immagine.get("labelled"):
+        return False
+    if immagine.get("role") in RUOLI_DECORATIVI:
+        return False
+    return immagine.get("aria-hidden") != "true"
 
 
 def _issue_statica(f: Finding) -> str:
@@ -195,14 +226,10 @@ def controlli_statici(pages: dict) -> List[Finding]:
     for url, dati in pages.items():
         immagini = dati.get("images") or []
         totale_img += len(immagini)
-        # `alt is None` e non `not alt`: l'attributo ASSENTE e'
-        # l'unica violazione. `alt=""` e' la marcatura CORRETTA di
-        # un'immagine decorativa (tecnica H67), e contarla come
-        # difetto penalizzava proprio chi aveva fatto la cosa giusta.
-        # Il crawler la distinzione la conserva; era questo filtro a
-        # buttarla via.
-        rotte = [i for i in immagini
-                 if i.get("alt") is None and not i.get("aria-label")]
+        # Quali marcature esentino, e perche' ciascuna, sta in
+        # `_senza_alternativa`: qui il filtro resta una riga, perche'
+        # sotto si leggono il conteggio e le pagine.
+        rotte = [i for i in immagini if _senza_alternativa(i)]
         senza_alt = len(rotte)
         mancanti += senza_alt
         if senza_alt:

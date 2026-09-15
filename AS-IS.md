@@ -99,6 +99,7 @@
 | R69 | Un token valido che non apriva nulla, e la password nel sorgente | 2026-09-03 |
 | R70 | La sessione ZAP non si azzerava, e il secondo audit sommava il primo | 2026-09-04 |
 | I22 | Il riavvio di un container passa da un file, non dal socket di Docker | 2026-09-04 |
+| R71 | L'immagine decorativa marcata bene contata come difetto | 2026-09-15 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2401,6 +2402,82 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### R71 — ✅ (2026-09-15): l'immagine decorativa marcata bene contata come difetto
+
+**Il difetto.** `controlli_statici` considerava «priva di testo
+alternativo» ogni `<img>` senza `alt` e senza `aria-label`, quindi anche
+quella marcata `role="presentation"`, `role="none"` o
+`aria-hidden="true"`. È la forma di R26 #1 — penalizzare chi ha fatto la
+cosa giusta — tornata in un attributo diverso da `alt`, e l'asimmetria
+stava dentro un file solo: la tabella di layout il modulo la esentava
+già.
+
+**I due rami dello stesso modulo si contraddicevano dentro lo stesso
+referto.** Misurato prima della correzione, su due pagine con cinque
+immagini di cui una sola davvero senza alternativa, l'area 7 stampava
+una riga sotto l'altra:
+
+```
+[axe:critical] Le immagini devono avere un testo alternativo (1 elementi su 1 pagine)
+[1.1.1] 8/10 immagini prive di testo alternativo
+```
+
+Chi riceve il referto leggeva 1 e 8 sulla stessa area. E siccome I20 ha
+portato i frammenti veri nel referto, quel referto mandava a correggere
+`deco.png`, `niente.png` e `nascosta.png` — tre immagini marcate come si
+deve.
+
+**Il riferimento non è il nostro gusto: è axe**, cioè lo *stesso*
+strumento che il ramo forte dell'area usa. Misurato su axe-core 4.13.0,
+regola `image-alt`:
+
+| marcatura | axe |
+|---|---|
+| `role="presentation"`, `role="none"`, anche maiuscolo | passa |
+| `aria-hidden="true"` | non la esamina affatto |
+| `alt=""` | passa (H67) |
+| `aria-label`, `title`, `aria-labelledby` risolto | passa |
+| `aria-label=""`, `title=""`, `aria-labelledby` verso un id inesistente o vuoto | **viola** |
+| `aria-hidden="false"`, `role=""`, `role="img"` | **viola** |
+
+Il confine degli attributi vuoti è ciò che rende la correzione sicura:
+bastasse la *presenza* dell'attributo, un `aria-label=""` nasconderebbe
+un difetto vero.
+
+**La soluzione rispetta la divisione del contratto.** Il crawler estrae
+dati — `role` e `aria-hidden` grezzi, solo abbassati perché axe li
+confronta senza guardare al caso — e il modulo giudica, in
+`_senza_alternativa()`, con `RUOLI_DECORATIVI` dichiarato accanto agli
+altri elenchi editoriali. L'unica cosa già risolta nel crawler è
+`labelled`, per la stessa ragione delle `<label for>` dei campi:
+`aria-labelledby` si risolve solo col documento intero, e a valle non
+sarebbe più ricostruibile. Gli id si raccolgono **una volta** in un
+dict, non con un `find(id=...)` per immagine: è la trappola O(elementi ×
+documento) che R26 aveva già pagato.
+
+`estrai_immagini()` nasce come funzione per la ragione di
+`estrai_meta_robots`: **la usa anche il banco di prova**. La copia che
+`conftest` teneva era già divergente, e una fixture infedele nasconde il
+difetto invece di esercitarlo — lo stesso adattatore finto di R16/R17.
+Nel `images` di una pagina sparisce `aria-label`, assorbito da
+`labelled`: l'unico lettore era questo filtro.
+
+**Verifiche.** `flake8` a zero; `pytest` 1438 passati su Python 3.10.12.
+**Undici mutazioni, nessuna sfuggita** — fra queste, togliere `none` dai
+ruoli, accettare un `role` qualsiasi, non abbassare il caso, far
+etichettare un `aria-labelledby` che punta al vuoto, e far tornare il
+banco di prova alla copia dell'estrazione. Il punteggio dell'area su un
+sito le cui sole immagini senza alt sono decorative e marcate bene
+passa da **88 a 100**, e il difetto vero resta contato (1/2, non 2/2).
+`__version__` a **2.32.0**: da qui i punteggi WCAG si muovono a sito
+invariato, verso l'alto.
+
+**Una cosa che la misura ha trovato e che questa voce NON chiude**:
+`alt="   "` — spazi soltanto — per axe è una violazione, per MARS no,
+perché il filtro guarda `alt is not None`. È il difetto **opposto**, un
+falso negativo, e sta in [TO-DO.md](TO-DO.md) come R72: chiuderlo
+abbassa i punteggi invece di alzarli, e merita la sua decisione.
 
 ### I22 — ✅ REALIZZATA (2026-09-04): il riavvio passa da un file, non dal socket di Docker
 

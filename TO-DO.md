@@ -10,8 +10,8 @@
 > proposta, per buona che sia: le proposte stanno in fondo, come indice, e non
 > hanno una casella finché qualcuno non le decide.
 >
-> **Frontiera della numerazione**: correzioni fino a **R70**, idee fino a
-> **I22**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **Frontiera della numerazione**: correzioni fino a **R71**, idee fino a
+> **I29**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -19,7 +19,8 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Nessuna casella aperta.** Il programma UPGRADE è chiuso, salvo la fase
+> **Una casella aperta, R71**, dal 2026-09-15; prima di quel giorno non ce
+> n'erano. Il programma UPGRADE è chiuso, salvo la fase
 > che il piano stesso dichiara opzionale. Da R55 a R63 sono
 > tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
 > campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
@@ -136,6 +137,21 @@
 > porte, e la seconda non si fida della prima. `__version__` a
 > **2.31.0**: nasce un endpoint, nessun punteggio si muove.
 >
+> **Il 2026-09-15 una revisione della sola area 7** apre **R71** e sette
+> idee, da **I23** a **I29**. Nate da una lettura del sorgente e
+> **verificate lo stesso giorno sul codice in esecuzione**, appena
+> l'ambiente è stato completato: sei su otto sono misurate, e i numeri
+> stanno in ciascuna voce. Restano lette e non misurate **I23** e
+> **I24**, che chiedono axe: `node_modules` non c'è ancora, e senza di
+> lui `axe_disponibile()` è falso. Perché proprio quest'area: per
+> `market: eu` l'accessibilità è l'unico segnale che `mars_citability`
+> moltiplica, e lo moltiplica per due
+> ([mars_citability.py:93](mars_citability.py#L93)), quindi qui un difetto
+> costa il doppio nel complessivo di un sito europeo. La stessa revisione
+> non ha trovato traccia, in nessuno dei tre documenti, della rimozione di
+> `landing/` dal repository: se quella decisione va registrata, il posto è
+> [AS-IS.md](AS-IS.md), non questo file.
+>
 > **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
 > uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
 > li lascia verdi. Misurato, e scritto in [AS-IS.md](AS-IS.md): il presidio di
@@ -151,7 +167,33 @@
 
 ## Correzioni
 
-**Nessuna aperta.**
+- [ ] **R71** — **l'immagine decorativa marcata bene viene contata come
+  difetto.** `controlli_statici` considera «priva di testo alternativo»
+  ogni `<img>` senza `alt` e senza `aria-label`
+  ([mars_wcag.py:204](mars_wcag.py#L204)), quindi anche quella marcata
+  `role="presentation"`, `role="none"` o `aria-hidden="true"`. È la
+  forma di R26 #1 — penalizzare chi ha fatto la cosa giusta — e
+  l'asimmetria sta dentro un file solo: la tabella di layout il modulo la
+  esenta già ([mars_wcag.py:258](mars_wcag.py#L258)). I dati per chiuderla
+  non ci sono: `images` porta `alt`, `aria-label` e `src`
+  ([mars_core.py:1106](mars_core.py#L1106)), e il `role` non arriva fino
+  al modulo — quindi il campo si aggiunge lì, dove il crawler ha il DOM
+  aperto, e non si riapre l'HTML nel modulo.
+
+  **Misurato il 2026-09-15**, su una pagina con cinque immagini di cui una
+  sola davvero senza alternativa: il modulo ne dichiara **4 su 5**, e fra
+  quelle che il referto elenca come «nel tuo sito» ci sono `deco.png`,
+  `niente.png` e `nascosta.png` — cioè manda a correggere tre immagini
+  marcate come si deve. Sul sito le cui SOLE immagini senza alt sono
+  decorative e marcate bene, il punteggio dell'area è **88 invece di
+  100**: un rilievo intero, `PENALITA_STATICA = 12`. Nel ramo axe il
+  punteggio non si muove — lì i controlli statici hanno penalità zero —
+  ma il conteggio sbagliato si legge in entrambi i rami.
+
+  **Da verificare prima di scrivere, non da assumere**: quali marcature la
+  regola `image-alt` di axe esenta davvero. È con axe che i due rami dello
+  stesso modulo devono concordare — non con la nostra idea di cosa sia
+  corretto — e axe qui non c'è ancora: manca `node_modules`.
 
 ---
 
@@ -193,3 +235,89 @@
   *Una cosa che il piano non dice ancora*: la vista testo si ferma a
   cinque voci e dichiara il troncamento, quella HTML le stampa tutte.
   Con 27 voci la differenza si vede.
+
+### Area 7 — accessibilità
+
+Sette voci aperte dalla revisione del 2026-09-15. Cinque **verificate in
+esecuzione** lo stesso giorno, e il numero sta nella voce; **I23** e **I24**
+restano lette e non misurate perché chiedono axe, e `node_modules` non c'è.
+Suite e presidio nello stesso giro: `flake8 .` a zero, `pytest` 1432 passati
+e 1 saltato — il salto è axe, che manca. Misurate prima su Python 3.14.4 e
+**rimisurate sulla 3.10.12** dopo che la venv è stata ricostruita: stesso
+esito sui due interpreti.
+
+- **I23** — **perché axe non ha esaminato una pagina non lo dice nessuno.**
+  `run_axe` scarta l'eccezione per-URL ([mars_wcag.py:666](mars_wcag.py#L666))
+  e quella del browser intero ([mars_wcag.py:671](mars_wcag.py#L671)). Il
+  referto sa dire «axe non ha potuto esaminare 2 delle 5 pagine» e non se sia
+  stato un timeout, un 404 o Chromium che non parte. È la forma di R66 — la
+  diagnosi c'è, in mano allo strumento, e si butta via — e la seconda `except`
+  è anche ciò che fa ripiegare l'**intera area** su `markup` senza dirne il
+  motivo: il ripiego è dichiarato, la sua causa no.
+
+- **I24** — **il livello dichiarato si ferma a WCAG 2.1.** `AXE_TAGS`
+  ([mars_wcag.py:30](mars_wcag.py#L30)) chiede `wcag2a`, `wcag2aa`, `wcag21a`,
+  `wcag21aa` e nient'altro. Da verificare sull'axe installato — 4.13 secondo
+  [package.json](package.json), assente su questa macchina — se i tag 2.2
+  esistano e quali regole portino, e da misurare di quanto il punteggio scenda
+  a sito invariato **prima** di decidere: alzare il livello è un cambio di
+  contratto dell'area, non una riga di configurazione.
+
+- **I25** — **il controllo 2.4.4 è monolingue.** `TESTI_GENERICI`
+  ([mars_wcag.py:61](mars_wcag.py#L61)) sono dieci testi italiani e inglesi
+  confrontati per uguaglianza: su un sito tedesco o spagnolo il controllo tace,
+  e il referto lo mostra come un pass invece che come un controllo che non si
+  applica. È la forma di R9. La lingua c'è già — ogni pagina porta `lang` — ma
+  `controlli_statici(pages)` non riceve il `context`, quindi la voce comincia
+  da una decisione di firma. **Misurato**: la stessa pagina con tre link
+  generici dà «3 link con testo generico» in italiano e **nessun rilievo**
+  in tedesco (`hier klicken`, `mehr lesen`, `weiter`).
+
+- **I26** — **il tabindex non sa dire quale elemento.** È l'unico dei sette
+  controlli statici senza `cita()` ([mars_wcag.py:277](mars_wcag.py#L277)),
+  perché `estrai_struttura` porta i valori e non gli elementi che li hanno
+  ([mars_core.py:1301](mars_core.py#L1301)). «3 elementi con tabindex positivo»
+  si corregge cercandoli a mano: è la domanda di I20, rimasta senza risposta in
+  un punto solo dei sette. **Misurato**: su una pagina con `tabindex="3"` su un
+  `div#menu` e `tabindex="5"` su un link, il crawler consegna `['3', '5']` e il
+  rilievo esce con `cited` **assente**.
+
+- **I27** — **il campione axe è una costante, non una scelta.**
+  `MAX_PAGINE_AXE = 5` ([mars_wcag.py:58](mars_wcag.py#L58)) non è un flag né
+  un campo API, mentre ogni altro confine del perimetro — `--max-pages`,
+  `--max-children`, `--zap-timeout` — è una scelta dichiarata. Prima di farne
+  una leva, misurare: la diffusione normalizza sulle pagine **analizzate**
+  ([mars_wcag.py:515](mars_wcag.py#L515)). **Misurato il 2026-09-15** su
+  `score_from_violations`, che è pura: allargare il campione da 5 a 10 pagine
+  **non muove il punteggio** a violazioni invariate — 50 e 50 con una regola
+  presente ovunque, 75 e 75 con una regola sulla sola home — ma lo abbassa
+  appena il campione più largo trova **una regola in più**: 50 → 38. Vale
+  quindi la stessa asimmetria di I21, e per la stessa ragione: zero
+  violazioni valgono 100, quindi un campione corto non può che alzare il
+  punteggio. Due referti con campioni diversi non si confrontano alla pari,
+  ed è questo — non la taratura — che rende la costante una scelta da
+  dichiarare.
+
+- **I28** — **1.2.x non lo guarda nessuno dei due rami.** Sottotitoli e
+  trascrizioni sono criteri di livello A: axe non li controlla e il markup non
+  li contiene. Una cosa però il markup la dice — se esistano `<video>` o
+  `<audio>`, e se abbiano un `<track kind="captions">`. Un `info` che dice dove
+  guardare, non un punteggio: è la forma che I20 ha già scelto per gli `info`,
+  e costa un campo in `estrai_struttura`. **Misurato**: su una pagina con un
+  `<video>` e un `<audio>`, le chiavi che arrivano al modulo sono otto —
+  `form_fields`, `heading_levels`, `heading_texts`, `images`, `lang`, `links`,
+  `tables`, `tabindex` — e nessuna riguarda i media.
+
+- **I29** — **«WCAG 2.1 A + AA» si legge come conformità.** Nel ramo axe il
+  referto stampa strumento, livello e «5 pagine esaminate»
+  ([mars_report.py:1295](mars_report.py#L1295)), e tace due cose che sa: quanta
+  parte dei criteri un controllo automatico non può vedere, e che quelle cinque
+  pagine stanno dentro un `pages_total` che il risultato porta e la riga non
+  stampa. Il ramo di ripiego è onesto — «parziale: solo criteri statici» — il
+  ramo forte no, ed è il ramo forte quello che finisce davanti al committente.
+  Col peso doppio dell'EAA sull'area, la distanza fra «misura automatica» e
+  «conformità» è quella fra un referto e una dichiarazione. **Misurato** su
+  un'area con `pages_tested: 5` e `pages_total: 40`, `_qualificatori` rende
+  `['axe-core', 'WCAG 2.1 A + AA', '5 pagine esaminate', 'Lighthouse 97/100
+  (1 pagina, scala diversa: la nostra è più severa)']`: il 40 il risultato ce
+  l'ha e la riga non lo stampa.

@@ -139,11 +139,12 @@
 >
 > **Il 2026-09-15 una revisione della sola area 7** apre **R71** e sette
 > idee, da **I23** a **I29**. Nate da una lettura del sorgente e
-> **verificate lo stesso giorno sul codice in esecuzione**, appena
-> l'ambiente è stato completato: sei su otto sono misurate, e i numeri
-> stanno in ciascuna voce. Restano lette e non misurate **I23** e
-> **I24**, che chiedono axe: `node_modules` non c'è ancora, e senza di
-> lui `axe_disponibile()` è falso. Perché proprio quest'area: per
+> **verificate lo stesso giorno sul codice in esecuzione**, mano a mano
+> che l'ambiente veniva completato: **tutte e otto sono misurate**, e i
+> numeri stanno in ciascuna voce. Le ultime tre — la metà axe di R71,
+> I23 e I24 — hanno dovuto aspettare `npm install`, e sono cadute
+> insieme appena axe-core 4.13.0 è stato disponibile. Perché proprio
+> quest'area: per
 > `market: eu` l'accessibilità è l'unico segnale che `mars_citability`
 > moltiplica, e lo moltiplica per due
 > ([mars_citability.py:93](mars_citability.py#L93)), quindi qui un difetto
@@ -190,10 +191,20 @@
   punteggio non si muove — lì i controlli statici hanno penalità zero —
   ma il conteggio sbagliato si legge in entrambi i rami.
 
-  **Da verificare prima di scrivere, non da assumere**: quali marcature la
-  regola `image-alt` di axe esenta davvero. È con axe che i due rami dello
-  stesso modulo devono concordare — non con la nostra idea di cosa sia
-  corretto — e axe qui non c'è ancora: manca `node_modules`.
+  **Che cosa faccia axe non è più da assumere: misurato su axe-core
+  4.13.0**, sulla stessa pagina. La regola `image-alt` dà **una sola**
+  violazione, `vera.png`, e mette fra i `passes` sia `role="presentation"`
+  sia `role="none"` sia l'`alt=""`; l'immagine `aria-hidden="true"` non
+  compare in alcun gruppo, perché axe esclude dalla scansione ciò che è
+  nascosto. La correzione ha quindi la sua forma: le tre marcature
+  esentano, e MARS deve concordare con axe perché è **lo stesso strumento**
+  che il ramo forte dell'area già usa.
+
+  **E i due rami si contraddicono dentro lo stesso referto.** Su un audit
+  con quelle immagini su due pagine, l'area 7 stampa una accanto all'altra
+  «Le immagini devono avere un testo alternativo (1 elementi su 1 pagine)»
+  — axe — e «8/10 immagini prive di testo alternativo» — il controllo
+  statico. Chi riceve il referto legge 1 e 8 sulla stessa area.
 
 ---
 
@@ -238,13 +249,13 @@
 
 ### Area 7 — accessibilità
 
-Sette voci aperte dalla revisione del 2026-09-15. Cinque **verificate in
-esecuzione** lo stesso giorno, e il numero sta nella voce; **I23** e **I24**
-restano lette e non misurate perché chiedono axe, e `node_modules` non c'è.
-Suite e presidio nello stesso giro: `flake8 .` a zero, `pytest` 1432 passati
-e 1 saltato — il salto è axe, che manca. Misurate prima su Python 3.14.4 e
-**rimisurate sulla 3.10.12** dopo che la venv è stata ricostruita: stesso
-esito sui due interpreti.
+Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
+esecuzione**: il numero sta in ciascuna. Suite e presidio nello stesso giro:
+`flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
+`node_modules` installato il test axe non si salta più, e la suite resta
+ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
+parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
+la ricostruzione della venv: stesso esito sui due interpreti.
 
 - **I23** — **perché axe non ha esaminato una pagina non lo dice nessuno.**
   `run_axe` scarta l'eccezione per-URL ([mars_wcag.py:666](mars_wcag.py#L666))
@@ -253,15 +264,23 @@ esito sui due interpreti.
   stato un timeout, un 404 o Chromium che non parte. È la forma di R66 — la
   diagnosi c'è, in mano allo strumento, e si butta via — e la seconda `except`
   è anche ciò che fa ripiegare l'**intera area** su `markup` senza dirne il
-  motivo: il ripiego è dichiarato, la sua causa no.
+  motivo: il ripiego è dichiarato, la sua causa no. **Misurato** con una
+  pagina buona e una irraggiungibile: il referto dice «axe non ha potuto
+  esaminare 1 delle 2 pagine del campione: i rilievi sono parziali» e porta
+  `{'mancate': 1, 'tentate': 2, 'analizzate': 1}`. Il browser aveva in mano
+  `net::ERR_FILE_NOT_FOUND`, e nel referto non ne resta nulla.
 
 - **I24** — **il livello dichiarato si ferma a WCAG 2.1.** `AXE_TAGS`
   ([mars_wcag.py:30](mars_wcag.py#L30)) chiede `wcag2a`, `wcag2aa`, `wcag21a`,
-  `wcag21aa` e nient'altro. Da verificare sull'axe installato — 4.13 secondo
-  [package.json](package.json), assente su questa macchina — se i tag 2.2
-  esistano e quali regole portino, e da misurare di quanto il punteggio scenda
-  a sito invariato **prima** di decidere: alzare il livello è un cambio di
-  contratto dell'area, non una riga di configurazione.
+  `wcag21aa` e nient'altro. **Misurato su axe-core 4.13.0**, interrogando
+  `axe.getRules()` sulle sue 105 regole: `wcag22aa` esiste e porta **una
+  regola sola**, `target-size` (criterio 2.5.8); `wcag22a` e `wcag22aaa` non
+  esistono affatto. La decisione è quindi piccola e netta — un controllo in
+  più, non una famiglia — e il costo è che il livello dichiarato cambia: è
+  un cambio di contratto dell'area, non una riga di configurazione, e su un
+  sito con bersagli piccoli il punteggio scende a sito invariato.
+  **Attenzione a cosa si dichiara**: aggiungere il tag non rende il referto
+  «WCAG 2.2 AA», perché di quel livello axe copre una regola sola.
 
 - **I25** — **il controllo 2.4.4 è monolingue.** `TESTI_GENERICI`
   ([mars_wcag.py:61](mars_wcag.py#L61)) sono dieci testi italiani e inglesi

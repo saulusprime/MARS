@@ -228,22 +228,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **I23, I24 e I25 sono realizzate** e stanno in
-[AS-IS.md](AS-IS.md); restano quattro. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **I23, I24, I25 e I26 sono realizzate** e stanno in
+[AS-IS.md](AS-IS.md); restano tre — I27, I28, I29. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I26** — **il tabindex non sa dire quale elemento.** È l'unico dei sette
-  controlli statici senza `cita()` ([mars_wcag.py:277](mars_wcag.py#L277)),
-  perché `estrai_struttura` porta i valori e non gli elementi che li hanno
-  ([mars_core.py:1301](mars_core.py#L1301)). «3 elementi con tabindex positivo»
-  si corregge cercandoli a mano: è la domanda di I20, rimasta senza risposta in
-  un punto solo dei sette. **Misurato**: su una pagina con `tabindex="3"` su un
-  `div#menu` e `tabindex="5"` su un link, il crawler consegna `['3', '5']` e il
-  rilievo esce con `cited` **assente**.
 
 - **I27** — **il campione axe è una costante, non una scelta.**
   `MAX_PAGINE_AXE = 5` ([mars_wcag.py:58](mars_wcag.py#L58)) non è un flag né

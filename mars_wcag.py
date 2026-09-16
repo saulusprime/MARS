@@ -181,6 +181,23 @@ def _statico(chiave: str, testo: str,
                    params=dict(params, criterio=criterio, penalty=0.0))
 
 
+def _identificatore(voce: dict) -> str:
+    """Come si chiama l'elemento che porta un `tabindex`.
+
+    L'`id` per primo, perche' e' cio' che si cerca nel sorgente;
+    l'`href` per un link che non ne ha, ed e' l'identificatore che
+    viene DAVVERO dal sito, come l'`src` di un'immagine. Stringa vuota
+    dove non c'e' ne' l'uno ne' l'altro: il referto tace invece di
+    inventare un nome (I26, e il contratto dei moduli).
+    """
+    tag = str(voce.get("tag") or "")
+    if voce.get("id"):
+        return "%s#%s" % (tag, voce["id"])
+    if voce.get("href"):
+        return "%s %s" % (tag, voce["href"])
+    return ""
+
+
 def _testi_generici(lang: object) -> Optional[frozenset]:
     """L'elenco per la lingua della pagina, o `None` se non la copriamo.
 
@@ -399,13 +416,22 @@ def controlli_statici(pages: dict) -> List[Finding]:
                      "%s → %s" % (ancora.get("text") or "",
                                   ancora.get("href") or ""))
 
-        for valore in dati.get("tabindex") or []:
+        for voce in dati.get("tabindex") or []:
             try:
-                if int(valore) > 0:
-                    tabindex_positivi += 1
-                    segna("wcag.tabindex.positive", url)
+                if int(voce.get("value")) <= 0:
+                    continue
             except (TypeError, ValueError):
-                pass
+                # Un tabindex non numerico non e' positivo: non e'
+                # nemmeno un numero, e giudicarlo sarebbe un altro
+                # controllo.
+                continue
+            tabindex_positivi += 1
+            segna("wcag.tabindex.positive", url)
+            # L'`id` per primo, perche' e' cio' che si cerca nel
+            # sorgente; l'`href` per il link che non ne ha. Dove non c'e'
+            # ne' l'uno ne' l'altro si TACE — `cita()` scarta la stringa
+            # vuota — perche' inventare un nome e' peggio che non darlo.
+            cita("wcag.tabindex.positive", _identificatore(voce))
 
     if salti:
         rilievi.append(_statico(
@@ -445,6 +471,8 @@ def controlli_statici(pages: dict) -> List[Finding]:
             "%d elementi con tabindex positivo: alterano l'ordine di "
             "navigazione" % tabindex_positivi,
             istanze=("elementi", tabindex_positivi),
+            citati=citati.get("wcag.tabindex.positive"),
+            quanti_distinti=len(distinti.get("wcag.tabindex.positive") or ()),
             urls=dove.get("wcag.tabindex.positive") or []))
     return rilievi
 

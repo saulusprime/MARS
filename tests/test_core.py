@@ -1075,7 +1075,8 @@ HTML_STRUTTURA = """<html lang="it"><head><title>t</title></head><body>
 <table role="presentation"><tr><td>x</td></tr></table>
 <a href="/1">Clicca qui</a><a href="/2" aria-label="Guida">qui</a>
 <img src="/a.png" alt="Con alt"><img src="/b.png">
-<span tabindex="3">a</span><span tabindex="abc">b</span>
+<span tabindex="3" id="salta">a</span><span tabindex="abc">b</span>
+<a href="/prezzi/" tabindex="5">Prezzi</a>
 </body></html>"""
 
 
@@ -1117,11 +1118,24 @@ def test_estrai_struttura_legge_il_dom_una_volta_sola():
 
     assert s["links"] == [
         {"text": "Clicca qui", "aria-label": None, "href": "/1"},
-        {"text": "qui", "aria-label": "Guida", "href": "/2"}]
+        {"text": "qui", "aria-label": "Guida", "href": "/2"},
+        # Il link col tabindex e' anche un link: la stessa ancora entra
+        # in due elenchi, ed e' giusto cosi' — sono due controlli.
+        {"text": "Prezzi", "aria-label": None, "href": "/prezzi/"}]
 
     # Grezzi: un tabindex non numerico e' esso stesso un dato, e
     # convertirlo qui lo cancellerebbe.
-    assert s["tabindex"] == ["3", "abc"]
+    # I VALORI restano grezzi — un tabindex non numerico e' esso stesso
+    # un dato — ma non viaggiano piu' da soli: senza l'elemento il
+    # referto poteva dire QUANTI tabindex positivi e non quali, ed era
+    # l'unico dei sette controlli statici senza risposta a «quale
+    # elemento» (I26).
+    assert [v["value"] for v in s["tabindex"]] == ["3", "abc", "5"]
+    assert [v["tag"] for v in s["tabindex"]] == ["span", "span", "a"]
+    assert [v["id"] for v in s["tabindex"]] == ["salta", "", ""]
+    # L'href identifica un link che l'id non ha: e' l'identificatore
+    # che viene DAVVERO dal sito, come per `links`.
+    assert [v["href"] for v in s["tabindex"]] == ["", "", "/prezzi/"]
 
 
 def test_pagina_del_crawler_porta_la_struttura():

@@ -55,9 +55,17 @@ legge sullo stesso DOM: `heading_levels`, `heading_texts`,
 crawler: **non riparsare l'HTML** in un modulo, il DOM è già stato
 attraversato una volta.
 
+`tabindex` è una lista di `{value, tag, id, href}`. Il **valore resta
+grezzo** — un tabindex non numerico è esso stesso un dato, e
+convertirlo tocca a chi lo giudica — mentre `tag`, `id` e `href` dicono
+*quale* elemento lo porta: senza, il referto sapeva dire quanti
+tabindex positivi e non quali, ed era l'unico dei sette controlli
+statici senza risposta a «quale elemento» (I26).
+
 Ogni elemento di quelle liste porta **come si chiama**, non il suo
 markup: `images` ha `src`, `form_fields` ha `name` (o l'`id`), `tables`
-ha `caption` (o l'`id`), `links` ha `href`, e `heading_texts` è
+ha `caption` (o l'`id`), `links` ha `href`, `tabindex` ha `tag`, `id` e
+`href` accanto al `value`, e `heading_texts` è
 allineato per indice a `heading_levels` — un salto di gerarchia è una
 *relazione* fra due titoli, e senza i testi non si può dire fra quali.
 Servono a rispondere a «quale elemento», che è la domanda che il

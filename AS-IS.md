@@ -105,6 +105,7 @@
 | I24 | Il tag WCAG 2.2 di axe, e un livello che dichiara cio' che misura | 2026-09-15 |
 | R73 | Il livello WCAG del ripiego era italiano in un referto inglese | 2026-09-15 |
 | I25 | Il controllo sui link generici segue la lingua della pagina | 2026-09-16 |
+| I26 | Il rilievo sul tabindex dice quale elemento | 2026-09-16 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2407,6 +2408,47 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I26 — ✅ REALIZZATA (2026-09-16): il rilievo sul tabindex dice quale elemento
+
+**Il fatto.** «3 elementi con tabindex positivo» si correggeva
+cercandoli a mano: `estrai_struttura` portava i valori — `["3", "abc"]`
+— e non gli elementi che li avevano. Era l'unico dei sette controlli
+statici senza risposta alla domanda di I20, «quale elemento».
+
+**La soluzione sta dove sta il DOM.** `tabindex` diventa una lista di
+`{value, tag, id, href}`: il valore resta **grezzo**, perché un
+tabindex non numerico è esso stesso un dato e convertirlo tocca a chi
+lo giudica, mentre `id` e `href` sono gli identificatori che vengono
+**davvero dal sito** — la stessa regola dell'`src` di un'immagine, e
+non il markup dell'elemento.
+
+`_identificatore()` sceglie: l'`id` per primo, perché è ciò che si
+cerca nel sorgente; l'`href` per un link che non ne ha; **stringa vuota
+altrimenti**, e il referto tace invece di inventare un nome — è ciò che
+il contratto dei moduli prescrive già per il campo senza `name` e la
+tabella senza didascalia. Misurato su tre elementi positivi, il rilievo
+cita `['div#menu', 'a /prezzi/']` e conta 3: il conteggio dice quanto,
+i citati dicono quali, e il terzo elemento non ha nulla che lo
+identifichi.
+
+**Il rilievo guadagna anche il tetto parlante**: `citati` e
+`quanti_distinti` erano già la forma degli altri sei, e qui mancavano
+insieme al resto.
+
+**Verifiche.** `flake8` a zero; `pytest` 1452 passati su Python
+3.10.12. **Otto mutazioni, nessuna sfuggita**, fra cui citare il solo
+tag dove non c'è identificatore — che sarebbe il «nome inventato» che
+il contratto vieta — e togliere `id`, `href` o `tag` dal crawler. I
+golden non cambiano: i due referti sintetici non hanno tabindex
+positivi. `__version__` a **2.37.0**: il referto guadagna contenuto e
+nessun punteggio si muove, come per I20.
+
+**Quattro fixture di test sono state aggiornate**, e va detto: quelle
+che costruivano la pagina a mano con `"tabindex": ["3"]`. La forma del
+campo è cambiata per scelta, e una fixture che restasse alla vecchia
+non proverebbe più ciò che il crawler produce — è la trappola
+dell'adattatore infedele, già pagata da R16/R17.
 
 ### I25 — ✅ REALIZZATA (2026-09-16): il controllo sui link generici segue la lingua della pagina
 

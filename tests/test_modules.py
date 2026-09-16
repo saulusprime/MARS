@@ -1807,7 +1807,8 @@ def test_wcag_i_controlli_statici_dicono_su_quali_pagine(contesto):
     due domande diverse, e finora rispondeva solo alla prima (R47)."""
     pages = {
         "https://x/a": {"lang": "it", "images": [{"src": "1.png"}],
-                        "tabindex": ["2"]},
+                        "tabindex": [{"value": "2", "tag": "div",
+                                      "id": "", "href": ""}]},
         "https://x/b": {"lang": "it", "images": [{"src": "2.png",
                                                   "alt": "ok"}]},
         "https://x/c": {"lang": "it", "images": [{"src": "3.png"}]},
@@ -1841,6 +1842,34 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
                mars_wcag.controlli_statici({"https://esempio.test/": p})]
     alternativi = [r for r in rilievi if "[1.1.1]" in r]
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
+
+
+def test_wcag_il_tabindex_dice_quale_elemento():
+    """I26: era l'unico dei sette controlli statici che non lo diceva.
+
+    «3 elementi con tabindex positivo» si correggeva cercandoli a mano,
+    perche' `estrai_struttura` portava i valori e non gli elementi che
+    li avevano. E' la domanda di I20, rimasta senza risposta in un punto
+    solo.
+
+    L'identificatore e non il markup, come per il resto del contratto:
+    l'`id` quando c'e', l'`href` per un link che non ne ha, e silenzio
+    quando non c'e' nulla che identifichi — inventare un nome sarebbe
+    peggio che tacere.
+    """
+    p = pagina(html='<html lang="it"><head><title>t</title></head><body>'
+                    '<h1>A</h1>'
+                    '<div tabindex="3" id="menu">m</div>'
+                    '<a href="/prezzi/" tabindex="5">Prezzi</a>'
+                    '<span tabindex="7">nudo</span>'
+                    '<div tabindex="0">ok</div>'
+                    '</body></html>')
+    rilievo = [f for f in mars_wcag.controlli_statici({"https://x/": p})
+               if f.key == "wcag.tabindex.positive"][0].as_dict()
+
+    assert rilievo["params"]["elementi"] == 3, "tabindex=0 non conta"
+    assert rilievo["params"]["cited"] == ["div#menu", "a /prezzi/"], \
+        "l'elemento senza identificatore non si cita: si tace"
 
 
 def test_wcag_i_testi_generici_seguono_la_lingua_della_pagina():
@@ -2052,7 +2081,8 @@ def test_wcag_non_riparsa_l_html(contesto):
     p["form_fields"] = [{"type": "text", "labelled": False}]
     p["tables"] = [{"has_th": False, "role": ""}]
     p["links"] = [{"text": "clicca qui", "aria-label": None}]
-    p["tabindex"] = ["4"]
+    p["tabindex"] = [{"value": "4", "tag": "div", "id": "fuori",
+                      "href": ""}]
 
     rilievi = " | ".join(mars_wcag._issue_statica(f) for f in
                          mars_wcag.controlli_statici({"https://x/": p}))
@@ -3907,7 +3937,8 @@ def _pagine_statiche():
                    {"has_th": False, "role": "", "caption": ""}],
         "links": [{"text": "clicca qui", "aria-label": None,
                    "href": "/prezzi/"}],
-        "tabindex": ["3"],
+        "tabindex": [{"value": "3", "tag": "div", "id": "nav",
+                      "href": ""}],
     }}
 
 

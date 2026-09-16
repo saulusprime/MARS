@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.36.0"
+__version__ = "2.37.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1374,9 +1374,21 @@ def estrai_struttura(soup: BeautifulSoup) -> dict:
                    # nulla, «clicca qui → /prezzi/» si' (I20).
                    "href": (a.get("href") or "").strip()}
                   for a in soup.find_all("a", href=True)],
-        # Valori grezzi: convertirli e' compito di chi li giudica,
-        # perche' un tabindex non numerico e' esso stesso un dato.
-        "tabindex": [str(e["tabindex"])
+        # Il valore resta GREZZO — convertirlo e' compito di chi lo
+        # giudica, e un tabindex non numerico e' esso stesso un dato —
+        # ma non viaggia piu' da solo: senza l'elemento il referto
+        # poteva dire QUANTI tabindex positivi e non quali, ed era
+        # l'unico dei sette controlli statici a non saper rispondere a
+        # «quale elemento» (I26).
+        #
+        # `id` e `href` e non il markup: sono gli identificatori che
+        # vengono davvero dal sito, come l'`src` di un'immagine.
+        # Entrambi grezzi, perche' quale dei due valga di piu' lo decide
+        # il modulo.
+        "tabindex": [{"value": str(e["tabindex"]),
+                      "tag": e.name,
+                      "id": (e.get("id") or "").strip(),
+                      "href": (e.get("href") or "").strip()}
                      for e in soup.find_all(attrs={"tabindex": True})],
     }
 

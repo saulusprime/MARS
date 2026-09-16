@@ -13,7 +13,8 @@ import argparse
 import sys
 from mars_core import (DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
                        DEFAULT_MAX_QUERIES, DEFAULT_TIMEOUT, FORM_FACTORS,
-                       MODULES_REGISTRY, RRF_K, ZAP_TIMEOUT, __version__,
+                       AXE_PAGES, MODULES_REGISTRY, RRF_K,
+                       ZAP_TIMEOUT, __version__,
                        build_context,
                        errore_modulo, load_external_module,
                        normalizza_risultato)
@@ -41,6 +42,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
               max_children: int = 0,
               rrf_k: int = RRF_K,
               zap_timeout: int = ZAP_TIMEOUT,
+              axe_pages: int = AXE_PAGES,
               credentials: dict | None = None,
               llm: str = "auto", judge_models: str = "",
               formato: str = "text",
@@ -57,6 +59,7 @@ def run_audit(url: str, max_pages: int, embeddings_model: str,
                             max_children=max_children,
                             rrf_k=rrf_k,
                             zap_timeout=zap_timeout,
+                            axe_pages=axe_pages,
                             credentials=credentials,
                             llm=llm, judge_models=judge_models,
                             queries=queries, lang=lang,
@@ -277,6 +280,28 @@ def secondi_positivi(valore: str) -> int:
     return numero
 
 
+def pagine_positive(valore: str) -> int:
+    """Il tetto di --axe-pages: intero e > 0.
+
+    Zero pagine non e' un campione piccolo, e' nessuna misura: axe non
+    girerebbe su niente e l'area ripiegherebbe sui controlli statici
+    senza che nessuno l'abbia chiesto. Il verso dell'errore e' lo
+    stesso di --zap-timeout — meno campione significa meno violazioni
+    trovate, e zero violazioni valgono 100 — quindi argparse lo ferma
+    prima che il browser parta.
+    """
+    try:
+        numero = int(valore)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "--axe-pages vuole un intero di pagine, non %r" % valore)
+    if numero <= 0:
+        raise argparse.ArgumentTypeError(
+            "--axe-pages dev'essere positivo: con 0 axe non esamina "
+            "nulla e l'area 7 ripiegherebbe sul markup in silenzio")
+    return numero
+
+
 def soglia_percentuale(valore: str) -> float:
     """La soglia di --fail-under: un numero fra 0 e 100.
 
@@ -485,6 +510,21 @@ def costruisci_parser() -> argparse.ArgumentParser:
              "--judge-models anthropic,openai,qwen:qwen-max")
 
     parser.add_argument(
+        "--axe-pages", type=pagine_positive, default=AXE_PAGES,
+        metavar="N",
+        help="Quante pagine del campione axe esamina con il browser "
+             "(default: %d). ATTENZIONE: il verso e' quello di "
+             "--zap-timeout — un campione corto non abbassa il "
+             "punteggio, lo ALZA, perche' meno pagine significano meno "
+             "regole violate trovate e zero violazioni valgono 100. "
+             "Misurato: allargare il campione a violazioni invariate "
+             "NON muove il punteggio, perche' la diffusione normalizza "
+             "sulle pagine analizzate. Il valore finisce nel referto, "
+             "perche' due esecuzioni con tetti diversi non si "
+             "confrontano alla pari. Valori: un intero positivo. "
+             "Esempio: --axe-pages 10" % AXE_PAGES)
+
+    parser.add_argument(
         "--zap-timeout", type=secondi_positivi, default=ZAP_TIMEOUT,
         metavar="SEC",
         help="Secondi concessi alla scansione ZAP, spider e active scan "
@@ -550,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
                      max_children=args.max_children,
                      rrf_k=args.rrf_k,
                      zap_timeout=args.zap_timeout,
+                     axe_pages=args.axe_pages,
                      judge_models=args.judge_models,
                      credentials=chiavi,
                      llm=args.llm, formato=args.formato,

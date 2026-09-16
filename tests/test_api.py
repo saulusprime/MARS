@@ -627,6 +627,30 @@ def test_api_zap_timeout_arriva_al_contesto(client, auth, monkeypatch):
     assert visti.get("zap_timeout") == 900, "il default resta il quarto d'ora"
 
 
+def test_api_il_tetto_axe_arriva_al_contesto(client, auth, monkeypatch):
+    """I27: CLI e API sono due interfacce sopra lo stesso motore, e un
+    parametro che esiste solo di qua e' il principio 4 disatteso."""
+    visti = {}
+
+    def finto(url, max_pages=10, *a, **k):
+        visti.update(k)
+        return None
+
+    monkeypatch.setattr(mars_api, "core_build_context", finto)
+    client.post("/audit/full", json=dict(CORPO, axe_pages=12), headers=auth)
+    assert visti.get("axe_pages") == 12
+    client.post("/audit/full", json=dict(CORPO), headers=auth)
+    assert visti.get("axe_pages") == 5, "il default resta cinque pagine"
+
+
+def test_api_un_tetto_axe_non_positivo_e_rifiutato(client, auth):
+    """Come `--axe-pages 0`: zero pagine non e' un campione corto, e'
+    nessuna misura, e ne uscirebbe un'area 7 ripiegata in silenzio."""
+    esito = client.post("/audit/full", json=dict(CORPO, axe_pages=0),
+                        headers=auth)
+    assert esito.status_code == 422
+
+
 def test_api_un_budget_zap_non_positivo_e_rifiutato(client, auth):
     """Come `--zap-timeout 0` da riga di comando: il modello lo ferma
     prima della scansione, invece di produrre un 100 su nulla."""

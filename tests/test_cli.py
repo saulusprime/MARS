@@ -469,6 +469,35 @@ def test_cli_il_budget_zap_esiste_e_arriva_al_contesto(monkeypatch):
     assert visti.get("zap_timeout") == 900
 
 
+def test_cli_il_tetto_axe_esiste_e_arriva_al_contesto(monkeypatch):
+    """I27: un flag che si ferma prima di `build_context` e'
+    indistinguibile da uno che funziona — e' R54, gia' pagata da
+    `--max-children`."""
+    parser = mars_audit.costruisci_parser()
+    assert parser.parse_args(["https://x/"]).axe_pages == 5
+    assert parser.parse_args(
+        ["https://x/", "--axe-pages", "12"]).axe_pages == 12
+    visti = {}
+    monkeypatch.setattr(mars_audit, "build_context",
+                        lambda *a, **k: visti.update(k) or None)
+    mars_audit.main(["https://x/", "--axe-pages", "12"])
+    assert visti.get("axe_pages") == 12
+    mars_audit.main(["https://x/"])
+    assert visti.get("axe_pages") == 5
+
+
+def test_cli_un_tetto_axe_non_positivo_e_un_errore_d_uso(capsys):
+    """Zero pagine non e' un campione piccolo: e' nessuna misura.
+
+    Il verso dell'errore e' quello di `--zap-timeout 0` — meno campione
+    significa meno violazioni, e zero violazioni valgono 100 — quindi
+    argparse lo ferma prima che il browser parta."""
+    with pytest.raises(SystemExit):
+        mars_audit.costruisci_parser().parse_args(["https://x/",
+                                                   "--axe-pages", "0"])
+    assert "axe-pages" in capsys.readouterr().err
+
+
 def test_cli_un_budget_zap_non_positivo_e_un_errore_d_uso(capsys):
     """Zero secondi non e' una scansione corta: e' una scansione che non
     parte. E `score_from_alerts([])` vale 100 — misurato — quindi ne

@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.37.0"
+__version__ = "2.38.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -2038,6 +2038,22 @@ FORM_FACTORS = ("mobile", "desktop")
 # in cui la cosa resta onesta.
 ZAP_TIMEOUT = 900
 
+# Quante pagine del campione axe esamina. Sta qui e non in `mars_wcag`
+# per la ragione di ZAP_TIMEOUT: la costante la nominano CLI e API, e un
+# modulo caricato a runtime non e' un posto da cui la riga di comando
+# possa importare (principio 4).
+#
+# Cinque perche' il browser e' lento, e la scelta e' una scelta e non
+# una taratura. **Misurato su `score_from_violations`, che e' pura**:
+# allargare il campione da 5 a 10 pagine NON muove il punteggio a
+# violazioni invariate — la diffusione normalizza sulle pagine
+# analizzate — ma lo abbassa appena il campione piu' largo trova una
+# regola in piu' (50 -> 38 nel banco). Vale quindi l'asimmetria di I21:
+# zero violazioni valgono 100, quindi un campione corto puo' solo
+# ALZARE il punteggio, e due referti con campioni diversi non si
+# confrontano alla pari (I27).
+AXE_PAGES = 5
+
 
 def build_context(url: str, max_pages: int = 10,
                   embeddings_model: str = DEFAULT_EMBEDDINGS,
@@ -2048,6 +2064,7 @@ def build_context(url: str, max_pages: int = 10,
                   max_children: int = 0,
                   rrf_k: Optional[int] = None,
                   zap_timeout: Optional[int] = None,
+                  axe_pages: Optional[int] = None,
                   llm: str = "auto",
                   judge_models: str = "",
                   queries: Optional[List[str]] = None,
@@ -2113,6 +2130,11 @@ def build_context(url: str, max_pages: int = 10,
         # non deve doverla nominare.
         "zap_timeout": (ZAP_TIMEOUT if zap_timeout is None
                         else int(zap_timeout)),
+        # Quante pagine axe esamina, per la stessa ragione del budget
+        # ZAP: e' una scelta che rende due referti non confrontabili
+        # alla pari, quindi va dichiarata invece di restare una
+        # costante dentro il modulo (I27).
+        "axe_pages": AXE_PAGES if axe_pages is None else int(axe_pages),
         "skipped": crawler.skipped,
         # Come sono state trovate le pagine: cambia il significato del
         # campione, e chi legge il referto deve saperlo.

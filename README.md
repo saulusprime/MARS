@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.37.0
+Versione 2.38.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -301,6 +301,16 @@ attraverso il proxy. Non serve alcun pacchetto pip, solo il daemon.
     esatta: esatta non puo' essere, e il referto lo dice.
 
     IL TEMPO e' l'altro limite, ed e' l'unico che agisca sul totale:
+    --axe-pages (predefinito 5) dice quante pagine del campione axe
+    esamina con il browser. Il verso e' quello di --zap-timeout: un
+    campione corto non abbassa il punteggio, lo ALZA, perche' meno
+    pagine significano meno regole violate trovate e zero violazioni
+    valgono 100. Allargarlo a violazioni invariate non muove il
+    punteggio — la diffusione normalizza sulle pagine analizzate — ma
+    lo abbassa appena il campione piu' largo trova una regola in piu'.
+    Il valore finisce nel referto: due esecuzioni con tetti diversi
+    non si confrontano alla pari.
+
     --zap-timeout (predefinito 900 secondi) e' il budget di spider e
     active scan INSIEME. Allo scadere MARS ordina al daemon di fermarsi
     e il referto dichiara i rilievi come parziali, invece di smettere

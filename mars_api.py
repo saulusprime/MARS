@@ -21,9 +21,9 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from mars_core import (CREDENZIALI_NOTE, DEFAULT_DELAY, DEFAULT_EMBEDDINGS,
-                       DEFAULT_TIMEOUT, FORM_FACTORS, MODULES_REGISTRY,
-                       RRF_K, ZAP_TIMEOUT, __version__,
+from mars_core import (AXE_PAGES, CREDENZIALI_NOTE, DEFAULT_DELAY,
+                       DEFAULT_EMBEDDINGS, DEFAULT_TIMEOUT, FORM_FACTORS,
+                       MODULES_REGISTRY, RRF_K, ZAP_TIMEOUT, __version__,
                        load_external_module,
                        normalizza_risultato)
 from mars_core import build_context as core_build_context
@@ -283,6 +283,18 @@ class AuditRequest(BaseModel):
                     "con k diversi non si confrontano alla pari: il "
                     "referto dichiara in rrf.k quale ha usato, e in "
                     "rrf_sensitivity come cambierebbe.")
+    axe_pages: int = Field(
+        AXE_PAGES, gt=0, le=1000,
+        description="Quante pagine del campione axe esamina con il "
+                    "browser. ATTENZIONE: il verso e' quello di "
+                    "zap_timeout — un campione corto non abbassa il "
+                    "punteggio, lo ALZA, perche' meno pagine significano "
+                    "meno regole violate e zero violazioni valgono 100. "
+                    "Allargarlo a violazioni invariate non muove il "
+                    "punteggio: la diffusione normalizza sulle pagine "
+                    "analizzate. Il valore finisce nel referto: due "
+                    "esecuzioni con tetti diversi non si confrontano "
+                    "alla pari.")
     zap_timeout: int = Field(
         ZAP_TIMEOUT, gt=0, le=86400,
         description="Secondi concessi alla scansione ZAP, spider e active "
@@ -427,6 +439,7 @@ def build_context(req: AuditRequest) -> dict:
                                  max_children=req.max_children,
                                  rrf_k=req.rrf_k,
                                  zap_timeout=req.zap_timeout,
+                                 axe_pages=req.axe_pages,
                                  llm=req.llm,
                                  judge_models=req.judge_models,
                                  queries=req.queries,

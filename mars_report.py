@@ -138,6 +138,10 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             # parziali» — e quando non morde la misura e' intera, cioe'
             # il numero non cambierebbe una decisione di chi legge.
             "zap_timeout": res.get("zap_timeout"),
+            # Il tetto del campione axe, per la stessa ragione
+            # e con lo stesso confine: nel dato canonico, non
+            # nelle viste umane (I27).
+            "axe_pages": res.get("axe_pages"),
             # False quando lo strumento non e' arrivato in fondo (ZAP
             # interrotto dal timeout, axe che non ha caricato tutte le
             # pagine): un punteggio parziale non e' un punteggio pieno.

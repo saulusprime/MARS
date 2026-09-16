@@ -106,6 +106,7 @@
 | R73 | Il livello WCAG del ripiego era italiano in un referto inglese | 2026-09-15 |
 | I25 | Il controllo sui link generici segue la lingua della pagina | 2026-09-16 |
 | I26 | Il rilievo sul tabindex dice quale elemento | 2026-09-16 |
+| I27 | `--axe-pages`: il campione di axe e' una scelta dichiarata | 2026-09-16 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2408,6 +2409,51 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I27 — ✅ REALIZZATA (2026-09-16): `--axe-pages`, il campione di axe è una scelta dichiarata
+
+**Il fatto.** `MAX_PAGINE_AXE = 5` era una costante dentro il modulo,
+mentre ogni altro confine del perimetro — `--max-pages`,
+`--max-children`, `--zap-timeout`, `--form-factor` — è una scelta che
+si passa e che il referto dichiara.
+
+**Misurato prima di muoverla**, su `score_from_violations`, che è pura:
+allargare il campione da 5 a 10 pagine **non muove il punteggio** a
+violazioni invariate — 50 e 50 con una regola presente ovunque, 75 e 75
+con una regola sulla sola home — perché la diffusione normalizza sulle
+pagine *analizzate*. Lo abbassa appena il campione più largo trova **una
+regola in più**: 50 → 38. Vale quindi l'asimmetria di I21, e per la
+stessa ragione: zero violazioni valgono 100, quindi un campione corto
+può solo **alzare** il punteggio. Due referti con tetti diversi non si
+confrontano alla pari, ed è questo — non la taratura — che rende la
+costante una scelta da dichiarare.
+
+**La costante vera passa in `mars_core`**, come `ZAP_TIMEOUT`: la
+nominano CLI e API, e un modulo caricato a runtime non è un posto da
+cui la riga di comando possa importare (principio 4). In `mars_wcag`
+resta il nome come ripiego, e `audit()` legge il **context** e non la
+costante — leggerla lì renderebbe il flag inerte, che è R54.
+
+**Il referto dichiara il tetto CHIESTO**, che non è `pages_attempted`:
+su un sito di tre pagine il tetto è cinque e i tentativi tre. Sta nel
+dato canonico e non nelle viste umane, con lo stesso confine di
+`zap_timeout` (I21).
+
+**Zero pagine è un errore d'uso**, fermato da argparse e dal modello
+Pydantic: non è un campione piccolo, è nessuna misura — e il verso
+dell'errore è quello di `--zap-timeout 0`, cioè verso l'alto.
+
+**Verifiche.** `flake8` a zero; `pytest` 1459 passati su Python
+3.10.12. **Nove mutazioni, nessuna sfuggita** — ma una era sfuggita al
+primo giro, ed è la **terza volta che sfugge nello stesso punto**:
+`build_context` che scrive sempre la costante lasciava verde tutta la
+catena, perché i test di CLI e API sostituiscono `build_context` e
+dimostrano che il valore ci *arriva*, non che venga conservato. R56 e
+I21 avevano già pagato quel buco e lasciato il loro test; mancava solo
+il mio, ed è ora accanto ai loro. I golden guadagnano `axe_pages` nel
+dato canonico — `null` ovunque, 5 nell'area 7 — come `zap_timeout`, e
+nessun punteggio si muove. `__version__` a **2.38.0**: nasce un flag,
+un campo API e una chiave del referto, e nessun voto cambia.
 
 ### I26 — ✅ REALIZZATA (2026-09-16): il rilievo sul tabindex dice quale elemento
 

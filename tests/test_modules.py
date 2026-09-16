@@ -2170,6 +2170,49 @@ def test_wcag_axe_fallita_non_fabbrica_un_cento(contesto, monkeypatch):
     assert esito["status"] == "surface"
 
 
+def test_wcag_il_tetto_del_campione_viene_dal_context(contesto, monkeypatch):
+    """I27: leggere la costante invece del context renderebbe
+    `--axe-pages` inerte, ed e' esattamente R54.
+
+    Il tetto CHIESTO finisce anche nel referto: non e'
+    `pages_attempted`, che su un sito piu' piccolo del tetto vale meno,
+    e senza scriverlo bisognerebbe sapere con quale riga di comando quel
+    referto e' stato prodotto.
+    """
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(9)}
+    contesto["axe_pages"] = 2
+    chiesti = []
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: chiesti.extend(urls) or mars_wcag.AxeRun(
+            [_viol()], len(urls)))
+    esito = mars_wcag.audit(contesto)
+
+    assert len(chiesti) == 2, "il tetto del context governa il campione"
+    assert esito["axe_pages"] == 2, "e il referto dichiara quale era"
+    assert esito["pages_attempted"] == 2
+    assert esito["pages_total"] == 9
+
+
+def test_wcag_senza_tetto_nel_context_resta_la_costante(contesto, monkeypatch):
+    """Il ripiego: un chiamante che non sceglie non deve dover nominare
+    la costante, e `audit()` non deve cadere se il context non la porta
+    — un modulo esterno puo' costruirselo da se'."""
+    contesto["pages"] = {"https://x/%d" % i: pagina() for i in range(9)}
+    contesto.pop("axe_pages", None)
+    chiesti = []
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(
+        mars_wcag, "run_axe",
+        lambda urls, delay=0.0: chiesti.extend(urls) or mars_wcag.AxeRun(
+            [_viol()], len(urls)))
+    esito = mars_wcag.audit(contesto)
+
+    assert len(chiesti) == mars_wcag.MAX_PAGINE_AXE
+    assert esito["axe_pages"] == mars_wcag.MAX_PAGINE_AXE
+
+
 def test_wcag_axe_parziale_e_dichiarata(contesto, monkeypatch):
     """Una scansione parziale vale piu' di niente, ma spacciarla per
     completa no: e' la regola gia' applicata a ZAP in C9."""

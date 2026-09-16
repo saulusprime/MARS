@@ -228,29 +228,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **I23, I24, I25 e I26 sono realizzate** e stanno in
-[AS-IS.md](AS-IS.md); restano tre — I27, I28, I29. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **Da I23 a I27 sono realizzate** e stanno in
+[AS-IS.md](AS-IS.md); restano due — I28 e I29. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I27** — **il campione axe è una costante, non una scelta.**
-  `MAX_PAGINE_AXE = 5` ([mars_wcag.py:58](mars_wcag.py#L58)) non è un flag né
-  un campo API, mentre ogni altro confine del perimetro — `--max-pages`,
-  `--max-children`, `--zap-timeout` — è una scelta dichiarata. Prima di farne
-  una leva, misurare: la diffusione normalizza sulle pagine **analizzate**
-  ([mars_wcag.py:515](mars_wcag.py#L515)). **Misurato il 2026-09-15** su
-  `score_from_violations`, che è pura: allargare il campione da 5 a 10 pagine
-  **non muove il punteggio** a violazioni invariate — 50 e 50 con una regola
-  presente ovunque, 75 e 75 con una regola sulla sola home — ma lo abbassa
-  appena il campione più largo trova **una regola in più**: 50 → 38. Vale
-  quindi la stessa asimmetria di I21, e per la stessa ragione: zero
-  violazioni valgono 100, quindi un campione corto non può che alzare il
-  punteggio. Due referti con campioni diversi non si confrontano alla pari,
-  ed è questo — non la taratura — che rende la costante una scelta da
-  dichiarare.
 
 - **I28** — **1.2.x non lo guarda nessuno dei due rami.** Sottotitoli e
   trascrizioni sono criteri di livello A: axe non li controlla e il markup non

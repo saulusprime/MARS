@@ -16,7 +16,7 @@ from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from mars_config import PENALITA_STATICA, PESI_AXE
-from mars_core import (SEV_INFO, Finding, chiave_esterna,
+from mars_core import (AXE_PAGES, SEV_INFO, Finding, chiave_esterna,
                        frammento_identificante, normalizza_severita,
                        taglia_motivo)
 
@@ -77,7 +77,12 @@ def percorso_locale_axe(lang: str) -> str:
 
 # Browser lento: si controllano le prime pagine, non tutte. Dichiarato
 # nel referto, cosi' nessuno crede che sia stato guardato l'intero sito.
-MAX_PAGINE_AXE = 5
+#
+# Il default: la costante vera sta in `mars_core`, che CLI e API
+# condividono. Qui resta il nome perche' e' il ripiego di `audit()`
+# quando nessuno sceglie — e leggerlo di qui invece che dal `context`
+# renderebbe `--axe-pages` inerte, il difetto R54 (I27).
+MAX_PAGINE_AXE = AXE_PAGES
 TIMEOUT_AXE = 30000  # millisecondi
 
 # I testi che non dicono dove portano, per lingua della PAGINA. Prima
@@ -980,7 +985,10 @@ def audit(context: dict) -> dict:
     riga_caduta: List[str] = []
 
     if axe_disponibile():
-        urls = list(pages)[:MAX_PAGINE_AXE]
+        # Dal context e non dalla costante: leggere la costante qui
+        # renderebbe il parametro inerte, ed e' esattamente R54.
+        tetto = context.get("axe_pages") or MAX_PAGINE_AXE
+        urls = list(pages)[:tetto]
         passata = run_axe(urls, context.get("delay") or 0.0)
         if passata.analyzed:
             # La diffusione si misura sulle pagine ANALIZZATE, non su
@@ -1032,6 +1040,12 @@ def audit(context: dict) -> dict:
                 # Le pagine davvero esaminate, non quelle tentate.
                 "pages_tested": passata.analyzed,
                 "pages_attempted": len(urls),
+                # Il tetto CHIESTO, che non e' `pages_attempted`: su un
+                # sito di tre pagine il tetto e' cinque e i tentativi
+                # tre. Due referti con tetti diversi non si confrontano
+                # alla pari, e senza scriverlo qui bisognerebbe sapere
+                # con quale riga di comando sono stati prodotti (I27).
+                "axe_pages": tetto,
                 "pages_total": len(pages),
                 "complete": passata.analyzed == len(urls),
                 "violations_by_impact": esito["violations_by_impact"],

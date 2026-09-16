@@ -1864,6 +1864,38 @@ def test_build_context_porta_il_budget_di_zap(monkeypatch):
         "il default resta il quarto d'ora"
 
 
+def test_build_context_porta_il_tetto_di_axe(monkeypatch):
+    """I27, e lo stesso buco che le mutazioni avevano trovato per il
+    budget di ZAP e per il tetto dello spider: i test di CLI e API
+    sostituiscono `build_context`, quindi dimostrano che il valore ci
+    ARRIVA e non che venga conservato.
+
+    Con `build_context` che scriveva sempre la costante, tutta la
+    catena restava verde e `--axe-pages` era inerte — R54, per la terza
+    volta nello stesso punto.
+    """
+    class _CrawlerFinto:
+        def __init__(self, *a, **k):
+            self.delay = 0.0
+            self.robots_info = {"found": False, "text": "", "sitemaps": []}
+            self.sitemap_info = {}
+            self.discovery = "link interni"
+            self.skipped = {}
+
+        def crawl(self):
+            return {"https://x/": {"title": "x", "text": "x", "lang": "it",
+                                   "html": "<p>x</p>", "headings": [],
+                                   "chunks": ["x"]}}
+
+    monkeypatch.setattr(mars_core, "Crawler", _CrawlerFinto)
+    ctx = mars_core.build_context("https://x/", 1, "none", "global",
+                                  axe_pages=12)
+    assert ctx["axe_pages"] == 12
+    ctx = mars_core.build_context("https://x/", 1, "none", "global")
+    assert ctx["axe_pages"] == mars_core.AXE_PAGES == 5, \
+        "il default resta cinque pagine"
+
+
 def test_build_context_porta_il_form_factor(monkeypatch):
     """I16: il form factor sta nel context e non fra i parametri del
     `Crawler` per la stessa ragione di `max_children` — non riguarda la

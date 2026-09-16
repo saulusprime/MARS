@@ -19,158 +19,16 @@
 > golden di `tests/golden/`, e la rigenerazione va sempre seguita dalla
 > **revisione del diff** — non si rigenera per far tornare il verde.
 >
-> **Nessuna casella aperta.** Il 2026-09-15 ne sono state aperte tre e
-> chiuse tutte e tre — R71, R72 e R73 — e realizzate le idee I23 e I24.
-> Ognuna delle tre è nata dalla misura che chiudeva la precedente.
-> Il programma UPGRADE è chiuso, salvo la fase
-> che il piano stesso dichiara opzionale. Da R55 a R63 sono
-> tutte aperte e chiuse il 2026-08-27, nate da osservazioni dell'utente sul
-> campo e non da una revisione — due da un sospetto su `--max-pages`, tre da un
-> giudizio LLM che annunciava un invio mai partito, R60 da un referto vero
-> guardato da chi lo riceve, e R61 dal chiudere R60. **Il 2026-08-28 si è
-> chiuso il resto**: C4/C2 verificata sul campo con una chiave vera e una
-> chiamata vera, e la chiamata ha trovato **R63**; l'ultima prova mancante —
-> `evaluate_answer` — chiusa lo stesso giorno, e la misura che l'ha aperta è
-> che **sei mutazioni su sei** su quella funzione lasciavano la suite verde;
-> **U10.1**, **U10** e **U11**, cioè le ultime fasi del programma. **I2**,
-> **I8**, **I4+I9** e **I15** sono le prime idee decise dopo la chiusura del
-> programma, e **I18** e' la prima voce NUOVA aperta dopo di essa — la
-> correzione con esempio per l'area SEO, chiesta e chiusa lo stesso giorno: non avevano
-> una casella, e l'hanno avuta quando l'utente ha detto di farle. I8 è stata
-> realizzata **in forma ridotta e dichiarata**: un modulo `mars_config.py`, non
-> il file di configurazione che l'idea chiedeva — la ragione sta in
-> [AS-IS.md](AS-IS.md), e chi volesse il file esterno riapra una voce invece di
-> credere che I8 lo abbia già fatto.
+> **Nessuna casella aperta.** Il programma UPGRADE è chiuso, salvo la fase
+> che il piano stesso dichiara opzionale. La cronologia di ciò che è stato
+> chiuso — difetto, soluzione e prove, voce per voce — sta in
+> [AS-IS.md](AS-IS.md), che la indicizza tutta: qui resta solo ciò che deve
+> ancora essere fatto, e ripetere là il racconto lo farebbe divergere.
 >
-> `__version__` è salita a **2.10.0** con R63, perché da lì i punteggi si
-> muovono a sito invariato; a **2.11.0** con U10.1, che non muove alcun
-> punteggio ma aggiunge una famiglia di rilievi; a **2.12.0** con U10, a
-> **2.13.0** con U11, a **2.14.0** con I2, a **2.15.0** con I4+I9, che
-> aggiunge contenuto al referto, a **2.16.0** con I15, da cui i punteggi
-> lessicali si muovono a sito invariato, e a **2.17.0** con I18. I8 non l'ha mossa: nessun punteggio
-> cambia e nessuna interfaccia con lei. **I10** (2026-08-31) l'ha portata a
-> **2.18.0**: nasce l'area «3. Prestazioni» e le aree 3-9 diventano 4-10 —
-> le chiavi dei rilievi e lo storico non si muovono, il complessivo nemmeno,
-> perché l'area ne resta fuori per decisione dichiarata. Il primo confronto
-> del committente col PSI (2026-08-31) ha aperto e chiuso **R64** — la
-> diffusione axe partiva dal massimo sul campione di una pagina, e da lì i
-> punteggi WCAG si muovono a sito invariato — e ha deciso **I16**, che con
-> `--form-factor` porta la versione a **2.19.0**. Lo stesso giorno si è
-> decisa **I17** — il segnale «Recuperabilità» del complessivo e dei profili
-> di citabilità è la media per query, che da k non dipende, e l'aggregato
-> resta come diagnostica — e la versione è **2.20.0**, perché complessivo e
-> profili si muovono a sito invariato. La revisione di I17 ha aperto **R65**
-> — le code a punteggio zero regalavano consenso sulle query a riscontro
-> parziale — chiusa lo stesso giorno: da lì le classifiche si fermano dove
-> finiscono i riscontri, e la versione è **2.21.0**. Lo stesso giorno il
-> committente ha chiesto di riprogettare l'hero, «poco dinamico»: **I19**
-> lo ricompone — la variazione rispetto al giro precedente sale in testa,
-> le tre tessere di uguale peso e il donut diventano due barre
-> proporzionali, e il movimento sta dietro `prefers-reduced-motion` —
-> e la versione è **2.22.0**. Il 2026-09-01 un audit eseguito dentro il
-> container ha aperto e chiuso **R66**: il referto leggeva «Lighthouse non
-> riuscito: CalledProcessError», cioè aveva la diagnosi dello strumento —
-> `CalledProcessError` porta lo stderr — e la buttava via; quella non ha
-> mosso la versione, perché nessun punteggio cambia e nessuna interfaccia.
-> **Il pilota di I20** sì, a **2.23.0**: il referto guadagna contenuto —
-> gli esempi delle aree SEO e Prestazioni, che nell'HTML non comparivano
-> affatto, e il frammento VERO del sito dove Lighthouse lo fornisce —
-> senza che alcun punteggio si muova, come per I18. **I20** è arrivata
-> a **2.25.0** in tre giri — i controlli SEO, poi axe e ZAP, poi i
-> controlli statici — e per la stessa ragione: il referto guadagna
-> contenuto e nessun punteggio si muove — poi a **2.26.0** col giro che
-> ha reso parlanti i tetti e ha portato il «quale elemento» nel piano,
-> e a **2.27.0** con la prima delle tre letture di «completa»: il piano
-> copre anche gli `info`.
->
-> **Il 2026-09-02 il montaggio di un `.venv` a 3.10 su questa macchina ha
-> aperto e chiuso R67 e R68**, tutte e due nate dall'ambiente e non da una
-> revisione: la suite era verde altrove e rossa qui. **R67** — `_iso`
-> passava a `fromisoformat` una `Z` che solo la 3.11 legge, e sotto un
-> `unavailable_after` scaduto spariva dal referto **senza un errore**;
-> **R68** — `conftest` prendeva `mars_wcag` da un `import` invece che dal
-> caricatore, quindi la fixture `autouse` del locale axe rattoppava un
-> oggetto morto e la suite tornava a dipendere da `npm install`. Nessuna
-> delle due muove `__version__`: sugli interpreti su cui MARS gira davvero
-> l'esito è identico, e la seconda è banco di prova soltanto.
->
-> **Il 2026-09-03 nasce e si chiude I21**, dalla stessa via: un audit con
-> `--i-own-this-domain` ha saturato la CPU per quattordici minuti ed è
-> stato ucciso 72 secondi prima che MARS lo fermasse da solo. La proposta
-> del committente — «un core e dieci secondi, quello che rileva rileva» —
-> è stata **rovesciata da una misura**: `score_from_alerts([])` vale 100,
-> quindi un budget corto non abbassa il punteggio ma lo alza. Il contratto
-> dell'area 8 resta quindi intatto per sua decisione, e si costruiscono le
-> due leve: `cpus: "1.0"` su ZAP in compose e `--zap-timeout` come scelta
-> **dichiarata nel referto**. `__version__` sale a **2.28.0**: nessun
-> punteggio si muove, ma nascono un flag, un campo API e una chiave.
-> **Resta possibile e non scelta** la terza via — rendere `unavailable`
-> una scansione troncata invece di lasciarle un numero: chi la volesse
-> riapra una voce.
->
-> **Lo stesso giorno, R69**, aperta da un «Auth error» di Swagger: la
-> chiave di `FAKE_USERS_DB` e il campo `username` erano due scritture
-> dello stesso nome, e cambiarne una restituiva un token valido che non
-> apriva nulla — la forma di R1, tornata perche' il presidio mancava
-> dove il difetto nasce. Accanto, la password in chiaro nel sorgente:
-> ora l'hash si legge dal file indicato da `MARS_API_PASSWORD_HASH_FILE`,
-> e il **percorso** invece del valore perche' compose divora i `$` di un
-> hash bcrypt senza un errore. `__version__` a **2.29.0**: cambia il
-> contratto di configurazione dell'API — non ci sono piu' credenziali
-> predefinite — e non un punteggio.
->
-> **Il 2026-09-04, R70**, aperta da una richiesta che chiedeva altro:
-> «riavviare i container dopo ogni audit». Non serve — il riavvio era la
-> cura del sintomo. `core/view/alerts` restituisce gli alert dell'intera
-> SESSIONE ZAP, e MARS non ne apriva mai una nuova: il secondo audit
-> dello stesso sito sommava i rilievi del primo, e il punteggio scendeva
-> a sito fermo. Nello storico del committente si vede: 76 con sessione
-> vergine, 30 al giro dopo, e otto audit consecutivi a 400 istanze fisse.
-> `__version__` a **2.30.0**, perche' da qui i punteggi di sicurezza si
-> muovono a sito invariato.
->
-> **I22**, lo stesso giorno, e' la richiesta da cui R70 e' nata: «una
-> chiamata API che riavvii i container». La premessa era falsa — i
-> container non vanno riavviati — e l'endpoint e' stato costruito lo
-> stesso, per decisione del committente, ma non serve piu' a quello. Il
-> socket di Docker nel container e' stato **rifiutato**: equivale a root
-> sull'host per chi raggiunge l'API. Passa un file, e a eseguirlo e' un
-> sorvegliante sull'host con un proprio elenco di nomi permessi — due
-> porte, e la seconda non si fida della prima. `__version__` a
-> **2.31.0**: nasce un endpoint, nessun punteggio si muove.
->
-> **Il 2026-09-15 una revisione della sola area 7** apre **R71** e sette
-> idee, da **I23** a **I29**. Nate da una lettura del sorgente e
-> **verificate lo stesso giorno sul codice in esecuzione**, mano a mano
-> che l'ambiente veniva completato: **tutte e otto sono misurate**, e i
-> numeri stanno in ciascuna voce. Le ultime tre — la metà axe di R71,
-> I23 e I24 — hanno dovuto aspettare `npm install`, e sono cadute
-> insieme appena axe-core 4.13.0 è stato disponibile. Perché proprio
-> quest'area: per
-> `market: eu` l'accessibilità è l'unico segnale che `mars_citability`
-> moltiplica, e lo moltiplica per due
-> ([mars_citability.py:93](mars_citability.py#L93)), quindi qui un difetto
-> costa il doppio nel complessivo di un sito europeo. La stessa revisione
-> non ha trovato traccia, in nessuno dei tre documenti, della rimozione di
-> `landing/` dal repository: se quella decisione va registrata, il posto è
-> [AS-IS.md](AS-IS.md), non questo file.
->
-> **R71 è chiusa lo stesso giorno** e sta in [AS-IS.md](AS-IS.md):
-> `estrai_immagini()` porta al modulo le marcature che esentano, e
-> `_senza_alternativa()` decide quali, concordando con axe perché è lo
-> stesso strumento del ramo forte. Undici mutazioni, nessuna sfuggita.
-> `__version__` a **2.32.0**: da lì i punteggi WCAG si muovono a sito
-> invariato, verso l'alto — 88 → 100 dove il sito aveva marcato bene le
-> proprie immagini decorative. La misura che l'ha chiusa ha aperto
-> **R72**, il difetto opposto — `alt=" "` vale come alternativa
-> testuale e non lo è — chiusa a sua volta lo stesso giorno, in un commit
-> suo perché muove i punteggi **verso il basso**: sotto una versione sola
-> i due movimenti non si sarebbero più letti. `__version__` a **2.33.0**.
->
-> **Da I15 si sa una cosa sui golden**: colgono un tokenizzatore morto, non
-> uno sbagliato — il ritorno a `.lower().split()`, cioè la regressione di R18,
-> li lascia verdi. Misurato, e scritto in [AS-IS.md](AS-IS.md): il presidio di
-> `tokenize` sono i test unitari.
+> **Lo stato del sistema** — versioni, strumenti presenti, limitazioni
+> dichiarate — sta in testa ad [AS-IS.md](AS-IS.md), e si legge prima di
+> aprire una voce nuova: diverse proposte plausibili sono già chiuse o già
+> dichiarate come limite.
 >
 > **I principi** stanno in [.claude/principi.md](.claude/principi.md), che
 > CLAUDE.md monta in ogni sessione, e valgono anche qui: una voce che per
@@ -224,12 +82,3 @@
   *Una cosa che il piano non dice ancora*: la vista testo si ferma a
   cinque voci e dichiara il troncamento, quella HTML le stampa tutte.
   Con 27 voci la differenza si vede.
-
-### Area 7 — accessibilità
-
-**Nessuna aperta.** Le sette voci della revisione del 2026-09-15 — da
-**I23** a **I29** — sono tutte realizzate e stanno in
-[AS-IS.md](AS-IS.md), insieme alle tre correzioni che le misure hanno
-aperto lungo la strada (**R71**, **R72**, **R73**). Nessuna era una
-proposta: ognuna è stata prima **verificata in esecuzione**, e il numero
-che l'ha decisa sta nella sua voce.

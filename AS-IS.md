@@ -23,6 +23,86 @@
 >
 > Il testo integrale è nella storia di git: `git show 0753405:AS-IS.md`.
 
+## Stato del sistema — 2026-09-16
+
+Questa sezione dice **com'è il sistema oggi**, non come è arrivato qui: la
+storia sta nelle voci sotto. Ogni riga è verificata su questa macchina il
+2026-09-16, e dove una misura manca lo dice.
+
+| Voce | Stato |
+|---|---|
+| `__version__` | **2.40.0** |
+| Suite | **1467 test**, `flake8` a zero, ~23 secondi, nessuna rete e nessun browser |
+| Interprete di sviluppo | `.venv` a **Python 3.10.12** |
+| Interprete del container | `python:3.12-slim-bookworm` (`docker/Dockerfile`) |
+| Interprete di sistema | Ubuntu 26.04 porta **solo** Python 3.14.4 |
+| Strumenti esterni presenti | node 22.22.1, npm 9.2.0, **axe-core 4.13.0**, **Lighthouse 13.4.1**, Playwright 1.62.0 con Chromium |
+| Opzionali Python presenti | `anthropic` 1.5.0, `playwright` 1.62.0 |
+| Opzionali Python assenti | `sentence-transformers`, `torch`, `scikit-learn`, `numpy` |
+| ZAP | binario presente (`/snap/bin/zaproxy`), **nessun daemon in esecuzione** e nessuna scansione misurata in questa sessione |
+
+**La 3.10 non è più nei repository della distribuzione.** L'aggiornamento a
+Ubuntu 26.04 ha tolto ogni interprete sotto la 3.14, e il `.venv` era stato
+ricostruito sulla 3.14 — cioè il presidio che CLAUDE.md dichiara («la più
+bassa che il progetto regga, scelta perché è lì che i difetti di versione si
+vedono») non c'era più. È stato rimesso con `uv`, che installa un 3.10.12 già
+compilato sotto `~/.local/share/uv/python`: un percorso stabile, fuori dalla
+revisione dello snap di VS Code, dove `XDG_DATA_HOME` puntava e dove il
+prossimo aggiornamento dell'editor avrebbe rotto la venv senza un errore
+comprensibile.
+
+**Verificato che il presidio serva ancora**: su 3.10.12
+`datetime.fromisoformat("2020-09-21t12:00:00z")` solleva `ValueError`, quindi
+il test di R67 è esercitato e non inerte.
+
+**Senza lo stack vettoriale**, il recuperatore semantico gira col proxy
+char-TFIDF, che è il ripiego dichiarato del principio 2: la suite non ne
+dipende — `conftest` lo forza comunque — ma un audit reale su questa macchina
+usa il proxy, e il referto lo dichiara.
+
+### Limitazioni note dell'area 7, dopo la revisione del 2026-09-15/16
+
+Sono **dichiarate nel referto**, non sottintese: è il punto di I29.
+
+- Un audit automatico **non è una verifica di conformità**: restano fuori i
+  criteri che chiedono giudizio umano — se un testo alternativo dica la cosa
+  giusta, l'ordine di lettura, i sottotitoli sincronizzati.
+- Il livello misurato è **WCAG 2.1 A + AA + 2.2 target-size**: di WCAG 2.2
+  axe-core 4.13 porta quella regola sola, e dichiarare «2.2 AA» sarebbe la
+  promessa di una misura che non c'è stata (I24).
+- axe esamina **cinque pagine** del campione per default, ed è una scelta
+  passabile con `--axe-pages`; il referto dichiara il tetto e il totale, e due
+  referti con tetti diversi non si confrontano alla pari (I27, I29).
+- Il controllo sui link dal testo generico copre **cinque lingue** — it, en,
+  es, fr, de — e su una pagina in altra lingua non si applica **e lo dice**
+  (I25).
+- Il criterio 1.2.2 non è giudicato da nessuno dei due rami: il referto porta
+  un `info` che dice dove guardare, perché il markup non può sapere se i
+  sottotitoli esistano (I28).
+- Senza browser restano fuori contrasto, focus e ordine di lettura, e il
+  punteggio viene da sette controlli statici sul solo markup.
+
+### La revisione dell'area 7 come blocco
+
+Dieci voci fra il 2026-09-15 e il 2026-09-16, ciascuna con la sua voce qui
+sotto: sette idee (**I23**-**I29**) e tre correzioni nate dalla misura che
+chiudeva la voce precedente (**R71**, **R72**, **R73**). `__version__` da
+2.31.0 a 2.40.0.
+
+Perché proprio quest'area: per `market: eu` l'accessibilità è l'unico segnale
+che `mars_citability` moltiplica, e lo moltiplica per **due** (European
+Accessibility Act), quindi un difetto qui costa il doppio nel complessivo di
+un sito europeo.
+
+**La misura ha smentito la lettura cinque volte su dieci**, e sono le voci
+che valgono di più: in R71 il difetto era peggiore di come era scritto (i due
+rami dello stesso modulo si contraddicevano dentro lo stesso referto), in I27
+la previsione era sbagliata nel verso (allargare il campione non abbassa il
+punteggio), e in I23, I25, I28 e I29 il primo giro di mutazioni ha trovato
+rami non esercitati da alcun test — fra cui, per la terza volta nello stesso
+punto, `build_context` che può ignorare la scelta del chiamante lasciando
+verde tutta la catena.
+
 ## Indice
 
 | ID | Voce | Data |

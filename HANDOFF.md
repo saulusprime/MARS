@@ -27,7 +27,7 @@ quale:
   quella che consiglierei: aritmetica già in casa, nessuna prosa nuova.
 - **B — il raggruppamento** per pagina o per modifica.
 - **C — la verifica** di una voce chiusa.
-- **D — i `example` mancanti** (16 su 27).
+- **D — i `example` mancanti**: ne hanno 16 voci su 27, quindi ne mancano 11.
 
 I numeri che hanno prodotto le quattro letture sono nella voce: non
 rimisurarli, ma **rifarli prima di scrivere codice** se passa del tempo,

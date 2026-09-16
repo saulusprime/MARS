@@ -11,7 +11,7 @@
 > hanno una casella finché qualcuno non le decide.
 >
 > **Frontiera della numerazione**: correzioni fino a **R73**, idee fino a
-> **I29**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
+> **I30**, fasi UPGRADE fino a **U13**. Una voce nuova prende il numero
 > successivo; i numeri che qui mancano sono voci chiuse e stanno in
 > [AS-IS.md](AS-IS.md), che le indicizza tutte.
 >
@@ -82,3 +82,63 @@
   *Una cosa che il piano non dice ancora*: la vista testo si ferma a
   cinque voci e dichiara il troncamento, quella HTML le stampa tutte.
   Con 27 voci la differenza si vede.
+
+- **I30** — **il piano dice cosa fare, non in che ordine lavorare.** Aperta
+  il 2026-09-16 su richiesta del committente: «la remediation è poco più di
+  un consiglio». **Resta una decisione, ed è tua**: qui sotto ci sono quattro
+  letture, misurate sul referto sintetico, e non si sceglie da sé.
+
+  **Cosa il piano fa già**, perché la voce non finga che non ci sia nulla:
+  ordina 27 interventi per gravità e guadagno, dichiara per ognuno il
+  recupero di punti d'area col prima e il dopo, la corsia (misurato,
+  bloccato, ignoto, nullo), lo sforzo su tre livelli, i quick win, e il
+  guadagno sull'indice di citabilità col mercato che lo rende
+  confrontabile. Da I20 porta anche i frammenti veri del sito e le pagine.
+
+  **Cosa un lettore non ci trova**, misurato sulle 27 voci del golden:
+
+  | Domanda | Oggi |
+  |---|---|
+  | quanto vale chiudere le prime N **insieme** | non c'è |
+  | quali voci si chiudono con la **stessa** modifica | non c'è |
+  | come **verifico** che una voce sia chiusa | non c'è |
+  | la forma corretta da scrivere (`example`) | 16 voci su 27 |
+  | dove intervenire (`params.urls`) | 24 su 27 |
+  | quanto costa (`effort`) | 20 su 27 |
+
+  - **A. Il pacchetto.** Il piano dà il guadagno di **una voce alla volta** e
+    dichiara che i recuperi non sono additivi, ma non dice quanto valga
+    chiudere le prime cinque insieme, né di quanto salga il **complessivo**.
+    È l'unica delle quattro che non chiede prosa nuova: la stessa `R()` che
+    il modulo già usa. *Misurato*: sulle prime 3, 5 e 10 voci il pacchetto
+    coincide con la somma (102, 130, 170), ma dentro `mars_perf` chiudere le
+    quattro voci insieme vale **42 invece di 43** — la non-additività esiste
+    e morde dove un'area è vicina alla saturazione. **Se devo consigliarne
+    una, è questa**: risponde a «quanto vale la giornata di lavoro», e il
+    numero esiste già.
+
+  - **B. Il raggruppamento.** L'ordine è per valore, non per come si lavora:
+    *misurato*, **19 voci su 27 toccano la home** e 6 la pagina servizi, e
+    chi lavora per pagina o per template se lo riordina a mano. Una vista
+    per pagina userebbe `params["urls"]`, che c'è già in 24 voci su 27.
+    Attenzione al confine: **raggruppare non è ri-ordinare**, e la gravità
+    deve restare quella che domina — un `info` non scavalca un'avvertenza
+    perché sta sulla stessa pagina.
+
+  - **C. La verifica.** Nessuna voce dice come si controlla di averla
+    chiusa. Per i controlli che MARS misura da sé la verifica **è il
+    controllo stesso**, quindi la voce potrebbe dirlo invece di lasciarlo
+    dedurre; per axe, Lighthouse e ZAP è lo strumento a dirlo, e per
+    `wcag.media.captions_undeclared` non esiste affatto — quella voce
+    dichiara già di essere un puntatore.
+
+  - **D. Gli esempi che mancano.** `example` è valorizzato in 16 voci su 27.
+    È la lettura di «completa» che I20 lasciò non scelta, e qui torna
+    perché è ciò che separa «Collega ogni campo a una `<label>`» da una
+    forma che si copia.
+
+  *Un limite che vale per tutte e quattro*: quello che il piano pubblica
+  sono **stime dichiarate**, e la loro onestà sta nel dirlo. Una vista che
+  sommasse guadagni per farne una promessa — «chiudi questi cinque e passi
+  a 80» — sarebbe un numero più bello e meno vero: la somma vale finché il
+  certificato dell'area regge, e il piano lo dichiara voce per voce.

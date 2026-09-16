@@ -462,22 +462,32 @@ interventi e dallo storico, perche' un giudizio del modello e'
 un'opinione e non una misura, e cambia a ogni giro. Cio' che nessun
 tema descrive finisce in `llm.content.other` e resta prosa.
 
+Prerequisiti. Python 3.10 o superiore: la suite gira verde sia sulla
+3.10.12 sia sulla 3.14.4 — verificato su entrambe — e il container usa
+la 3.12. La 3.10 e' il riferimento dello sviluppo perche' e' la piu'
+bassa che il progetto regga, ed e' li' che i difetti di versione si
+vedono: R67 era un comportamento della libreria standard assente sotto
+la 3.11, e nessuna rilettura del codice lo avrebbe trovato. Gli
+strumenti esterni — Lighthouse, axe-core, ZAP, un browser — sono tutti
+OPZIONALI: se mancano l'area ripiega e il referto lo dichiara.
+
 Installazione. Le dipendenze sono divise per ruolo:
 
     pip install -r requirements.txt            # CLI e API: sempre
     pip install -r requirements-optional.txt   # embedding reali, ZAP, Anthropic
     pip install -r requirements-dev.txt        # pytest, flake8
 
-I test si lanciano con `pytest` dalla radice del progetto: girano in
-meno di dieci secondi, non toccano la rete e non avviano Lighthouse,
-ZAP o un browser. Non possono nemmeno spendere: l'unica area che
+I test si lanciano con `pytest` dalla radice del progetto: sono 1467 e
+girano in poco piu' di venti secondi, non toccano la rete e non avviano
+Lighthouse, ZAP o un browser — nemmeno quando axe-core e' installato. Non possono nemmeno spendere: l'unica area che
 chiama un'API a pagamento e' bloccata al livello del transport HTTP,
 e un test che ci provasse fallirebbe dicendolo.
 
-Golden del referto. tests/golden/ contiene la resa attesa dei tre
-formati su due referti sintetici: uno con ogni strumento a
-disposizione, uno con Lighthouse, ZAP e axe assenti e un'area caduta.
-Sei file, che qualunque cambiamento di resa fa fallire con un diff.
+Golden del referto. tests/golden/ contiene la resa attesa dei cinque
+formati — JSON, HTML, Markdown, testo e CSV — su due referti sintetici:
+uno con ogni strumento a disposizione, uno con Lighthouse, ZAP e axe
+assenti e un'area caduta. Dieci file, che qualunque cambiamento di resa
+fa fallire con un diff.
 
 Congelano la PIPELINE, non i soli renderer: i risultati d'area
 vengono dai moduli veri, quindi anche un punteggio che cambia li fa

@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.35.0
+Versione 2.36.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -209,9 +209,18 @@ regola che axe-core 4.13 porta per il 2.2, quindi il referto dichiara
 "WCAG 2.1 A + AA + 2.2 target-size" e non "WCAG 2.2 AA": il livello
 intero sarebbe la promessa di una misura che non c'e' stata. Senza
 browser i controlli statici restano al solo 2.1, perche' la dimensione
-dei bersagli ha bisogno del CSS applicato. Serve un browser reale: criteri come il contrasto colore
-dipendono dal CSS applicato, e valutarli sull'HTML grezzo darebbe
-risultati sbagliati, che e' peggio che non darli. Per attivarlo:
+dei bersagli ha bisogno del CSS applicato. Serve un browser reale:
+criteri come il contrasto colore dipendono dal CSS applicato, e
+valutarli sull'HTML grezzo darebbe risultati sbagliati, che e' peggio
+che non darli.
+
+Il controllo sui link dal testo generico ("clicca qui") segue la lingua
+dichiarata dalla PAGINA, e copre italiano, inglese, spagnolo, francese e
+tedesco: le stesse lingue delle query predefinite. Una pagina in un'altra
+lingua non viene controllata, e il referto lo dice invece di mostrare un
+pass — un controllo che non si applica non e' un controllo passato.
+
+Per attivare l'audit con browser:
 
     pip install -r requirements-optional.txt
     python -m playwright install chromium

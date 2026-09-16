@@ -82,6 +82,15 @@ non è un gusto: è **axe**, cioè lo stesso strumento che il ramo forte
 dell'area 7 usa, e finché i due rami non concordavano lo stesso referto
 portava 1 violazione da axe e 8 dal controllo statico (R71).
 
+Il `lang` di una **pagina** non è solo un dato da giudicare: governa
+anche quali controlli si applicano a quella pagina. `mars_wcag` ci
+sceglie l'elenco dei testi generici dei link (criterio 2.4.4), sulle
+stesse cinque lingue di `QUERY_GENERICHE` — due insiemi di lingue nello
+stesso programma divergerebbero. Una lingua che nessun elenco copre non
+diventa un pass silenzioso: il modulo dichiara di non aver eseguito il
+controllo, perché un controllo che non si applica non è un controllo
+passato (I25).
+
 `meta_robots` porta **solo** i `<meta name="robots">`, quelli che
 valgono per ogni crawler. Le direttive rivolte a un agente solo —
 `<meta name="googlebot">` — stanno in `meta_robots_by_agent`, un dict

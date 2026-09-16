@@ -80,8 +80,40 @@ def percorso_locale_axe(lang: str) -> str:
 MAX_PAGINE_AXE = 5
 TIMEOUT_AXE = 30000  # millisecondi
 
-TESTI_GENERICI = {"clicca qui", "click here", "leggi tutto", "read more",
-                  "qui", "here", "link", "continua", "more", "vai"}
+# I testi che non dicono dove portano, per lingua della PAGINA. Prima
+# erano un insieme solo, italiano e inglese, confrontato per uguaglianza
+# con i link di qualunque sito: su un sito tedesco il controllo 2.4.4
+# non trovava nulla e il referto lo mostrava come un pass — misurato,
+# tre rilievi in italiano e zero in tedesco sulla stessa pagina (I25).
+#
+# Le lingue sono **le stesse di `QUERY_GENERICHE`** in mars_core, e non
+# un elenco nuovo: due insiemi di lingue nello stesso programma
+# divergerebbero, e la prima volta che succede nessuno se ne accorge.
+#
+# Resta una scelta EDITORIALE dichiarata, come lo era l'elenco
+# italiano: non viene da un corpus di link reali, e una voce sbagliata
+# qui produce un falso rilievo su un sito vero.
+TESTI_GENERICI_PER_LINGUA: Dict[str, frozenset] = {
+    # it ed en sono i dieci testi di prima, divisi e non arricchiti: I25
+    # e' una voce sulle LINGUE, e aggiungere qui una voce muoverebbe i
+    # punteggi dei siti italiani sotto un'etichetta che parla d'altro.
+    # `link` sta in tutt'e due perche' la parola e' la stessa.
+    "it": frozenset({"clicca qui", "leggi tutto", "qui", "link",
+                     "continua", "vai"}),
+    "en": frozenset({"click here", "read more", "here", "link", "more"}),
+    "es": frozenset({"haga clic aquí", "clic aquí", "leer más", "más",
+                     "aquí", "enlace", "continuar", "ver más"}),
+    "fr": frozenset({"cliquez ici", "cliquer ici", "lire la suite",
+                     "en savoir plus", "ici", "plus", "suite", "lien",
+                     "continuer"}),
+    "de": frozenset({"hier klicken", "klicken sie hier", "mehr lesen",
+                     "weiterlesen", "mehr", "hier", "weiter", "link"}),
+}
+
+# L'unione, per la pagina che non dichiara la propria lingua: non c'e'
+# nulla da restringere, e restringere a it+en era la scelta implicita
+# che nascondeva il caso.
+TESTI_GENERICI_TUTTE = frozenset().union(*TESTI_GENERICI_PER_LINGUA.values())
 
 # I ruoli che tolgono un'immagine dal criterio 1.1.1. Sono due e non
 # "un role qualsiasi": `role="img"` senza alt resta una violazione, e
@@ -147,6 +179,39 @@ def _statico(chiave: str, testo: str,
                    # source_severity resta vuoto: axe non ha parlato,
                    # la gravita' l'abbiamo scelta noi.
                    params=dict(params, criterio=criterio, penalty=0.0))
+
+
+def _testi_generici(lang: object) -> Optional[frozenset]:
+    """L'elenco per la lingua della pagina, o `None` se non la copriamo.
+
+    `None` non e' l'insieme vuoto: vuol dire «non lo so dire», ed e' il
+    caso che il referto deve dichiarare invece di lasciar credere a un
+    pass (I25). Un controllo che non si applica non e' un controllo
+    passato — la stessa onesta' di `score: None` per un'area non
+    misurata.
+
+    Senza lingua dichiarata si confronta con TUTTI gli elenchi: la
+    pagina ha gia' il suo rilievo 3.1.1, e un secondo silenzio non
+    aiuterebbe nessuno.
+    """
+    codice = str(lang or "").strip().lower()[:2]
+    if not codice:
+        return TESTI_GENERICI_TUTTE
+    return TESTI_GENERICI_PER_LINGUA.get(codice)
+
+
+def lingue_non_coperte(pages: dict) -> List[str]:
+    """Le lingue dichiarate dalle pagine per cui non abbiamo un elenco.
+
+    Ordinate e distinte: due esecuzioni sullo stesso sito devono dare
+    lo stesso referto. La pagina senza lingua non entra — li' il
+    controllo gira sull'unione, e cio' che manca e' gia' detto dal
+    rilievo 3.1.1.
+    """
+    mancanti = {str(d.get("lang") or "").strip().lower()[:2]
+                for d in (pages or {}).values()}
+    return sorted(c for c in mancanti
+                  if c and c not in TESTI_GENERICI_PER_LINGUA)
 
 
 def _senza_alternativa(immagine: dict) -> bool:
@@ -319,9 +384,12 @@ def controlli_statici(pages: dict) -> List[Finding]:
                 segna("wcag.table.th_missing", url)
                 cita("wcag.table.th_missing", tabella.get("caption") or "")
 
-        for ancora in dati.get("links") or []:
+        # L'elenco della lingua di QUESTA pagina: un sito puo' averne
+        # piu' d'una, e il referto ne dichiara una sola.
+        generici = _testi_generici(dati.get("lang"))
+        for ancora in (dati.get("links") or []) if generici else []:
             testo = (ancora.get("text") or "").lower().strip(" .:>»→")
-            if testo in TESTI_GENERICI and not ancora.get("aria-label"):
+            if testo in generici and not ancora.get("aria-label"):
                 link_generici += 1
                 segna("wcag.link.generic", url)
                 # Il testo da solo e' il difetto, non l'identificativo:
@@ -856,6 +924,27 @@ def audit(context: dict) -> dict:
     statici = controlli_statici(pages)
     testi_statici = [_issue_statica(f) for f in statici]
 
+    # Le lingue su cui il controllo 2.4.4 non ha guardato. Sta FUORI da
+    # `statici` di proposito: quella lista paga il punteggio nel ramo di
+    # ripiego (`len(statici) * PENALITA_STATICA`), e uno stato non e' un
+    # difetto del sito — addebitarlo toglierebbe 12 punti a chi ha
+    # scritto il sito in una lingua che non copriamo (I25).
+    scoperte = lingue_non_coperte(pages)
+    stato_lingue: List[dict] = []
+    righe_lingue: List[str] = []
+    if scoperte:
+        elenco = ", ".join(scoperte)
+        coperte = ", ".join(sorted(TESTI_GENERICI_PER_LINGUA))
+        righe_lingue = ["Il controllo sui testi generici dei link non "
+                        "copre %s: su quelle pagine non e' stato "
+                        "eseguito" % elenco]
+        stato_lingue = [Finding(
+            area="mars_wcag", severity=SEV_INFO,
+            key="wcag.status.link_lang",
+            title="il controllo sui testi generici dei link non copre %s"
+                  % elenco,
+            params={"lingue": elenco, "coperte": coperte}).as_dict()]
+
     # Il motivo per cui axe non ha girato, quando c'e': lo porta il
     # ramo di ripiego, che altrimenti dichiarerebbe di aver ripiegato e
     # non perche' (I23).
@@ -921,11 +1010,11 @@ def audit(context: dict) -> dict:
                 "rules_violated": esito["rules_violated"],
                 # I rilievi statici restano: coprono l'intero campione,
                 # mentre axe ne ha visto solo le prime pagine.
-                "issues": rilievi + testi_statici,
+                "issues": rilievi + righe_lingue + testi_statici,
                 # In questo ramo il punteggio viene DA AXE: i controlli
                 # statici non lo toccano, quindi la loro penalita' e'
                 # zero — ed e' cio' che _statico() gia' dichiara.
-                "findings": (parziale + esito["findings"]
+                "findings": (parziale + esito["findings"] + stato_lingue
                              + [f.as_dict() for f in statici]),
                 "static_findings": testi_statici,
             }
@@ -978,6 +1067,7 @@ def audit(context: dict) -> dict:
             # ometterla.
             "wcag_level": WCAG_LIVELLO,
             "pages_total": len(pages),
-            "issues": riga_caduta + testi_statici,
-            "findings": caduta + [f.as_dict() for f in statici],
+            "issues": riga_caduta + righe_lingue + testi_statici,
+            "findings": (caduta + stato_lingue
+                         + [f.as_dict() for f in statici]),
             "static_findings": testi_statici}

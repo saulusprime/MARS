@@ -374,6 +374,9 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "axe examined none of the %(tentate)d pages in the "
                  "sample",
     },
+    "wcag.status.link_lang": {
+        "title": "the generic link text check does not cover %(lingue)s",
+    },
     "wcag.status.no_fixes": {
         "title": "axe correction texts unavailable: the Italian "
                  "axe-core locale is missing",

@@ -228,23 +228,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **I23 e I24 sono realizzate** e stanno in
-[AS-IS.md](AS-IS.md); restano cinque. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **I23, I24 e I25 sono realizzate** e stanno in
+[AS-IS.md](AS-IS.md); restano quattro. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I25** — **il controllo 2.4.4 è monolingue.** `TESTI_GENERICI`
-  ([mars_wcag.py:61](mars_wcag.py#L61)) sono dieci testi italiani e inglesi
-  confrontati per uguaglianza: su un sito tedesco o spagnolo il controllo tace,
-  e il referto lo mostra come un pass invece che come un controllo che non si
-  applica. È la forma di R9. La lingua c'è già — ogni pagina porta `lang` — ma
-  `controlli_statici(pages)` non riceve il `context`, quindi la voce comincia
-  da una decisione di firma. **Misurato**: la stessa pagina con tre link
-  generici dà «3 link con testo generico» in italiano e **nessun rilievo**
-  in tedesco (`hier klicken`, `mehr lesen`, `weiter`).
 
 - **I26** — **il tabindex non sa dire quale elemento.** È l'unico dei sette
   controlli statici senza `cita()` ([mars_wcag.py:277](mars_wcag.py#L277)),

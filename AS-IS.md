@@ -104,6 +104,7 @@
 | I23 | Perche' axe non ha esaminato una pagina entra nel referto | 2026-09-15 |
 | I24 | Il tag WCAG 2.2 di axe, e un livello che dichiara cio' che misura | 2026-09-15 |
 | R73 | Il livello WCAG del ripiego era italiano in un referto inglese | 2026-09-15 |
+| I25 | Il controllo sui link generici segue la lingua della pagina | 2026-09-16 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2406,6 +2407,61 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I25 — ✅ REALIZZATA (2026-09-16): il controllo sui link generici segue la lingua della pagina
+
+**Il fatto.** `TESTI_GENERICI` erano dieci testi italiani e inglesi
+confrontati **per uguaglianza** con i link di qualunque sito. Su un
+sito tedesco «hier klicken» non c'era, quindi il criterio 2.4.4 non
+trovava nulla — e il referto lo mostrava come un pass. Misurato prima
+della correzione, sulla stessa pagina: tre rilievi in italiano,
+**zero** in tedesco.
+
+**Le lingue non sono un elenco nuovo.** Sono le cinque che il progetto
+già dichiara in `QUERY_GENERICHE` — it, en, es, fr, de — con lo stesso
+ripiego. Due insiemi di lingue nello stesso programma divergerebbero, e
+la prima volta che succede nessuno se ne accorge.
+
+**it ed en sono i dieci testi di prima, divisi e non arricchiti.** La
+prima stesura ne aggiungeva altri sei («clicca», «scopri di più»,
+«learn more»…): sarebbe stato muovere i punteggi dei siti italiani
+sotto un'etichetta che parla d'altro. Tolti.
+
+**La metà che conta è l'altra**: una lingua che nessun elenco copre non
+diventa un pass silenzioso. `_testi_generici` restituisce `None` — che
+non è l'insieme vuoto, vuol dire «non lo so dire» — il controllo non
+gira, e `wcag.status.link_lang` lo dichiara nel referto. È la stessa
+onestà di `score: None` per un'area non misurata: **un controllo che
+non si applica non è un controllo passato**.
+
+Senza `lang` dichiarato si confronta con l'**unione** di tutti gli
+elenchi: non c'è nulla da restringere, e restringere a it+en era
+esattamente la scelta implicita che nascondeva il caso. Quella pagina
+ha già il suo rilievo 3.1.1, e un secondo silenzio non aiuterebbe.
+
+**Lo stato sta fuori da `statici`**, e non è un dettaglio: quella lista
+paga il punteggio nel ramo di ripiego (`len(statici) × PENALITA_STATICA`),
+e addebitarlo toglierebbe 12 punti a chi ha scritto il sito in una
+lingua che non copriamo.
+
+**Gli esempi nel titolo del rilievo restano nella lingua del REFERTO**
+(«clicca qui», «leggi tutto»), non in quella della pagina: spiegano il
+concetto a chi legge, mentre i link veri del sito stanno in
+`params["cited"]` da I20. Sono due domande diverse, come per ogni altro
+rilievo.
+
+**Verifiche.** `flake8` a zero; `pytest` 1451 passati su Python
+3.10.12. **Sette mutazioni, nessuna sfuggita** — ma una era sfuggita al
+primo giro, e vale più del risultato: far usare l'unione anche alle
+lingue scoperte lasciava la suite verde, perché nessun test metteva su
+una pagina scoperta un link che l'unione avrebbe riconosciuto. Ora
+quella pagina in russo ha un link «hier klicken», e la mutazione fa
+rosso. End-to-end: un sito tedesco passa da 100 in silenzio a 88 col
+rilievo, un sito russo resta 100 **ma con la riga che dichiara il
+non-eseguito**, un sito italiano non si muove. I golden non cambiano:
+le loro pagine sono italiane. `__version__` a **2.36.0**: i punteggi
+WCAG si muovono a sito invariato sui siti in spagnolo, francese e
+tedesco.
 
 ### R73 — ✅ (2026-09-15): il livello WCAG del ripiego era italiano in un referto inglese
 

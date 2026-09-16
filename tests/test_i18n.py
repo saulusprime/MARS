@@ -149,6 +149,12 @@ def _params_del_banco(monkeypatch) -> dict:
         '<html><body><h1>t</h1><div tabindex="3">x</div></body></html>')}}
     raccogli(mars_wcag.audit(wcag))
 
+    # Area 7: una pagina in una lingua che gli elenchi non coprono, e
+    # il controllo 2.4.4 lo dichiara invece di tacere (I25).
+    raccogli(mars_wcag.audit({"pages": {"https://esempio.test/ru": pagina(
+        '<html lang="ru"><body><h1>t</h1><a href="/a">клик</a>'
+        '</body></html>')}}))
+
     # Area 7, ramo di ripiego CON la diagnosi (I23): axe c'e' e non
     # riesce a esaminare nulla. I due referti sintetici hanno una
     # scansione axe riuscita, quindi questa chiave la accende solo qui.

@@ -1843,6 +1843,81 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
 
 
+def test_wcag_i_testi_generici_seguono_la_lingua_della_pagina():
+    """I25: su un sito tedesco il controllo 2.4.4 taceva.
+
+    `TESTI_GENERICI` erano dieci testi italiani e inglesi confrontati
+    per uguaglianza: «hier klicken» non c'era, quindi il referto
+    mostrava un pass dove nessuno aveva guardato. Misurato prima della
+    correzione: la stessa pagina dava tre rilievi in italiano e zero in
+    tedesco.
+
+    Le lingue sono quelle che il progetto gia' dichiara in
+    `QUERY_GENERICHE` — it, en, es, fr, de — e non un elenco nuovo: due
+    insiemi di lingue nello stesso programma divergerebbero.
+    """
+    generici = {
+        "it": '<a href="/a">clicca qui</a><a href="/b">leggi tutto</a>',
+        "en": '<a href="/a">click here</a><a href="/b">read more</a>',
+        "de": '<a href="/a">hier klicken</a><a href="/b">weiterlesen</a>',
+        "fr": '<a href="/a">cliquez ici</a><a href="/b">lire la suite</a>',
+        "es": '<a href="/a">haga clic aquí</a><a href="/b">leer más</a>',
+    }
+    for lingua, corpo in generici.items():
+        p = pagina(html='<html lang="%s"><head><title>t</title></head>'
+                        '<body><h1>A</h1>%s</body></html>' % (lingua, corpo))
+        rilievi = [f.key for f in
+                   mars_wcag.controlli_statici({"https://x/": p})]
+        assert "wcag.link.generic" in rilievi, \
+            "in %s il controllo non ha guardato" % lingua
+
+
+def test_wcag_una_lingua_non_coperta_si_dichiara_invece_di_tacere():
+    """I25, la meta' che conta: un controllo che non si applica non e'
+    un controllo passato.
+
+    Su una pagina in russo l'elenco non c'e'. Prima il confronto girava
+    lo stesso con le parole italiane e non trovava nulla, e il referto
+    lo mostrava come un pass. Ora il controllo non si applica **e lo
+    dice**: e' la stessa onesta' di `score: None` per un'area non
+    misurata.
+    """
+    # Il secondo link e' generico in TEDESCO: se il controllo girasse
+    # sull'unione degli elenchi scatterebbe, e il referto direbbe di
+    # aver guardato una lingua che non sa leggere. Una mutazione e'
+    # passata di qui finche' questo link non c'era.
+    p = pagina(html='<html lang="ru"><head><title>t</title></head>'
+                    '<body><h1>A</h1><a href="/a">клик</a>'
+                    '<a href="/b">hier klicken</a></body></html>')
+    esito = mars_wcag.audit({"pages": {"https://x/": p}})
+
+    assert not [f for f in esito["findings"]
+                if f["key"] == "wcag.link.generic"], \
+        "su una lingua scoperta il controllo non si applica"
+    stato = [f for f in esito["findings"]
+             if f["key"] == "wcag.status.link_lang"]
+    assert len(stato) == 1, "la lingua scoperta va dichiarata"
+    assert "ru" in stato[0]["params"]["lingue"]
+    # Uno stato, non un difetto del sito: non pesa sul punteggio.
+    assert "penalty" not in stato[0]["params"]
+
+
+def test_wcag_senza_lingua_dichiarata_si_confronta_con_tutte():
+    """I25: senza `lang` non c'e' nulla da restringere.
+
+    Restringere a it+en era la scelta implicita di prima, ed e' cio'
+    che nascondeva il caso. Una pagina senza lingua ha gia' il suo
+    rilievo 3.1.1: aggiungere un secondo silenzio non aiuta nessuno.
+    """
+    p = pagina(html='<html><head><title>t</title></head>'
+                    '<body><h1>A</h1><a href="/a">hier klicken</a>'
+                    '</body></html>')
+    rilievi = [f.key for f in mars_wcag.controlli_statici({"https://x/": p})]
+
+    assert "wcag.link.generic" in rilievi
+    assert "wcag.lang.missing" in rilievi, "il 3.1.1 resta"
+
+
 def test_wcag_le_marcature_che_esentano_non_sono_un_difetto():
     """R71: un'immagine marcata decorativa NON e' priva di alternativa.
 

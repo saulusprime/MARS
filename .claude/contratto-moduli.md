@@ -52,9 +52,11 @@ Ogni **pagina** contiene `title`, `text`, `headings`, `html`, `lang`,
 `chunks`, `json_ld`, `images`, `meta_robots`, `meta_robots_by_agent`,
 `canonical`, `x_robots_tag`, più la struttura che `estrai_struttura()`
 legge sullo stesso DOM: `heading_levels`, `heading_texts`,
-`form_fields`, `tables`, `links`, `tabindex`. Sono già estratti dal
+`form_fields`, `tables`, `links`, `media`, `tabindex`. Sono già estratti dal
 crawler: **non riparsare l'HTML** in un modulo, il DOM è già stato
 attraversato una volta.
+
+`media` è una lista di `{tag, src, tracks}` per ogni `<video>` e `<audio>`, dove `tracks` sono i `kind` delle `<track>` **grezzi e solo abbassati**: quali valgano come sottotitoli lo decide il modulo. Serve a dire *dove guardare* per il criterio 1.2.2, che nessuno dei due rami può giudicare — un video può avere i sottotitoli impressi o serviti dal player, e il markup non lo sa, quindi il rilievo è un `info` e non pesa sul punteggio (I28).
 
 `tabindex` è una lista di `{value, tag, id, href}`. Il **valore resta
 grezzo** — un tabindex non numerico è esso stesso un dato, e

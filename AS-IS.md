@@ -107,6 +107,7 @@
 | I25 | Il controllo sui link generici segue la lingua della pagina | 2026-09-16 |
 | I26 | Il rilievo sul tabindex dice quale elemento | 2026-09-16 |
 | I27 | `--axe-pages`: il campione di axe e' una scelta dichiarata | 2026-09-16 |
+| I28 | I media senza sottotitoli dichiarati: dove guardare, non un voto | 2026-09-16 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2409,6 +2410,51 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I28 — ✅ REALIZZATA (2026-09-16): i media senza sottotitoli dichiarati
+
+**Il fatto.** Il criterio 1.2.2 è di **livello A** e non lo guardava
+nessuno dei due rami: axe non lo controlla, e nessun controllo statico
+può deciderlo — un video può avere i sottotitoli impressi
+nell'immagine o serviti dal player, e il markup non lo sa.
+
+**Ma una cosa il markup la dice**: se esista un `<video>` o un
+`<audio>`, e se dichiari una `<track>` di sottotitoli. È *dove
+guardare*, e il referto lo porta come **`info`**, con i media citati e
+le pagine — la forma che I20 ha già scelto per gli info.
+
+**Non pesa sul punteggio, e la ragione è più forte che per lo stato
+delle lingue**: là il controllo esisteva e non si applicava, qui il
+controllo **non può esistere**. Il rilievo sta fuori da `statici`, che
+è la lista che paga `PENALITA_STATICA` nel ramo di ripiego.
+
+**Quali `kind` contano è una scelta editoriale dichiarata**:
+`captions` e `subtitles`, perché i due si confondono nella pratica e
+chi ne ha messo uno ha guardato il problema; `descriptions` e
+`chapters` no, perché non danno accesso al parlato a chi non sente.
+WCAG chiede sottotitoli **sincronizzati**, non un attributo: il
+`<track>` è un indizio, non una prova, e il `fix` lo dice a chi legge.
+
+**Il crawler resta grezzo**: `media` porta `tag`, `src` e i `kind`
+delle tracce solo abbassati. Decidere quale valga come sottotitolo è
+del modulo.
+
+**Verifiche.** `flake8` a zero; `pytest` 1462 passati su Python
+3.10.12. **Sette mutazioni, nessuna sfuggita** — ma due erano sfuggite
+al primo giro, e dicevano la stessa cosa: nessun test provava *quale*
+`kind` conti, quindi restringere l'elenco a `captions` o accettare una
+`<track>` qualsiasi lasciava la suite verde. Ora un test passa in
+rassegna `subtitles`, `captions`, `descriptions`, `chapters` e la
+traccia senza `kind`.
+
+Tre presidi del progetto hanno chiesto la loro parte senza che lo
+sapessi: il catalogo i18n (titolo e `fix` in inglese), il catalogo dei
+`fix` con l'esempio prescrittivo, e il catalogo dello sforzo in
+`mars_remediation` — che copre *esattamente* le chiavi dei fix, e dove
+questa vale `GIORNI`: i sottotitoli si scrivono, ed è l'unica voce
+dell'area che non si chiude toccando il markup. `__version__` a
+**2.39.0**: il referto guadagna una famiglia di rilievi e nessun
+punteggio si muove.
 
 ### I27 — ✅ REALIZZATA (2026-09-16): `--axe-pages`, il campione di axe è una scelta dichiarata
 

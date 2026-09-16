@@ -282,6 +282,17 @@ CATALOGO: Dict[str, Dict[str, str]] = {
                "navigazione diverso da quello visivo. Per rendere "
                "raggiungibile un elemento basta `tabindex=\"0\"`.",
     },
+    "wcag.media.captions_undeclared": {
+        "fix": "Aggiungi una traccia di sottotitoli al video e "
+               "dichiarala nel markup: senza, chi non sente non ha "
+               "accesso al parlato. Il markup non puo' dire se i "
+               "sottotitoli esistano gia' altrove, quindi questo "
+               "rilievo indica dove guardare e non un difetto accertato.",
+        "example": '<video src="/corso.mp4">\n'
+                   '  <track kind="captions" srclang="it" '
+                   'src="/corso-it.vtt" label="Italiano" default>\n'
+                   '</video>',
+    },
     "wcag.link.generic": {
         "fix": "Scrivi nel link la destinazione, non l'azione: chi "
                "naviga per elenco di link legge solo quel testo, fuori "

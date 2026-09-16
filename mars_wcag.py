@@ -222,6 +222,38 @@ def _testi_generici(lang: object) -> Optional[frozenset]:
     return TESTI_GENERICI_PER_LINGUA.get(codice)
 
 
+# I `kind` di `<track>` che dichiarano dei sottotitoli. `subtitles`
+# accanto a `captions` perche' i due si confondono nella pratica — il
+# primo e' la traduzione del parlato, il secondo include i suoni — e
+# chi ne ha messo uno ha guardato il problema. Scelta EDITORIALE
+# dichiarata: WCAG chiede sottotitoli SINCRONIZZATI, non un attributo,
+# e nessun markup puo' dire se ci siano davvero.
+TRACCE_SOTTOTITOLI = ("captions", "subtitles")
+
+
+def media_senza_sottotitoli(pages: dict) -> Tuple[List[str], List[str]]:
+    """I media che non dichiarano una traccia di sottotitoli.
+
+    Restituisce `(src citati, pagine)`. **Non e' una violazione e non
+    si comporta come tale**: un video puo' avere i sottotitoli impressi
+    nell'immagine o serviti da un player, e il markup non lo sa. Il
+    criterio 1.2.2 e' di livello A, axe non lo controlla e nessun
+    controllo statico puo' deciderlo — ma DOVE guardare il markup lo
+    dice, ed e' questo che il referto porta (I28).
+    """
+    citati: List[str] = []
+    pagine: List[str] = []
+    for url, dati in (pages or {}).items():
+        for elemento in dati.get("media") or []:
+            if any(t in TRACCE_SOTTOTITOLI
+                   for t in elemento.get("tracks") or []):
+                continue
+            citati.append(str(elemento.get("src") or ""))
+            if url not in pagine:
+                pagine.append(url)
+    return citati, pagine
+
+
 def lingue_non_coperte(pages: dict) -> List[str]:
     """Le lingue dichiarate dalle pagine per cui non abbiamo un elenco.
 
@@ -962,6 +994,28 @@ def audit(context: dict) -> dict:
     # ripiego (`len(statici) * PENALITA_STATICA`), e uno stato non e' un
     # difetto del sito — addebitarlo toglierebbe 12 punti a chi ha
     # scritto il sito in una lingua che non copriamo (I25).
+    # I media senza sottotitoli dichiarati: un `info`, non un difetto.
+    # Fuori da `statici` per la ragione dello stato delle lingue —
+    # quella lista paga il punteggio nel ramo di ripiego — e qui la
+    # ragione e' piu' forte ancora: il markup non PUO' dire se i
+    # sottotitoli ci siano (I28).
+    media_citati, media_pagine = media_senza_sottotitoli(pages)
+    stato_media: List[dict] = []
+    righe_media: List[str] = []
+    if media_citati:
+        righe_media = ["%d elementi <video>/<audio> senza una traccia di "
+                       "sottotitoli dichiarata: da verificare a mano "
+                       "(criterio 1.2.2)" % len(media_citati)]
+        stato_media = [Finding(
+            area="mars_wcag", severity=SEV_INFO,
+            key="wcag.media.captions_undeclared",
+            title="%d elementi <video>/<audio> senza una traccia di "
+                  "sottotitoli dichiarata" % len(media_citati),
+            params={"media": len(media_citati),
+                    "criterio": "1.2.2",
+                    "cited": [c for c in media_citati[:MAX_FRAMMENTI] if c],
+                    "urls": media_pagine}).as_dict()]
+
     scoperte = lingue_non_coperte(pages)
     stato_lingue: List[dict] = []
     righe_lingue: List[str] = []
@@ -1052,11 +1106,13 @@ def audit(context: dict) -> dict:
                 "rules_violated": esito["rules_violated"],
                 # I rilievi statici restano: coprono l'intero campione,
                 # mentre axe ne ha visto solo le prime pagine.
-                "issues": rilievi + righe_lingue + testi_statici,
+                "issues": (rilievi + righe_lingue + righe_media
+                           + testi_statici),
                 # In questo ramo il punteggio viene DA AXE: i controlli
                 # statici non lo toccano, quindi la loro penalita' e'
                 # zero — ed e' cio' che _statico() gia' dichiara.
                 "findings": (parziale + esito["findings"] + stato_lingue
+                             + stato_media
                              + [f.as_dict() for f in statici]),
                 "static_findings": testi_statici,
             }
@@ -1109,7 +1165,8 @@ def audit(context: dict) -> dict:
             # ometterla.
             "wcag_level": WCAG_LIVELLO,
             "pages_total": len(pages),
-            "issues": riga_caduta + righe_lingue + testi_statici,
-            "findings": (caduta + stato_lingue
+            "issues": (riga_caduta + righe_lingue + righe_media
+                       + testi_statici),
+            "findings": (caduta + stato_lingue + stato_media
                          + [f.as_dict() for f in statici]),
             "static_findings": testi_statici}

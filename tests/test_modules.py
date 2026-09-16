@@ -1844,6 +1844,74 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
 
 
+def test_wcag_i_media_senza_sottotitoli_sono_un_info(contesto):
+    """I28: il criterio 1.2.x non lo guarda nessuno dei due rami.
+
+    Sottotitoli e trascrizioni sono livello A, axe non li controlla e il
+    markup non li contiene. Una cosa pero' il markup la dice: se esista
+    un `<video>` e se abbia un `<track kind="captions">`. E' un `info`
+    che dice DOVE guardare, non un punteggio — la forma che I20 ha gia'
+    scelto per gli info.
+    """
+    contesto["pages"] = {"https://x/": pagina(
+        html='<html lang="it"><head><title>t</title></head><body><h1>A</h1>'
+             '<video src="/intro.mp4"></video>'
+             '<video src="/corso.mp4"><track kind="captions"></video>'
+             '<audio src="/podcast.mp3"></audio>'
+             '</body></html>')}
+    esito = mars_wcag.audit(contesto)
+    media = [f for f in esito["findings"]
+             if f["key"] == "wcag.media.captions_undeclared"][0]
+
+    assert media["severity"] == "info", "non e' un giudizio: e' dove guardare"
+    assert media["params"]["media"] == 2, "quello con la traccia non conta"
+    assert media["params"]["cited"] == ["/intro.mp4", "/podcast.mp3"]
+    assert media["params"]["urls"] == ["https://x/"]
+    # Non pesa: nel ramo di ripiego il punteggio viene dal numero dei
+    # rilievi statici, e questo non e' uno di quelli.
+    assert "penalty" not in media["params"]
+    assert esito["score"] == 100, "una pagina senza difetti statici resta 100"
+
+
+def test_wcag_conta_solo_le_tracce_che_sono_sottotitoli(contesto):
+    """Non basta una `<track>` qualunque: una traccia di descrizioni
+    audio o di capitoli non da' accesso al parlato a chi non sente.
+
+    `subtitles` conta accanto a `captions` per scelta dichiarata — i due
+    si confondono nella pratica e chi ne ha messo uno ha guardato il
+    problema — mentre `descriptions` e `chapters` no. Due mutazioni sono
+    passate di qui finche' questo test non c'era.
+    """
+    def con(traccia):
+        contesto["pages"] = {"https://x/": pagina(
+            html='<html lang="it"><head><title>t</title></head><body>'
+                 '<h1>A</h1><video src="/v.mp4">%s</video>'
+                 '</body></html>' % traccia)}
+        return [f for f in mars_wcag.audit(contesto)["findings"]
+                if f["key"] == "wcag.media.captions_undeclared"]
+
+    assert con('<track kind="subtitles">') == [], "i sottotitoli contano"
+    assert con('<track kind="captions">') == []
+    assert con('<track kind="descriptions">'), \
+        "le descrizioni audio non sono sottotitoli"
+    assert con('<track kind="chapters">'), "i capitoli nemmeno"
+    assert con('<track>'), "una traccia senza kind non dichiara nulla"
+
+
+def test_wcag_un_media_con_la_traccia_non_produce_nulla(contesto):
+    """Il controllo deve tacere dove il markup dichiara i sottotitoli,
+    altrimenti e' rumore su chi ha fatto la cosa giusta — la lezione di
+    R26 e R71, applicata prima di scriverne una nuova."""
+    contesto["pages"] = {"https://x/": pagina(
+        html='<html lang="it"><head><title>t</title></head><body><h1>A</h1>'
+             '<video src="/corso.mp4"><track kind="captions"></video>'
+             '</body></html>')}
+    esito = mars_wcag.audit(contesto)
+
+    assert not [f for f in esito["findings"]
+                if f["key"] == "wcag.media.captions_undeclared"]
+
+
 def test_wcag_il_tabindex_dice_quale_elemento():
     """I26: era l'unico dei sette controlli statici che non lo diceva.
 

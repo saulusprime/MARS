@@ -1075,6 +1075,9 @@ HTML_STRUTTURA = """<html lang="it"><head><title>t</title></head><body>
 <table role="presentation"><tr><td>x</td></tr></table>
 <a href="/1">Clicca qui</a><a href="/2" aria-label="Guida">qui</a>
 <img src="/a.png" alt="Con alt"><img src="/b.png">
+<video src="/intro.mp4"></video>
+<video src="/corso.mp4"><track kind="CAPTIONS" src="/c.vtt"></video>
+<audio src="/podcast.mp3"><track kind="descriptions"></audio>
 <span tabindex="3" id="salta">a</span><span tabindex="abc">b</span>
 <a href="/prezzi/" tabindex="5">Prezzi</a>
 </body></html>"""
@@ -1136,6 +1139,14 @@ def test_estrai_struttura_legge_il_dom_una_volta_sola():
     # L'href identifica un link che l'id non ha: e' l'identificatore
     # che viene DAVVERO dal sito, come per `links`.
     assert [v["href"] for v in s["tabindex"]] == ["", "", "/prezzi/"]
+
+    # I media, coi `kind` delle tracce GREZZI e solo abbassati: decidere
+    # quale kind valga come sottotitolo e' del modulo, non del crawler
+    # (I28).
+    assert [(m["tag"], m["src"], m["tracks"]) for m in s["media"]] == [
+        ("video", "/intro.mp4", []),
+        ("video", "/corso.mp4", ["captions"]),
+        ("audio", "/podcast.mp3", ["descriptions"])]
 
 
 def test_pagina_del_crawler_porta_la_struttura():

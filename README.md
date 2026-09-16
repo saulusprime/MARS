@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.38.0
+Versione 2.39.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -213,6 +213,13 @@ dei bersagli ha bisogno del CSS applicato. Serve un browser reale:
 criteri come il contrasto colore dipendono dal CSS applicato, e
 valutarli sull'HTML grezzo darebbe risultati sbagliati, che e' peggio
 che non darli.
+
+Sottotitoli e trascrizioni (criterio 1.2.2, livello A) non li giudica
+nessuno dei due rami: axe non li controlla e il markup non puo' dire se
+esistano — possono essere impressi nel video o serviti dal player. Cio'
+che il markup dice e' se ci sia un `<video>` o un `<audio>` e se dichiari
+una traccia di sottotitoli: il referto lo riporta come INFO, con i media
+da guardare, e non come un difetto accertato.
 
 Il controllo sui link dal testo generico ("clicca qui") segue la lingua
 dichiarata dalla PAGINA, e copre italiano, inglese, spagnolo, francese e

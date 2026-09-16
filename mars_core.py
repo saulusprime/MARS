@@ -34,7 +34,7 @@ from mars_config import LH_PESO_CRITICO
 # Identificarsi e' la prima regola della buona educazione fra crawler:
 # "python-requests/2.x" viene bloccato da molti siti, e giustamente.
 # Quando il progetto avra' una pagina pubblica, va aggiunta qui.
-__version__ = "2.38.0"
+__version__ = "2.39.0"
 
 # Versione dello SCHEMA del referto, indipendente da quella del
 # programma: si incrementa solo su un cambiamento **incompatibile** —
@@ -1374,6 +1374,16 @@ def estrai_struttura(soup: BeautifulSoup) -> dict:
                    # nulla, «clicca qui → /prezzi/» si' (I20).
                    "href": (a.get("href") or "").strip()}
                   for a in soup.find_all("a", href=True)],
+        # I media con le tracce che DICHIARANO: `<video>` e `<audio>`
+        # esistono nel markup, i sottotitoli no — quelli stanno nel
+        # file. Cio' che il DOM sa e' se una `<track>` li dichiari, e il
+        # `kind` arriva grezzo (solo abbassato): decidere quale valga
+        # come sottotitolo e' del modulo, non del crawler (I28).
+        "media": [{"tag": m.name,
+                   "src": (m.get("src") or "").strip(),
+                   "tracks": [(t.get("kind") or "").strip().lower()
+                              for t in m.find_all("track")]}
+                  for m in soup.find_all(["video", "audio"])],
         # Il valore resta GREZZO — convertirlo e' compito di chi lo
         # giudica, e un tabindex non numerico e' esso stesso un dato —
         # ma non viaggia piu' da solo: senza l'elemento il referto

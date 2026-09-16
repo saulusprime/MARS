@@ -149,6 +149,12 @@ def _params_del_banco(monkeypatch) -> dict:
         '<html><body><h1>t</h1><div tabindex="3">x</div></body></html>')}}
     raccogli(mars_wcag.audit(wcag))
 
+    # Area 7: un video senza traccia di sottotitoli. E' un info, e i
+    # due referti sintetici non hanno media (I28).
+    raccogli(mars_wcag.audit({"pages": {"https://esempio.test/video": pagina(
+        '<html lang="it"><body><h1>t</h1><video src="/intro.mp4"></video>'
+        '</body></html>')}}))
+
     # Area 7: una pagina in una lingua che gli elenchi non coprono, e
     # il controllo 2.4.4 lo dichiara invece di tacere (I25).
     raccogli(mars_wcag.audit({"pages": {"https://esempio.test/ru": pagina(

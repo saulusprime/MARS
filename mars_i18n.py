@@ -374,6 +374,20 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "axe examined none of the %(tentate)d pages in the "
                  "sample",
     },
+    "wcag.media.captions_undeclared": {
+        "title": "%(media)d <video>/<audio> elements with no declared "
+                 "captions track",
+        "fix": "Add a captions track to the video and declare it in the "
+               "markup: without it, people who cannot hear have no "
+               "access to the spoken content. The markup cannot tell "
+               "whether captions already exist elsewhere, so this "
+               "finding points at where to look, not at a proven "
+               "defect.",
+        "example": '<video src="/course.mp4">\n'
+                   '  <track kind="captions" srclang="en" '
+                   'src="/course-en.vtt" label="English" default>\n'
+                   '</video>',
+    },
     "wcag.status.link_lang": {
         "title": "the generic link text check does not cover %(lingue)s",
     },

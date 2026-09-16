@@ -195,6 +195,10 @@ SFORZO: Dict[str, str] = {
     "wcag.img.alt_missing": GIORNI,
     "wcag.form.label_missing": GIORNI,
     "wcag.link.generic": GIORNI,
+    # I sottotitoli si SCRIVONO, o si fanno trascrivere: e' l'unica
+    # voce dell'area che non si chiude toccando il markup, e giorni
+    # e' il gradino piu' alto che la scala ha (I28).
+    "wcag.media.captions_undeclared": GIORNI,
     # Le due aree di classifica (U13) chiedono di SCRIVERE: pagine piu'
     # lunghe, passaggi nuovi, risposte dove oggi c'e' prosa
     # promozionale. Nessuna di queste voci si chiude toccando un tag,

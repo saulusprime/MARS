@@ -228,23 +228,13 @@
 ### Area 7 — accessibilità
 
 Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **Da I23 a I27 sono realizzate** e stanno in
-[AS-IS.md](AS-IS.md); restano due — I28 e I29. Suite e presidio nello stesso giro:
+esecuzione**: il numero sta in ciascuna. **Da I23 a I28 sono realizzate** e stanno in
+[AS-IS.md](AS-IS.md); resta I29. Suite e presidio nello stesso giro:
 `flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
 `node_modules` installato il test axe non si salta più, e la suite resta
 ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
 parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
 la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I28** — **1.2.x non lo guarda nessuno dei due rami.** Sottotitoli e
-  trascrizioni sono criteri di livello A: axe non li controlla e il markup non
-  li contiene. Una cosa però il markup la dice — se esistano `<video>` o
-  `<audio>`, e se abbiano un `<track kind="captions">`. Un `info` che dice dove
-  guardare, non un punteggio: è la forma che I20 ha già scelto per gli `info`,
-  e costa un campo in `estrai_struttura`. **Misurato**: su una pagina con un
-  `<video>` e un `<audio>`, le chiavi che arrivano al modulo sono otto —
-  `form_fields`, `heading_levels`, `heading_texts`, `images`, `lang`, `links`,
-  `tables`, `tabindex` — e nessuna riguarda i media.
 
 - **I29** — **«WCAG 2.1 A + AA» si legge come conformità.** Nel ramo axe il
   referto stampa strumento, livello e «5 pagine esaminate»

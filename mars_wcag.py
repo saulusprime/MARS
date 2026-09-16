@@ -994,6 +994,35 @@ def audit(context: dict) -> dict:
     # ripiego (`len(statici) * PENALITA_STATICA`), e uno stato non e' un
     # difetto del sito — addebitarlo toglierebbe 12 punti a chi ha
     # scritto il sito in una lingua che non copriamo (I25).
+    # L'avvertenza che vale per TUTTI e due i rami: un audit
+    # automatico non e' una verifica di conformita'. Sta qui e non nel
+    # solo ripiego perche' il ramo forte e' quello che finisce davanti
+    # a chi riceve il referto, e «WCAG 2.1 A + AA» accanto a un numero
+    # si legge come una dichiarazione (I29).
+    #
+    # Gli esempi sono quelli che questo codice davvero non decide, non
+    # una percentuale inventata: se un testo alternativo DICA la cosa
+    # giusta (l'esistenza la vede, la qualita' no), l'ordine di lettura,
+    # e i sottotitoli sincronizzati — di cui I28 da' solo il puntatore.
+    avvertenza = [Finding(
+        area="mars_wcag", severity=SEV_INFO,
+        key="wcag.status.automatic",
+        title="un audit automatico non e' una verifica di conformita'",
+        detail="Restano fuori i criteri che chiedono giudizio umano: se "
+               "un testo alternativo dica la cosa giusta, l'ordine di "
+               "lettura, i sottotitoli sincronizzati. Il punteggio "
+               "misura cio' che uno strumento puo' decidere da solo.",
+        params={"livello": WCAG_LIVELLO}).as_dict()]
+    # In CODA alle issues, non in testa: la vista testo si ferma a
+    # cinque voci, e un'avvertenza che vale per ogni referto non deve
+    # spingerne fuori un difetto di QUESTO sito. Quando i difetti sono
+    # cinque o piu' l'avvertenza sparisce dalla vista corta, ed e'
+    # esattamente il caso in cui nessuno scambia il referto per una
+    # promozione.
+    riga_avvertenza = ["Un audit automatico non e' una verifica di "
+                       "conformita': restano fuori i criteri che chiedono "
+                       "giudizio umano"]
+
     # I media senza sottotitoli dichiarati: un `info`, non un difetto.
     # Fuori da `statici` per la ragione dello stato delle lingue —
     # quella lista paga il punteggio nel ramo di ripiego — e qui la
@@ -1107,12 +1136,12 @@ def audit(context: dict) -> dict:
                 # I rilievi statici restano: coprono l'intero campione,
                 # mentre axe ne ha visto solo le prime pagine.
                 "issues": (rilievi + righe_lingue + righe_media
-                           + testi_statici),
+                           + testi_statici + riga_avvertenza),
                 # In questo ramo il punteggio viene DA AXE: i controlli
                 # statici non lo toccano, quindi la loro penalita' e'
                 # zero — ed e' cio' che _statico() gia' dichiara.
-                "findings": (parziale + esito["findings"] + stato_lingue
-                             + stato_media
+                "findings": (parziale + esito["findings"] + avvertenza
+                             + stato_lingue + stato_media
                              + [f.as_dict() for f in statici]),
                 "static_findings": testi_statici,
             }
@@ -1147,6 +1176,11 @@ def audit(context: dict) -> dict:
     for f in statici:
         f.params["penalty"] = float(PENALITA_STATICA)
         f.params["surface"] = True
+    # Anche gli `info`, che non pagano il punteggio ma vengono dallo
+    # stesso passaggio sul markup: un elenco di soli findings deve poter
+    # dire da dove viene OGNI riga, non solo quelle che pesano.
+    for rilievo in caduta + avvertenza + stato_lingue + stato_media:
+        rilievo["params"]["surface"] = True
     return {"score": max(0, score), "status": "surface", "tool": "markup",
             **_riferimento(context),
             # Il livello NUDO, senza la parentesi che diceva «parziale:
@@ -1166,7 +1200,7 @@ def audit(context: dict) -> dict:
             "wcag_level": WCAG_LIVELLO,
             "pages_total": len(pages),
             "issues": (riga_caduta + righe_lingue + righe_media
-                       + testi_statici),
-            "findings": (caduta + stato_lingue + stato_media
+                       + testi_statici + riga_avvertenza),
+            "findings": (caduta + avvertenza + stato_lingue + stato_media
                          + [f.as_dict() for f in statici]),
             "static_findings": testi_statici}

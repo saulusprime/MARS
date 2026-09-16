@@ -227,25 +227,9 @@
 
 ### Area 7 — accessibilità
 
-Sette voci aperte dalla revisione del 2026-09-15, **tutte verificate in
-esecuzione**: il numero sta in ciascuna. **Da I23 a I28 sono realizzate** e stanno in
-[AS-IS.md](AS-IS.md); resta I29. Suite e presidio nello stesso giro:
-`flake8 .` a zero, `pytest` **1433 passati e nessuno saltato** — con
-`node_modules` installato il test axe non si salta più, e la suite resta
-ferma a 22 secondi, cioè la neutralizzazione di R20 regge e Chromium non
-parte. Misurate prima su Python 3.14.4 e **rimisurate sulla 3.10.12** dopo
-la ricostruzione della venv: stesso esito sui due interpreti.
-
-- **I29** — **«WCAG 2.1 A + AA» si legge come conformità.** Nel ramo axe il
-  referto stampa strumento, livello e «5 pagine esaminate»
-  ([mars_report.py:1295](mars_report.py#L1295)), e tace due cose che sa: quanta
-  parte dei criteri un controllo automatico non può vedere, e che quelle cinque
-  pagine stanno dentro un `pages_total` che il risultato porta e la riga non
-  stampa. Il ramo di ripiego è onesto — «parziale: solo criteri statici» — il
-  ramo forte no, ed è il ramo forte quello che finisce davanti al committente.
-  Col peso doppio dell'EAA sull'area, la distanza fra «misura automatica» e
-  «conformità» è quella fra un referto e una dichiarazione. **Misurato** su
-  un'area con `pages_tested: 5` e `pages_total: 40`, `_qualificatori` rende
-  `['axe-core', 'WCAG 2.1 A + AA', '5 pagine esaminate', 'Lighthouse 97/100
-  (1 pagina, scala diversa: la nostra è più severa)']`: il 40 il risultato ce
-  l'ha e la riga non lo stampa.
+**Nessuna aperta.** Le sette voci della revisione del 2026-09-15 — da
+**I23** a **I29** — sono tutte realizzate e stanno in
+[AS-IS.md](AS-IS.md), insieme alle tre correzioni che le misure hanno
+aperto lungo la strada (**R71**, **R72**, **R73**). Nessuna era una
+proposta: ognuna è stata prima **verificata in esecuzione**, e il numero
+che l'ha decisa sta nella sua voce.

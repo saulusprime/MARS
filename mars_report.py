@@ -122,6 +122,12 @@ def build_report(results: dict, context: Optional[dict] = None) -> dict:
             "lighthouse_scores": res.get("lighthouse_scores"),
             "wcag_level": res.get("wcag_level"),
             "pages_tested": res.get("pages_tested"),
+            # Su QUANTE: il modulo lo dichiarava e l'area lo
+            # buttava via, quindi «5 pagine esaminate» accanto
+            # a un livello WCAG si leggeva come un sito
+            # controllato. Il campione senza il totale e' mezza
+            # misura (I29).
+            "pages_total": res.get("pages_total"),
             # Elenco dei singoli controlli, quando lo strumento lo
             # fornisce: e' cio' che Lighthouse mostra nella sua
             # sezione, e senza non si sa QUALE controllo sia fallito.
@@ -1303,7 +1309,18 @@ def _qualificatori(area: dict, lang: str = LINGUA_CANONICA) -> List[str]:
     if area.get("complete") is False:
         pezzi.append(t("scansione parziale", lang))
     if area.get("pages_tested"):
-        pezzi.append(t("%d pagine esaminate", lang) % area["pages_tested"])
+        # Su quante: il risultato porta gia' `pages_total` e la riga non
+        # lo stampava, quindi «5 pagine esaminate» accanto a «WCAG 2.1 A
+        # + AA» si leggeva come un sito controllato (I29). Quando il
+        # campione copre il sito il totale non si dice: «3 pagine
+        # esaminate su 3» e' rumore.
+        totale = area.get("pages_total")
+        if isinstance(totale, int) and totale > area["pages_tested"]:
+            pezzi.append(t("%d pagine esaminate su %d", lang)
+                         % (area["pages_tested"], totale))
+        else:
+            pezzi.append(t("%d pagine esaminate", lang)
+                         % area["pages_tested"])
     if area.get("form_factor"):
         # Un referto mobile e uno desktop non sono confrontabili.
         pezzi.append(str(area["form_factor"]))

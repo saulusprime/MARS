@@ -108,6 +108,7 @@
 | I26 | Il rilievo sul tabindex dice quale elemento | 2026-09-16 |
 | I27 | `--axe-pages`: il campione di axe e' una scelta dichiarata | 2026-09-16 |
 | I28 | I media senza sottotitoli dichiarati: dove guardare, non un voto | 2026-09-16 |
+| I29 | Il referto dice cosa l'automatico non vede, e su quante pagine | 2026-09-16 |
 | I3 | Il k della fusione esposto, e la sua sensibilità misurata | 2026-08-27 |
 | U11.1 | Il referto HTML prende la palette del sito, e un tema solo | 2026-08-27 |
 | R62 | Non si capiva che cosa scrivere nel file di `--credentials` | 2026-08-27 |
@@ -2410,6 +2411,49 @@ fase: questa tabella dice dove atterrare.
 | U9.1 | l'impianto i18n e il catalogo dei rilievi | **U9** |
 | U9.2 | la cornice, e `lang` attraverso i renderer | **U9** |
 | U9.3 | la lingua chiesta agli strumenti (chiude R44) | **U9** |
+
+### I29 — ✅ REALIZZATA (2026-09-16): cosa l'automatico non vede, e su quante pagine
+
+**Il fatto.** Nel ramo axe il referto stampava strumento, livello e «5
+pagine esaminate», e taceva due cose che sapeva: quanta parte dei
+criteri un controllo automatico non può vedere, e che quelle cinque
+pagine stanno dentro un totale. Con l'EAA che raddoppia il peso
+dell'area per `market: eu`, «WCAG 2.1 A + AA» accanto a un numero si
+legge come una dichiarazione di conformità.
+
+**L'avvertenza vale per tutti e due i rami**, e non per il solo
+ripiego: il ramo forte è quello che finisce davanti a chi riceve il
+referto. Gli esempi sono quelli che **questo codice davvero non
+decide** — se un testo alternativo dica la cosa giusta (l'esistenza la
+vede, la qualità no), l'ordine di lettura, i sottotitoli sincronizzati
+— e non una percentuale inventata.
+
+**Sta in coda alle `issues`, non in testa.** Misurato sul golden: in
+testa spingeva fuori dalla vista testo, che si ferma a cinque voci, un
+difetto vero di quel sito. In coda sparisce dalla vista corta esattamente
+quando i difetti sono cinque o più, cioè quando nessuno scambia il
+referto per una promozione.
+
+**E il campione dice su quante**: «2 pagine esaminate su 3». Quando il
+campione copre il sito il totale non si dice — «3 su 3» è rumore.
+
+**Il difetto era anche un piano più sotto, e la misura l'ha trovato.**
+`pages_total` il modulo lo dichiarava già, e `build_report` lo buttava
+via componendo l'area: la riga giusta avrebbe lavorato per sempre su un
+campo sempre assente. Il primo test passava perché costruiva l'area a
+mano — è la trappola della fixture infedele, incontrata mentre si
+scriveva la voce che parla di onestà. Ora c'è un test che parte da
+`build_report`.
+
+**Verifiche.** `flake8` a zero; `pytest` 1467 passati su Python
+3.10.12. **Sette mutazioni significative, nessuna sfuggita**, fra cui
+rimettere `pages_total` a `None` nell'area e far saltare il catalogo
+alla riga nuova. Un test esistente è stato **ristretto e non
+indebolito**: l'invariante «punteggio = 100 − somma delle penalità su
+ogni rilievo» ora si applica ai soli rilievi che pagano, e accanto c'è
+l'asserzione nuova che nessun `info` porti una penalità. I golden
+guadagnano l'avvertenza in tutti i formati e la riga col totale nelle
+viste umane; **nessun punteggio si muove**. `__version__` a **2.40.0**.
 
 ### I28 — ✅ REALIZZATA (2026-09-16): i media senza sottotitoli dichiarati
 

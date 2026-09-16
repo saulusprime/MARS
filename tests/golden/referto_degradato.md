@@ -128,6 +128,8 @@ Con 900 parole per pagina i passaggi sarebbero **12**, cioè **x3.0**.
 
 ### 7. Accessibilità
 
+- [INFO] un audit automatico non e' una verifica di conformita'
+  Restano fuori i criteri che chiedono giudizio umano: se un testo alternativo dica la cosa giusta, l'ordine di lettura, i sottotitoli sincronizzati. Il punteggio misura cio' che uno strumento puo' decidere da solo.
 - **[CRITICO]** 1/2 immagini prive di testo alternativo
   *Correzione:* Dai un testo alternativo a ogni immagine che porta informazione, e alt="" a quelle decorative: le due cose sono diverse, e omettere l'attributo non e' nessuna delle due.
 

@@ -2117,6 +2117,57 @@ def test_le_aree_di_classifica_restano_fuori_dal_complessivo(contesto):
     assert complessivo["weight_total"] == 5.0
 
 
+def test_i29_il_campione_dichiara_anche_il_totale():
+    """I29: «5 pagine esaminate» non dice su quante.
+
+    Il risultato porta gia' `pages_total` e la riga non lo stampava: su
+    un sito di quaranta pagine, «5 pagine esaminate» accanto a «WCAG
+    2.1 A + AA» si legge come un sito controllato. Il numero cambia una
+    decisione di chi legge, quindi entra.
+
+    Quando il campione COPRE il sito la riga resta corta: dire «3
+    pagine esaminate su 3» e' rumore.
+    """
+    parziale = {"tool": "axe-core", "score": 58, "pages_tested": 5,
+                "pages_total": 40}
+    assert "5 pagine esaminate su 40" in " ".join(
+        mars_report._qualificatori(parziale))
+
+    intero = {"tool": "axe-core", "score": 58, "pages_tested": 3,
+              "pages_total": 3}
+    resa = " ".join(mars_report._qualificatori(intero))
+    assert "3 pagine esaminate" in resa
+    assert "su 3" not in resa
+
+
+def test_i29_il_totale_arriva_fino_all_area_del_referto(contesto):
+    """Il punto d'integrazione: `_qualificatori` puo' essere giusta e
+    non ricevere mai il dato.
+
+    `pages_total` il modulo lo dichiarava gia', e `build_report` lo
+    buttava via componendo l'area — quindi la riga giusta lavorava su un
+    campo sempre assente, e un test che costruisse l'area a mano non se
+    ne sarebbe accorto. E' successo davvero, scrivendo I29.
+    """
+    referto = mars_report.build_report(
+        {"mars_wcag": {"score": 58, "tool": "axe-core", "pages_tested": 2,
+                       "pages_total": 40, "issues": [], "findings": []}},
+        contesto)
+    area = [a for a in referto["areas"] if a["module"] == "mars_wcag"][0]
+
+    assert area["pages_total"] == 40
+    assert "2 pagine esaminate su 40" in " ".join(
+        mars_report._qualificatori(area))
+
+
+def test_i29_il_campione_dichiara_anche_il_totale_en():
+    """E in inglese, perche' la riga passa dal catalogo."""
+    area = {"tool": "axe-core", "score": 58, "pages_tested": 5,
+            "pages_total": 40}
+    assert "5 of 40 pages examined" in " ".join(
+        mars_report._qualificatori(area, "en"))
+
+
 def test_il_punteggio_di_un_area_di_classifica_non_si_dice_non_un_voto(
         contesto):
     """`_qualificatori` annota lo stato solo accanto a un punteggio, e

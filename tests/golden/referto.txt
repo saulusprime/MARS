@@ -28,7 +28,7 @@ COMPLESSIVO          :  69/100  (da migliorare)
 6. Dati Strutturati  :  90/100
   ⚠ JSON-LD malformato su https://esempio.test/servizi/
 7. Accessibilità     :  58/100
-  axe-core · WCAG 2.1 A + AA + 2.2 target-size · scansione parziale · 2 pagine esaminate · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
+  axe-core · WCAG 2.1 A + AA + 2.2 target-size · scansione parziale · 2 pagine esaminate su 3 · Lighthouse 97/100 (1 pagina, scala diversa: la nostra è più severa)
   ⚠ axe non ha potuto esaminare 1 delle 3 pagine del campione: i rilievi sono parziali (Timeout 30000ms exceeded)
   ⚠ [axe:critical] Le immagini devono avere un testo alternativo (2 elementi su 1 pagine)
 8. Sicurezza         :  57/100

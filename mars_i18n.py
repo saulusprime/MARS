@@ -374,6 +374,13 @@ _RILIEVI_EN: Dict[str, Dict[str, str]] = {
         "title": "axe examined none of the %(tentate)d pages in the "
                  "sample",
     },
+    "wcag.status.automatic": {
+        "title": "an automated audit is not a conformance assessment",
+        "detail": "Criteria that need human judgement stay out: whether "
+                  "an alternative text says the right thing, the reading "
+                  "order, synchronised captions. The score measures what "
+                  "a tool can decide on its own.",
+    },
     "wcag.media.captions_undeclared": {
         "title": "%(media)d <video>/<audio> elements with no declared "
                  "captions track",
@@ -993,6 +1000,7 @@ _CORNICE_EN: Dict[str, str] = {
     "parziale": "partial",
     "superficie": "surface",
     "%d pagine esaminate": "%d pages examined",
+    "%d pagine esaminate su %d": "%d of %d pages examined",
     "%d controlli superati, %d falliti": "%d checks passed, %d failed",
     "%s %.0f/100 (1 pagina, scala diversa: la nostra è più severa)":
         "%s %.0f/100 (1 page, different scale: ours is stricter)",

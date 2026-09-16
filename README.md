@@ -2,7 +2,7 @@ MARS Beacon — Meta-fusion, Accessibility, Ranking & Security Audit.
 
 Audit SEO, RRF (Reciprocal Rank Fusion), WCAG e WAPT
 
-Versione 2.39.0
+Versione 2.40.0
 
 Lo script esegue una scansione di un sito (via sitemap o crawling
 interno), ne estrae la struttura, e valuta otto aree strategiche.
@@ -213,6 +213,13 @@ dei bersagli ha bisogno del CSS applicato. Serve un browser reale:
 criteri come il contrasto colore dipendono dal CSS applicato, e
 valutarli sull'HTML grezzo darebbe risultati sbagliati, che e' peggio
 che non darli.
+
+Il referto dichiara in ogni caso che **un audit automatico non e' una
+verifica di conformita'**: restano fuori i criteri che chiedono
+giudizio umano — se un testo alternativo dica la cosa giusta,
+l'ordine di lettura, i sottotitoli sincronizzati. E il campione dice
+su quante pagine sta: «2 pagine esaminate su 40», non «2 pagine
+esaminate».
 
 Sottotitoli e trascrizioni (criterio 1.2.2, livello A) non li giudica
 nessuno dei due rami: axe non li controlla e il markup non puo' dire se

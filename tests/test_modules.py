@@ -1478,9 +1478,22 @@ def test_wcag_il_ripiego_marca_ogni_rilievo_come_di_superficie():
     assert esito["findings"]
     for f in esito["findings"]:
         assert f["params"]["surface"] is True, f["key"]
-        # E qui, e solo qui, i controlli statici pagano il punteggio.
+
+    # E qui, e solo qui, i CONTROLLI pagano il punteggio. Gli `info`
+    # dell'area — l'avvertenza sull'automatico (I29), i media senza
+    # sottotitoli (I28), la lingua non coperta (I25) — vengono dallo
+    # stesso passaggio sul markup e portano `surface`, ma non devono
+    # pagare nulla: sono stati e puntatori, non difetti misurati.
+    paganti = [f for f in esito["findings"] if f["key"] in mars_wcag.STATICI]
+    assert paganti, "il banco deve accendere dei controlli veri"
+    for f in paganti:
         assert f["params"]["penalty"] == 12.0
-    somma = sum(f["params"]["penalty"] for f in esito["findings"])
+    for f in esito["findings"]:
+        if f["key"] not in mars_wcag.STATICI:
+            assert "penalty" not in f["params"], \
+                "%s e' un info: non puo' pesare" % f["key"]
+
+    somma = sum(f["params"]["penalty"] for f in paganti)
     assert esito["score"] == max(0, round(100 - somma))
 
 
@@ -1842,6 +1855,38 @@ def test_wcag_alt_vuoto_e_marcatura_corretta(contesto):
                mars_wcag.controlli_statici({"https://esempio.test/": p})]
     alternativi = [r for r in rilievi if "[1.1.1]" in r]
     assert alternativi == ["[1.1.1] 1/4 immagini prive di testo alternativo"]
+
+
+def test_wcag_dichiara_che_l_automatico_non_e_conformita(contesto):
+    """I29: «WCAG 2.1 A + AA» accanto a un numero si legge come una
+    dichiarazione di conformita'.
+
+    Non lo e', e la differenza pesa: per `market: eu` l'accessibilita'
+    e' l'unico segnale che mars_citability moltiplica, e lo moltiplica
+    per due (European Accessibility Act). L'avvertenza sta in TUTTI e
+    due i rami, perche' il ramo forte e' quello che finisce davanti al
+    committente.
+    """
+    avvertenza = [f for f in mars_wcag.audit(contesto)["findings"]
+                  if f["key"] == "wcag.status.automatic"]
+    assert len(avvertenza) == 1
+    assert avvertenza[0]["severity"] == "info"
+    assert "penalty" not in avvertenza[0]["params"]
+
+
+def test_wcag_l_avvertenza_c_e_anche_nel_ramo_axe(contesto, monkeypatch):
+    """Il ramo forte e' quello che va davanti a chi riceve il referto:
+    se l'avvertenza restasse nel solo ripiego, comparirebbe dove il
+    punteggio e' gia' dichiarato «di superficie» e sparirebbe dove si
+    legge come una misura piena."""
+    monkeypatch.setattr(mars_wcag, "axe_disponibile", lambda: True)
+    monkeypatch.setattr(mars_wcag, "run_axe",
+                        lambda urls, delay=0.0: mars_wcag.AxeRun([_viol()], 1))
+    esito = mars_wcag.audit(contesto)
+
+    assert esito["tool"] == "axe-core"
+    assert [f for f in esito["findings"]
+            if f["key"] == "wcag.status.automatic"]
 
 
 def test_wcag_i_media_senza_sottotitoli_sono_un_info(contesto):
